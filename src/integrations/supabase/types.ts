@@ -14,6 +14,163 @@ export type Database = {
   }
   public: {
     Tables: {
+      cost_analysis: {
+        Row: {
+          admin_cost: number | null
+          ai_analysis: Json | null
+          ai_provider: string | null
+          contingency_cost: number | null
+          created_at: string
+          currency: string | null
+          equipment_cost: number | null
+          id: string
+          insurance_cost: number | null
+          item_description: string
+          item_id: string | null
+          labor_cost: number | null
+          materials_cost: number | null
+          overhead_cost: number | null
+          profit_amount: number | null
+          profit_margin: number | null
+          project_id: string | null
+          quantity: number | null
+          subcontractor_cost: number | null
+          total_cost: number | null
+          total_direct_cost: number | null
+          total_indirect_cost: number | null
+          unit: string | null
+          unit_price: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_cost?: number | null
+          ai_analysis?: Json | null
+          ai_provider?: string | null
+          contingency_cost?: number | null
+          created_at?: string
+          currency?: string | null
+          equipment_cost?: number | null
+          id?: string
+          insurance_cost?: number | null
+          item_description: string
+          item_id?: string | null
+          labor_cost?: number | null
+          materials_cost?: number | null
+          overhead_cost?: number | null
+          profit_amount?: number | null
+          profit_margin?: number | null
+          project_id?: string | null
+          quantity?: number | null
+          subcontractor_cost?: number | null
+          total_cost?: number | null
+          total_direct_cost?: number | null
+          total_indirect_cost?: number | null
+          unit?: string | null
+          unit_price?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_cost?: number | null
+          ai_analysis?: Json | null
+          ai_provider?: string | null
+          contingency_cost?: number | null
+          created_at?: string
+          currency?: string | null
+          equipment_cost?: number | null
+          id?: string
+          insurance_cost?: number | null
+          item_description?: string
+          item_id?: string | null
+          labor_cost?: number | null
+          materials_cost?: number | null
+          overhead_cost?: number | null
+          profit_amount?: number | null
+          profit_margin?: number | null
+          project_id?: string | null
+          quantity?: number | null
+          subcontractor_cost?: number | null
+          total_cost?: number | null
+          total_direct_cost?: number | null
+          total_indirect_cost?: number | null
+          unit?: string | null
+          unit_price?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_analysis_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_quotations: {
+        Row: {
+          ai_analysis: Json | null
+          created_at: string
+          currency: string | null
+          file_name: string
+          file_type: string
+          file_url: string
+          id: string
+          name: string
+          project_id: string | null
+          quotation_date: string | null
+          status: string | null
+          supplier_name: string | null
+          total_amount: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          created_at?: string
+          currency?: string | null
+          file_name: string
+          file_type?: string
+          file_url: string
+          id?: string
+          name: string
+          project_id?: string | null
+          quotation_date?: string | null
+          status?: string | null
+          supplier_name?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_analysis?: Json | null
+          created_at?: string
+          currency?: string | null
+          file_name?: string
+          file_type?: string
+          file_url?: string
+          id?: string
+          name?: string
+          project_id?: string | null
+          quotation_date?: string | null
+          status?: string | null
+          supplier_name?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_quotations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_projects: {
         Row: {
           analysis_data: Json | null

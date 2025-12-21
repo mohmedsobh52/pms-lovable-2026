@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DataCharts } from "./DataCharts";
 import { ProjectTimeline } from "./ProjectTimeline";
+import { CostAnalysis } from "./CostAnalysis";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -45,7 +46,7 @@ interface AnalysisResultsProps {
 }
 
 export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
-  const [activeTab, setActiveTab] = useState<"items" | "wbs" | "summary" | "charts" | "timeline">("items");
+  const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline">("items");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const toggleCategory = (category: string) => {
@@ -471,7 +472,8 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
   const tabs = [
     { id: "items", label: "العناصر", icon: <Package className="w-4 h-4" /> },
     { id: "wbs", label: "WBS", icon: <Layers className="w-4 h-4" /> },
-    { id: "summary", label: "الملخص", icon: <DollarSign className="w-4 h-4" /> },
+    { id: "costs", label: "التكاليف", icon: <DollarSign className="w-4 h-4" /> },
+    { id: "summary", label: "الملخص", icon: <BarChart3 className="w-4 h-4" /> },
     { id: "charts", label: "الرسوم", icon: <BarChart3 className="w-4 h-4" /> },
     { id: "timeline", label: "الجدول الزمني", icon: <CalendarDays className="w-4 h-4" /> },
   ] as const;
@@ -636,6 +638,10 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === "costs" && data.items && (
+          <CostAnalysis items={data.items} currency={data.summary?.currency} />
         )}
 
         {activeTab === "charts" && data.items && (
