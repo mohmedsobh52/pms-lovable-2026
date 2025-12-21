@@ -1,0 +1,446 @@
+import { useState } from "react";
+import { Calculator, TrendingUp, Users, Package, Wrench, Building2, AlertCircle, Sparkles, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+interface BOQItem {
+  item_number: string;
+  description: string;
+  unit: string;
+  quantity: number;
+  unit_price?: number;
+  total_price?: number;
+  category?: string;
+}
+
+interface CostBreakdownItem {
+  item_description: string;
+  materials: {
+    items: Array<{ name: string; quantity: number; unit: string; unit_price: number; total: number }>;
+    total: number;
+  };
+  labor: {
+    items: Array<{ role: string; hours: number; hourly_rate: number; total: number }>;
+    total: number;
+  };
+  equipment: {
+    items: Array<{ name: string; duration: string; daily_rate: number; total: number }>;
+    total: number;
+  };
+  subcontractor: number;
+  overhead: number;
+  admin: number;
+  insurance: number;
+  contingency: number;
+  profit_margin: number;
+  profit_amount: number;
+  total_direct: number;
+  total_indirect: number;
+  total_cost: number;
+  unit_price: number;
+  recommendations: string[];
+}
+
+interface CostAnalysisResult {
+  cost_analysis: CostBreakdownItem[];
+  summary: {
+    total_materials: number;
+    total_labor: number;
+    total_equipment: number;
+    total_subcontractor: number;
+    total_direct_costs: number;
+    total_indirect_costs: number;
+    total_profit: number;
+    grand_total: number;
+    key_insights: string[];
+  };
+  ai_provider: string;
+}
+
+interface CostAnalysisProps {
+  items: BOQItem[];
+  currency?: string;
+}
+
+export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<CostAnalysisResult | null>(null);
+  const [selectedItem, setSelectedItem] = useState<number | null>(null);
+  const [aiProvider, setAiProvider] = useState<'lovable' | 'openai' | 'all'>('all');
+  const { toast } = useToast();
+
+  const runCostAnalysis = async () => {
+    if (!items || items.length === 0) {
+      toast({
+        title: "لا توجد بنود",
+        description: "يرجى تحليل ملف BOQ أولاً",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-costs", {
+        body: { 
+          items: items.slice(0, 10), // Limit to first 10 items for performance
+          ai_provider: aiProvider,
+          analysis_type: "detailed"
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      setAnalysisResult(data);
+      toast({
+        title: "تم التحليل بنجاح",
+        description: `تم تحليل تكاليف ${data.cost_analysis?.length || 0} بند باستخدام ${data.ai_provider}`,
+      });
+    } catch (error) {
+      console.error("Cost analysis error:", error);
+      toast({
+        title: "خطأ في التحليل",
+        description: error instanceof Error ? error.message : "حدث خطأ أثناء تحليل التكاليف",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const formatNumber = (num: number) => {
+    return num?.toLocaleString('ar-SA') || '0';
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Controls */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-3">
+          <Calculator className="w-6 h-6 text-primary" />
+          <div>
+            <h3 className="font-display text-lg font-semibold">تحليل التكاليف التفصيلي</h3>
+            <p className="text-sm text-muted-foreground">
+              تحليل التكاليف المباشرة وغير المباشرة لكل بند
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="flex gap-2">
+            {(['all', 'lovable', 'openai'] as const).map((provider) => (
+              <Button
+                key={provider}
+                variant={aiProvider === provider ? "default" : "outline"}
+                size="sm"
+                onClick={() => setAiProvider(provider)}
+                className="text-xs"
+              >
+                {provider === 'all' ? 'تلقائي' : provider === 'lovable' ? 'Gemini' : 'GPT'}
+              </Button>
+            ))}
+          </div>
+          <Button
+            onClick={runCostAnalysis}
+            disabled={isAnalyzing || !items?.length}
+            className="gap-2"
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                جاري التحليل...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                تحليل التكاليف
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* Analysis Results */}
+      {analysisResult && (
+        <div className="space-y-6 animate-slide-up">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Package className="w-4 h-4 text-blue-500" />
+                  <span className="text-xs text-muted-foreground">المواد</span>
+                </div>
+                <p className="text-xl font-bold text-blue-600">
+                  {formatNumber(analysisResult.summary?.total_materials || 0)}
+                </p>
+                <p className="text-xs text-muted-foreground">{currency}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="w-4 h-4 text-green-500" />
+                  <span className="text-xs text-muted-foreground">العمالة</span>
+                </div>
+                <p className="text-xl font-bold text-green-600">
+                  {formatNumber(analysisResult.summary?.total_labor || 0)}
+                </p>
+                <p className="text-xs text-muted-foreground">{currency}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Wrench className="w-4 h-4 text-orange-500" />
+                  <span className="text-xs text-muted-foreground">المعدات</span>
+                </div>
+                <p className="text-xl font-bold text-orange-600">
+                  {formatNumber(analysisResult.summary?.total_equipment || 0)}
+                </p>
+                <p className="text-xs text-muted-foreground">{currency}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-4 h-4 text-purple-500" />
+                  <span className="text-xs text-muted-foreground">الإجمالي</span>
+                </div>
+                <p className="text-xl font-bold text-purple-600">
+                  {formatNumber(analysisResult.summary?.grand_total || 0)}
+                </p>
+                <p className="text-xs text-muted-foreground">{currency}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Cost Breakdown Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building2 className="w-5 h-5" />
+                توزيع التكاليف
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[
+                { label: "المواد", value: analysisResult.summary?.total_materials || 0, color: "bg-blue-500" },
+                { label: "العمالة", value: analysisResult.summary?.total_labor || 0, color: "bg-green-500" },
+                { label: "المعدات", value: analysisResult.summary?.total_equipment || 0, color: "bg-orange-500" },
+                { label: "التكاليف غير المباشرة", value: analysisResult.summary?.total_indirect_costs || 0, color: "bg-gray-500" },
+                { label: "الأرباح", value: analysisResult.summary?.total_profit || 0, color: "bg-purple-500" },
+              ].map((item, idx) => {
+                const total = analysisResult.summary?.grand_total || 1;
+                const percentage = (item.value / total) * 100;
+                return (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>{item.label}</span>
+                      <span className="text-muted-foreground">
+                        {formatNumber(item.value)} {currency} ({percentage.toFixed(1)}%)
+                      </span>
+                    </div>
+                    <Progress value={percentage} className={`h-2 [&>div]:${item.color}`} />
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          {/* Detailed Items */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">تفاصيل البنود</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {analysisResult.cost_analysis?.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                      selectedItem === idx
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                    onClick={() => setSelectedItem(selectedItem === idx ? null : idx)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium">{item.item_description}</h4>
+                        <div className="flex gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">
+                            مباشر: {formatNumber(item.total_direct)} {currency}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            غير مباشر: {formatNumber(item.total_indirect)} {currency}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold text-primary">
+                          {formatNumber(item.total_cost)} {currency}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          سعر الوحدة: {formatNumber(item.unit_price)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {selectedItem === idx && (
+                      <div className="mt-4 pt-4 border-t space-y-4 animate-slide-up">
+                        {/* Materials */}
+                        {item.materials?.items?.length > 0 && (
+                          <div>
+                            <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
+                              <Package className="w-4 h-4 text-blue-500" />
+                              المواد
+                            </h5>
+                            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                              {item.materials.items.map((mat, midx) => (
+                                <div key={midx} className="flex justify-between text-sm">
+                                  <span>{mat.name} ({mat.quantity} {mat.unit})</span>
+                                  <span>{formatNumber(mat.total)} {currency}</span>
+                                </div>
+                              ))}
+                              <div className="border-t pt-2 font-medium flex justify-between">
+                                <span>إجمالي المواد</span>
+                                <span>{formatNumber(item.materials.total)} {currency}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Labor */}
+                        {item.labor?.items?.length > 0 && (
+                          <div>
+                            <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
+                              <Users className="w-4 h-4 text-green-500" />
+                              العمالة
+                            </h5>
+                            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                              {item.labor.items.map((lab, lidx) => (
+                                <div key={lidx} className="flex justify-between text-sm">
+                                  <span>{lab.role} ({lab.hours} ساعة × {lab.hourly_rate})</span>
+                                  <span>{formatNumber(lab.total)} {currency}</span>
+                                </div>
+                              ))}
+                              <div className="border-t pt-2 font-medium flex justify-between">
+                                <span>إجمالي العمالة</span>
+                                <span>{formatNumber(item.labor.total)} {currency}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Indirect Costs */}
+                        <div>
+                          <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
+                            <Building2 className="w-4 h-4 text-gray-500" />
+                            التكاليف غير المباشرة
+                          </h5>
+                          <div className="bg-muted/50 rounded-lg p-3 grid grid-cols-2 gap-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>المصاريف العمومية</span>
+                              <span>{formatNumber(item.overhead)} {currency}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>الإدارية</span>
+                              <span>{formatNumber(item.admin)} {currency}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>التأمين</span>
+                              <span>{formatNumber(item.insurance)} {currency}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>الاحتياطي</span>
+                              <span>{formatNumber(item.contingency)} {currency}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Recommendations */}
+                        {item.recommendations?.length > 0 && (
+                          <div>
+                            <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 text-amber-500" />
+                              التوصيات
+                            </h5>
+                            <ul className="bg-amber-500/10 rounded-lg p-3 space-y-1">
+                              {item.recommendations.map((rec, ridx) => (
+                                <li key={ridx} className="text-sm text-amber-700 dark:text-amber-300">
+                                  • {rec}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Key Insights */}
+          {analysisResult.summary?.key_insights?.length > 0 && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  ملاحظات ذكية ({analysisResult.ai_provider})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {analysisResult.summary.key_insights.map((insight, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm">
+                      <span className="text-primary">•</span>
+                      {insight}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!analysisResult && !isAnalyzing && (
+        <Card className="border-dashed">
+          <CardContent className="py-12 text-center">
+            <Calculator className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="font-display text-lg font-semibold mb-2">تحليل التكاليف التفصيلي</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              اضغط على زر "تحليل التكاليف" للحصول على تفصيل شامل للتكاليف المباشرة وغير المباشرة
+            </p>
+            <div className="flex justify-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Package className="w-3 h-3" /> المواد
+              </span>
+              <span className="flex items-center gap-1">
+                <Users className="w-3 h-3" /> العمالة
+              </span>
+              <span className="flex items-center gap-1">
+                <Wrench className="w-3 h-3" /> المعدات
+              </span>
+              <span className="flex items-center gap-1">
+                <TrendingUp className="w-3 h-3" /> الأرباح
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
