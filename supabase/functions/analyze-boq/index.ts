@@ -78,31 +78,49 @@ serve(async (req) => {
 
     switch (analysis_type) {
       case "extract_items":
-        systemPrompt = `You are a BOQ (Bill of Quantities) expert. Extract all items from the provided document text. 
-Return ONLY a valid JSON object (no markdown, no code blocks, no explanation) with this structure:
+        systemPrompt = `You are a BOQ (Bill of Quantities) expert specialized in construction cost estimation. 
+CRITICAL: You MUST extract ALL pricing information including unit prices and total prices.
+
+Analyze the document carefully to find:
+1. Item numbers/codes
+2. Descriptions (in Arabic or English)
+3. Units (م، م²، م³، كجم، عدد، طن، etc.)
+4. Quantities (numbers)
+5. Unit prices (سعر الوحدة)
+6. Total prices (الإجمالي = quantity × unit_price)
+7. Categories (group similar items)
+
+Return ONLY a valid JSON object with this structure:
 {
   "analysis_type": "extract_items",
   "items": [
     {
       "item_number": "string",
-      "description": "string",
-      "unit": "string (e.g., m, m², m³, kg, pcs, etc.)",
+      "description": "string (keep original Arabic if present)",
+      "unit": "string",
       "quantity": number,
-      "unit_price": number or null,
-      "total_price": number or null,
-      "category": "string (e.g., Civil Works, Electrical, Plumbing, etc.)",
+      "unit_price": number (REQUIRED - estimate if not explicitly stated based on typical construction costs),
+      "total_price": number (REQUIRED - calculate as quantity × unit_price),
+      "category": "string (e.g., أعمال الحفر, الخرسانة, الكهرباء, السباكة, التشطيبات)",
       "notes": "string or null"
     }
   ],
   "summary": {
     "total_items": number,
-    "total_value": number or null,
-    "categories": ["array of unique categories"],
-    "currency": "string or null"
+    "total_value": number (REQUIRED - sum of all total_prices),
+    "categories": ["array of unique category names"],
+    "currency": "ر.س" (or detect from document),
+    "average_item_value": number (total_value / total_items)
   }
 }
-Be thorough and extract ALL items you can find. Parse quantities and prices as numbers. Return ONLY valid JSON.`;
-        userPrompt = `Extract all BOQ items from this document:\n\n${text.slice(0, 15000)}`;
+
+IMPORTANT RULES:
+- If prices are not explicitly stated, make reasonable estimates based on typical Saudi/Gulf construction costs
+- Always calculate total_price = quantity × unit_price
+- Always provide total_value in summary
+- Group items into logical categories
+- Return ONLY valid JSON, no markdown or explanation`;
+        userPrompt = `Extract ALL BOQ items with PRICES from this construction document. Look for quantities, rates, and totals:\n\n${text.slice(0, 20000)}`;
         break;
 
       case "create_wbs":

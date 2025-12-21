@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DataCharts } from "./DataCharts";
 import { ProjectTimeline } from "./ProjectTimeline";
+import * as XLSX from "xlsx";
 
 interface BOQItem {
   item_number: string;
@@ -111,6 +112,149 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
     URL.revokeObjectURL(url);
   };
 
+  const exportToExcel = () => {
+    if (!data.items) return;
+
+    // Create BOQ items sheet
+    const itemsData = data.items.map(item => ({
+      "رقم البند": item.item_number,
+      "الوصف": item.description,
+      "الوحدة": item.unit,
+      "الكمية": item.quantity,
+      "سعر الوحدة": item.unit_price || 0,
+      "الإجمالي": item.total_price || 0,
+      "الفئة": item.category || "غير مصنف",
+      "ملاحظات": item.notes || ""
+    }));
+
+    // Create summary sheet
+    const summaryData = [
+      { "البيان": "إجمالي العناصر", "القيمة": data.summary?.total_items || data.items.length },
+      { "البيان": "إجمالي القيمة", "القيمة": data.summary?.total_value || 0 },
+      { "البيان": "العملة", "القيمة": data.summary?.currency || "ر.س" },
+      { "البيان": "عدد الفئات", "القيمة": data.summary?.categories?.length || 0 },
+    ];
+
+    // Create WBS sheet if available
+    const wbsSheetData = wbsData?.wbs?.map(item => ({
+      "الكود": item.code,
+      "العنوان": item.title,
+      "المستوى": item.level,
+      "الكود الأب": item.parent_code || "-",
+      "العناصر": item.items.join(", ") || "-"
+    })) || [];
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    
+    // Add sheets
+    const ws1 = XLSX.utils.json_to_sheet(itemsData);
+    XLSX.utils.book_append_sheet(wb, ws1, "جدول الكميات");
+    
+    const ws2 = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, ws2, "الملخص");
+    
+    if (wbsSheetData.length > 0) {
+      const ws3 = XLSX.utils.json_to_sheet(wbsSheetData);
+      XLSX.utils.book_append_sheet(wb, ws3, "هيكل تجزئة العمل");
+    }
+
+    // Download
+    XLSX.writeFile(wb, "boq_analysis.xlsx");
+  };
+
+  const exportToWord = () => {
+    if (!data.items) return;
+
+    // Create HTML content for Word
+    let htmlContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Arial', sans-serif; direction: rtl; }
+          table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+          th, td { border: 1px solid #333; padding: 8px; text-align: right; }
+          th { background-color: #f0f0f0; font-weight: bold; }
+          h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
+          h2 { color: #555; margin-top: 30px; }
+          .summary-box { background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0; }
+          .total-row { background-color: #e8f4e8; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <h1>تقرير تحليل جدول الكميات (BOQ)</h1>
+        <p>تاريخ التصدير: ${new Date().toLocaleDateString('ar-SA')}</p>
+        
+        <div class="summary-box">
+          <h2>ملخص المشروع</h2>
+          <p><strong>إجمالي العناصر:</strong> ${data.summary?.total_items || data.items.length}</p>
+          <p><strong>إجمالي القيمة:</strong> ${(data.summary?.total_value || 0).toLocaleString()} ${data.summary?.currency || 'ر.س'}</p>
+          <p><strong>الفئات:</strong> ${data.summary?.categories?.join('، ') || 'غير محدد'}</p>
+        </div>
+
+        <h2>جدول الكميات</h2>
+        <table>
+          <tr>
+            <th>رقم البند</th>
+            <th>الوصف</th>
+            <th>الوحدة</th>
+            <th>الكمية</th>
+            <th>سعر الوحدة</th>
+            <th>الإجمالي</th>
+            <th>الفئة</th>
+          </tr>
+          ${data.items.map(item => `
+            <tr>
+              <td>${item.item_number}</td>
+              <td>${item.description}</td>
+              <td>${item.unit}</td>
+              <td>${item.quantity}</td>
+              <td>${item.unit_price?.toLocaleString() || '-'}</td>
+              <td>${item.total_price?.toLocaleString() || '-'}</td>
+              <td>${item.category || 'غير مصنف'}</td>
+            </tr>
+          `).join('')}
+          <tr class="total-row">
+            <td colspan="5">الإجمالي الكلي</td>
+            <td colspan="2">${(data.summary?.total_value || 0).toLocaleString()} ${data.summary?.currency || 'ر.س'}</td>
+          </tr>
+        </table>
+    `;
+
+    // Add WBS if available
+    if (wbsData?.wbs && wbsData.wbs.length > 0) {
+      htmlContent += `
+        <h2>هيكل تجزئة العمل (WBS)</h2>
+        <table>
+          <tr>
+            <th>الكود</th>
+            <th>العنوان</th>
+            <th>المستوى</th>
+          </tr>
+          ${wbsData.wbs.map(item => `
+            <tr>
+              <td>${item.code}</td>
+              <td style="padding-right: ${item.level * 20}px">${item.title}</td>
+              <td>${item.level}</td>
+            </tr>
+          `).join('')}
+        </table>
+      `;
+    }
+
+    htmlContent += `</body></html>`;
+
+    // Download as .doc
+    const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'boq_report.doc';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const tabs = [
     { id: "items", label: "العناصر", icon: <Package className="w-4 h-4" /> },
     { id: "wbs", label: "WBS", icon: <Layers className="w-4 h-4" /> },
@@ -140,14 +284,22 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
               </button>
             ))}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-2">
+              <FileSpreadsheet className="w-4 h-4" />
+              Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportToWord} className="gap-2">
+              <FileText className="w-4 h-4" />
+              Word
+            </Button>
             <Button variant="outline" size="sm" onClick={exportToJSON} className="gap-2">
               <FileJson className="w-4 h-4" />
-              تصدير JSON
+              JSON
             </Button>
             <Button variant="outline" size="sm" onClick={exportToCSV} className="gap-2">
               <Download className="w-4 h-4" />
-              تصدير CSV
+              CSV
             </Button>
           </div>
         </div>
