@@ -45,7 +45,33 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log(`Starting ${analysis_type} analysis...`);
+    // Validate that text is readable
+    if (!text || typeof text !== "string" || text.length < 10) {
+      return new Response(
+        JSON.stringify({ 
+          error: "النص المُدخل قصير جداً أو غير صالح",
+          suggestion: "يرجى إدخال نص BOQ يدوياً أو استخدام ملف PDF يحتوي على نص قابل للتحديد"
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if text contains too many invalid characters (binary data)
+    const invalidCharCount = (text.match(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g) || []).length;
+    const invalidRatio = invalidCharCount / text.length;
+    
+    if (invalidRatio > 0.1) {
+      console.log(`Text appears to be binary data. Invalid char ratio: ${invalidRatio}`);
+      return new Response(
+        JSON.stringify({ 
+          error: "لا يمكن قراءة محتوى الملف",
+          suggestion: "يبدو أن ملف PDF يحتوي على صور أو نص غير قابل للتحديد. يرجى إدخال النص يدوياً."
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Starting ${analysis_type} analysis with ${text.length} characters...`);
 
     let systemPrompt = "";
     let userPrompt = "";
@@ -53,7 +79,7 @@ serve(async (req) => {
     switch (analysis_type) {
       case "extract_items":
         systemPrompt = `You are a BOQ (Bill of Quantities) expert. Extract all items from the provided document text. 
-Return a JSON object with the following structure:
+Return ONLY a valid JSON object (no markdown, no code blocks, no explanation) with this structure:
 {
   "analysis_type": "extract_items",
   "items": [
@@ -75,14 +101,14 @@ Return a JSON object with the following structure:
     "currency": "string or null"
   }
 }
-Be thorough and extract ALL items you can find. Parse quantities and prices as numbers.`;
-        userPrompt = `Extract all BOQ items from this document:\n\n${text}`;
+Be thorough and extract ALL items you can find. Parse quantities and prices as numbers. Return ONLY valid JSON.`;
+        userPrompt = `Extract all BOQ items from this document:\n\n${text.slice(0, 15000)}`;
         break;
 
       case "create_wbs":
         systemPrompt = `You are a project management expert specializing in Work Breakdown Structure (WBS) creation.
 Analyze the BOQ text and create a hierarchical WBS structure.
-Return a JSON object with the following structure:
+Return ONLY a valid JSON object (no markdown, no code blocks, no explanation) with this structure:
 {
   "analysis_type": "create_wbs",
   "wbs": [
@@ -95,42 +121,14 @@ Return a JSON object with the following structure:
     }
   ]
 }
-Create a logical hierarchy grouping related work items together.`;
-        userPrompt = `Create a WBS structure from this BOQ:\n\n${text}`;
-        break;
-
-      case "cost_analysis":
-        systemPrompt = `You are a cost estimation expert. Analyze the BOQ and provide cost insights.
-Return a JSON object with:
-{
-  "analysis_type": "cost_analysis",
-  "items": [
-    {
-      "item_number": "string",
-      "description": "string",
-      "unit": "string",
-      "quantity": number,
-      "unit_price": number,
-      "total_price": number,
-      "category": "string",
-      "notes": "cost optimization suggestions"
-    }
-  ],
-  "summary": {
-    "total_items": number,
-    "total_value": number,
-    "categories": ["array"],
-    "currency": "string",
-    "cost_breakdown_by_category": {"category": value}
-  }
-}`;
-        userPrompt = `Analyze costs in this BOQ:\n\n${text}`;
+Create a logical hierarchy grouping related work items together. Return ONLY valid JSON.`;
+        userPrompt = `Create a WBS structure from this BOQ:\n\n${text.slice(0, 15000)}`;
         break;
 
       default:
         systemPrompt = `You are a document analysis expert. Analyze the provided text and extract structured information.
-Return a JSON object with relevant analysis results.`;
-        userPrompt = `Analyze this document:\n\n${text}`;
+Return ONLY a valid JSON object with relevant analysis results.`;
+        userPrompt = `Analyze this document:\n\n${text.slice(0, 15000)}`;
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -177,6 +175,7 @@ Return a JSON object with relevant analysis results.`;
     }
 
     console.log("AI response received, parsing...");
+    console.log("Response preview:", content.slice(0, 200));
 
     // Extract JSON from response
     let result: AnalysisResult;
@@ -192,15 +191,17 @@ Return a JSON object with relevant analysis results.`;
         // Try to find JSON object in the response
         const jsonStart = content.indexOf("{");
         const jsonEnd = content.lastIndexOf("}");
-        if (jsonStart !== -1 && jsonEnd !== -1) {
-          result = JSON.parse(content.slice(jsonStart, jsonEnd + 1));
+        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+          const jsonStr = content.slice(jsonStart, jsonEnd + 1);
+          result = JSON.parse(jsonStr);
         } else {
+          console.error("Could not find JSON in response:", content.slice(0, 500));
           throw new Error("Could not parse AI response as JSON");
         }
       }
     }
 
-    console.log(`Analysis complete: ${result.items?.length || 0} items found`);
+    console.log(`Analysis complete: ${result.items?.length || result.wbs?.length || 0} items found`);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
