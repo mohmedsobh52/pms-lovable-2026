@@ -71,18 +71,46 @@ serve(async (req) => {
 
     const systemPrompt = `You are an expert construction cost analyst specialized in analyzing PDF documents containing Bill of Quantities (BOQ) and construction cost data.
 
-CRITICAL INSTRUCTIONS:
-1. ANALYZE THE PDF CONTENT: The input may be in Arabic, English, or any other language - understand and analyze it regardless of language
-2. DETECT LANGUAGE AUTOMATICALLY: Identify the language of the input document
-3. OUTPUT LANGUAGE: ALL your output text MUST be in ${outputLanguage} ONLY
-4. Do NOT mix languages in your response - translate everything to ${outputLanguage}
-5. EXTRACT ALL DATA: Extract quantities, units, descriptions, prices, and any other relevant cost information from the document
-6. HANDLE ANY FORMAT: Whether the PDF contains tables, lists, or plain text - extract all cost-related information accurately
+=== STEP 1: LANGUAGE DETECTION ===
+- Automatically detect ALL languages used in the document (Arabic, English, or others)
+- Do NOT assume the language from corrupted characters
+- Identify the primary language of the content
 
-OTHER INSTRUCTIONS:
-1. Extract quantities, units, and descriptions accurately
-2. Use market prices from Saudi Arabia/Gulf region
-3. Calculate ALL costs in Saudi Riyals (SAR)
+=== STEP 2: ENCODING & TEXT RECOVERY ===
+If the extracted text contains unreadable symbols, broken letters, or encoding corruption:
+- Attempt to reconstruct the original readable text
+- Prioritize Arabic text recovery if Arabic patterns are detected (e.g., scattered Arabic letters, right-to-left patterns)
+- Ignore meaningless noise characters (like: � ¿ ½ Ã Â etc.)
+- Look for patterns: if you see "Ø" or "Ù" characters, this is likely corrupted Arabic UTF-8 text
+
+=== STEP 3: OCR & INFERENCE ===
+- If the PDF appears scanned or image-based, simulate OCR extraction
+- If text recovery is incomplete, infer meaning logically from:
+  * Document structure
+  * Repetition patterns
+  * Number sequences (quantities, prices)
+  * Formatting and layout
+
+=== STEP 4: OUTPUT RULES ===
+- Do NOT output corrupted or unreadable text
+- Output ONLY clean, human-readable content
+- ALL output MUST be in ${outputLanguage} ONLY
+- Do NOT mix languages in your response
+
+=== STEP 5: DATA EXTRACTION ===
+Extract the following from the document:
+1. Quantities, units, and descriptions
+2. Prices and costs
+3. Materials, labor, equipment information
+4. Any BOQ or construction cost data
+
+=== STEP 6: ACCURACY PRIORITY ===
+- Accuracy > Completeness (better to have less accurate data than wrong data)
+- Clarity > Literal extraction (interpret meaning, don't copy garbage)
+- Meaning > Raw text (understand what the document is saying)
+
+Use market prices from Saudi Arabia/Gulf region.
+Calculate ALL costs in Saudi Riyals (SAR).
 
 The analysis should include:
 
@@ -144,24 +172,38 @@ Return JSON in the following format (ALL text values must be in ${outputLanguage
   }
 }
 
-Use current market prices from Saudi Arabia/Gulf region. All costs in SAR.
 CRITICAL: Return ONLY valid JSON. No explanatory text before or after. ALL text values must be in ${outputLanguage} only.`;
 
-    const userPrompt = `Please analyze this PDF document containing construction/BOQ data. The document may be in Arabic, English, or any other language.
+    const userPrompt = `=== PDF DOCUMENT ANALYSIS REQUEST ===
 
-DOCUMENT CONTENT:
+Please analyze this document following these strict steps:
+
+STEP 1: LANGUAGE DETECTION
+- Detect all languages in the content below
+- Do NOT assume language from corrupted characters
+
+STEP 2: TEXT RECOVERY
+- If you see corrupted text (broken letters, symbols like Ø, Ù, Ã, Â, ¿, ½, etc.)
+- Reconstruct the original readable text
+- Arabic UTF-8 often appears as: Ø§Ù„ (which should be Arabic text)
+
+STEP 3: CONTENT EXTRACTION
 ${items.map((item: any, idx: number) => `
 ${idx + 1}. ${item.description || item.item_description || 'Item'}
    - Quantity: ${item.quantity || 1} ${item.unit || 'unit'}
    ${item.total_price ? `- Price: ${item.total_price} SAR` : ''}
 `).join('\n')}
 
-INSTRUCTIONS:
-1. Understand the content regardless of its language
-2. Extract all cost-related information (materials, labor, equipment, etc.)
-3. Provide comprehensive cost breakdown for each item
+STEP 4: ANALYSIS REQUIREMENTS
+1. Extract all cost-related information (materials, labor, equipment)
+2. Provide comprehensive cost breakdown for each item
+3. Use Saudi Arabia market prices in SAR
 4. ALL output text must be in ${outputLanguage} only
-5. Respond with valid JSON only.`;
+
+STEP 5: OUTPUT
+- Respond with valid JSON only
+- Do NOT include any corrupted or unreadable text
+- Only clean, human-readable content`;
 
     let response;
     let providerUsed = ai_provider || 'lovable';
