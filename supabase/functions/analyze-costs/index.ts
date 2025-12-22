@@ -55,43 +55,46 @@ serve(async (req) => {
 
     console.log(`Analyzing costs for ${items.length} items using ${ai_provider}...`);
 
-    const systemPrompt = `You are an expert in construction cost analysis. Analyze the provided items and provide comprehensive cost breakdown.
+    const systemPrompt = `You are an expert construction cost analyst. Analyze the provided items and provide a comprehensive cost breakdown.
 
-IMPORTANT: You will receive text in Arabic. Make sure to:
-1. Properly read and understand Arabic text
+IMPORTANT INSTRUCTIONS:
+1. You will receive text that may be in Arabic - read and understand it carefully
 2. Extract quantities, units, and descriptions accurately
 3. Use market prices from Saudi Arabia/Gulf region
-4. Calculate all costs in Saudi Riyals (SAR)
+4. Calculate ALL costs in Saudi Riyals (SAR)
+5. ALL output text must be in ENGLISH - translate Arabic descriptions
 
 The analysis should include:
+
 1. Direct Costs:
-   - Materials: List of required materials with quantities and prices
+   - Materials: List required materials with quantities and prices
    - Labor: Types of labor required, work hours, and wages
-   - Equipment: Required equipment, duration of use, and costs
+   - Equipment: Required equipment, duration, and costs
    - Subcontractors
 
 2. Indirect Costs:
    - Overhead: typically 8-12% of direct costs
+   - Administrative: typically 3-5%
    - Insurance: typically 2-3%
    - Contingency: typically 5-10%
 
 3. Profit Margin: typically 10-15%
 
-قم بإرجاع JSON بالتنسيق التالي:
+Return JSON in the following format:
 {
   "cost_analysis": [
     {
-      "item_description": "وصف البند",
+      "item_description": "Item Description in English",
       "materials": {
-        "items": [{"name": "اسم المادة", "quantity": 100, "unit": "م³", "unit_price": 500, "total": 50000}],
+        "items": [{"name": "Material Name", "quantity": 100, "unit": "m³", "unit_price": 500, "total": 50000}],
         "total": 50000
       },
       "labor": {
-        "items": [{"role": "نجار", "hours": 40, "hourly_rate": 50, "total": 2000}],
+        "items": [{"role": "Carpenter", "hours": 40, "hourly_rate": 50, "total": 2000}],
         "total": 2000
       },
       "equipment": {
-        "items": [{"name": "رافعة", "duration": "5 أيام", "daily_rate": 1000, "total": 5000}],
+        "items": [{"name": "Crane", "duration": "5 days", "daily_rate": 1000, "total": 5000}],
         "total": 5000
       },
       "subcontractor": 0,
@@ -105,7 +108,7 @@ The analysis should include:
       "total_indirect": 13110,
       "total_cost": 77121,
       "unit_price": 771.21,
-      "recommendations": ["توصية 1", "توصية 2"]
+      "recommendations": ["Recommendation 1", "Recommendation 2"]
     }
   ],
   "summary": {
@@ -117,23 +120,23 @@ The analysis should include:
     "total_indirect_costs": 0,
     "total_profit": 0,
     "grand_total": 0,
-    "key_insights": ["ملاحظة 1", "ملاحظة 2"]
+    "key_insights": ["Insight 1", "Insight 2"]
   }
 }
 
-Use current market prices from Saudi Arabia/Gulf region. Calculate all costs in Saudi Riyals (SAR).
+Use current market prices from Saudi Arabia/Gulf region. All costs in SAR.
+CRITICAL: Return ONLY valid JSON. No explanatory text before or after.`;
 
-CRITICAL: Return ONLY valid JSON. Do not include any explanatory text before or after the JSON.`;
-
-    const userPrompt = `Analyze the detailed costs for the following items (text is in Arabic):
+    const userPrompt = `Analyze detailed costs for the following construction items:
 
 ${items.map((item: any, idx: number) => `
-${idx + 1}. ${item.description || item.item_description}
+${idx + 1}. Description: ${item.description || item.item_description}
    - Quantity: ${item.quantity || 1} ${item.unit || 'unit'}
-   ${item.total_price ? `- Proposed total price: ${item.total_price} SAR` : ''}
+   ${item.total_price ? `- Proposed Total Price: ${item.total_price} SAR` : ''}
 `).join('\n')}
 
-Provide a comprehensive detailed analysis of direct and indirect costs for each item. Respond ONLY with valid JSON, no additional text.`;
+Provide comprehensive cost breakdown for each item. ALL text in response must be in ENGLISH.
+Respond with valid JSON only.`;
 
     let response;
     let providerUsed = ai_provider || 'lovable';

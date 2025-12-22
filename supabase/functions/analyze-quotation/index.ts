@@ -37,49 +37,50 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `أنت محلل متخصص في عروض الأسعار والمشتريات باللغة العربية. 
+    const systemPrompt = `You are an expert quotation and procurement analyst. You will analyze price quotations that may contain Arabic text.
 
-⚠️ تعليمات هامة جداً:
-- استخرج البيانات من النص المقدم فقط - لا تخترع أو تفترض أي بيانات
-- إذا لم تجد معلومة، اتركها فارغة أو null
-- حافظ على الأرقام والكميات والأسعار كما هي في النص الأصلي
-- اقرأ النص العربي بعناية واستخرج جميع البنود الموجودة
-- إذا وجدت جداول، استخرج كل صف كبند منفصل
+CRITICAL INSTRUCTIONS:
+- Extract data ONLY from the provided text - do NOT invent or assume any data
+- If information is not found, leave it empty or null
+- Keep all numbers, quantities, and prices exactly as they appear in the original text
+- Read Arabic text carefully and extract ALL items found
+- If you find tables, extract each row as a separate item
+- ALL text output should be in ENGLISH, translate Arabic descriptions to English
 
-مهمتك:
-1. استخراج معلومات المورد (الاسم، العنوان، الهاتف، البريد الإلكتروني)
-2. استخراج معلومات العرض (التاريخ، رقم العرض، مدة الصلاحية، شروط الدفع)
-3. استخراج جميع البنود والمواد مع:
-   - رقم البند (إن وجد)
-   - الوصف الكامل
-   - الوحدة (م³، م²، كجم، طن، عدد، إلخ)
-   - الكمية (رقم فقط)
-   - سعر الوحدة (رقم فقط)
-   - الإجمالي (الكمية × سعر الوحدة)
-4. حساب الإجماليات (المجموع الفرعي، الضريبة، الخصومات، الإجمالي النهائي)
-5. استخراج الملاحظات والشروط
+Your task:
+1. Extract supplier information (name, address, phone, email)
+2. Extract quotation information (date, quotation number, validity period, payment terms)
+3. Extract ALL items/materials with:
+   - Item number (if available)
+   - Description (translate to English if in Arabic)
+   - Unit (m³, m², kg, ton, piece, etc.)
+   - Quantity (number only)
+   - Unit price (number only)
+   - Total (quantity × unit price)
+4. Calculate totals (subtotal, tax, discounts, grand total)
+5. Extract notes and terms (translate to English)
 
-⚠️ هام: استخرج البيانات من النص المعطى فقط. لا تضف بيانات من عندك.
+IMPORTANT: Extract data from the given text ONLY. Do NOT add data from your own knowledge.
 
-أجب بتنسيق JSON فقط بالهيكل التالي:
+Respond with JSON ONLY in the following structure:
 {
   "supplier": {
-    "name": "اسم المورد",
-    "address": "العنوان",
-    "phone": "رقم الهاتف",
-    "email": "البريد الإلكتروني"
+    "name": "Supplier Name",
+    "address": "Address",
+    "phone": "Phone Number",
+    "email": "Email"
   },
   "quotation_info": {
-    "number": "رقم العرض",
-    "date": "التاريخ",
-    "validity": "مدة الصلاحية",
-    "payment_terms": "شروط الدفع"
+    "number": "Quotation Number",
+    "date": "Date",
+    "validity": "Validity Period",
+    "payment_terms": "Payment Terms"
   },
   "items": [
     {
-      "item_number": "رقم البند",
-      "description": "الوصف",
-      "unit": "الوحدة",
+      "item_number": "Item Number",
+      "description": "Description in English",
+      "unit": "Unit",
       "quantity": 0,
       "unit_price": 0,
       "total": 0
@@ -92,8 +93,8 @@ serve(async (req) => {
     "discount": 0,
     "grand_total": 0
   },
-  "notes": ["ملاحظة 1", "ملاحظة 2"],
-  "summary": "ملخص موجز للعرض"
+  "notes": ["Note 1", "Note 2"],
+  "summary": "Brief summary of the quotation"
 }`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -108,21 +109,22 @@ serve(async (req) => {
           { role: "system", content: systemPrompt },
           { 
             role: "user", 
-            content: `تحليل عرض السعر:
+            content: `Analyze the following price quotation:
 
-اسم العرض: ${quotationName || 'غير محدد'}
-المورد: ${supplierName || 'غير محدد'}
+Quotation Name: ${quotationName || 'Not specified'}
+Supplier: ${supplierName || 'Not specified'}
 
 ========================
-النص المستخرج من عرض السعر:
+EXTRACTED TEXT FROM QUOTATION:
 ========================
 
 ${quotationText}
 
 ========================
 
-يرجى تحليل النص أعلاه بدقة واستخراج جميع البنود والكميات والأسعار الموجودة فيه.
-لا تخترع أي بيانات - استخدم فقط ما هو موجود في النص.` 
+Please analyze the above text carefully and extract ALL items, quantities, and prices found in it.
+DO NOT invent any data - use ONLY what is present in the text.
+Translate all Arabic text to English in your response.` 
           }
         ],
         temperature: 0.1,
