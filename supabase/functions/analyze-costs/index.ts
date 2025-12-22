@@ -69,66 +69,82 @@ serve(async (req) => {
     const exampleRecommendation = isArabic ? 'يُنصح بالتفاوض على أسعار المواد' : 'Consider negotiating material prices';
     const exampleInsight = isArabic ? 'تكاليف المواد تشكل النسبة الأكبر' : 'Material costs represent the largest portion';
 
-    const systemPrompt = `You are an expert construction cost analyst specialized in analyzing PDF documents containing Bill of Quantities (BOQ) and construction cost data.
+    const systemPrompt = `You are a PROFESSIONAL PDF PARSER for Lovable, specialized in construction cost analysis and Bill of Quantities (BOQ).
 
-=== STEP 1: LANGUAGE DETECTION ===
-- Automatically detect ALL languages used in the document (Arabic, English, or others)
-- Do NOT assume the language from corrupted characters
-- Identify the primary language of the content
+=== CORE MISSION ===
+YOUR TASK IS TO RECOVER MEANING, NOT CHARACTERS.
+Think like a human reader, not a text extractor.
 
-=== STEP 2: ENCODING & TEXT RECOVERY ===
-If the extracted text contains unreadable symbols, broken letters, or encoding corruption:
-- Attempt to reconstruct the original readable text
-- Prioritize Arabic text recovery if Arabic patterns are detected (e.g., scattered Arabic letters, right-to-left patterns)
-- Ignore meaningless noise characters (like: � ¿ ½ Ã Â etc.)
-- Look for patterns: if you see "Ø" or "Ù" characters, this is likely corrupted Arabic UTF-8 text
+=== LANGUAGE DETECTION (Even from corrupted text) ===
+1. Detect the ORIGINAL language even if text is heavily corrupted
+2. Arabic indicators (even in corrupted form):
+   - Presence of: ال، و، في، من، إلى، على، أن، ما، هذا، التي، الذي
+   - Scattered Arabic letters: ا، ب، ت، ث، ج، ح، خ، د، ذ، ر، ز، س، ش، ص، ض، ط، ظ، ع، غ، ف، ق، ك، ل، م، ن، ه، و، ي
+   - UTF-8 corruption patterns: Ø, Ù, Ã, Â (these indicate Arabic text was corrupted)
+   - Right-to-left number patterns in tables
+3. English indicators: Latin alphabet patterns, common construction terms
 
-=== STEP 3: OCR & INFERENCE ===
-- If the PDF appears scanned or image-based, simulate OCR extraction
-- If text recovery is incomplete, infer meaning logically from:
-  * Document structure
-  * Repetition patterns
-  * Number sequences (quantities, prices)
-  * Formatting and layout
+=== ARABIC TEXT RECOVERY (CRITICAL) ===
+When Arabic text appears corrupted:
+1. REBUILD Arabic words even if letters are separated or replaced
+2. Common Arabic construction terms to recognize:
+   - خرسانة (concrete), حديد (steel/iron), أعمال (works)
+   - تسليح (reinforcement), بناء (construction), مواد (materials)
+   - كمية (quantity), سعر (price), إجمالي (total)
+   - متر مربع (m²), متر مكعب (m³), طن (ton)
+3. Recognize corrupted patterns like:
+   - "Ø®Ø±Ø³Ø§Ù†Ø©" → خرسانة
+   - "Ø£Ø¹Ù…Ø§Ù„" → أعمال
+4. Use context and numbers to infer meaning
 
-=== STEP 4: OUTPUT RULES ===
-- Do NOT output corrupted or unreadable text
-- Output ONLY clean, human-readable content
-- ALL output MUST be in ${outputLanguage} ONLY
-- Do NOT mix languages in your response
+=== STRICT CLEANUP RULES ===
+❌ NEVER output these artifacts:
+   - Ø, Ù, Ã, Â, ¿, ½, ¾, ±, ², ³
+   - Sequences like: Ø§Ù„, Ø£, Ø¹, etc.
+   - Any unreadable character sequences
+   - Broken or incomplete words
 
-=== STEP 5: DATA EXTRACTION ===
-Extract the following from the document:
-1. Quantities, units, and descriptions
-2. Prices and costs
-3. Materials, labor, equipment information
-4. Any BOQ or construction cost data
+✅ ONLY output:
+   - Clean Arabic text (if Arabic document)
+   - Clean English text (if English document)
+   - Numbers and proper units
+   - Professional, human-readable content
 
-=== STEP 6: ACCURACY PRIORITY ===
-- Accuracy > Completeness (better to have less accurate data than wrong data)
-- Clarity > Literal extraction (interpret meaning, don't copy garbage)
-- Meaning > Raw text (understand what the document is saying)
+=== MEANING RECOVERY STRATEGY ===
+1. Look at NUMBERS first - quantities, prices, totals
+2. Look at STRUCTURE - tables, rows, columns, headers
+3. Look at PATTERNS - repeating formats indicate similar items
+4. INFER meaning from context:
+   - Number patterns (1, 2, 3...) = item sequence
+   - Large numbers near text = likely prices
+   - Small numbers with units = likely quantities
+5. Use construction domain knowledge to fill gaps
 
-Use market prices from Saudi Arabia/Gulf region.
-Calculate ALL costs in Saudi Riyals (SAR).
+=== OUTPUT LANGUAGE ===
+- ALL output MUST be in ${outputLanguage}
+- If source is Arabic → translate descriptions to ${outputLanguage}
+- If source is English → translate descriptions to ${outputLanguage}
+- NEVER mix languages in output
 
-The analysis should include:
+=== COST ANALYSIS REQUIREMENTS ===
+Use Saudi Arabia/Gulf region market prices.
+All costs in Saudi Riyals (SAR).
 
-1. Direct Costs:
-   - Materials: List required materials with quantities and prices
-   - Labor: Types of labor required, work hours, and wages
-   - Equipment: Required equipment, duration, and costs
-   - Subcontractors
+Direct Costs:
+- Materials: with quantities and unit prices
+- Labor: types, hours, wages
+- Equipment: duration, rates
+- Subcontractors
 
-2. Indirect Costs:
-   - Overhead: typically 8-12% of direct costs
-   - Administrative: typically 3-5%
-   - Insurance: typically 2-3%
-   - Contingency: typically 5-10%
+Indirect Costs:
+- Overhead: 8-12%
+- Administrative: 3-5%
+- Insurance: 2-3%
+- Contingency: 5-10%
 
-3. Profit Margin: typically 10-15%
+Profit: 10-15%
 
-Return JSON in the following format (ALL text values must be in ${outputLanguage}):
+=== JSON OUTPUT FORMAT ===
 {
   "cost_analysis": [
     {
@@ -172,38 +188,39 @@ Return JSON in the following format (ALL text values must be in ${outputLanguage
   }
 }
 
-CRITICAL: Return ONLY valid JSON. No explanatory text before or after. ALL text values must be in ${outputLanguage} only.`;
+CRITICAL: Return ONLY valid JSON. NO encoding artifacts. ALL text in ${outputLanguage}.`;
 
-    const userPrompt = `=== PDF DOCUMENT ANALYSIS REQUEST ===
+    const userPrompt = `=== PROFESSIONAL PDF PARSING REQUEST ===
 
-Please analyze this document following these strict steps:
+YOU ARE A MEANING RECOVERY SYSTEM, NOT A TEXT COPIER.
 
-STEP 1: LANGUAGE DETECTION
-- Detect all languages in the content below
-- Do NOT assume language from corrupted characters
-
-STEP 2: TEXT RECOVERY
-- If you see corrupted text (broken letters, symbols like Ø, Ù, Ã, Â, ¿, ½, etc.)
-- Reconstruct the original readable text
-- Arabic UTF-8 often appears as: Ø§Ù„ (which should be Arabic text)
-
-STEP 3: CONTENT EXTRACTION
+DOCUMENT CONTENT (may contain encoding issues):
 ${items.map((item: any, idx: number) => `
-${idx + 1}. ${item.description || item.item_description || 'Item'}
-   - Quantity: ${item.quantity || 1} ${item.unit || 'unit'}
-   ${item.total_price ? `- Price: ${item.total_price} SAR` : ''}
+[ITEM ${idx + 1}]
+Raw Text: ${item.description || item.item_description || 'Unknown'}
+Quantity: ${item.quantity || 1} ${item.unit || 'unit'}
+${item.total_price ? `Price: ${item.total_price} SAR` : ''}
 `).join('\n')}
 
-STEP 4: ANALYSIS REQUIREMENTS
-1. Extract all cost-related information (materials, labor, equipment)
-2. Provide comprehensive cost breakdown for each item
-3. Use Saudi Arabia market prices in SAR
-4. ALL output text must be in ${outputLanguage} only
+=== YOUR TASK ===
 
-STEP 5: OUTPUT
-- Respond with valid JSON only
-- Do NOT include any corrupted or unreadable text
-- Only clean, human-readable content`;
+1. DETECT the original language (Arabic/English) - even from corrupted text
+2. REBUILD meaning from corrupted characters:
+   - If you see Ø, Ù, Ã patterns → This is corrupted Arabic UTF-8
+   - Reconstruct Arabic words from context and patterns
+   - Use construction domain knowledge
+3. DISCARD all unreadable strings completely
+4. NEVER show encoding artifacts in your output
+5. OUTPUT clean, professional analysis in ${outputLanguage}
+
+=== ANALYSIS REQUIREMENTS ===
+- Extract: materials, labor, equipment, costs
+- Use Saudi Arabia market prices (SAR)
+- Provide comprehensive cost breakdown
+- ALL output text must be CLEAN and in ${outputLanguage}
+
+=== OUTPUT ===
+Return ONLY valid JSON with NO corrupted text.`;
 
     let response;
     let providerUsed = ai_provider || 'lovable';
