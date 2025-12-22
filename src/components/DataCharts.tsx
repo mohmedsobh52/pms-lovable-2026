@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, AreaChart, Area } from "recharts";
+import { useState } from "react";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from "recharts";
 import { BarChart3, PieChartIcon, TrendingUp, Sparkles, Loader2, Brain, AreaChartIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/useLanguage";
 
 interface BOQItem {
   item_number: string;
@@ -35,14 +36,14 @@ interface AIInsight {
 }
 
 const CHART_COLORS = [
-  "hsl(var(--primary))",
-  "hsl(var(--accent))",
-  "hsl(var(--success))",
-  "hsl(210, 80%, 60%)",
-  "hsl(280, 70%, 55%)",
-  "hsl(30, 80%, 55%)",
-  "hsl(180, 70%, 50%)",
+  "hsl(16, 85%, 57%)",
+  "hsl(260, 60%, 55%)",
+  "hsl(145, 65%, 42%)",
+  "hsl(210, 85%, 55%)",
+  "hsl(38, 92%, 50%)",
+  "hsl(180, 70%, 45%)",
   "hsl(330, 70%, 55%)",
+  "hsl(280, 70%, 60%)",
 ];
 
 export function DataCharts({ items, summary }: DataChartsProps) {
@@ -50,10 +51,36 @@ export function DataCharts({ items, summary }: DataChartsProps) {
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const { toast } = useToast();
+  const { language, isArabic } = useLanguage();
+
+  const t = {
+    title: isArabic ? "الإحصائيات والرسوم البيانية" : "Statistics & Charts",
+    subtitle: isArabic ? "تحليل مرئي للبيانات" : "Visual data analysis",
+    analyzeBtn: isArabic ? "تحليل بـ Gemini" : "Analyze with Gemini",
+    pieChart: isArabic ? "دائري" : "Pie",
+    barChart: isArabic ? "أعمدة" : "Bar",
+    lineChart: isArabic ? "خطي" : "Line",
+    areaChart: isArabic ? "مساحي" : "Area",
+    categoryDist: isArabic ? "توزيع الفئات" : "Category Distribution",
+    valueByCategory: isArabic ? "القيم حسب الفئة" : "Values by Category",
+    categories: isArabic ? "فئات" : "Categories",
+    itemsLabel: isArabic ? "عناصر" : "Items",
+    totalValue: isArabic ? "إجمالي القيمة" : "Total Value",
+    largestCategory: isArabic ? "أكبر فئة" : "Largest Category",
+    aiInsights: isArabic ? "تحليلات Gemini الذكية" : "Gemini AI Insights",
+    analysisSuccess: isArabic ? "تم التحليل الذكي" : "Analysis Complete",
+    insightsExtracted: isArabic ? "تم استخراج رؤى من البيانات" : "Insights extracted from data",
+    analysisError: isArabic ? "خطأ في التحليل الذكي" : "Analysis Error",
+    errorMsg: isArabic ? "تعذر الحصول على تحليلات Gemini" : "Failed to get Gemini analysis",
+    uncategorized: isArabic ? "غير مصنف" : "Uncategorized",
+    item: isArabic ? "بند" : "Item",
+    count: isArabic ? "العدد" : "Count",
+    value: isArabic ? "القيمة" : "Value",
+  };
 
   // Prepare data for charts
   const categoryData = items.reduce((acc, item) => {
-    const category = item.category || "غير مصنف";
+    const category = item.category || t.uncategorized;
     if (!acc[category]) {
       acc[category] = { name: category, count: 0, value: 0 };
     }
@@ -68,7 +95,7 @@ export function DataCharts({ items, summary }: DataChartsProps) {
   }));
 
   const barData = Object.values(categoryData).map((cat) => ({
-    name: cat.name.length > 15 ? cat.name.slice(0, 15) + "..." : cat.name,
+    name: cat.name.length > 12 ? cat.name.slice(0, 12) + "..." : cat.name,
     fullName: cat.name,
     count: cat.count,
     value: cat.value,
@@ -80,7 +107,7 @@ export function DataCharts({ items, summary }: DataChartsProps) {
     .sort((a, b) => (b.total_price || 0) - (a.total_price || 0))
     .slice(0, 10)
     .map((item, idx) => ({
-      name: `بند ${idx + 1}`,
+      name: `${t.item} ${idx + 1}`,
       value: item.total_price || 0,
       description: item.description.slice(0, 30),
     }));
@@ -93,6 +120,7 @@ export function DataCharts({ items, summary }: DataChartsProps) {
           items, 
           summary,
           categoryData: Object.values(categoryData),
+          language,
         },
       });
 
@@ -101,15 +129,15 @@ export function DataCharts({ items, summary }: DataChartsProps) {
       if (data.insights) {
         setAiInsights(data.insights);
         toast({
-          title: "تم التحليل الذكي",
-          description: `تم استخراج ${data.insights.length} رؤى من البيانات`,
+          title: t.analysisSuccess,
+          description: `${t.insightsExtracted} (${data.insights.length})`,
         });
       }
     } catch (error) {
       console.error("AI insights error:", error);
       toast({
-        title: "خطأ في التحليل الذكي",
-        description: "تعذر الحصول على تحليلات Gemini",
+        title: t.analysisError,
+        description: t.errorMsg,
         variant: "destructive",
       });
     } finally {
@@ -118,24 +146,32 @@ export function DataCharts({ items, summary }: DataChartsProps) {
   };
 
   const chartTabs = [
-    { id: "pie", label: "دائري", icon: <PieChartIcon className="w-4 h-4" /> },
-    { id: "bar", label: "أعمدة", icon: <BarChart3 className="w-4 h-4" /> },
-    { id: "line", label: "خطي", icon: <TrendingUp className="w-4 h-4" /> },
-    { id: "area", label: "مساحي", icon: <AreaChartIcon className="w-4 h-4" /> },
+    { id: "pie", label: t.pieChart, icon: <PieChartIcon className="w-4 h-4" /> },
+    { id: "bar", label: t.barChart, icon: <BarChart3 className="w-4 h-4" /> },
+    { id: "line", label: t.lineChart, icon: <TrendingUp className="w-4 h-4" /> },
+    { id: "area", label: t.areaChart, icon: <AreaChartIcon className="w-4 h-4" /> },
   ] as const;
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const data = payload[0].payload;
       return (
-        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
-          <p className="font-medium text-sm">{payload[0].payload.fullName || label}</p>
-          <p className="text-sm text-muted-foreground">
-            العدد: <span className="text-foreground font-medium">{payload[0].payload.count}</span>
-          </p>
-          {payload[0].payload.value > 0 && (
-            <p className="text-sm text-muted-foreground">
-              القيمة: <span className="text-foreground font-medium">{payload[0].payload.value.toLocaleString()}</span>
+        <div className="bg-popover border border-border rounded-xl p-4 shadow-xl backdrop-blur-sm">
+          <p className="font-semibold text-sm text-foreground mb-2">{data.fullName || data.name || label}</p>
+          {data.count !== undefined && (
+            <p className="text-sm text-muted-foreground flex justify-between gap-4">
+              <span>{t.count}:</span>
+              <span className="text-foreground font-medium">{data.count}</span>
             </p>
+          )}
+          {data.value !== undefined && data.value > 0 && (
+            <p className="text-sm text-muted-foreground flex justify-between gap-4">
+              <span>{t.value}:</span>
+              <span className="text-primary font-bold">{data.value.toLocaleString(isArabic ? 'ar-SA' : 'en-US')}</span>
+            </p>
+          )}
+          {data.description && (
+            <p className="text-xs text-muted-foreground mt-2 border-t border-border pt-2">{data.description}</p>
           )}
         </div>
       );
@@ -144,43 +180,44 @@ export function DataCharts({ items, summary }: DataChartsProps) {
   };
 
   return (
-    <div className="glass-card overflow-hidden animate-slide-up">
-      <div className="border-b border-border p-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-              <BarChart3 className="w-5 h-5 text-primary" />
+    <div className="glass-card overflow-hidden animate-slide-up" dir={isArabic ? "rtl" : "ltr"}>
+      <div className="border-b border-border p-5 bg-gradient-to-r from-primary/5 to-accent/5">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg">
+              <BarChart3 className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="font-display text-lg font-semibold">الإحصائيات والرسوم البيانية</h3>
-              <p className="text-sm text-muted-foreground">تحليل مرئي للبيانات</p>
+              <h3 className="font-display text-xl font-bold">{t.title}</h3>
+              <p className="text-sm text-muted-foreground">{t.subtitle}</p>
             </div>
           </div>
           
           <Button
             onClick={fetchAIInsights}
             disabled={isLoadingInsights}
-            className="gap-2 btn-gradient"
+            className="gap-2 btn-gradient shadow-lg hover:shadow-xl transition-all"
+            size="lg"
           >
             {isLoadingInsights ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
-              <Brain className="w-4 h-4" />
+              <Brain className="w-5 h-5" />
             )}
-            تحليل بـ Gemini
+            {t.analyzeBtn}
           </Button>
         </div>
 
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2 mt-5 flex-wrap">
           {chartTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveChart(tab.id)}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                "flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300",
                 activeChart === tab.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted"
+                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               {tab.icon}
@@ -193,142 +230,186 @@ export function DataCharts({ items, summary }: DataChartsProps) {
       <div className="p-6">
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-muted/30 rounded-xl p-4 min-h-[350px]">
-            <h4 className="font-medium mb-4 text-center">توزيع الفئات</h4>
-            <ResponsiveContainer width="100%" height={300}>
+          <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-5 min-h-[380px] border border-border/50 shadow-sm">
+            <h4 className="font-semibold mb-5 text-center text-lg">{t.categoryDist}</h4>
+            <ResponsiveContainer width="100%" height={320}>
               {activeChart === "pie" ? (
                 <PieChart>
                   <Pie
                     data={pieData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={2}
+                    innerRadius={70}
+                    outerRadius={110}
+                    paddingAngle={3}
                     dataKey="count"
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                    labelLine={false}
+                    animationBegin={0}
+                    animationDuration={800}
                   >
                     {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.fill}
+                        stroke="hsl(var(--background))"
+                        strokeWidth={2}
+                      />
                     ))}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />
                 </PieChart>
               ) : activeChart === "bar" ? (
                 <BarChart data={barData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
+                  <defs>
+                    <linearGradient id="barGradient1" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="hsl(16, 85%, 57%)" />
+                      <stop offset="100%" stopColor="hsl(28, 90%, 60%)" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                   <YAxis 
                     type="category" 
                     dataKey="name" 
-                    width={100}
+                    width={90}
                     stroke="hsl(var(--muted-foreground))"
-                    tick={{ fontSize: 12 }}
+                    tick={{ fontSize: 11 }}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                  <Bar 
+                    dataKey="count" 
+                    fill="url(#barGradient1)" 
+                    radius={[0, 8, 8, 0]}
+                    animationDuration={600}
+                  />
                 </BarChart>
               ) : activeChart === "line" ? (
                 <LineChart data={topItemsData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip />
+                  <defs>
+                    <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(16, 85%, 57%)" stopOpacity={0.8}/>
+                      <stop offset="100%" stopColor="hsl(16, 85%, 57%)" stopOpacity={0.1}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                  <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                  <Tooltip content={<CustomTooltip />} />
                   <Line 
                     type="monotone" 
                     dataKey="value" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                    dot={{ fill: "hsl(var(--primary))", r: 4 }}
+                    stroke="hsl(16, 85%, 57%)" 
+                    strokeWidth={3}
+                    dot={{ fill: "hsl(16, 85%, 57%)", r: 5, strokeWidth: 2, stroke: "white" }}
+                    activeDot={{ r: 8, stroke: "hsl(16, 85%, 57%)", strokeWidth: 2, fill: "white" }}
+                    animationDuration={800}
                   />
                 </LineChart>
               ) : (
                 <AreaChart data={topItemsData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip />
+                  <defs>
+                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(16, 85%, 57%)" stopOpacity={0.6}/>
+                      <stop offset="100%" stopColor="hsl(16, 85%, 57%)" stopOpacity={0.05}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                  <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                  <Tooltip content={<CustomTooltip />} />
                   <Area 
                     type="monotone" 
                     dataKey="value" 
-                    stroke="hsl(var(--primary))" 
-                    fill="hsl(var(--primary) / 0.2)"
-                    strokeWidth={2}
+                    stroke="hsl(16, 85%, 57%)" 
+                    fill="url(#areaGradient)"
+                    strokeWidth={3}
+                    animationDuration={800}
                   />
                 </AreaChart>
               )}
             </ResponsiveContainer>
           </div>
 
-          <div className="bg-muted/30 rounded-xl p-4 min-h-[350px]">
-            <h4 className="font-medium mb-4 text-center">القيم حسب الفئة</h4>
-            <ResponsiveContainer width="100%" height={300}>
+          <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-5 min-h-[380px] border border-border/50 shadow-sm">
+            <h4 className="font-semibold mb-5 text-center text-lg">{t.valueByCategory}</h4>
+            <ResponsiveContainer width="100%" height={320}>
               <BarChart data={barData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <defs>
+                  <linearGradient id="barGradient2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(260, 60%, 55%)" />
+                    <stop offset="100%" stopColor="hsl(280, 70%, 60%)" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
                 <XAxis 
                   dataKey="name" 
                   stroke="hsl(var(--muted-foreground))"
                   tick={{ fontSize: 10 }}
-                  angle={-45}
+                  angle={-35}
                   textAnchor="end"
-                  height={80}
+                  height={70}
                 />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="value" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
+                <Bar 
+                  dataKey="value" 
+                  fill="url(#barGradient2)" 
+                  radius={[8, 8, 0, 0]}
+                  animationDuration={600}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-          <div className="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 text-center">
-            <p className="text-2xl font-bold text-primary">{pieData.length}</p>
-            <p className="text-sm text-muted-foreground">فئات</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20 text-center transition-all hover:scale-105 hover:shadow-lg hover:shadow-primary/20">
+            <p className="text-3xl font-bold text-primary">{pieData.length}</p>
+            <p className="text-sm text-muted-foreground mt-1">{t.categories}</p>
           </div>
-          <div className="p-4 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 text-center">
-            <p className="text-2xl font-bold text-accent">{items.length}</p>
-            <p className="text-sm text-muted-foreground">عناصر</p>
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-accent/15 to-accent/5 border border-accent/20 text-center transition-all hover:scale-105 hover:shadow-lg hover:shadow-accent/20">
+            <p className="text-3xl font-bold text-accent">{items.length}</p>
+            <p className="text-sm text-muted-foreground mt-1">{t.itemsLabel}</p>
           </div>
-          <div className="p-4 rounded-xl bg-gradient-to-br from-success/10 to-success/5 border border-success/20 text-center">
-            <p className="text-2xl font-bold text-success">
-              {summary?.total_value?.toLocaleString() || "N/A"}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-success/15 to-success/5 border border-success/20 text-center transition-all hover:scale-105 hover:shadow-lg hover:shadow-success/20">
+            <p className="text-3xl font-bold text-success">
+              {summary?.total_value?.toLocaleString(isArabic ? 'ar-SA' : 'en-US') || "N/A"}
             </p>
-            <p className="text-sm text-muted-foreground">إجمالي القيمة</p>
+            <p className="text-sm text-muted-foreground mt-1">{t.totalValue}</p>
           </div>
-          <div className="p-4 rounded-xl bg-gradient-to-br from-warning/10 to-warning/5 border border-warning/20 text-center">
-            <p className="text-2xl font-bold text-warning">
-              {Math.max(...Object.values(categoryData).map(c => c.count))}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-warning/15 to-warning/5 border border-warning/20 text-center transition-all hover:scale-105 hover:shadow-lg hover:shadow-warning/20">
+            <p className="text-3xl font-bold text-warning">
+              {Math.max(...Object.values(categoryData).map(c => c.count), 0)}
             </p>
-            <p className="text-sm text-muted-foreground">أكبر فئة</p>
+            <p className="text-sm text-muted-foreground mt-1">{t.largestCategory}</p>
           </div>
         </div>
 
         {/* AI Insights */}
         {aiInsights.length > 0 && (
-          <div className="mt-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-5 h-5 text-primary" />
-              <h4 className="font-display font-semibold">تحليلات Gemini الذكية</h4>
+          <div className="mt-8">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <h4 className="font-display font-bold text-lg">{t.aiInsights}</h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {aiInsights.map((insight, idx) => (
                 <div
                   key={idx}
                   className={cn(
-                    "p-4 rounded-xl border",
-                    insight.type === "success" && "bg-success/5 border-success/20",
-                    insight.type === "warning" && "bg-warning/5 border-warning/20",
-                    insight.type === "info" && "bg-primary/5 border-primary/20"
+                    "p-5 rounded-2xl border-2 transition-all hover:scale-[1.02]",
+                    insight.type === "success" && "bg-success/5 border-success/30 hover:shadow-lg hover:shadow-success/10",
+                    insight.type === "warning" && "bg-warning/5 border-warning/30 hover:shadow-lg hover:shadow-warning/10",
+                    insight.type === "info" && "bg-primary/5 border-primary/30 hover:shadow-lg hover:shadow-primary/10"
                   )}
                 >
-                  <h5 className="font-medium mb-1">{insight.title}</h5>
-                  <p className="text-sm text-muted-foreground">{insight.description}</p>
+                  <h5 className="font-semibold mb-2 text-foreground">{insight.title}</h5>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{insight.description}</p>
                   {insight.recommendation && (
-                    <p className="text-sm mt-2 font-medium text-primary">
-                      💡 {insight.recommendation}
+                    <p className="text-sm mt-3 font-medium text-primary flex items-center gap-2">
+                      <span className="text-lg">💡</span> {insight.recommendation}
                     </p>
                   )}
                 </div>
