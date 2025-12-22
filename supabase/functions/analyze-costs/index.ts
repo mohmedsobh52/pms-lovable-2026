@@ -33,13 +33,15 @@ interface CostBreakdown {
   recommendations: string[];
 }
 
+const MAX_RETRIES = 2;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { items, ai_provider, analysis_type, language = 'en' } = await req.json();
+    const { items, ai_provider, analysis_type, language = 'ar' } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
@@ -217,100 +219,177 @@ Respond with valid JSON only.`;
       }
     }
 
-    // Fallback to Lovable AI
+    // Fallback to Lovable AI with retry logic
     if (!response || !response.ok) {
       if (!LOVABLE_API_KEY) {
         throw new Error("No AI API keys configured");
       }
 
       console.log("Using Lovable AI (Gemini Flash with tool calling for reliable output)...");
-      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          temperature: 0.1,
-          tools: [{
-            type: "function",
-            function: {
-              name: "provide_cost_analysis",
-              description: "Provide detailed cost breakdown analysis for construction items",
-              parameters: {
-                type: "object",
-                properties: {
-                  cost_analysis: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        item_description: { type: "string" },
-                        materials: {
+      
+      let lastError: Error | null = null;
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          if (attempt > 0) {
+            console.log(`Retry attempt ${attempt}/${MAX_RETRIES}...`);
+          }
+          
+          response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+              ],
+              temperature: 0.05,
+              max_tokens: 20000,
+              tools: [{
+                type: "function",
+                function: {
+                  name: "provide_cost_analysis",
+                  description: `Provide detailed cost breakdown analysis for construction items. ALL text must be in ${outputLanguage}.`,
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      cost_analysis: {
+                        type: "array",
+                        items: {
                           type: "object",
                           properties: {
-                            items: { type: "array", items: { type: "object" } },
-                            total: { type: "number" }
-                          }
-                        },
-                        labor: {
-                          type: "object",
-                          properties: {
-                            items: { type: "array", items: { type: "object" } },
-                            total: { type: "number" }
-                          }
-                        },
-                        equipment: {
-                          type: "object",
-                          properties: {
-                            items: { type: "array", items: { type: "object" } },
-                            total: { type: "number" }
-                          }
-                        },
-                        subcontractor: { type: "number" },
-                        overhead: { type: "number" },
-                        admin: { type: "number" },
-                        insurance: { type: "number" },
-                        contingency: { type: "number" },
-                        profit_margin: { type: "number" },
-                        profit_amount: { type: "number" },
-                        total_direct_cost: { type: "number" },
-                        total_indirect_cost: { type: "number" },
-                        total_cost: { type: "number" }
+                            item_description: { type: "string", description: `Item description in ${outputLanguage}` },
+                            materials: {
+                              type: "object",
+                              properties: {
+                                items: { 
+                                  type: "array", 
+                                  items: { 
+                                    type: "object",
+                                    properties: {
+                                      name: { type: "string", description: `Material name in ${outputLanguage}` },
+                                      quantity: { type: "number" },
+                                      unit: { type: "string" },
+                                      unit_price: { type: "number" },
+                                      total: { type: "number" }
+                                    }
+                                  } 
+                                },
+                                total: { type: "number" }
+                              }
+                            },
+                            labor: {
+                              type: "object",
+                              properties: {
+                                items: { 
+                                  type: "array", 
+                                  items: { 
+                                    type: "object",
+                                    properties: {
+                                      role: { type: "string", description: `Labor role in ${outputLanguage}` },
+                                      hours: { type: "number" },
+                                      hourly_rate: { type: "number" },
+                                      total: { type: "number" }
+                                    }
+                                  } 
+                                },
+                                total: { type: "number" }
+                              }
+                            },
+                            equipment: {
+                              type: "object",
+                              properties: {
+                                items: { 
+                                  type: "array", 
+                                  items: { 
+                                    type: "object",
+                                    properties: {
+                                      name: { type: "string", description: `Equipment name in ${outputLanguage}` },
+                                      duration: { type: "string", description: `Duration in ${outputLanguage}` },
+                                      daily_rate: { type: "number" },
+                                      total: { type: "number" }
+                                    }
+                                  } 
+                                },
+                                total: { type: "number" }
+                              }
+                            },
+                            subcontractor: { type: "number" },
+                            overhead: { type: "number" },
+                            admin: { type: "number" },
+                            insurance: { type: "number" },
+                            contingency: { type: "number" },
+                            profit_margin: { type: "number" },
+                            profit_amount: { type: "number" },
+                            total_direct: { type: "number" },
+                            total_indirect: { type: "number" },
+                            total_cost: { type: "number" },
+                            unit_price: { type: "number" },
+                            recommendations: { 
+                              type: "array", 
+                              items: { type: "string", description: `Recommendation in ${outputLanguage}` }
+                            }
+                          },
+                          required: ["item_description", "total_cost", "materials", "labor", "equipment"]
+                        }
                       },
-                      required: ["item_description", "total_cost"]
-                    }
+                      summary: {
+                        type: "object",
+                        properties: {
+                          total_materials: { type: "number" },
+                          total_labor: { type: "number" },
+                          total_equipment: { type: "number" },
+                          total_subcontractor: { type: "number" },
+                          total_direct_costs: { type: "number" },
+                          total_indirect_costs: { type: "number" },
+                          total_profit: { type: "number" },
+                          grand_total: { type: "number" },
+                          key_insights: { 
+                            type: "array", 
+                            items: { type: "string", description: `Insight in ${outputLanguage}` }
+                          }
+                        }
+                      }
+                    },
+                    required: ["cost_analysis", "summary"]
                   }
-                },
-                required: ["cost_analysis"]
-              }
-            }
-          }],
-          tool_choice: { type: "function", function: { name: "provide_cost_analysis" } }
-        }),
-      });
+                }
+              }],
+              tool_choice: { type: "function", function: { name: "provide_cost_analysis" } }
+            }),
+          });
+
+          if (response.ok) {
+            break;
+          }
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+          console.error(`Attempt ${attempt} failed:`, lastError.message);
+          if (attempt === MAX_RETRIES) {
+            throw lastError;
+          }
+        }
+      }
       providerUsed = 'lovable';
     }
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    if (!response || !response.ok) {
+      if (response?.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
+      if (response?.status === 402) {
         return new Response(
           JSON.stringify({ error: "AI credits exhausted. Please add credits." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      throw new Error(`AI API error: ${response.status}`);
+      throw new Error(`AI API error: ${response?.status || 'No response'}`);
     }
 
     const data = await response.json();
