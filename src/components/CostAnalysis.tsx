@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 
 interface BOQItem {
@@ -75,6 +76,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
   const [editingItem, setEditingItem] = useState<number | null>(null);
   const [aiProvider, setAiProvider] = useState<'lovable' | 'openai' | 'genspark' | 'manus' | 'all'>('all');
   const { toast } = useToast();
+  const { language } = useLanguage();
 
   // Initialize editedResult when analysisResult changes
   useEffect(() => {
@@ -99,7 +101,8 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
         body: { 
           items: items.slice(0, 10),
           ai_provider: aiProvider,
-          analysis_type: "detailed"
+          analysis_type: "detailed",
+          language
         },
       });
 

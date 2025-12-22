@@ -1,6 +1,8 @@
 import { useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale } from "lucide-react";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { useLanguage } from "@/hooks/useLanguage";
 import { FileUpload } from "@/components/FileUpload";
 import { WorkflowStatus, defaultWorkflowSteps, type WorkflowStep, type StepStatus } from "@/components/WorkflowStatus";
 import { AnalysisResults } from "@/components/AnalysisResults";
@@ -20,6 +22,7 @@ import { extractTextFromPDF, validateExtractedText } from "@/lib/pdf-utils";
 const Index = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading, signOut } = useAuth();
+  const { language, isArabic } = useLanguage();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedText, setExtractedText] = useState<string>("");
@@ -146,7 +149,7 @@ const Index = () => {
     try {
       // Extract items analysis
       const { data: itemsResult, error: itemsError } = await supabase.functions.invoke("analyze-boq", {
-        body: { text: textToAnalyze, analysis_type: "extract_items" },
+        body: { text: textToAnalyze, analysis_type: "extract_items", language },
       });
 
       if (itemsError) throw itemsError;
@@ -167,7 +170,7 @@ const Index = () => {
       updateStepStatus("wbs", "processing");
       
       const { data: wbsResult, error: wbsError } = await supabase.functions.invoke("analyze-boq", {
-        body: { text: textToAnalyze, analysis_type: "create_wbs" },
+        body: { text: textToAnalyze, analysis_type: "create_wbs", language },
       });
 
       if (wbsError) throw wbsError;
@@ -215,6 +218,7 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <LanguageToggle />
               {authLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : user ? (
@@ -229,14 +233,14 @@ const Index = () => {
                     className="gap-2"
                   >
                     <LogOut className="w-4 h-4" />
-                    <span className="hidden sm:inline">خروج</span>
+                    <span className="hidden sm:inline">{isArabic ? 'خروج' : 'Sign Out'}</span>
                   </Button>
                 </>
               ) : (
                 <Link to="/auth">
                   <Button variant="outline" size="sm" className="gap-2">
                     <LogIn className="w-4 h-4" />
-                    تسجيل الدخول
+                    {isArabic ? 'تسجيل الدخول' : 'Sign In'}
                   </Button>
                 </Link>
               )}
