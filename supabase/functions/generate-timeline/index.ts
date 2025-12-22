@@ -21,6 +21,20 @@ interface P6Request {
   totalContractValue?: number;
   currency?: string;
   workingDaysPerWeek?: number;
+  generateCashFlow?: boolean;
+  cashFlowPeriod?: "weekly" | "monthly";
+}
+
+interface CashFlowPeriod {
+  period: string;
+  period_number: number;
+  start_day: number;
+  end_day: number;
+  planned_cost: number;
+  cumulative_cost: number;
+  cost_percent: number;
+  cumulative_percent: number;
+  major_cost_drivers: string[];
 }
 
 serve(async (req) => {
@@ -35,7 +49,9 @@ serve(async (req) => {
       projectType = "Construction",
       totalContractValue = 0,
       currency = "SAR",
-      workingDaysPerWeek = 6
+      workingDaysPerWeek = 6,
+      generateCashFlow = false,
+      cashFlowPeriod = "monthly"
     }: P6Request = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -45,8 +61,9 @@ serve(async (req) => {
 
     console.log("Generating Primavera P6 timeline for", wbsData.length, "WBS items");
     console.log("Project:", projectName, "| Type:", projectType, "| TCV:", totalContractValue, currency);
+    console.log("Cash Flow:", generateCashFlow ? `Yes (${cashFlowPeriod})` : "No");
 
-    const systemPrompt = `You are a Primavera P6 Planning & Cost Control Expert.
+    const systemPrompt = `You are a Project Cost Control Engineer and Primavera P6 Planning Expert.
 
 Your role is to convert project schedules into Primavera P6-ready structures following industry best practices.
 
@@ -208,8 +225,20 @@ Requirements:
       if (jsonMatch) {
         result = JSON.parse(jsonMatch[0]);
       } else {
-        result = { timeline: generateFallbackTimeline(wbsData) };
+        result = { timeline: generateFallbackTimeline(wbsData, totalContractValue) };
       }
+    }
+
+    // Generate Cash Flow if requested
+    if (generateCashFlow && result.activities) {
+      const cashFlow = generateCashFlowFromActivities(
+        result.activities, 
+        totalContractValue, 
+        cashFlowPeriod, 
+        workingDaysPerWeek,
+        currency
+      );
+      result.cash_flow = cashFlow;
     }
 
     return new Response(
@@ -301,5 +330,125 @@ function generateFallbackTimeline(wbsData: WBSItem[], totalContractValue: number
     },
     timeline: activities,
     notes: "Fallback timeline generated with estimated durations and cost distribution"
+  };
+}
+
+function generateCashFlowFromActivities(
+  activities: any[], 
+  totalContractValue: number, 
+  period: "weekly" | "monthly",
+  workingDaysPerWeek: number,
+  currency: string
+) {
+  if (!activities || activities.length === 0) {
+    return { periods: [], summary: {} };
+  }
+
+  // Calculate total project duration
+  let maxEndDay = 0;
+  activities.forEach(activity => {
+    const startDay = activity.startDay || 0;
+    const duration = activity.duration_days || 0;
+    const endDay = startDay + duration;
+    if (endDay > maxEndDay) maxEndDay = endDay;
+  });
+
+  // Determine period length in days
+  const daysPerPeriod = period === "weekly" ? workingDaysPerWeek : workingDaysPerWeek * 4;
+  const totalPeriods = Math.ceil(maxEndDay / daysPerPeriod) || 1;
+
+  // Initialize periods
+  const periods: CashFlowPeriod[] = [];
+  let cumulativeCost = 0;
+
+  for (let i = 0; i < totalPeriods; i++) {
+    const periodStartDay = i * daysPerPeriod;
+    const periodEndDay = (i + 1) * daysPerPeriod;
+    let periodCost = 0;
+    const costDrivers: { name: string; cost: number }[] = [];
+
+    // Calculate cost for each activity in this period (linear distribution)
+    activities.forEach(activity => {
+      const activityStart = activity.startDay || 0;
+      const activityDuration = activity.duration_days || 1;
+      const activityEnd = activityStart + activityDuration;
+      const activityCost = activity.planned_cost || 0;
+
+      // Check if activity overlaps with this period
+      if (activityEnd > periodStartDay && activityStart < periodEndDay) {
+        // Calculate overlap days
+        const overlapStart = Math.max(activityStart, periodStartDay);
+        const overlapEnd = Math.min(activityEnd, periodEndDay);
+        const overlapDays = overlapEnd - overlapStart;
+
+        // Linear cost distribution
+        const dailyCost = activityCost / activityDuration;
+        const costInPeriod = dailyCost * overlapDays;
+        periodCost += costInPeriod;
+
+        if (costInPeriod > 0) {
+          costDrivers.push({
+            name: activity.activity_name || activity.wbs_code,
+            cost: costInPeriod
+          });
+        }
+      }
+    });
+
+    cumulativeCost += periodCost;
+
+    // Sort cost drivers by cost and take top 5
+    const topDrivers = costDrivers
+      .sort((a, b) => b.cost - a.cost)
+      .slice(0, 5)
+      .map(d => `${d.name}: ${d.cost.toLocaleString()} ${currency}`);
+
+    const periodLabel = period === "weekly" 
+      ? `Week ${i + 1}` 
+      : `Month ${i + 1}`;
+
+    periods.push({
+      period: periodLabel,
+      period_number: i + 1,
+      start_day: periodStartDay,
+      end_day: periodEndDay,
+      planned_cost: Math.round(periodCost),
+      cumulative_cost: Math.round(cumulativeCost),
+      cost_percent: totalContractValue > 0 ? Number(((periodCost / totalContractValue) * 100).toFixed(2)) : 0,
+      cumulative_percent: totalContractValue > 0 ? Number(((cumulativeCost / totalContractValue) * 100).toFixed(2)) : 0,
+      major_cost_drivers: topDrivers
+    });
+  }
+
+  // Calculate S-curve data points
+  const sCurveData = periods.map(p => ({
+    period: p.period,
+    planned_cumulative: p.cumulative_cost,
+    planned_percent: p.cumulative_percent
+  }));
+
+  // Find peak spending periods
+  const sortedBySpending = [...periods].sort((a, b) => b.planned_cost - a.planned_cost);
+  const peakPeriods = sortedBySpending.slice(0, 3).map(p => ({
+    period: p.period,
+    cost: p.planned_cost,
+    percent: p.cost_percent
+  }));
+
+  return {
+    period_type: period,
+    total_periods: totalPeriods,
+    total_contract_value: totalContractValue,
+    currency: currency,
+    periods: periods,
+    s_curve: sCurveData,
+    peak_spending_periods: peakPeriods,
+    summary: {
+      average_period_cost: Math.round(totalContractValue / totalPeriods),
+      max_period_cost: Math.max(...periods.map(p => p.planned_cost)),
+      min_period_cost: Math.min(...periods.map(p => p.planned_cost)),
+      project_duration_days: maxEndDay,
+      working_days_per_week: workingDaysPerWeek
+    }
   };
 }
