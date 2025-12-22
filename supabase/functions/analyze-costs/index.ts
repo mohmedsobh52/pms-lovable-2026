@@ -39,30 +39,33 @@ serve(async (req) => {
   }
 
   try {
-    const { items, ai_provider, analysis_type } = await req.json();
+    const { items, ai_provider, analysis_type, language = 'en' } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     const GENSPARK_API_KEY = Deno.env.get("GENSPARK_API_KEY");
     const MANUS_API_KEY = Deno.env.get("MANUS_API_KEY");
 
+    const isArabic = language === 'ar';
+    const outputLanguage = isArabic ? 'Arabic' : 'English';
+
     if (!items || !Array.isArray(items) || items.length === 0) {
       return new Response(
-        JSON.stringify({ error: "يجب توفير قائمة البنود للتحليل" }),
+        JSON.stringify({ error: isArabic ? "يجب توفير قائمة البنود للتحليل" : "Please provide a list of items to analyze" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Analyzing costs for ${items.length} items using ${ai_provider}...`);
+    console.log(`Analyzing costs for ${items.length} items using ${ai_provider} in ${outputLanguage}...`);
 
     const systemPrompt = `You are an expert construction cost analyst. Analyze the provided items and provide a comprehensive cost breakdown.
 
 IMPORTANT INSTRUCTIONS:
-1. You will receive text that may be in Arabic - read and understand it carefully
+1. You will receive text that may be in Arabic or English - read and understand it carefully
 2. Extract quantities, units, and descriptions accurately
 3. Use market prices from Saudi Arabia/Gulf region
 4. Calculate ALL costs in Saudi Riyals (SAR)
-5. ALL output text must be in ENGLISH - translate Arabic descriptions
+5. ALL output text (descriptions, recommendations, insights) must be in ${outputLanguage}
 
 The analysis should include:
 
@@ -84,17 +87,17 @@ Return JSON in the following format:
 {
   "cost_analysis": [
     {
-      "item_description": "Item Description in English",
+      "item_description": "Item Description in ${outputLanguage}",
       "materials": {
-        "items": [{"name": "Material Name", "quantity": 100, "unit": "m³", "unit_price": 500, "total": 50000}],
+        "items": [{"name": "${isArabic ? 'اسم المادة' : 'Material Name'}", "quantity": 100, "unit": "m³", "unit_price": 500, "total": 50000}],
         "total": 50000
       },
       "labor": {
-        "items": [{"role": "Carpenter", "hours": 40, "hourly_rate": 50, "total": 2000}],
+        "items": [{"role": "${isArabic ? 'نجار' : 'Carpenter'}", "hours": 40, "hourly_rate": 50, "total": 2000}],
         "total": 2000
       },
       "equipment": {
-        "items": [{"name": "Crane", "duration": "5 days", "daily_rate": 1000, "total": 5000}],
+        "items": [{"name": "${isArabic ? 'رافعة' : 'Crane'}", "duration": "${isArabic ? '5 أيام' : '5 days'}", "daily_rate": 1000, "total": 5000}],
         "total": 5000
       },
       "subcontractor": 0,
@@ -108,7 +111,7 @@ Return JSON in the following format:
       "total_indirect": 13110,
       "total_cost": 77121,
       "unit_price": 771.21,
-      "recommendations": ["Recommendation 1", "Recommendation 2"]
+      "recommendations": ["${isArabic ? 'توصية' : 'Recommendation'} 1", "${isArabic ? 'توصية' : 'Recommendation'} 2"]
     }
   ],
   "summary": {
@@ -120,12 +123,12 @@ Return JSON in the following format:
     "total_indirect_costs": 0,
     "total_profit": 0,
     "grand_total": 0,
-    "key_insights": ["Insight 1", "Insight 2"]
+    "key_insights": ["${isArabic ? 'ملاحظة' : 'Insight'} 1", "${isArabic ? 'ملاحظة' : 'Insight'} 2"]
   }
 }
 
 Use current market prices from Saudi Arabia/Gulf region. All costs in SAR.
-CRITICAL: Return ONLY valid JSON. No explanatory text before or after.`;
+CRITICAL: Return ONLY valid JSON. No explanatory text before or after. All text must be in ${outputLanguage}.`;
 
     const userPrompt = `Analyze detailed costs for the following construction items:
 
@@ -135,7 +138,7 @@ ${idx + 1}. Description: ${item.description || item.item_description}
    ${item.total_price ? `- Proposed Total Price: ${item.total_price} SAR` : ''}
 `).join('\n')}
 
-Provide comprehensive cost breakdown for each item. ALL text in response must be in ENGLISH.
+Provide comprehensive cost breakdown for each item. ALL text in response must be in ${outputLanguage}.
 Respond with valid JSON only.`;
 
     let response;

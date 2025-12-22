@@ -38,19 +38,22 @@ serve(async (req) => {
   }
 
   try {
-    const { text, analysis_type } = await req.json();
+    const { text, analysis_type, language = 'en' } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    const isArabic = language === 'ar';
+    const outputLanguage = isArabic ? 'Arabic' : 'English';
+
     // Validate that text is readable
     if (!text || typeof text !== "string" || text.length < 10) {
       return new Response(
         JSON.stringify({ 
-          error: "النص المُدخل قصير جداً أو غير صالح",
-          suggestion: "يرجى إدخال نص BOQ يدوياً أو استخدام ملف PDF يحتوي على نص قابل للتحديد"
+          error: isArabic ? "النص المُدخل قصير جداً أو غير صالح" : "Input text is too short or invalid",
+          suggestion: isArabic ? "يرجى إدخال نص BOQ يدوياً أو استخدام ملف PDF يحتوي على نص قابل للتحديد" : "Please enter BOQ text manually or use a PDF with selectable text"
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -64,30 +67,31 @@ serve(async (req) => {
       console.log(`Text appears to be binary data. Invalid char ratio: ${invalidRatio}`);
       return new Response(
         JSON.stringify({ 
-          error: "لا يمكن قراءة محتوى الملف",
-          suggestion: "يبدو أن ملف PDF يحتوي على صور أو نص غير قابل للتحديد. يرجى إدخال النص يدوياً."
+          error: isArabic ? "لا يمكن قراءة محتوى الملف" : "Cannot read file content",
+          suggestion: isArabic ? "يبدو أن ملف PDF يحتوي على صور أو نص غير قابل للتحديد. يرجى إدخال النص يدوياً." : "The PDF appears to contain images or non-selectable text. Please enter text manually."
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Starting ${analysis_type} analysis with ${text.length} characters...`);
+    console.log(`Starting ${analysis_type} analysis with ${text.length} characters in ${outputLanguage}...`);
 
     let systemPrompt = "";
     let userPrompt = "";
 
     switch (analysis_type) {
       case "extract_items":
-        systemPrompt = `You are a BOQ (Bill of Quantities) expert specialized in construction cost estimation. 
+        systemPrompt = `You are a BOQ (Bill of Quantities) expert specialized in construction cost estimation.
 CRITICAL: You MUST extract ALL pricing information including unit prices and total prices.
+IMPORTANT: ALL output text (descriptions, categories, notes) must be in ${outputLanguage}.
 
 Analyze the document carefully to find:
 1. Item numbers/codes
-2. Descriptions (in Arabic or English)
-3. Units (م، م²، م³، كجم، عدد، طن، etc.)
+2. Descriptions (translate to ${outputLanguage} if needed)
+3. Units (${isArabic ? 'م، م²، م³، كجم، عدد، طن' : 'm, m², m³, kg, pcs, ton'}, etc.)
 4. Quantities (numbers)
-5. Unit prices (سعر الوحدة)
-6. Total prices (الإجمالي = quantity × unit_price)
+5. Unit prices
+6. Total prices (total = quantity × unit_price)
 7. Categories (group similar items)
 
 Return ONLY a valid JSON object with this structure:
@@ -96,35 +100,37 @@ Return ONLY a valid JSON object with this structure:
   "items": [
     {
       "item_number": "string",
-      "description": "string (keep original Arabic if present)",
+      "description": "string (in ${outputLanguage})",
       "unit": "string",
       "quantity": number,
       "unit_price": number (REQUIRED - estimate if not explicitly stated based on typical construction costs),
       "total_price": number (REQUIRED - calculate as quantity × unit_price),
-      "category": "string (e.g., أعمال الحفر, الخرسانة, الكهرباء, السباكة, التشطيبات)",
-      "notes": "string or null"
+      "category": "string (in ${outputLanguage}, e.g., ${isArabic ? 'أعمال الحفر, الخرسانة, الكهرباء, السباكة, التشطيبات' : 'Excavation, Concrete, Electrical, Plumbing, Finishes'})",
+      "notes": "string or null (in ${outputLanguage})"
     }
   ],
   "summary": {
     "total_items": number,
     "total_value": number (REQUIRED - sum of all total_prices),
-    "categories": ["array of unique category names"],
-    "currency": "ر.س" (or detect from document),
+    "categories": ["array of unique category names in ${outputLanguage}"],
+    "currency": "${isArabic ? 'ر.س' : 'SAR'}" (or detect from document),
     "average_item_value": number (total_value / total_items)
   }
 }
 
 IMPORTANT RULES:
+- ALL text output must be in ${outputLanguage}
 - If prices are not explicitly stated, make reasonable estimates based on typical Saudi/Gulf construction costs
 - Always calculate total_price = quantity × unit_price
 - Always provide total_value in summary
 - Group items into logical categories
 - Return ONLY valid JSON, no markdown or explanation`;
-        userPrompt = `Extract ALL BOQ items with PRICES from this construction document. Look for quantities, rates, and totals:\n\n${text.slice(0, 20000)}`;
+        userPrompt = `Extract ALL BOQ items with PRICES from this construction document. Output all text in ${outputLanguage}. Look for quantities, rates, and totals:\n\n${text.slice(0, 20000)}`;
         break;
 
       case "create_wbs":
         systemPrompt = `You are a project management expert specializing in Work Breakdown Structure (WBS) creation.
+IMPORTANT: ALL output text (titles, descriptions) must be in ${outputLanguage}.
 Analyze the BOQ text and create a hierarchical WBS structure.
 Return ONLY a valid JSON object (no markdown, no code blocks, no explanation) with this structure:
 {
@@ -132,15 +138,15 @@ Return ONLY a valid JSON object (no markdown, no code blocks, no explanation) wi
   "wbs": [
     {
       "code": "string (e.g., 1, 1.1, 1.1.1)",
-      "title": "string",
+      "title": "string (in ${outputLanguage})",
       "level": number (1, 2, or 3),
       "parent_code": "string or null",
       "items": ["array of related item numbers"]
     }
   ]
 }
-Create a logical hierarchy grouping related work items together. Return ONLY valid JSON.`;
-        userPrompt = `Create a WBS structure from this BOQ:\n\n${text.slice(0, 15000)}`;
+Create a logical hierarchy grouping related work items together. All titles must be in ${outputLanguage}. Return ONLY valid JSON.`;
+        userPrompt = `Create a WBS structure from this BOQ. Output all text in ${outputLanguage}:\n\n${text.slice(0, 15000)}`;
         break;
 
       default:
