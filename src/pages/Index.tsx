@@ -189,12 +189,27 @@ const Index = () => {
         description: `تم إنشاء ${wbsResult.wbs?.length || 0} عنصر في الهيكل`,
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Analysis error:", error);
       updateStepStatus("analyze", "error");
+      
+      // Check for specific error types
+      let errorTitle = "خطأ في التحليل";
+      let errorDescription = "حدث خطأ أثناء تحليل الملف";
+      
+      if (error?.message?.includes("AI credits exhausted") || error?.message?.includes("Payment required")) {
+        errorTitle = "نفدت رصيد الذكاء الاصطناعي";
+        errorDescription = "يرجى إضافة رصيد للمتابعة. انتقل إلى الإعدادات ← الخطط والرصيد";
+      } else if (error?.message?.includes("Rate limits exceeded")) {
+        errorTitle = "تم تجاوز حد الطلبات";
+        errorDescription = "يرجى المحاولة مرة أخرى بعد قليل";
+      } else if (error instanceof Error) {
+        errorDescription = error.message;
+      }
+      
       toast({
-        title: "خطأ في التحليل",
-        description: error instanceof Error ? error.message : "حدث خطأ أثناء تحليل الملف",
+        title: errorTitle,
+        description: errorDescription,
         variant: "destructive",
       });
     } finally {

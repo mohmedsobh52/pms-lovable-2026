@@ -263,6 +263,13 @@ Requirements:
         );
       }
       
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "AI credits exhausted. Please add credits." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       throw new Error(`Gemini API error: ${response.status}`);
     }
 
