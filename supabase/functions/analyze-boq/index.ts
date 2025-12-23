@@ -562,7 +562,7 @@ Use the submit_boq_analysis function to return your structured analysis.`;
         { role: "user", content: userPrompt },
       ],
       tools: [boqAnalysisTool],
-      tool_choice: "auto"
+      tool_choice: { type: "function", function: { name: "submit_boq_analysis" } }
     };
 
     console.log("Request body prepared, sending to AI Gateway...");
