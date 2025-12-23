@@ -156,9 +156,12 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     setIsUploading(true);
 
     try {
-      // Upload to storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}_${file.name}`;
+      // Upload to storage with safe file name (ASCII only)
+      const fileExt = file.name.split('.').pop() || 'pdf';
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const safeFileName = `quotation_${timestamp}_${randomId}.${fileExt}`;
+      const fileName = `${user.id}/${safeFileName}`;
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('quotations')
