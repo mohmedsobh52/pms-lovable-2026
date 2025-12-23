@@ -150,7 +150,7 @@ const Index = () => {
     } finally {
       setIsExtracting(false);
     }
-  }, [toast]);
+  }, [toast, t]);
 
   const handleClearFile = () => {
     setSelectedFile(null);
@@ -394,8 +394,8 @@ const Index = () => {
                       <div className="flex items-center gap-4">
                         <Loader2 className="w-8 h-8 text-primary animate-spin" />
                         <div>
-                          <h3 className="font-display font-semibold">جاري استخراج النص...</h3>
-                          <p className="text-sm text-muted-foreground">يتم تحليل محتوى ملف PDF</p>
+                          <h3 className="font-display font-semibold">{t('extractingText')}</h3>
+                          <p className="text-sm text-muted-foreground">{t('analyzingPDFContent')}</p>
                         </div>
                       </div>
                       <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
@@ -409,9 +409,9 @@ const Index = () => {
                       <div className="flex items-start gap-4">
                         <AlertTriangle className="w-8 h-8 text-warning shrink-0" />
                         <div className="flex-1">
-                          <h3 className="font-display font-semibold text-warning">تعذر استخراج النص بالكامل</h3>
+                          <h3 className="font-display font-semibold text-warning">{t('extractionFailed')}</h3>
                           <p className="text-sm text-muted-foreground mt-1">
-                            قد يكون الملف يحتوي على صور ممسوحة ضوئياً أو تنسيق غير مدعوم.
+                            {t('scannedOrUnsupported')}
                           </p>
                           <div className="flex flex-wrap gap-2 mt-3">
                             <Button
@@ -420,7 +420,7 @@ const Index = () => {
                               className="gap-2"
                             >
                               <ScanLine className="w-4 h-4" />
-                              استخدم OCR (ذكاء اصطناعي)
+                              {t('useOCR')}
                             </Button>
                             <Button
                               onClick={() => setShowManualInput(true)}
@@ -429,7 +429,7 @@ const Index = () => {
                               className="gap-2"
                             >
                               <Edit3 className="w-4 h-4" />
-                              إدخال يدوي
+                              {t('manualEntry')}
                             </Button>
                           </div>
                         </div>
@@ -442,11 +442,11 @@ const Index = () => {
                       <div className="flex items-center gap-4">
                         <ScanLine className="w-8 h-8 text-primary animate-pulse" />
                         <div className="flex-1">
-                          <h3 className="font-display font-semibold">جاري استخراج النص بـ OCR...</h3>
+                          <h3 className="font-display font-semibold">{t('ocrProcessing')}</h3>
                           <p className="text-sm text-muted-foreground">
                             {ocrProgress 
-                              ? `صفحة ${ocrProgress.current} من ${ocrProgress.total}`
-                              : "يتم تحليل صور الملف بالذكاء الاصطناعي"}
+                              ? `${t('page')} ${ocrProgress.current} ${t('of')} ${ocrProgress.total}`
+                              : t('analyzingImagesAI')}
                           </p>
                         </div>
                       </div>
@@ -466,7 +466,7 @@ const Index = () => {
                   {!selectedFile && !isExtracting && (
                     <>
                       <div className="text-center">
-                        <span className="text-muted-foreground">أو</span>
+                        <span className="text-muted-foreground">{t('or')}</span>
                       </div>
                       
                       <button
@@ -476,8 +476,8 @@ const Index = () => {
                         <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-accent/10 flex items-center justify-center">
                           <Edit3 className="w-6 h-6 text-accent" />
                         </div>
-                        <h3 className="font-display text-lg font-semibold mb-1">إدخال النص يدوياً</h3>
-                        <p className="text-sm text-muted-foreground">الصق محتوى BOQ من Excel أو Word أو PDF</p>
+                        <h3 className="font-display text-lg font-semibold mb-1">{t('manualTextEntry')}</h3>
+                        <p className="text-sm text-muted-foreground">{t('pasteBOQContent')}</p>
                       </button>
                     </>
                   )}
@@ -492,40 +492,29 @@ const Index = () => {
                         <Edit3 className="w-5 h-5 text-accent" />
                       </div>
                       <div>
-                        <h3 className="font-display text-lg font-semibold">إدخال نص BOQ</h3>
-                        <p className="text-sm text-muted-foreground">الصق محتوى جدول الكميات هنا</p>
+                        <h3 className="font-display text-lg font-semibold">{t('enterBOQText')}</h3>
+                        <p className="text-sm text-muted-foreground">{t('pasteBOQHere')}</p>
                       </div>
                     </div>
                     <Button variant="ghost" size="sm" onClick={handleClearFile}>
-                      إلغاء
+                      {t('cancel')}
                     </Button>
                   </div>
 
                   {/* Tips for manual entry */}
                   <div className="mb-4 p-3 bg-muted/50 rounded-lg text-sm">
-                    <p className="font-medium mb-2">💡 نصائح للحصول على أفضل النتائج:</p>
+                    <p className="font-medium mb-2">{t('tipsForBestResults')}</p>
                     <ul className="space-y-1 text-muted-foreground text-xs">
-                      <li>• انسخ من Excel أو Word مباشرة (Ctrl+C ثم Ctrl+V)</li>
-                      <li>• تأكد من وجود أرقام البنود والكميات والوحدات</li>
-                      <li>• يمكن نسخ جداول كاملة من أي برنامج</li>
+                      <li>• {t('tipCopyFromExcel')}</li>
+                      <li>• {t('tipIncludeNumbers')}</li>
+                      <li>• {t('tipCopyTables')}</li>
                     </ul>
                   </div>
                   
                   <Textarea
                     value={manualText}
                     onChange={(e) => setManualText(e.target.value)}
-                    placeholder="الصق نص BOQ هنا...
-
-مثال:
-1. أعمال الحفر والردم
-   1.1 حفر عام للأساسات - 500 م³
-   1.2 ردم وتسوية - 200 م³
-
-2. أعمال الخرسانة
-   2.1 خرسانة عادية - 100 م³ - 450 ر.س/م³
-   2.2 خرسانة مسلحة - 250 م³ - 650 ر.س/م³
-
-أو الصق جدول من Excel مباشرة..."
+                    placeholder={t('boqPlaceholder')}
                     className="min-h-[300px] font-mono text-sm"
                     dir="auto"
                   />
@@ -533,12 +522,12 @@ const Index = () => {
                   <div className="flex items-center justify-between mt-4">
                     <div className="flex items-center gap-3">
                       <span className="text-sm text-muted-foreground">
-                        {manualText.length} حرف
+                        {manualText.length} {t('characters')}
                       </span>
                       {manualText.length >= 50 && (
                         <span className="flex items-center gap-1 text-xs text-success">
                           <CheckCircle2 className="w-3 h-3" />
-                          جاهز للتحليل
+                          {t('readyForAnalysis')}
                         </span>
                       )}
                     </div>
@@ -552,7 +541,7 @@ const Index = () => {
                           variant="outline"
                           size="sm"
                         >
-                          رجوع
+                          {t('back')}
                         </Button>
                       )}
                       <Button
@@ -561,7 +550,7 @@ const Index = () => {
                         className="btn-gradient gap-2"
                       >
                         <FileText className="w-4 h-4" />
-                        حفظ النص
+                        {t('saveText')}
                       </Button>
                     </div>
                   </div>
@@ -572,14 +561,14 @@ const Index = () => {
                 <div className="glass-card p-6 animate-slide-up">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="font-display text-lg font-semibold">النص جاهز للتحليل</h3>
+                      <h3 className="font-display text-lg font-semibold">{t('textReadyForAnalysis')}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {extractedText.length.toLocaleString()} حرف
+                        {extractedText.length.toLocaleString()} {t('characters')}
                       </p>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={handleClearFile}>
-                        تعديل
+                        {t('edit')}
                       </Button>
                       <Button
                         onClick={runAnalysis}
@@ -587,7 +576,7 @@ const Index = () => {
                         className="btn-gradient gap-2"
                       >
                         <Sparkles className="w-4 h-4" />
-                        بدء التحليل
+                        {t('startAnalysis')}
                       </Button>
                     </div>
                   </div>
@@ -629,11 +618,11 @@ const Index = () => {
                     <TabsList className="grid w-full grid-cols-2 mb-4">
                       <TabsTrigger value="upload" className="gap-2">
                         <Receipt className="w-4 h-4" />
-                        رفع عروض الأسعار
+                        {t('uploadQuotations')}
                       </TabsTrigger>
                       <TabsTrigger value="compare" className="gap-2">
                         <Scale className="w-4 h-4" />
-                        مقارنة العروض
+                        {t('compareQuotations')}
                       </TabsTrigger>
                     </TabsList>
                     <TabsContent value="upload">
