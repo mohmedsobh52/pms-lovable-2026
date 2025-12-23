@@ -828,52 +828,67 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
               </div>
             </div>
 
-            {/* BOQ Items Table with Bilingual Headers */}
-            <div className="overflow-x-auto border border-border rounded-xl">
-              <table className="w-full text-sm" dir="rtl">
+            {/* Export Filtered Results Button */}
+            {hasActiveFilters && (
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const headers = ["Item #", "Item Code", "Description", "Unit", "Quantity", "Unit Price (SAR)", "Total Price (SAR)"];
+                    const rows = filteredItems.map((item, idx) => [
+                      String(idx + 1),
+                      item.item_number,
+                      item.description,
+                      item.unit,
+                      item.quantity.toString(),
+                      item.unit_price?.toString() || "",
+                      item.total_price?.toString() || ""
+                    ]);
+                    const csvContent = [headers, ...rows]
+                      .map(row => row.map(cell => `"${cell}"`).join(","))
+                      .join("\n");
+                    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = `boq_filtered_${filteredItems.length}_items.csv`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="gap-2"
+                >
+                  <FileDown className="w-4 h-4" />
+                  Export Filtered ({filteredItems.length} items)
+                </Button>
+              </div>
+            )}
+
+            {/* BOQ Items Table - English Headers Only */}
+            <div className="overflow-x-auto border border-border rounded-xl shadow-sm">
+              <table className="w-full" dir="ltr">
                 <thead>
-                  <tr className="bg-muted/70 border-b border-border">
-                    <th className="px-4 py-3 text-right font-semibold">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-foreground">البند</span>
-                        <span className="text-xs text-muted-foreground font-normal">Item</span>
-                      </div>
+                  <tr className="bg-slate-100 dark:bg-slate-800 border-b-2 border-primary/20">
+                    <th className="px-4 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Item #
                     </th>
-                    <th className="px-4 py-3 text-right font-semibold">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-foreground">الوصف العام</span>
-                        <span className="text-xs text-muted-foreground font-normal">Description</span>
-                      </div>
+                    <th className="px-4 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Item Code
                     </th>
-                    <th className="px-4 py-3 text-right font-semibold">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-foreground">وصف البند</span>
-                        <span className="text-xs text-muted-foreground font-normal">Arabic Description</span>
-                      </div>
+                    <th className="px-4 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200">
+                      Description
                     </th>
-                    <th className="px-4 py-3 text-center font-semibold">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-foreground">الوحدة</span>
-                        <span className="text-xs text-muted-foreground font-normal">Unit</span>
-                      </div>
+                    <th className="px-4 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Unit
                     </th>
-                    <th className="px-4 py-3 text-center font-semibold">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-foreground">الكمية (العدد)</span>
-                        <span className="text-xs text-muted-foreground font-normal">Quantity</span>
-                      </div>
+                    <th className="px-4 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Quantity
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-foreground">سعر الوحدة (ريال سعودي)</span>
-                        <span className="text-xs text-muted-foreground font-normal">Price SAR</span>
-                      </div>
+                    <th className="px-4 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Unit Price (SAR)
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-foreground">السعر الإجمالي (ريال سعودي)</span>
-                        <span className="text-xs text-muted-foreground font-normal">Total Price SAR</span>
-                      </div>
+                    <th className="px-4 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Total Price (SAR)
                     </th>
                   </tr>
                 </thead>
@@ -882,38 +897,43 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
                     <tr 
                       key={idx} 
                       className={cn(
-                        "hover:bg-muted/30 transition-colors",
-                        idx % 2 === 0 ? "bg-background" : "bg-muted/20"
+                        "hover:bg-primary/5 transition-colors",
+                        idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
                       )}
                     >
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                      <td className="px-4 py-3 text-center">
+                        <span className="font-mono text-sm font-medium text-slate-600 dark:text-slate-300">
+                          {idx + 1}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-left">
+                        <span className="font-mono text-sm bg-primary/10 text-primary px-2 py-1 rounded font-medium">
                           {item.item_number}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right max-w-[200px]">
-                        <p className="text-sm text-foreground truncate" title={item.description}>
+                      <td className="px-4 py-3 text-left max-w-[300px]">
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={item.description}>
                           {item.description}
                         </p>
-                      </td>
-                      <td className="px-4 py-3 text-right max-w-[200px]">
-                        <p className="text-sm text-muted-foreground truncate" title={item.notes || item.description}>
-                          {item.notes || item.description}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-sm">{item.unit}</span>
+                        {item.notes && item.notes !== item.description && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 break-words" dir="rtl">
+                            {item.notes}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className="font-medium">{item.quantity.toLocaleString()}</span>
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{item.unit}</span>
                       </td>
-                      <td className="px-4 py-3 text-left">
-                        <span className="text-sm">
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.quantity.toLocaleString()}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                           {item.unit_price ? item.unit_price.toLocaleString() : '-'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-left">
-                        <span className="font-semibold text-primary">
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-sm font-bold text-primary">
                           {item.total_price ? item.total_price.toLocaleString() : '-'}
                         </span>
                       </td>
@@ -922,10 +942,10 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
                 </tbody>
                 <tfoot>
                   <tr className="bg-primary/10 border-t-2 border-primary/30">
-                    <td colSpan={5} className="px-4 py-3 text-right font-bold">
-                      <span className="text-foreground">الإجمالي الكلي / Grand Total</span>
+                    <td colSpan={5} className="px-4 py-4 text-right font-bold text-slate-800 dark:text-slate-100">
+                      Grand Total
                     </td>
-                    <td colSpan={2} className="px-4 py-3 text-left">
+                    <td colSpan={2} className="px-4 py-4 text-right">
                       <span className="font-bold text-lg text-primary">
                         {(data.summary?.total_value || data.items?.reduce((sum, item) => sum + (item.total_price || 0), 0) || 0).toLocaleString()} {data.summary?.currency || 'SAR'}
                       </span>
