@@ -106,32 +106,46 @@ export async function extractTextFromPDF(
     
     let fullText = "";
     
-    // First, try standard text extraction
+    // Extract text from ALL pages - no limits
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       try {
         const page = await pdf.getPage(pageNum);
         const textContent = await page.getTextContent();
         
-        // Combine text items with proper spacing
-        const pageText = textContent.items
-          .map((item: any) => {
-            if ('str' in item) {
-              return item.str;
-            }
-            return '';
-          })
-          .join(' ');
+        // Combine text items preserving structure
+        let pageText = "";
+        let lastY = -1;
         
-        fullText += pageText + '\n';
+        for (const item of textContent.items) {
+          if ('str' in item && item.str) {
+            // Check if this is a new line (different Y position)
+            const currentY = 'transform' in item ? item.transform[5] : -1;
+            if (lastY !== -1 && Math.abs(currentY - lastY) > 5) {
+              pageText += "\n";
+            } else if (pageText.length > 0 && !pageText.endsWith(" ") && !item.str.startsWith(" ")) {
+              pageText += " ";
+            }
+            pageText += item.str;
+            lastY = currentY;
+          }
+        }
+        
+        fullText += pageText + "\n\n";
+        
+        // Log progress every 5 pages
+        if (pageNum % 5 === 0 || pageNum === pdf.numPages) {
+          console.log(`Extracted page ${pageNum}/${pdf.numPages}`);
+        }
       } catch (pageError) {
         console.warn(`Error extracting page ${pageNum}:`, pageError);
       }
     }
     
-    // Clean up the extracted text
+    // Clean up the extracted text while preserving important formatting
     let extractedText = fullText
-      .replace(/\s+/g, ' ')
-      .replace(/\n\s*\n/g, '\n')
+      .replace(/\r\n/g, '\n')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
     
     console.log("Extracted text length:", extractedText.length);

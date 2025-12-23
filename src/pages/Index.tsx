@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -14,6 +14,7 @@ import { QuotationUpload } from "@/components/QuotationUpload";
 import { QuotationComparison } from "@/components/QuotationComparison";
 import { ComprehensiveReport } from "@/components/ComprehensiveReport";
 import { BOQComparison } from "@/components/BOQComparison";
+import { BOQVersionComparison } from "@/components/BOQVersionComparison";
 import { P6Export } from "@/components/P6Export";
 import { KPIDashboard } from "@/components/KPIDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -336,6 +337,12 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* BOQ Version Comparison */}
+              <BOQVersionComparison 
+                currentItems={analysisData?.items}
+                currentTotalValue={analysisData?.summary?.total_value}
+              />
+              
               {/* Local Project Manager - always visible */}
               <LocalProjectManager
                 analysisData={analysisData}
