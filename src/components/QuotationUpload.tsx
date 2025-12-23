@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { QuotationCostChart } from "./QuotationCostChart";
 import { CostAnalysis } from "./CostAnalysis";
-import { extractTextFromPDF } from "@/lib/pdf-utils";
+import { extractTextFromPDF, validateExtractedText } from "@/lib/pdf-utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import * as pdfjsLib from 'pdfjs-dist';
 import {
   Table,
   TableBody,
@@ -88,6 +92,14 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     quotation_date: "",
     total_amount: "",
   });
+  
+  // OCR state
+  const [ocrDialogOpen, setOcrDialogOpen] = useState(false);
+  const [ocrQuotation, setOcrQuotation] = useState<Quotation | null>(null);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrStatus, setOcrStatus] = useState<'idle' | 'extracting' | 'processing' | 'done' | 'error'>('idle');
+  const [extractedOcrText, setExtractedOcrText] = useState('');
+  const [needsOcrQuotation, setNeedsOcrQuotation] = useState<Quotation | null>(null);
 
   const loadQuotations = useCallback(async () => {
     if (!user) return;
@@ -227,6 +239,158 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     }
   }, [user, projectId, formData, toast, onQuotationUploaded]);
 
+  // Convert PDF page to image for OCR
+  const pdfPageToImage = async (page: any, scale: number = 2): Promise<string> => {
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    
+    if (!context) throw new Error('Could not get canvas context');
+    
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    
+    await page.render({
+      canvasContext: context,
+      viewport: viewport,
+    }).promise;
+    
+    return canvas.toDataURL('image/png');
+  };
+
+  // Perform OCR on quotation
+  const performOCR = async (quotation: Quotation) => {
+    setOcrQuotation(quotation);
+    setOcrDialogOpen(true);
+    setOcrStatus('extracting');
+    setOcrProgress(0);
+    setExtractedOcrText('');
+
+    try {
+      // Download the PDF
+      const response = await fetch(quotation.file_url);
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      
+      // Load PDF
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pageCount = pdf.numPages;
+      const images: string[] = [];
+
+      // Convert each page to image
+      for (let i = 1; i <= pageCount; i++) {
+        setOcrProgress(Math.round((i / (pageCount + 1)) * 50));
+        const page = await pdf.getPage(i);
+        const imageData = await pdfPageToImage(page);
+        images.push(imageData);
+      }
+
+      setOcrStatus('processing');
+      setOcrProgress(60);
+
+      // Call OCR edge function
+      const { data, error } = await supabase.functions.invoke('extract-text-ocr', {
+        body: {
+          images,
+          fileName: quotation.file_name
+        }
+      });
+
+      if (error) throw error;
+
+      setOcrProgress(90);
+
+      if (data.success && data.text) {
+        setExtractedOcrText(data.text);
+        setOcrStatus('done');
+        setOcrProgress(100);
+        
+        toast({
+          title: "تم استخراج النص بنجاح",
+          description: `تم معالجة ${data.successCount} صفحة من ${data.pageCount}`,
+        });
+      } else {
+        throw new Error(data.error || 'OCR failed');
+      }
+
+    } catch (error) {
+      console.error('OCR error:', error);
+      setOcrStatus('error');
+      toast({
+        title: "خطأ في OCR",
+        description: error instanceof Error ? error.message : "فشل في استخراج النص من الصور",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Analyze with OCR extracted text
+  const analyzeWithOcrText = async () => {
+    if (!ocrQuotation || !extractedOcrText) return;
+
+    setOcrDialogOpen(false);
+    setAnalyzingId(ocrQuotation.id);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-quotation', {
+        body: {
+          quotationText: extractedOcrText,
+          quotationName: ocrQuotation.name,
+          supplierName: ocrQuotation.supplier_name
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Update quotation with analysis
+      const { error: updateError } = await supabase
+        .from('price_quotations')
+        .update({
+          ai_analysis: data.analysis,
+          status: 'analyzed',
+          total_amount: data.analysis?.totals?.grand_total || ocrQuotation.total_amount
+        })
+        .eq('id', ocrQuotation.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setQuotations(prev => prev.map(q => 
+        q.id === ocrQuotation.id 
+          ? { 
+              ...q, 
+              ai_analysis: data.analysis as QuotationAnalysis, 
+              status: 'analyzed',
+              total_amount: data.analysis?.totals?.grand_total || q.total_amount
+            } 
+          : q
+      ));
+
+      setExpandedId(ocrQuotation.id);
+
+      toast({
+        title: "تم التحليل بنجاح",
+        description: `تم استخراج ${data.analysis?.items?.length || 0} بند من العرض`,
+      });
+    } catch (error) {
+      console.error("Analysis error:", error);
+      toast({
+        title: "خطأ في التحليل",
+        description: error instanceof Error ? error.message : "حدث خطأ أثناء التحليل",
+        variant: "destructive",
+      });
+    } finally {
+      setAnalyzingId(null);
+      setOcrQuotation(null);
+      setExtractedOcrText('');
+      setNeedsOcrQuotation(null);
+    }
+  };
+
   const analyzeQuotation = async (quotation: Quotation) => {
     if (!user) return;
 
@@ -248,6 +412,20 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
         
         if (quotation.file_type === 'pdf') {
           extractedText = await extractTextFromPDF(file);
+          
+          // Validate extracted text
+          const validation = validateExtractedText(extractedText);
+          
+          if (validation.needsOCR || !validation.isValid) {
+            // Show OCR suggestion
+            setAnalyzingId(null);
+            setNeedsOcrQuotation(quotation);
+            toast({
+              title: "ملف PDF ممسوح ضوئياً",
+              description: "يبدو أن هذا الملف يحتوي على صور. يمكنك استخدام OCR لاستخراج النص.",
+            });
+            return;
+          }
         } else {
           // For Excel files, we need to read as text or use xlsx library
           const text = await file.text();
@@ -259,14 +437,14 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
         extractedText = `عرض سعر: ${quotation.name}\nالمورد: ${quotation.supplier_name || 'غير محدد'}\nالمبلغ: ${quotation.total_amount || 0} ${quotation.currency}`;
       }
 
-      // If extraction failed, show error
+      // If extraction failed completely, show error
       if (extractedText.includes("[فشل استخراج النص]") || extractedText.length < 50) {
+        setAnalyzingId(null);
+        setNeedsOcrQuotation(quotation);
         toast({
           title: "تعذر استخراج النص",
-          description: "الملف يحتوي على صور أو نص غير قابل للقراءة. يرجى رفع ملف PDF نصي.",
-          variant: "destructive",
+          description: "جرب استخدام OCR لاستخراج النص من الصور",
         });
-        setAnalyzingId(null);
         return;
       }
 
@@ -505,6 +683,21 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
+                        {/* OCR Button - show when needs OCR */}
+                        {(needsOcrQuotation?.id === quotation.id || quotation.file_type === 'pdf') && quotation.status !== 'analyzed' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => performOCR(quotation)}
+                            disabled={analyzingId === quotation.id}
+                            className="gap-1.5"
+                            title="استخراج النص من الصور"
+                          >
+                            <ScanText className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">OCR</span>
+                          </Button>
+                        )}
+                        
                         {/* Analysis Button */}
                         <Button
                           variant={quotation.status === 'analyzed' ? 'secondary' : 'default'}
