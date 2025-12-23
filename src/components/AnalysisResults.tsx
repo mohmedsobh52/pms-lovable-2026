@@ -529,55 +529,135 @@ export function AnalysisResults({ data, wbsData }: AnalysisResultsProps) {
       <div className="p-4">
         {activeTab === "items" && (
           <div className="space-y-4">
-            {Object.entries(groupedItems).map(([category, items]) => (
-              <div key={category} className="border border-border rounded-xl overflow-hidden">
-                <button
-                  onClick={() => toggleCategory(category)}
-                  className="w-full flex items-center justify-between p-4 bg-muted/50 hover:bg-muted transition-colors"
+            {/* BOQ Items Table with Bilingual Headers */}
+            <div className="overflow-x-auto border border-border rounded-xl">
+              <table className="w-full text-sm" dir="rtl">
+                <thead>
+                  <tr className="bg-muted/70 border-b border-border">
+                    <th className="px-4 py-3 text-right font-semibold">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-foreground">البند</span>
+                        <span className="text-xs text-muted-foreground font-normal">Item</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-right font-semibold">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-foreground">الوصف العام</span>
+                        <span className="text-xs text-muted-foreground font-normal">Description</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-right font-semibold">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-foreground">وصف البند</span>
+                        <span className="text-xs text-muted-foreground font-normal">Arabic Description</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-center font-semibold">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-foreground">الوحدة</span>
+                        <span className="text-xs text-muted-foreground font-normal">Unit</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-center font-semibold">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-foreground">الكمية (العدد)</span>
+                        <span className="text-xs text-muted-foreground font-normal">Quantity</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-foreground">سعر الوحدة (ريال سعودي)</span>
+                        <span className="text-xs text-muted-foreground font-normal">Price SAR</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-foreground">السعر الإجمالي (ريال سعودي)</span>
+                        <span className="text-xs text-muted-foreground font-normal">Total Price SAR</span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {data.items?.map((item, idx) => (
+                    <tr 
+                      key={idx} 
+                      className={cn(
+                        "hover:bg-muted/30 transition-colors",
+                        idx % 2 === 0 ? "bg-background" : "bg-muted/20"
+                      )}
+                    >
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                          {item.item_number}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right max-w-[200px]">
+                        <p className="text-sm text-foreground truncate" title={item.description}>
+                          {item.description}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3 text-right max-w-[200px]">
+                        <p className="text-sm text-muted-foreground truncate" title={item.notes || item.description}>
+                          {item.notes || item.description}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-sm">{item.unit}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="font-medium">{item.quantity.toLocaleString()}</span>
+                      </td>
+                      <td className="px-4 py-3 text-left">
+                        <span className="text-sm">
+                          {item.unit_price ? item.unit_price.toLocaleString() : '-'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-left">
+                        <span className="font-semibold text-primary">
+                          {item.total_price ? item.total_price.toLocaleString() : '-'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-primary/10 border-t-2 border-primary/30">
+                    <td colSpan={5} className="px-4 py-3 text-right font-bold">
+                      <span className="text-foreground">الإجمالي الكلي / Grand Total</span>
+                    </td>
+                    <td colSpan={2} className="px-4 py-3 text-left">
+                      <span className="font-bold text-lg text-primary">
+                        {(data.summary?.total_value || data.items?.reduce((sum, item) => sum + (item.total_price || 0), 0) || 0).toLocaleString()} {data.summary?.currency || 'SAR'}
+                      </span>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Category Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+              {Object.entries(groupedItems).map(([category, items]) => (
+                <div 
+                  key={category} 
+                  className="p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 mb-2">
                     <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                       <Package className="w-4 h-4 text-primary" />
                     </div>
-                    <span className="font-medium">{category}</span>
-                    <span className="text-sm text-muted-foreground">({items.length} عنصر)</span>
+                    <span className="font-medium text-sm">{category}</span>
                   </div>
-                  {expandedCategories.has(category) ? (
-                    <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                  )}
-                </button>
-                {expandedCategories.has(category) && (
-                  <div className="divide-y divide-border">
-                    {items.map((item, idx) => (
-                      <div key={idx} className="p-4 hover:bg-muted/30 transition-colors">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded">
-                                {item.item_number}
-                              </span>
-                            </div>
-                            <p className="text-sm">{item.description}</p>
-                          </div>
-                          <div className="text-left shrink-0">
-                            <p className="font-medium">
-                              {item.quantity} {item.unit}
-                            </p>
-                            {item.total_price && (
-                              <p className="text-sm text-muted-foreground">
-                                {item.total_price.toLocaleString()} {data.summary?.currency || ""}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{items.length} items</span>
+                    <span className="font-semibold text-primary">
+                      {items.reduce((sum, item) => sum + (item.total_price || 0), 0).toLocaleString()} {data.summary?.currency || 'SAR'}
+                    </span>
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
