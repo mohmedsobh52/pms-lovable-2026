@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MessageSquare, X, Send, Reply, Loader2, CheckCircle } from "lucide-react";
+import { MessageSquare, X, Send, Reply, Loader2, CheckCircle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,9 +26,11 @@ interface Comment {
 interface CommentsPanelProps {
   shareCode: string;
   items?: { item_number: string; description: string }[];
+  analysisCreatorEmail?: string;
+  analysisFileName?: string;
 }
 
-export function CommentsPanel({ shareCode, items = [] }: CommentsPanelProps) {
+export function CommentsPanel({ shareCode, items = [], analysisCreatorEmail, analysisFileName }: CommentsPanelProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -99,6 +101,30 @@ export function CommentsPanel({ shareCode, items = [] }: CommentsPanelProps) {
     };
   }, [shareCode, authorName, toast]);
 
+  // Send email notification
+  const sendEmailNotification = async (commentText: string, commenterName: string) => {
+    if (!analysisCreatorEmail) return;
+    
+    try {
+      const shareUrl = `${window.location.origin}/shared/${shareCode}`;
+      
+      await supabase.functions.invoke('send-comment-notification', {
+        body: {
+          recipientEmail: analysisCreatorEmail,
+          commenterName,
+          commentText,
+          shareUrl,
+          fileName: analysisFileName || 'Shared Analysis'
+        }
+      });
+      
+      console.log('Email notification sent successfully');
+    } catch (error) {
+      // Don't show error to user, just log it - email is secondary
+      console.error('Failed to send email notification:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -128,6 +154,9 @@ export function CommentsPanel({ shareCode, items = [] }: CommentsPanelProps) {
         });
 
       if (error) throw error;
+
+      // Send email notification (fire and forget)
+      sendEmailNotification(commentText.trim(), authorName.trim());
 
       setCommentText('');
       setSelectedItem('');
