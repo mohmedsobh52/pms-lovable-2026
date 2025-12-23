@@ -18,6 +18,7 @@ interface SharedAnalysis {
   expires_at: string;
   viewer_count: number;
   is_active: boolean;
+  created_by: string | null;
 }
 
 export default function SharedView() {
@@ -176,6 +177,7 @@ export default function SharedView() {
       <CommentsPanel 
         shareCode={shareCode!} 
         items={sharedData.analysis_data?.items || []}
+        analysisFileName={sharedData.file_name || undefined}
       />
     </div>
   );

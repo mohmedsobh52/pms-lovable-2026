@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -899,6 +899,140 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
           </CardContent>
         </Card>
       )}
+      {/* OCR Review Dialog */}
+      <Dialog open={ocrDialogOpen} onOpenChange={setOcrDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh]" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ScanText className="w-5 h-5" />
+              استخراج النص بتقنية OCR
+            </DialogTitle>
+            <DialogDescription>
+              {ocrQuotation?.file_name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Progress indicator */}
+            {ocrStatus !== 'done' && ocrStatus !== 'error' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>
+                    {ocrStatus === 'extracting' && 'جاري تحويل صفحات PDF إلى صور...'}
+                    {ocrStatus === 'processing' && 'جاري استخراج النص باستخدام الذكاء الاصطناعي...'}
+                    {ocrStatus === 'idle' && 'جاهز للبدء'}
+                  </span>
+                  <span>{ocrProgress}%</span>
+                </div>
+                <Progress value={ocrProgress} className="h-2" />
+              </div>
+            )}
+            
+            {/* Error state */}
+            {ocrStatus === 'error' && (
+              <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-center">
+                <p className="text-destructive font-medium">فشل في استخراج النص</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  يرجى المحاولة مرة أخرى أو تحميل ملف بجودة أعلى
+                </p>
+                <Button 
+                  variant="outline" 
+                  className="mt-3"
+                  onClick={() => ocrQuotation && performOCR(ocrQuotation)}
+                >
+                  إعادة المحاولة
+                </Button>
+              </div>
+            )}
+            
+            {/* Extracted text for review */}
+            {ocrStatus === 'done' && extractedOcrText && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">النص المستخرج (للمراجعة والتعديل)</Label>
+                  <Badge variant="secondary" className="gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    تم الاستخراج
+                  </Badge>
+                </div>
+                <Textarea
+                  value={extractedOcrText}
+                  onChange={(e) => setExtractedOcrText(e.target.value)}
+                  className="min-h-[300px] font-mono text-sm"
+                  dir="auto"
+                  placeholder="النص المستخرج سيظهر هنا..."
+                />
+                <p className="text-xs text-muted-foreground">
+                  يمكنك تعديل النص قبل التحليل لتصحيح أي أخطاء في الاستخراج
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setOcrDialogOpen(false);
+                setOcrQuotation(null);
+                setExtractedOcrText('');
+                setOcrStatus('idle');
+              }}
+            >
+              إلغاء
+            </Button>
+            {ocrStatus === 'done' && extractedOcrText && (
+              <Button onClick={analyzeWithOcrText} className="gap-2">
+                <Sparkles className="w-4 h-4" />
+                تحليل باستخدام النص المستخرج
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Needs OCR Prompt */}
+      <Dialog open={!!needsOcrQuotation} onOpenChange={(open) => !open && setNeedsOcrQuotation(null)}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSearch className="w-5 h-5 text-amber-500" />
+              ملف PDF ممسوح ضوئياً
+            </DialogTitle>
+            <DialogDescription>
+              يبدو أن هذا الملف يحتوي على صور أو نص ممسوح ضوئياً ولا يمكن استخراج النص منه مباشرة.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 text-center space-y-3">
+            <ScanText className="w-12 h-12 mx-auto text-muted-foreground" />
+            <p className="text-sm">
+              استخدم تقنية OCR لاستخراج النص من الصور وتحليل عرض السعر
+            </p>
+          </div>
+          
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={() => setNeedsOcrQuotation(null)}
+            >
+              إلغاء
+            </Button>
+            <Button 
+              onClick={() => {
+                if (needsOcrQuotation) {
+                  performOCR(needsOcrQuotation);
+                  setNeedsOcrQuotation(null);
+                }
+              }}
+              className="gap-2"
+            >
+              <ScanText className="w-4 h-4" />
+              بدء OCR
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
