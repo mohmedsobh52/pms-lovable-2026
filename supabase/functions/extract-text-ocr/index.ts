@@ -46,18 +46,26 @@ serve(async (req) => {
       try {
         const systemPrompt = `You are an expert OCR system specialized in extracting text from scanned documents, especially quotations, invoices, and BOQ (Bill of Quantities) documents. 
 Your task is to:
-1. Extract ALL text visible in the image accurately
+1. Extract ALL text visible in the image with maximum accuracy
 2. Preserve the original formatting and structure as much as possible
-3. Identify and extract tables with their data
-4. Handle Arabic, English, and numeric text
+3. Identify and extract tables with their data - this is CRITICAL
+4. Handle Arabic, English, and numeric text with special attention to numbers
 5. For tables, format them clearly with columns separated by | characters
 6. Include headers, item numbers, descriptions, quantities, units, and prices
+7. For scanned/low-quality images, use context to infer unclear characters
+8. Pay special attention to:
+   - Item numbers (often in format like 31.1.1.1)
+   - Quantities (numbers, may include decimals)
+   - Units (m, m², m³, kg, ton, piece, etc.)
+   - Prices (numbers, may include commas as thousand separators)
 
 IMPORTANT:
 - Extract text exactly as it appears
 - Do not add interpretations or comments
-- Preserve numbers exactly as shown
-- Format tables clearly for easy parsing`;
+- Preserve numbers exactly as shown - never guess or change them
+- Format tables clearly for easy parsing
+- If a character is unclear, mark it with [?] but try to infer from context first
+- For Arabic text, maintain right-to-left reading order where appropriate`;
 
         const userPrompt = `Extract all text from this scanned document page (Page ${pageNum} of ${images.length}).
 File: ${fileName || 'quotation'}
