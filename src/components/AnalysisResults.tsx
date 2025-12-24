@@ -92,48 +92,24 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
     exportTemplates,
     importTemplates,
     setMultipleAISuggestedRates,
+    applyAIRatesToCalculatedPrice,
   } = useDynamicCostCalculator();
 
-  // Handle AI rates from MarketRateSuggestions
+  // Handle AI rates from MarketRateSuggestions - stores in aiSuggestedRate field
   const handleApplyAIRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
     setMultipleAISuggestedRates(rates);
   }, [setMultipleAISuggestedRates]);
 
-  // Apply Average AI Rates to Calc. Unit Price
-  const handleApplyAvgAIRatesToCalcPrice = useCallback(() => {
-    const items = data.items || [];
-    let updatedCount = 0;
-    
-    items.forEach(item => {
-      const calcCosts = getItemCalculatedCosts(item.item_number);
-      if (calcCosts.aiSuggestedRate && calcCosts.aiSuggestedRate > 0) {
-        const costData = getItemCostData(item.item_number);
-        // Update the item's cost data to use AI rate as the base for calculation
-        setItemCostData(item.item_number, {
-          ...costData,
-          aiSuggestedRate: calcCosts.aiSuggestedRate,
-        }, item.quantity);
-        updatedCount++;
-      }
+  // Apply AI rates directly to calculatedUnitPrice
+  const handleApplyAIRatesToCalcPrice = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
+    applyAIRatesToCalculatedPrice(rates);
+    toast({
+      title: isArabic ? "تم تطبيق أسعار AI" : "AI Rates Applied to Calc. Price",
+      description: isArabic 
+        ? `تم تحديث ${rates.length} بند بأسعار السوق` 
+        : `Updated ${rates.length} items with market rates`,
     });
-    
-    if (updatedCount > 0) {
-      toast({
-        title: isArabic ? "تم تطبيق أسعار AI" : "AI Rates Applied",
-        description: isArabic 
-          ? `تم تحديث ${updatedCount} بند` 
-          : `Updated ${updatedCount} items`,
-      });
-    } else {
-      toast({
-        title: isArabic ? "لا توجد أسعار AI" : "No AI Rates",
-        description: isArabic 
-          ? "لم يتم العثور على أسعار AI مقترحة" 
-          : "No AI suggested rates found",
-        variant: "destructive",
-      });
-    }
-  }, [data.items, getItemCalculatedCosts, getItemCostData, setItemCostData, isArabic]);
+  }, [applyAIRatesToCalculatedPrice, isArabic, toast]);
 
   // Template handlers
   const handleSaveAsTemplate = useCallback((costs: CostInputs, name: string) => {
@@ -825,16 +801,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
               items={data.items || []} 
               onApplyRate={onApplyRate} 
               onApplyAIRates={handleApplyAIRates}
+              onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
             />
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleApplyAvgAIRatesToCalcPrice}
-              className="gap-2 border-purple-500/50 text-purple-600 hover:bg-purple-500/10"
-            >
-              <Wand2 className="w-4 h-4" />
-              {isArabic ? "تطبيق أسعار AI" : "Apply AI Rates"}
-            </Button>
             <BulkApplyCostsDialog
               items={data.items || []}
               savedTemplate={savedTemplate}

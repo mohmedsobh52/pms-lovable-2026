@@ -179,6 +179,36 @@ export function useDynamicCostCalculator() {
     });
   }, []);
 
+  // Apply AI suggested rate as the calculated unit price (by setting materials to that value)
+  const applyAIRatesToCalculatedPrice = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
+    setItemCosts(prev => {
+      const newCosts = { ...prev };
+      rates.forEach(({ itemId, rate }) => {
+        const current = newCosts[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
+        // Set materials to the AI rate to make calculatedUnitPrice = rate (with 0 profit)
+        // Or better: set all costs to 0 except materials = rate / (1 + profitMargin/100)
+        const profitMargin = current.profitMargin || 10;
+        const baseValue = rate / (1 + profitMargin / 100);
+        newCosts[itemId] = {
+          ...current,
+          aiSuggestedRate: rate,
+          // Set materials to baseValue so that after profit calculation, we get the AI rate
+          materials: baseValue,
+          // Reset other costs to 0 to get exact AI rate
+          generalLabor: 0,
+          equipmentOperator: 0,
+          overhead: 0,
+          admin: 0,
+          insurance: 0,
+          contingency: 0,
+          equipment: 0,
+          subcontractor: 0,
+        };
+      });
+      return newCosts;
+    });
+  }, []);
+
   const getItemCostData = useCallback((itemId: string): ItemCostData => {
     return itemCosts[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
   }, [itemCosts]);
@@ -444,6 +474,7 @@ export function useDynamicCostCalculator() {
     // AI rate functions
     setAISuggestedRate,
     setMultipleAISuggestedRates,
+    applyAIRatesToCalculatedPrice,
     // Template functions
     savedTemplate,
     savedTemplates,
