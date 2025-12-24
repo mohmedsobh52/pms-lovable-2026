@@ -31,8 +31,16 @@ export function useItemCodes() {
     }
   }, [itemCodes]);
 
-  const getItemCode = useCallback((itemNumber: string): string => {
-    return itemCodes[itemNumber] || '';
+  const getItemCode = useCallback((itemNumber: string, index?: number): string => {
+    // If already has a custom code, return it
+    if (itemCodes[itemNumber]) {
+      return itemCodes[itemNumber];
+    }
+    // Auto-generate code based on index (1-based)
+    if (index !== undefined) {
+      return `IC-${String(index + 1).padStart(4, '0')}`;
+    }
+    return '';
   }, [itemCodes]);
 
   const setItemCode = useCallback((itemNumber: string, code: string) => {

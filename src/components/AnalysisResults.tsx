@@ -1192,8 +1192,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
             )}
 
             {/* BOQ Items Table - With Calculated Costs */}
-            <div className="overflow-x-auto border border-border rounded-xl shadow-sm">
-              <table className="w-full" dir="ltr">
+            <div className="overflow-x-auto border border-border rounded-xl shadow-sm w-full">
+              <table className="w-full min-w-[1200px]" dir="ltr">
                 <thead>
                   <tr className="bg-slate-100 dark:bg-slate-800 border-b-2 border-primary/20">
                     <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
@@ -1273,7 +1273,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                         <td className="px-3 py-3 text-left">
                           <EditableItemCode
                             itemNumber={item.item_number}
-                            code={getItemCode(item.item_number)}
+                            code={getItemCode(item.item_number, idx)}
                             onSave={setItemCode}
                           />
                         </td>
