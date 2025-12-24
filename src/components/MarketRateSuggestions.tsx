@@ -37,6 +37,7 @@ interface MarketRateSuggestionsProps {
   items: BOQItem[];
   onApplyRate?: (itemNumber: string, newRate: number) => void;
   onApplyAIRates?: (rates: Array<{ itemId: string; rate: number }>) => void;
+  onApplyAIRatesToCalcPrice?: (rates: Array<{ itemId: string; rate: number }>) => void;
 }
 
 const SAUDI_CITIES = [
@@ -50,7 +51,7 @@ const SAUDI_CITIES = [
   { value: "Abha", label: "Abha" },
 ];
 
-export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates }: MarketRateSuggestionsProps) {
+export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onApplyAIRatesToCalcPrice }: MarketRateSuggestionsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [location, setLocation] = useState("Riyadh");
@@ -307,7 +308,7 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates }: Ma
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {onApplyAIRates && suggestions.length > 0 && (
+                {onApplyAIRatesToCalcPrice && suggestions.length > 0 && (
                   <Button 
                     size="sm" 
                     variant="secondary"
@@ -316,11 +317,7 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates }: Ma
                         itemId: s.item_number,
                         rate: s.suggested_avg,
                       }));
-                      onApplyAIRates(rates);
-                      toast({
-                        title: "تم تطبيق الأسعار",
-                        description: `تم تحديث ${rates.length} بند بمتوسط أسعار السوق`,
-                      });
+                      onApplyAIRatesToCalcPrice(rates);
                     }}
                     className="gap-2"
                   >
