@@ -128,7 +128,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
   };
 
   const formatNumber = (num: number) => {
-    return num?.toLocaleString('ar-SA') || '0';
+    return num?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) || '0';
   };
 
   const recalculateItemTotals = (item: CostBreakdownItem): CostBreakdownItem => {
