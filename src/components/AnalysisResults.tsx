@@ -1205,15 +1205,6 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                     <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
                       Qty
                     </th>
-                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Labor
-                    </th>
-                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Indirect
-                    </th>
-                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Profit %
-                    </th>
                     <th className="px-3 py-3 text-right font-bold text-sm text-purple-700 dark:text-purple-300 whitespace-nowrap bg-purple-500/10">
                       AI Rate
                     </th>
@@ -1271,30 +1262,6 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                         </td>
                         <td className="px-3 py-3 text-center">
                           <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.quantity.toLocaleString()}</span>
-                        </td>
-                        <td className="px-3 py-3 text-right">
-                          <span className={cn(
-                            "text-sm font-medium",
-                            calcCosts.totalLabor > 0 ? "text-green-600 dark:text-green-400" : "text-slate-400"
-                          )}>
-                            {calcCosts.totalLabor > 0 ? calcCosts.totalLabor.toLocaleString() : '-'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 text-right">
-                          <span className={cn(
-                            "text-sm font-medium",
-                            calcCosts.totalIndirect > 0 ? "text-orange-600 dark:text-orange-400" : "text-slate-400"
-                          )}>
-                            {calcCosts.totalIndirect > 0 ? calcCosts.totalIndirect.toLocaleString() : '-'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 text-right">
-                          <span className={cn(
-                            "text-sm font-medium",
-                            costData.profitMargin > 0 ? "text-purple-600 dark:text-purple-400" : "text-slate-400"
-                          )}>
-                            {costData.profitMargin > 0 ? `${costData.profitMargin}%` : '-'}
-                          </span>
                         </td>
                         <td className="px-3 py-3 text-right bg-purple-500/5">
                           <span className={cn(
