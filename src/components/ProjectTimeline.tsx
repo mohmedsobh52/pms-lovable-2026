@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Calendar, Clock, Play, ChevronLeft, ChevronRight, Loader2, Brain, Zap, Target, TrendingUp, AlertTriangle, CheckCircle2, Edit3, CalendarDays } from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
+import { Calendar, Clock, Play, ChevronLeft, ChevronRight, Loader2, Brain, Zap, Target, TrendingUp, AlertTriangle, CheckCircle2, Edit3, CalendarDays, Download, FileSpreadsheet, Link2, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,11 @@ import { useToast } from "@/hooks/use-toast";
 import { format, differenceInDays, addDays } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface WBSItem {
   code: string;
@@ -24,6 +29,8 @@ interface TimelineItem extends WBSItem {
   progress: number;
   actualDays?: number;
   status?: "not_started" | "in_progress" | "completed" | "delayed";
+  predecessors?: string[];
+  isCritical?: boolean;
 }
 
 interface ProjectTimelineProps {
@@ -49,6 +56,8 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع" }: Pro
   const [startOffset, setStartOffset] = useState(0);
   const [showProgressMode, setShowProgressMode] = useState(false);
   const [editingTask, setEditingTask] = useState<string | null>(null);
+  const [showDependencyDialog, setShowDependencyDialog] = useState(false);
+  const [selectedTaskForDeps, setSelectedTaskForDeps] = useState<string | null>(null);
   const { toast } = useToast();
   
   // Project date controls
@@ -62,6 +71,275 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع" }: Pro
     }
     return 90;
   }, [projectStartDate, projectEndDate]);
+
+  // Calculate critical path
+  const criticalPath = useMemo(() => {
+    if (timelineData.length === 0) return [];
+    
+    // Find the longest path through dependencies
+    const taskMap = new Map(timelineData.map(t => [t.code, t]));
+    const endDays = new Map<string, number>();
+    
+    // Calculate end day for each task considering dependencies
+    const calcEndDay = (code: string, visited: Set<string> = new Set()): number => {
+      if (visited.has(code)) return 0;
+      visited.add(code);
+      
+      const task = taskMap.get(code);
+      if (!task) return 0;
+      
+      if (endDays.has(code)) return endDays.get(code)!;
+      
+      let maxPredEnd = 0;
+      if (task.predecessors && task.predecessors.length > 0) {
+        for (const pred of task.predecessors) {
+          maxPredEnd = Math.max(maxPredEnd, calcEndDay(pred, visited));
+        }
+      }
+      
+      const endDay = task.startDay + task.duration;
+      endDays.set(code, endDay);
+      return endDay;
+    };
+    
+    timelineData.forEach(t => calcEndDay(t.code));
+    
+    // Find tasks on the longest path
+    const maxEnd = Math.max(...Array.from(endDays.values()));
+    const criticalTasks: string[] = [];
+    
+    timelineData.forEach(t => {
+      const end = endDays.get(t.code) || 0;
+      if (end >= maxEnd - 7) { // Within 7 days of critical end
+        criticalTasks.push(t.code);
+      }
+    });
+    
+    return criticalTasks;
+  }, [timelineData]);
+
+  // Update timeline with critical path info
+  const timelineWithCriticalPath = useMemo(() => {
+    return timelineData.map(t => ({
+      ...t,
+      isCritical: criticalPath.includes(t.code),
+    }));
+  }, [timelineData, criticalPath]);
+
+  // Add/remove dependency
+  const toggleDependency = useCallback((taskCode: string, predecessorCode: string) => {
+    setTimelineData(prev => prev.map(task => {
+      if (task.code !== taskCode) return task;
+      
+      const currentPreds = task.predecessors || [];
+      const hasPred = currentPreds.includes(predecessorCode);
+      
+      return {
+        ...task,
+        predecessors: hasPred 
+          ? currentPreds.filter(p => p !== predecessorCode)
+          : [...currentPreds, predecessorCode],
+      };
+    }));
+  }, []);
+
+  // Export to Excel
+  const exportToExcel = useCallback(() => {
+    if (timelineData.length === 0 || !projectStartDate) return;
+    
+    const data = timelineData.map(task => {
+      const startDate = addDays(projectStartDate, task.startDay);
+      const endDate = addDays(startDate, task.duration);
+      
+      return {
+        "الكود": task.code,
+        "المهمة": task.title,
+        "المستوى": task.level,
+        "تاريخ البداية": format(startDate, "yyyy-MM-dd"),
+        "تاريخ النهاية": format(endDate, "yyyy-MM-dd"),
+        "المدة (أيام)": task.duration,
+        "التقدم %": task.progress,
+        "الحالة": task.status === "completed" ? "مكتمل" : task.status === "in_progress" ? "قيد التنفيذ" : task.status === "delayed" ? "متأخر" : "لم يبدأ",
+        "على المسار الحرج": task.isCritical ? "نعم" : "لا",
+        "التبعيات": task.predecessors?.join(", ") || "-",
+      };
+    });
+    
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, "الجدول الزمني");
+    
+    XLSX.writeFile(wb, `project_timeline_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+    
+    toast({
+      title: "تم التصدير",
+      description: "تم تصدير الجدول الزمني إلى Excel",
+    });
+  }, [timelineData, projectStartDate, toast]);
+
+  // Export to PDF with Gantt Chart
+  const exportToPDF = useCallback(() => {
+    if (timelineData.length === 0 || !projectStartDate) return;
+    
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    
+    // Header
+    doc.setFillColor(59, 130, 246);
+    doc.rect(0, 0, pageWidth, 25, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Project Timeline - ${projectName}`, margin, 16);
+    
+    // Date range
+    doc.setFontSize(10);
+    doc.text(
+      `${format(projectStartDate, "yyyy/MM/dd")} - ${projectEndDate ? format(projectEndDate, "yyyy/MM/dd") : "N/A"}`,
+      pageWidth - margin,
+      16,
+      { align: "right" }
+    );
+    
+    // Table data
+    const tableData = timelineData.map(task => {
+      const startDate = addDays(projectStartDate, task.startDay);
+      const endDate = addDays(startDate, task.duration);
+      
+      return [
+        task.code,
+        task.title.substring(0, 30) + (task.title.length > 30 ? "..." : ""),
+        format(startDate, "MM/dd"),
+        format(endDate, "MM/dd"),
+        String(task.duration),
+        `${task.progress}%`,
+        task.isCritical ? "●" : "",
+      ];
+    });
+    
+    autoTable(doc, {
+      startY: 30,
+      head: [["Code", "Task", "Start", "End", "Days", "Progress", "Critical"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontSize: 9,
+        fontStyle: "bold",
+        halign: "center",
+      },
+      bodyStyles: {
+        fontSize: 8,
+        textColor: [30, 41, 59],
+      },
+      columnStyles: {
+        0: { cellWidth: 20, halign: "center" },
+        1: { cellWidth: 60 },
+        2: { cellWidth: 20, halign: "center" },
+        3: { cellWidth: 20, halign: "center" },
+        4: { cellWidth: 15, halign: "center" },
+        5: { cellWidth: 20, halign: "center" },
+        6: { cellWidth: 15, halign: "center", textColor: [220, 38, 38] },
+      },
+      margin: { left: margin, right: margin },
+    });
+    
+    // Add Gantt Chart visualization on new page
+    doc.addPage();
+    
+    // Gantt Header
+    doc.setFillColor(124, 58, 237);
+    doc.rect(0, 0, pageWidth, 25, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.text("Gantt Chart", margin, 16);
+    
+    const ganttStartY = 35;
+    const rowHeight = 8;
+    const taskColumnWidth = 60;
+    const ganttWidth = pageWidth - margin * 2 - taskColumnWidth;
+    const totalDays = Math.max(...timelineData.map(t => t.startDay + t.duration), projectDuration);
+    
+    // Draw header
+    doc.setFillColor(241, 245, 249);
+    doc.rect(margin, ganttStartY, pageWidth - margin * 2, rowHeight, "F");
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(8);
+    doc.text("Task", margin + 2, ganttStartY + 5);
+    
+    // Draw week markers
+    const weeksCount = Math.ceil(totalDays / 7);
+    for (let i = 0; i <= weeksCount; i++) {
+      const x = margin + taskColumnWidth + (i / weeksCount) * ganttWidth;
+      doc.setDrawColor(226, 232, 240);
+      doc.line(x, ganttStartY, x, ganttStartY + (timelineData.length + 1) * rowHeight);
+      if (i < weeksCount) {
+        doc.text(`W${i + 1}`, x + 2, ganttStartY + 5);
+      }
+    }
+    
+    // Draw tasks
+    timelineData.forEach((task, idx) => {
+      const y = ganttStartY + (idx + 1) * rowHeight;
+      
+      // Task name
+      doc.setFillColor(idx % 2 === 0 ? 255 : 248, idx % 2 === 0 ? 255 : 250, idx % 2 === 0 ? 255 : 252);
+      doc.rect(margin, y, pageWidth - margin * 2, rowHeight, "F");
+      
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(7);
+      doc.text(task.title.substring(0, 20), margin + 2, y + 5);
+      
+      // Task bar
+      const barStart = margin + taskColumnWidth + (task.startDay / totalDays) * ganttWidth;
+      const barWidth = Math.max((task.duration / totalDays) * ganttWidth, 5);
+      
+      // Bar color based on status/critical
+      if (task.isCritical) {
+        doc.setFillColor(220, 38, 38);
+      } else if (task.progress === 100) {
+        doc.setFillColor(34, 197, 94);
+      } else {
+        doc.setFillColor(59, 130, 246);
+      }
+      
+      doc.roundedRect(barStart, y + 2, barWidth, rowHeight - 4, 1, 1, "F");
+      
+      // Progress fill
+      if (task.progress > 0 && task.progress < 100) {
+        const progressWidth = barWidth * (task.progress / 100);
+        doc.setFillColor(255, 255, 255, 0.3);
+        doc.roundedRect(barStart, y + 2, progressWidth, rowHeight - 4, 1, 1, "F");
+      }
+    });
+    
+    // Legend
+    const legendY = ganttStartY + (timelineData.length + 2) * rowHeight;
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    
+    doc.setFillColor(59, 130, 246);
+    doc.rect(margin, legendY, 10, 4, "F");
+    doc.text("Normal", margin + 12, legendY + 3);
+    
+    doc.setFillColor(220, 38, 38);
+    doc.rect(margin + 40, legendY, 10, 4, "F");
+    doc.text("Critical Path", margin + 52, legendY + 3);
+    
+    doc.setFillColor(34, 197, 94);
+    doc.rect(margin + 95, legendY, 10, 4, "F");
+    doc.text("Completed", margin + 107, legendY + 3);
+    
+    doc.save(`project_timeline_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    
+    toast({
+      title: "تم التصدير",
+      description: "تم تصدير الجدول الزمني مع Gantt Chart إلى PDF",
+    });
+  }, [timelineData, projectStartDate, projectEndDate, projectName, projectDuration, toast]);
 
   // Calculate project statistics
   const projectStats = useMemo(() => {
@@ -329,6 +607,89 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع" }: Pro
                   <Target className="w-4 h-4" />
                   {showProgressMode ? "إخفاء التقدم" : "تتبع التقدم"}
                 </Button>
+                
+                {/* Dependencies Button */}
+                <Dialog open={showDependencyDialog} onOpenChange={setShowDependencyDialog}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <Link2 className="w-4 h-4" />
+                      التبعيات
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>إدارة تبعيات المهام</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">اختر مهمة ثم حدد المهام السابقة لها:</p>
+                      
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">اختر المهمة:</label>
+                        <select
+                          value={selectedTaskForDeps || ""}
+                          onChange={(e) => setSelectedTaskForDeps(e.target.value)}
+                          className="w-full p-2 border border-border rounded-lg bg-background"
+                        >
+                          <option value="">اختر مهمة...</option>
+                          {timelineWithCriticalPath.map(task => (
+                            <option key={task.code} value={task.code}>
+                              {task.code} - {task.title}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      {selectedTaskForDeps && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">المهام السابقة (Predecessors):</label>
+                          <div className="space-y-2 max-h-[300px] overflow-y-auto border border-border rounded-lg p-2">
+                            {timelineWithCriticalPath
+                              .filter(t => t.code !== selectedTaskForDeps)
+                              .map(task => {
+                                const selectedTask = timelineWithCriticalPath.find(t => t.code === selectedTaskForDeps);
+                                const isSelected = selectedTask?.predecessors?.includes(task.code) || false;
+                                
+                                return (
+                                  <div key={task.code} className="flex items-center gap-2 p-2 rounded hover:bg-muted/50">
+                                    <Checkbox
+                                      id={`dep-${task.code}`}
+                                      checked={isSelected}
+                                      onCheckedChange={() => toggleDependency(selectedTaskForDeps, task.code)}
+                                    />
+                                    <label htmlFor={`dep-${task.code}`} className="text-sm flex-1 cursor-pointer">
+                                      <span className="font-mono text-xs bg-primary/10 text-primary px-1 rounded mr-2">{task.code}</span>
+                                      {task.title}
+                                      {task.isCritical && (
+                                        <span className="ml-2 text-xs text-destructive">(مسار حرج)</span>
+                                      )}
+                                    </label>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Critical Path Display */}
+                      <div className="mt-4 p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                        <h4 className="text-sm font-semibold text-destructive flex items-center gap-2 mb-2">
+                          <AlertTriangle className="w-4 h-4" />
+                          المسار الحرج
+                        </h4>
+                        <div className="flex flex-wrap gap-1">
+                          {criticalPath.length > 0 ? criticalPath.map(code => (
+                            <span key={code} className="text-xs bg-destructive/20 text-destructive px-2 py-1 rounded">
+                              {code}
+                            </span>
+                          )) : (
+                            <span className="text-xs text-muted-foreground">لا توجد تبعيات محددة</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                
                 <div className="flex border border-border rounded-lg overflow-hidden">
                   <button
                     onClick={() => setViewMode("weeks")}
@@ -349,6 +710,27 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع" }: Pro
                     شهور
                   </button>
                 </div>
+                
+                {/* Export Buttons */}
+                <Button
+                  onClick={exportToExcel}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Excel
+                </Button>
+                <Button
+                  onClick={exportToPDF}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                >
+                  <Download className="w-4 h-4" />
+                  PDF
+                </Button>
+                
                 <Button
                   onClick={generateAITimeline}
                   variant="outline"
