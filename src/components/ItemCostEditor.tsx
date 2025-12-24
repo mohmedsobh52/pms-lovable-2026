@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Calculator, DollarSign, Users, Building2, TrendingUp, Edit2, Save, X, Copy, ClipboardPaste } from "lucide-react";
+import { Calculator, DollarSign, Users, Building2, TrendingUp, Edit2, Save, X, Copy, FileDown, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CostInputs, CalculatedCosts } from "@/hooks/useDynamicCostCalculator";
+import { CostInputs, CalculatedCosts, CostTemplate } from "@/hooks/useDynamicCostCalculator";
 import { toast } from "sonner";
 
 interface AvailableItem {
@@ -37,6 +37,9 @@ interface ItemCostEditorProps {
   calculatedCosts: CalculatedCosts;
   onSave: (itemId: string, costs: CostInputs) => void;
   onCopyFrom?: (sourceItemId: string) => CostInputs | null;
+  onSaveAsTemplate?: (costs: CostInputs) => void;
+  onApplyTemplate?: () => CostInputs | null;
+  savedTemplate?: CostTemplate | null;
   availableItems?: AvailableItem[];
   currency?: string;
 }
@@ -49,6 +52,9 @@ export function ItemCostEditor({
   calculatedCosts,
   onSave,
   onCopyFrom,
+  onSaveAsTemplate,
+  onApplyTemplate,
+  savedTemplate,
   availableItems = [],
   currency = "SAR",
 }: ItemCostEditorProps) {
@@ -100,6 +106,25 @@ export function ItemCostEditor({
     }
   };
 
+  const handleSaveAsTemplate = () => {
+    if (onSaveAsTemplate) {
+      onSaveAsTemplate(editedCosts);
+      toast.success("تم حفظ التكاليف كقالب بنجاح");
+    }
+  };
+
+  const handleApplyTemplate = () => {
+    if (onApplyTemplate) {
+      const templateCosts = onApplyTemplate();
+      if (templateCosts) {
+        setEditedCosts(templateCosts);
+        toast.success("تم تطبيق القالب بنجاح");
+      } else {
+        toast.error("لا يوجد قالب محفوظ");
+      }
+    }
+  };
+
   const filteredAvailableItems = availableItems.filter(
     item => item.itemId !== itemId && item.calculatedUnitPrice > 0
   );
@@ -129,6 +154,49 @@ export function ItemCostEditor({
             {itemDescription}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Template Actions */}
+        <Card className="border-dashed border-accent/50 bg-accent/5">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <FileDown className="w-4 h-4 text-accent-foreground" />
+              <h4 className="font-semibold text-sm">قوالب التكاليف</h4>
+              {savedTemplate && (
+                <Badge variant="secondary" className="ml-auto text-xs">
+                  قالب محفوظ
+                </Badge>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSaveAsTemplate}
+                className="flex-1 gap-1"
+              >
+                <FileDown className="w-3 h-3" />
+                حفظ كقالب
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleApplyTemplate}
+                disabled={!savedTemplate}
+                className="flex-1 gap-1"
+              >
+                <FileUp className="w-3 h-3" />
+                تطبيق القالب
+              </Button>
+            </div>
+            {savedTemplate && (
+              <div className="mt-2 text-xs text-muted-foreground">
+                القالب: العمالة {savedTemplate.costs.generalLabor + savedTemplate.costs.equipmentOperator} | 
+                غير مباشرة {savedTemplate.costs.overhead + savedTemplate.costs.admin + savedTemplate.costs.insurance + savedTemplate.costs.contingency} | 
+                ربح {savedTemplate.costs.profitMargin}%
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Copy From Section */}
         {filteredAvailableItems.length > 0 && (

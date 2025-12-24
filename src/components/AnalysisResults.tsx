@@ -14,6 +14,7 @@ import { MarketRateSuggestions } from "./MarketRateSuggestions";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PDFCustomization, getSavedCompanyInfo, CompanyInfo } from "./PDFCustomization";
 import { ItemCostEditor } from "./ItemCostEditor";
+import { BulkApplyCostsDialog } from "./BulkApplyCostsDialog";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -78,7 +79,22 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
     getTotalProjectCost,
     exportCostData,
     getItemsWithCosts,
+    savedTemplate,
+    saveAsTemplate,
+    applyTemplateToMultipleItems,
   } = useDynamicCostCalculator();
+
+  // Template handlers
+  const handleSaveAsTemplate = useCallback((costs: CostInputs) => {
+    saveAsTemplate(costs, "القالب المحفوظ");
+  }, [saveAsTemplate]);
+
+  const handleApplyTemplate = useCallback((): CostInputs | null => {
+    if (savedTemplate) {
+      return { ...savedTemplate.costs };
+    }
+    return null;
+  }, [savedTemplate]);
 
   // Get available items for copying costs
   const availableItemsForCopy = useMemo(() => {
@@ -942,6 +958,12 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
                   <FileDown className="w-4 h-4" />
                   Export Filtered ({filteredItems.length} items)
                 </Button>
+                <BulkApplyCostsDialog
+                  items={filteredItems}
+                  savedTemplate={savedTemplate}
+                  onApplyToItems={applyTemplateToMultipleItems}
+                  currency={data.summary?.currency || "SAR"}
+                />
               </div>
             )}
 
@@ -1073,6 +1095,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate }: AnalysisResultsP
                             calculatedCosts={calcCosts}
                             onSave={handleSaveItemCost}
                             onCopyFrom={handleCopyFromItem}
+                            onSaveAsTemplate={handleSaveAsTemplate}
+                            onApplyTemplate={handleApplyTemplate}
+                            savedTemplate={savedTemplate}
                             availableItems={availableItemsForCopy}
                             currency={data.summary?.currency || "SAR"}
                           />

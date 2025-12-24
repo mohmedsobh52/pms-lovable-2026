@@ -33,6 +33,12 @@ export interface ItemCostData extends CostInputs {
   quantity: number;
 }
 
+export interface CostTemplate {
+  name: string;
+  costs: CostInputs;
+  createdAt: Date;
+}
+
 const defaultCostInputs: CostInputs = {
   generalLabor: 0,
   equipmentOperator: 0,
@@ -48,6 +54,7 @@ const defaultCostInputs: CostInputs = {
 
 export function useDynamicCostCalculator() {
   const [itemCosts, setItemCosts] = useState<Record<string, ItemCostData>>({});
+  const [savedTemplate, setSavedTemplate] = useState<CostTemplate | null>(null);
 
   const calculateItemCosts = useCallback((inputs: CostInputs): CalculatedCosts => {
     // Total Labor = General Labor + Equipment Operator
@@ -177,6 +184,57 @@ export function useDynamicCostCalculator() {
       }));
   }, [itemCosts, calculateItemCosts]);
 
+  // Template functions
+  const saveAsTemplate = useCallback((costs: CostInputs, name: string = "القالب المحفوظ") => {
+    const template: CostTemplate = {
+      name,
+      costs: { ...costs },
+      createdAt: new Date(),
+    };
+    setSavedTemplate(template);
+    return template;
+  }, []);
+
+  const getSavedTemplate = useCallback((): CostTemplate | null => {
+    return savedTemplate;
+  }, [savedTemplate]);
+
+  const applyTemplateToItem = useCallback((itemId: string, quantity: number = 1) => {
+    if (!savedTemplate) return false;
+    
+    setItemCosts(prev => ({
+      ...prev,
+      [itemId]: {
+        ...savedTemplate.costs,
+        itemId,
+        quantity,
+      },
+    }));
+    return true;
+  }, [savedTemplate]);
+
+  const applyTemplateToMultipleItems = useCallback((items: Array<{ itemId: string; quantity: number }>) => {
+    if (!savedTemplate) return 0;
+    
+    setItemCosts(prev => {
+      const newCosts = { ...prev };
+      items.forEach(({ itemId, quantity }) => {
+        newCosts[itemId] = {
+          ...savedTemplate.costs,
+          itemId,
+          quantity,
+        };
+      });
+      return newCosts;
+    });
+    
+    return items.length;
+  }, [savedTemplate]);
+
+  const clearTemplate = useCallback(() => {
+    setSavedTemplate(null);
+  }, []);
+
   return {
     itemCosts,
     updateItemCost,
@@ -190,6 +248,13 @@ export function useDynamicCostCalculator() {
     copyCostsFromItem,
     getItemsWithCosts,
     defaultCostInputs,
+    // Template functions
+    savedTemplate,
+    saveAsTemplate,
+    getSavedTemplate,
+    applyTemplateToItem,
+    applyTemplateToMultipleItems,
+    clearTemplate,
   };
 }
 
