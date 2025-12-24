@@ -1205,7 +1205,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                     <th className="px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
                       Item Code
                     </th>
-                    <th className="px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200">
+                    <th className="px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 min-w-[300px]">
                       Description
                     </th>
                     <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
@@ -1277,8 +1277,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                             onSave={setItemCode}
                           />
                         </td>
-                        <td className="px-3 py-3 text-left max-w-[200px]">
-                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words line-clamp-2" title={item.description}>
+                        <td className="px-3 py-3 text-left min-w-[300px] max-w-[450px]">
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={item.description}>
                             {item.description}
                           </p>
                         </td>
