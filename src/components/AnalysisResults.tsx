@@ -126,14 +126,27 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
   // Handle AI rates from MarketRateSuggestions - stores in aiSuggestedRate field
   const handleApplyAIRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
     console.log('🎯 AnalysisResults: handleApplyAIRates called with', rates.length, 'rates');
+    console.log('📋 Sample rates:', rates.slice(0, 3));
+    console.log('📊 Current itemCosts keys:', Object.keys(itemCosts).slice(0, 5));
+    
     setMultipleAISuggestedRates(rates);
+    
+    // Force a small delay to ensure state updates
+    setTimeout(() => {
+      console.log('✅ After setMultipleAISuggestedRates, checking first 3 items...');
+      rates.slice(0, 3).forEach(({ itemId, rate }) => {
+        const updated = getItemCalculatedCosts(itemId);
+        console.log(`  Item ${itemId}: aiSuggestedRate=${updated.aiSuggestedRate}, expected=${rate}`);
+      });
+    }, 100);
+    
     toast({
       title: isArabic ? "تم تطبيق الأسعار" : "AI Rates Applied",
       description: isArabic 
         ? `تم تطبيق ${rates.length} سعر من AI` 
         : `Applied ${rates.length} AI suggested rates`,
     });
-  }, [setMultipleAISuggestedRates, isArabic, toast]);
+  }, [setMultipleAISuggestedRates, isArabic, toast, itemCosts, getItemCalculatedCosts]);
 
   // Apply AI rates directly to calculatedUnitPrice
   const handleApplyAIRatesToCalcPrice = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
@@ -226,9 +239,15 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
     return { units, categories };
   }, [data.items]);
 
-  // Filter and sort items
+  // Filter and sort items - also filter out items without item_number
   const filteredItems = useMemo(() => {
-    let items = data.items || [];
+    let items = (data.items || []).filter(item => {
+      if (!item.item_number) {
+        console.warn('⚠️ Filtering out item without item_number:', item);
+        return false;
+      }
+      return true;
+    });
     
     // Search filter
     if (searchQuery) {
@@ -1230,6 +1249,12 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filteredItems.map((item, idx) => {
+                    // Ensure item_number exists
+                    if (!item.item_number) {
+                      console.error(`⚠️ Item at index ${idx} missing item_number:`, item);
+                      return null;
+                    }
+                    
                     const costData = getItemCostData(item.item_number);
                     const calcCosts = getItemCalculatedCosts(item.item_number);
                     const calculatedPrice = calcCosts.calculatedUnitPrice;
@@ -1238,7 +1263,12 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                     
                     // Debug logging for first 3 items
                     if (idx < 3) {
-                      console.log(`Item ${item.item_number}: aiSuggestedRate=${calcCosts.aiSuggestedRate}`);
+                      console.log(`✅ Item #${idx + 1}:`, {
+                        itemNumber: item.item_number,
+                        aiSuggestedRate: calcCosts.aiSuggestedRate,
+                        calculatedPrice: calculatedPrice,
+                        costDataExists: !!itemCosts[item.item_number]
+                      });
                     }
                     
                     return (

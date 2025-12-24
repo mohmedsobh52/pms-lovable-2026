@@ -91,18 +91,38 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
       return;
     }
 
+    // Filter out items without item_number
+    const validItems = items.filter(item => {
+      if (!item.item_number) {
+        console.warn('⚠️ Skipping item without item_number:', item);
+        return false;
+      }
+      return true;
+    });
+
+    if (validItems.length === 0) {
+      toast({
+        title: "No valid items",
+        description: "All items are missing item numbers",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log(`📊 Processing ${validItems.length} valid items (out of ${items.length} total)`);
+
     setIsLoading(true);
     setSuggestions([]);
-    setTotalItemsCount(items.length);
+    setTotalItemsCount(validItems.length);
     setAnalyzedItemsCount(0);
     setAnalysisProgress(0);
 
     try {
-      // Send ALL items to the API with region and agent info
+      // Send ALL valid items to the API with region and agent info
       const regionInfo = REGIONS.find(r => r.value === region);
       const { data, error } = await supabase.functions.invoke("suggest-market-rates", {
         body: { 
-          items, 
+          items: validItems, 
           location, 
           region: regionInfo?.label || "Saudi Arabia",
           aiAgent,
