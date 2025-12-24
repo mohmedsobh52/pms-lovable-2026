@@ -125,8 +125,15 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
 
   // Handle AI rates from MarketRateSuggestions - stores in aiSuggestedRate field
   const handleApplyAIRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
+    console.log('🎯 AnalysisResults: handleApplyAIRates called with', rates.length, 'rates');
     setMultipleAISuggestedRates(rates);
-  }, [setMultipleAISuggestedRates]);
+    toast({
+      title: isArabic ? "تم تطبيق الأسعار" : "AI Rates Applied",
+      description: isArabic 
+        ? `تم تطبيق ${rates.length} سعر من AI` 
+        : `Applied ${rates.length} AI suggested rates`,
+    });
+  }, [setMultipleAISuggestedRates, isArabic, toast]);
 
   // Apply AI rates directly to calculatedUnitPrice
   const handleApplyAIRatesToCalcPrice = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
@@ -1228,6 +1235,11 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                     const calculatedPrice = calcCosts.calculatedUnitPrice;
                     const effectivePrice = calculatedPrice > 0 ? calculatedPrice : (item.unit_price || 0);
                     const totalPrice = effectivePrice * item.quantity;
+                    
+                    // Debug logging for first 3 items
+                    if (idx < 3) {
+                      console.log(`Item ${item.item_number}: aiSuggestedRate=${calcCosts.aiSuggestedRate}`);
+                    }
                     
                     return (
                       <tr 

@@ -209,17 +209,25 @@ export function useDynamicCostCalculator() {
 
   // New: Set AI suggested rates for multiple items
   const setMultipleAISuggestedRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
+    console.log('📊 setMultipleAISuggestedRates called with', rates.length, 'rates');
     setItemCosts(prev => {
       const newCosts = { ...prev };
+      let updatedCount = 0;
       rates.forEach(({ itemId, rate }) => {
         const current = newCosts[itemId] || { ...defaultCostInputs, itemId, quantity: 1 };
         newCosts[itemId] = {
           ...current,
           aiSuggestedRate: rate,
         };
+        updatedCount++;
+        if (updatedCount <= 3) {
+          console.log(`  ✅ Item ${itemId}: set AI rate to ${rate}`);
+        }
       });
+      console.log(`✅ Total items updated: ${updatedCount}`);
       return newCosts;
     });
+    setLastSavedAt(new Date());
   }, []);
 
   // Apply AI suggested rate as the calculated unit price (by setting materials to that value)

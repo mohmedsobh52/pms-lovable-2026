@@ -130,8 +130,12 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
         
         // Always apply to AI Rate column
         if (onApplyAIRates) {
-          console.log('Applying AI rates to display:', rates);
+          console.log('✅ Applying AI rates to display:', rates.length, 'items');
+          console.log('Sample rates:', rates.slice(0, 3));
           onApplyAIRates(rates);
+          console.log('✅ AI rates applied successfully');
+        } else {
+          console.warn('⚠️ onApplyAIRates callback not provided!');
         }
       }
       
