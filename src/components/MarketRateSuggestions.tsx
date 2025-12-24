@@ -91,14 +91,8 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
       return;
     }
 
-    // Filter out items without item_number
-    const validItems = items.filter(item => {
-      if (!item.item_number) {
-        console.warn('⚠️ Skipping item without item_number:', item);
-        return false;
-      }
-      return true;
-    });
+    // Filter out items without item_number (should be rare after normalization)
+    const validItems = items.filter(item => !!item.item_number);
 
     if (validItems.length === 0) {
       toast({
@@ -109,7 +103,7 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
       return;
     }
 
-    console.log(`📊 Processing ${validItems.length} valid items (out of ${items.length} total)`);
+    
 
     setIsLoading(true);
     setSuggestions([]);
@@ -150,12 +144,7 @@ export function MarketRateSuggestions({ items, onApplyRate, onApplyAIRates, onAp
         
         // Always apply to AI Rate column
         if (onApplyAIRates) {
-          console.log('✅ Applying AI rates to display:', rates.length, 'items');
-          console.log('Sample rates:', rates.slice(0, 3));
           onApplyAIRates(rates);
-          console.log('✅ AI rates applied successfully');
-        } else {
-          console.warn('⚠️ onApplyAIRates callback not provided!');
         }
       }
       
