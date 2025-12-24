@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Calculator, TrendingUp, Users, Package, Wrench, Building2, AlertCircle, Sparkles, Loader2, Edit2, Save, X, Check } from "lucide-react";
+import { Calculator, TrendingUp, Users, Package, Wrench, Building2, AlertCircle, Sparkles, Loader2, Edit2, Save, X, Check, PieChart as PieChartIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 interface BOQItem {
   item_number: string;
@@ -415,7 +416,79 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
             </CardContent>
           </Card>
 
-          {/* Summary Table */}
+          {/* Pie Chart - Cost Distribution by Item */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <PieChartIcon className="w-5 h-5" />
+                {language === 'ar' ? 'توزيع التكاليف حسب البند' : 'Cost Distribution by Item'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={displayResult.cost_analysis?.map((item, idx) => ({
+                        name: item.item_description?.substring(0, 25) + '...',
+                        value: item.total_cost || 0,
+                        fullName: item.item_description,
+                        itemNumber: items[idx]?.item_number || idx + 1,
+                      })) || []}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={120}
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(1)}%)`}
+                      labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
+                    >
+                      {displayResult.cost_analysis?.map((_, idx) => {
+                        const colors = [
+                          'hsl(221, 83%, 53%)', // blue
+                          'hsl(142, 71%, 45%)', // green
+                          'hsl(24, 95%, 53%)',  // orange
+                          'hsl(271, 81%, 56%)', // purple
+                          'hsl(340, 82%, 52%)', // pink
+                          'hsl(47, 96%, 53%)',  // yellow
+                          'hsl(199, 89%, 48%)', // cyan
+                          'hsl(0, 72%, 51%)',   // red
+                          'hsl(160, 60%, 45%)', // teal
+                          'hsl(291, 64%, 42%)', // violet
+                        ];
+                        return (
+                          <Cell 
+                            key={`cell-${idx}`} 
+                            fill={colors[idx % colors.length]}
+                            stroke="hsl(var(--background))"
+                            strokeWidth={2}
+                          />
+                        );
+                      })}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => [`${formatNumber(value)} ${currency}`, language === 'ar' ? 'التكلفة' : 'Cost']}
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        padding: '8px 12px',
+                      }}
+                      labelStyle={{ color: 'hsl(var(--foreground))' }}
+                    />
+                    <Legend 
+                      layout="horizontal"
+                      align="center"
+                      verticalAlign="bottom"
+                      formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
