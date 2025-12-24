@@ -273,7 +273,31 @@ const Index = () => {
         throw new Error(itemsResult.suggestion || itemsResult.error);
       }
 
-      setAnalysisData(itemsResult);
+      // Normalize item data - map item_no to item_number, rate to unit_price, amount to total_price
+      const normalizedItems = (itemsResult.items || []).map((item: any) => ({
+        ...item,
+        item_number: item.item_number || item.item_no || '',
+        unit_price: item.unit_price ?? item.rate ?? 0,
+        total_price: item.total_price ?? item.amount ?? 0,
+        category: item.category || item.section_trade || 'غير مصنف',
+      })).filter((item: any) => item.item_number); // Filter out items without item_number
+
+      const normalizedResult = {
+        ...itemsResult,
+        items: normalizedItems,
+        summary: {
+          ...itemsResult.summary,
+          total_items: normalizedItems.length,
+          total_value: itemsResult.summary?.total_value || 
+            itemsResult.analysis?.total_value || 
+            normalizedItems.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0),
+          currency: itemsResult.summary?.currency || itemsResult.analysis?.currency || 'SAR',
+          categories: itemsResult.summary?.categories || 
+            [...new Set(normalizedItems.map((item: any) => item.category))],
+        }
+      };
+
+      setAnalysisData(normalizedResult);
       updateStepStatus("analyze", "complete", 100);
 
       toast({
@@ -318,12 +342,12 @@ const Index = () => {
 
           if (!ratesError && ratesData?.suggestions) {
             const rates = ratesData.suggestions.map((s: any) => ({
-              itemId: s.item_number,
+              itemId: s.item_number || s.item_no,
               rate: s.suggested_avg,
             }));
             
             // Update items with AI rates
-            const updatedItems = itemsResult.items.map((item: any) => {
+            const updatedItems = normalizedItems.map((item: any) => {
               const rateInfo = rates.find((r: any) => r.itemId === item.item_number);
               if (rateInfo) {
                 return { ...item, aiSuggestedRate: rateInfo.rate };
@@ -332,7 +356,7 @@ const Index = () => {
             });
             
             setAnalysisData({
-              ...itemsResult,
+              ...normalizedResult,
               items: updatedItems,
             });
             

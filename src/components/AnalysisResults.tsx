@@ -125,20 +125,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
 
   // Handle AI rates from MarketRateSuggestions - stores in aiSuggestedRate field
   const handleApplyAIRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
-    console.log('🎯 AnalysisResults: handleApplyAIRates called with', rates.length, 'rates');
-    console.log('📋 Sample rates:', rates.slice(0, 3));
-    console.log('📊 Current itemCosts keys:', Object.keys(itemCosts).slice(0, 5));
-    
     setMultipleAISuggestedRates(rates);
-    
-    // Force a small delay to ensure state updates
-    setTimeout(() => {
-      console.log('✅ After setMultipleAISuggestedRates, checking first 3 items...');
-      rates.slice(0, 3).forEach(({ itemId, rate }) => {
-        const updated = getItemCalculatedCosts(itemId);
-        console.log(`  Item ${itemId}: aiSuggestedRate=${updated.aiSuggestedRate}, expected=${rate}`);
-      });
-    }, 100);
     
     toast({
       title: isArabic ? "تم تطبيق الأسعار" : "AI Rates Applied",
@@ -146,11 +133,10 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
         ? `تم تطبيق ${rates.length} سعر من AI` 
         : `Applied ${rates.length} AI suggested rates`,
     });
-  }, [setMultipleAISuggestedRates, isArabic, toast, itemCosts, getItemCalculatedCosts]);
+  }, [setMultipleAISuggestedRates, isArabic, toast]);
 
   // Apply AI rates directly to calculatedUnitPrice
   const handleApplyAIRatesToCalcPrice = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
-    console.log('handleApplyAIRatesToCalcPrice called with rates:', rates);
     applyAIRatesToCalculatedPrice(rates);
     toast({
       title: isArabic ? "تم تطبيق أسعار AI" : "AI Rates Applied to Calc. Price",
@@ -241,13 +227,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
 
   // Filter and sort items - also filter out items without item_number
   const filteredItems = useMemo(() => {
-    let items = (data.items || []).filter(item => {
-      if (!item.item_number) {
-        console.warn('⚠️ Filtering out item without item_number:', item);
-        return false;
-      }
-      return true;
-    });
+    // Items should already be normalized, but double-check item_number exists
+    let items = (data.items || []).filter(item => !!item.item_number);
     
     // Search filter
     if (searchQuery) {
