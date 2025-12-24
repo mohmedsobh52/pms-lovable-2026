@@ -287,11 +287,20 @@ export function useDynamicCostCalculator() {
   const getItemCalculatedCosts = useCallback((itemId: string): CalculatedCosts & { aiSuggestedRate?: number } => {
     const data = getItemCostData(itemId);
     const calculated = calculateItemCosts(data);
-    return {
+    const result = {
       ...calculated,
       aiSuggestedRate: data.aiSuggestedRate,
     };
-  }, [getItemCostData, calculateItemCosts]);
+    // Debug log occasionally
+    if (Math.random() < 0.05) {
+      console.log(`getItemCalculatedCosts(${itemId}):`, {
+        hasData: !!itemCosts[itemId],
+        aiSuggestedRate: data.aiSuggestedRate,
+        calculatedUnitPrice: calculated.calculatedUnitPrice
+      });
+    }
+    return result;
+  }, [getItemCostData, calculateItemCosts, itemCosts]);
 
   const getAllCalculatedCosts = useMemo(() => {
     const result: Record<string, CalculatedCosts> = {};
