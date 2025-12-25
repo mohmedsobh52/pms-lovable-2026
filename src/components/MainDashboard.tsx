@@ -248,65 +248,65 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-          <CardContent className="pt-6">
+        <Card className="bg-card shadow-sm hover:shadow-md transition-shadow rounded-2xl border-0">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground font-medium">
                   {isArabic ? "إجمالي المشاريع" : "Total Projects"}
                 </p>
-                <p className="text-3xl font-bold">{stats.totalProjects}</p>
+                <p className="text-4xl font-bold text-foreground">{stats.totalProjects}</p>
               </div>
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <FolderOpen className="w-6 h-6 text-primary" />
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center">
+                <FolderOpen className="w-7 h-7 text-amber-500" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-accent/20 bg-gradient-to-br from-accent/5 to-transparent">
-          <CardContent className="pt-6">
+        <Card className="bg-card shadow-sm hover:shadow-md transition-shadow rounded-2xl border-0">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground font-medium">
                   {isArabic ? "عروض الأسعار" : "Quotations"}
                 </p>
-                <p className="text-3xl font-bold">{stats.totalQuotations}</p>
+                <p className="text-4xl font-bold text-foreground">{stats.totalQuotations}</p>
               </div>
-              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
-                <Receipt className="w-6 h-6 text-accent" />
+              <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center">
+                <Receipt className="w-7 h-7 text-blue-500" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-green-500/20 bg-gradient-to-br from-green-500/5 to-transparent">
-          <CardContent className="pt-6">
+        <Card className="bg-card shadow-sm hover:shadow-md transition-shadow rounded-2xl border-0">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground font-medium">
                   {isArabic ? "إجمالي القيمة" : "Total Value"}
                 </p>
-                <p className="text-2xl font-bold">{formatCurrency(stats.totalValue)}</p>
+                <p className="text-2xl font-bold text-foreground">{formatCurrency(stats.totalValue)}</p>
               </div>
-              <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-green-500" />
+              <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
+                <DollarSign className="w-7 h-7 text-emerald-500" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-orange-500/20 bg-gradient-to-br from-orange-500/5 to-transparent">
-          <CardContent className="pt-6">
+        <Card className="bg-card shadow-sm hover:shadow-md transition-shadow rounded-2xl border-0">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground font-medium">
                   {isArabic ? "متوسط العرض" : "Avg. Quotation"}
                 </p>
-                <p className="text-2xl font-bold">{formatCurrency(stats.averageQuotationValue)}</p>
+                <p className="text-2xl font-bold text-foreground">{formatCurrency(stats.averageQuotationValue)}</p>
               </div>
-              <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-orange-500" />
+              <div className="w-14 h-14 rounded-2xl bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center">
+                <TrendingUp className="w-7 h-7 text-rose-500" />
               </div>
             </div>
           </CardContent>
