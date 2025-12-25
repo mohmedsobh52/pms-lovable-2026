@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { addDays, format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -131,6 +132,20 @@ export function P6Export({ items, currency = "SAR" }: P6ExportProps) {
   const [calendarType, setCalendarType] = useState("6-day");
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [projectDuration, setProjectDuration] = useState("180");
+
+  // Calculate end date automatically
+  const calculatedEndDate = useMemo(() => {
+    if (!startDate || !projectDuration) return "";
+    try {
+      const start = new Date(startDate);
+      const durationDays = parseInt(projectDuration) || 0;
+      if (durationDays <= 0) return "";
+      const endDate = addDays(start, durationDays);
+      return format(endDate, "yyyy-MM-dd");
+    } catch {
+      return "";
+    }
+  }, [startDate, projectDuration]);
 
   const toggleRow = (index: number) => {
     const newSet = new Set(expandedRows);
@@ -515,6 +530,17 @@ export function P6Export({ items, currency = "SAR" }: P6ExportProps) {
                 onChange={(e) => setProjectDuration(e.target.value)}
                 placeholder="Enter duration in days"
                 min="1"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="endDate">Project End Date (Calculated)</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={calculatedEndDate}
+                readOnly
+                className="bg-muted cursor-not-allowed"
               />
             </div>
           </div>
