@@ -461,6 +461,14 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* Cost Analysis Link */}
+              <Link to="/cost-analysis">
+                <Button variant="default" size="sm" className="gap-2">
+                  <Scale className="w-4 h-4" />
+                  {isArabic ? 'تحليل التكاليف' : 'Cost Analysis'}
+                </Button>
+              </Link>
+              
               {/* About Page Link */}
               <Link to="/about">
                 <Button variant="ghost" size="sm">
