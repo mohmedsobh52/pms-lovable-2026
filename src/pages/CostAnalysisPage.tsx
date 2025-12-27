@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload } from "lucide-react";
+import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload, FileUp } from "lucide-react";
+import { extractDataFromExcel } from "@/lib/excel-utils";
 import {
   DndContext,
   closestCenter,
@@ -412,6 +413,50 @@ export default function CostAnalysisPage() {
         scrollViewportRef.current.scrollTop = scrollViewportRef.current.scrollHeight;
       }
     }, 100);
+  }, []);
+
+  // Handle file import for cost items
+  const handleFileImport = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    const isPDF = file.name.endsWith('.pdf');
+
+    if (!isExcel && !isPDF) {
+      toast.error("يُرجى اختيار ملف Excel أو PDF");
+      return;
+    }
+
+    try {
+      if (isExcel) {
+        const result = await extractDataFromExcel(file);
+        
+        if (result.items.length > 0) {
+          const newItems: CostItem[] = result.items.map((item, index) => ({
+            id: `imported-${Date.now()}-${index}`,
+            name: item.description || item.itemNo || `بند ${index + 1}`,
+            dailyProductivity: item.quantity || 0,
+            dailyRent: item.unitPrice || 0,
+            costPerUnit: item.unitPrice && item.quantity ? item.unitPrice / item.quantity : 0,
+            isEditable: true,
+          }));
+
+          setItems(prev => [...prev, ...newItems]);
+          toast.success(`تم استيراد ${newItems.length} بند من ملف Excel`);
+        } else {
+          toast.error("لم يتم العثور على بنود في الملف");
+        }
+      } else if (isPDF) {
+        toast.info("جاري معالجة ملف PDF...");
+        toast.error("استيراد PDF قيد التطوير، يُرجى استخدام ملف Excel");
+      }
+    } catch (error) {
+      console.error("Import error:", error);
+      toast.error("فشل استيراد الملف");
+    }
+
+    event.target.value = '';
   }, []);
 
   const calculateDifference = useCallback((manual: number, ai: number | undefined): { value: number; type: 'up' | 'down' | 'same' } | null => {
@@ -900,16 +945,37 @@ export default function CostAnalysisPage() {
             {/* Main Table */}
             <Card className="border-primary/20">
               <CardContent className="p-0">
-                <div className="flex items-center justify-between p-2 border-b bg-muted/30">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddNewItem}
-                    className="gap-1 h-7 text-xs"
-                  >
-                    <Plus className="w-3 h-3" />
-                    إضافة صف جديد
-                  </Button>
+                <div className="flex items-center justify-between p-2 border-b bg-muted/30 gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddNewItem}
+                      className="gap-1 h-7 text-xs"
+                    >
+                      <Plus className="w-3 h-3" />
+                      إضافة صف
+                    </Button>
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept=".xlsx,.xls,.pdf"
+                        onChange={handleFileImport}
+                        className="hidden"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 h-7 text-xs pointer-events-none"
+                        asChild
+                      >
+                        <span>
+                          <FileUp className="w-3 h-3" />
+                          استيراد ملف
+                        </span>
+                      </Button>
+                    </label>
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
