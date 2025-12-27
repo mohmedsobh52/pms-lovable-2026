@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Calculator, Save, Plus, Trash2, X, Download, FileSpreadsheet, FileText, Copy, Upload, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2 } from "lucide-react";
 import {
   DndContext,
@@ -318,6 +318,52 @@ export function ExcavationCostAnalysis({
     aiRent: "AI إيجار",
     costPerM3: "تكلفة/م3",
   });
+  const [columnWidths, setColumnWidths] = useState({
+    grip: 30,
+    workItem: 180,
+    productivity: 120,
+    aiProductivity: 100,
+    dailyRent: 100,
+    aiRent: 100,
+    costPerM3: 100,
+    actions: 80,
+  });
+  const [resizingColumn, setResizingColumn] = useState<string | null>(null);
+  const [startX, setStartX] = useState(0);
+  const [startWidth, setStartWidth] = useState(0);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent, columnKey: string) => {
+    e.preventDefault();
+    setResizingColumn(columnKey);
+    setStartX(e.clientX);
+    setStartWidth(columnWidths[columnKey as keyof typeof columnWidths]);
+  }, [columnWidths]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizingColumn) return;
+      const diff = startX - e.clientX; // RTL adjustment
+      const newWidth = Math.max(60, startWidth + diff);
+      setColumnWidths(prev => ({
+        ...prev,
+        [resizingColumn]: newWidth,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      setResizingColumn(null);
+    };
+
+    if (resizingColumn) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizingColumn, startX, startWidth]);
 
   // DnD sensors
   const sensors = useSensors(
@@ -921,11 +967,16 @@ export function ExcavationCostAnalysis({
                     </Button>
                   </div>
                   <ScrollArea className="max-h-[300px]">
-                    <Table>
+                    <Table className="table-fixed">
                       <TableHeader>
                         <TableRow className="bg-primary/10">
-                          <TableHead className="w-[30px]"></TableHead>
-                          <TableHead className="text-right font-bold text-primary w-[160px]">
+                          <TableHead style={{ width: columnWidths.grip }} className="relative">
+                            <div
+                              className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleMouseDown(e, 'grip')}
+                            />
+                          </TableHead>
+                          <TableHead style={{ width: columnWidths.workItem }} className="text-right font-bold text-primary relative">
                             {editingHeaders ? (
                               <Input
                                 value={headers.workItem}
@@ -933,8 +984,12 @@ export function ExcavationCostAnalysis({
                                 className="h-6 text-xs text-right"
                               />
                             ) : headers.workItem}
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleMouseDown(e, 'workItem')}
+                            />
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary min-w-[120px] whitespace-nowrap">
+                          <TableHead style={{ width: columnWidths.productivity }} className="text-center font-bold text-primary whitespace-nowrap relative">
                             {editingHeaders ? (
                               <Input
                                 value={headers.productivity}
@@ -942,8 +997,12 @@ export function ExcavationCostAnalysis({
                                 className="h-6 text-xs text-center"
                               />
                             ) : headers.productivity}
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleMouseDown(e, 'productivity')}
+                            />
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary min-w-[100px] whitespace-nowrap">
+                          <TableHead style={{ width: columnWidths.aiProductivity }} className="text-center font-bold text-primary whitespace-nowrap relative">
                             {editingHeaders ? (
                               <Input
                                 value={headers.aiProductivity}
@@ -956,8 +1015,12 @@ export function ExcavationCostAnalysis({
                                 {headers.aiProductivity}
                               </div>
                             )}
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleMouseDown(e, 'aiProductivity')}
+                            />
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary min-w-[100px] whitespace-nowrap">
+                          <TableHead style={{ width: columnWidths.dailyRent }} className="text-center font-bold text-primary whitespace-nowrap relative">
                             {editingHeaders ? (
                               <Input
                                 value={headers.dailyRent}
@@ -965,8 +1028,12 @@ export function ExcavationCostAnalysis({
                                 className="h-6 text-xs text-center"
                               />
                             ) : headers.dailyRent}
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleMouseDown(e, 'dailyRent')}
+                            />
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary min-w-[100px] whitespace-nowrap">
+                          <TableHead style={{ width: columnWidths.aiRent }} className="text-center font-bold text-primary whitespace-nowrap relative">
                             {editingHeaders ? (
                               <Input
                                 value={headers.aiRent}
@@ -979,8 +1046,12 @@ export function ExcavationCostAnalysis({
                                 {headers.aiRent}
                               </div>
                             )}
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleMouseDown(e, 'aiRent')}
+                            />
                           </TableHead>
-                          <TableHead className="text-center font-bold text-primary min-w-[100px] whitespace-nowrap">
+                          <TableHead style={{ width: columnWidths.costPerM3 }} className="text-center font-bold text-primary whitespace-nowrap relative">
                             {editingHeaders ? (
                               <Input
                                 value={headers.costPerM3}
@@ -988,8 +1059,12 @@ export function ExcavationCostAnalysis({
                                 className="h-6 text-xs text-center"
                               />
                             ) : headers.costPerM3}
+                            <div
+                              className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                              onMouseDown={(e) => handleMouseDown(e, 'costPerM3')}
+                            />
                           </TableHead>
-                          <TableHead className="w-[80px]">إجراءات</TableHead>
+                          <TableHead style={{ width: columnWidths.actions }}>إجراءات</TableHead>
                         </TableRow>
                       </TableHeader>
                       <DndContext
