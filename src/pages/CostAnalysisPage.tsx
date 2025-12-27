@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload } from "lucide-react";
 import {
@@ -286,6 +286,7 @@ function SortableRow({
 
 export default function CostAnalysisPage() {
   const currency = "ريال";
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   // Load items from localStorage or use defaults
   const [items, setItems] = useState<CostItem[]>(() => {
@@ -404,6 +405,16 @@ export default function CostAnalysisPage() {
     };
     setItems(prevItems => [...prevItems, newItem]);
     toast.success("تم إضافة صف جديد");
+    
+    // Scroll to bottom after adding new item
+    setTimeout(() => {
+      if (scrollAreaRef.current) {
+        const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollContainer) {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        }
+      }
+    }, 100);
   }, []);
 
   const calculateDifference = useCallback((manual: number, ai: number | undefined): { value: number; type: 'up' | 'down' | 'same' } | null => {
@@ -912,7 +923,7 @@ export default function CostAnalysisPage() {
                     {editingHeaders ? "إنهاء تعديل الهيدر" : "تعديل الهيدر"}
                   </Button>
                 </div>
-                <ScrollArea className="max-h-[400px]">
+                <ScrollArea className="max-h-[400px]" ref={scrollAreaRef}>
                   <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
