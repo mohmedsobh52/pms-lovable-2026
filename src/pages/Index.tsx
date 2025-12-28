@@ -449,55 +449,62 @@ const Index = () => {
     <div className="min-h-screen bg-background" dir={isArabic ? 'rtl' : 'ltr'}>
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <GitMerge className="w-5 h-5 text-primary-foreground" />
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            {/* Logo */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <GitMerge className="w-4 h-4 text-primary-foreground" />
               </div>
-              <div>
-                <h1 className="font-display text-xl font-bold gradient-text">BOQ Analyzer</h1>
-                <p className="text-xs text-muted-foreground">{t('appDescription')}</p>
-              </div>
+              <h1 className="font-display text-lg font-bold gradient-text hidden sm:block">BOQ Analyzer</h1>
             </div>
-            <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
-              {/* Cost Analysis Link */}
-              <Link to="/cost-analysis">
-                <Button variant="default" size="sm" className="gap-1.5 h-8 text-xs sm:text-sm px-2 sm:px-3">
-                  <Scale className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{isArabic ? 'تحليل التكاليف' : 'Cost Analysis'}</span>
-                </Button>
-              </Link>
-              
-              {/* About Page Link */}
-              <Link to="/about">
-                <Button variant="ghost" size="sm" className="h-8 text-xs sm:text-sm px-2">
-                  {isArabic ? 'من نحن' : 'About'}
-                </Button>
-              </Link>
-              
-              {/* Saved Projects Link */}
-              <Link to="/projects">
-                <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs sm:text-sm px-2 sm:px-3">
-                  <Save className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">{t('savedProjects') || 'Saved Projects'}</span>
-                </Button>
-              </Link>
-              
-              {/* Share Analysis */}
+            
+            {/* Navigation Tabs - Clean horizontal layout */}
+            <nav className="flex-1 flex items-center justify-center overflow-x-auto scrollbar-hide">
+              <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-1">
+                <Link to="/">
+                  <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs font-medium hover:bg-background/80 data-[active=true]:bg-background data-[active=true]:shadow-sm rounded-md" data-active="true">
+                    <LayoutDashboard className="w-3.5 h-3.5" />
+                    <span>{isArabic ? 'الرئيسية' : 'Dashboard'}</span>
+                  </Button>
+                </Link>
+                
+                <Link to="/cost-analysis">
+                  <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs font-medium hover:bg-background/80 rounded-md">
+                    <Scale className="w-3.5 h-3.5" />
+                    <span className="hidden md:inline">{isArabic ? 'تحليل التكاليف' : 'Cost Analysis'}</span>
+                  </Button>
+                </Link>
+                
+                <Link to="/saved-projects">
+                  <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs font-medium hover:bg-background/80 rounded-md">
+                    <Save className="w-3.5 h-3.5" />
+                    <span className="hidden md:inline">{isArabic ? 'المشاريع' : 'Projects'}</span>
+                  </Button>
+                </Link>
+
+                <Link to="/about">
+                  <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs font-medium hover:bg-background/80 rounded-md">
+                    <FileText className="w-3.5 h-3.5" />
+                    <span className="hidden lg:inline">{isArabic ? 'حول' : 'About'}</span>
+                  </Button>
+                </Link>
+              </div>
+            </nav>
+
+            {/* Right Actions */}
+            <div className="flex items-center gap-1 shrink-0">
               <ShareAnalysis 
                 analysisData={analysisData}
                 wbsData={wbsData}
                 fileName={selectedFile?.name}
               />
               
-              {/* BOQ Version Comparison */}
               <BOQVersionComparison 
                 currentItems={analysisData?.items}
                 currentTotalValue={analysisData?.summary?.total_value}
               />
               
-              {/* Local Project Manager - always visible */}
               <LocalProjectManager
                 analysisData={analysisData}
                 wbsData={wbsData}
@@ -515,28 +522,24 @@ const Index = () => {
               
               <ThemeToggle />
               <LanguageToggle />
+              
               {authLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
               ) : user ? (
-                <>
-                  <span className="text-xs text-muted-foreground hidden lg:block max-w-[120px] truncate">
-                    {user.email}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => signOut()}
-                    className="gap-1.5 h-8 text-xs sm:text-sm px-2"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{t('signOut')}</span>
-                  </Button>
-                </>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => signOut()}
+                  className="gap-1.5 h-8 px-2 text-xs"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline">{t('signOut')}</span>
+                </Button>
               ) : (
                 <Link to="/auth">
-                  <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs sm:text-sm px-2 sm:px-3">
+                  <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-2 text-xs">
                     <LogIn className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{t('signIn')}</span>
+                    <span className="hidden lg:inline">{t('signIn')}</span>
                   </Button>
                 </Link>
               )}
