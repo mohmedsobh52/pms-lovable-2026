@@ -30,6 +30,18 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+// Clean text from corrupted characters
+function cleanText(text: string): string {
+  if (!text) return '';
+  // Remove corrupted/mojibake characters
+  return text
+    .replace(/[\uFFFD\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/[þÿýüûúùøö÷ôõóòñðïîíìëêéèçæåäãâáàßÞÝÜÛÚÙØ×ÖÕÔÓÒÑÐÏÎÍÌËÊÉÈÇÆÅÄÃÂÁÀ]+/g, '')
+    .replace(/p[*ˆ˜°´¸¹²³µ¶·ºª¡¿€£¥¢¤®©™±×÷«»‹›""''‚„†‡…‰]+/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 interface BOQItem {
   item_number: string;
   description: string;
@@ -1425,14 +1437,17 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                     <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
                       Qty
                     </th>
+                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Unit Price
+                    </th>
+                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Total
+                    </th>
                     <th className="px-3 py-3 text-right font-bold text-sm text-purple-700 dark:text-purple-300 whitespace-nowrap bg-purple-500/10">
                       AI Rate
                     </th>
                     <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap bg-primary/10">
-                      Calc. Unit Price
-                    </th>
-                    <th className="px-3 py-3 text-right font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap bg-primary/10">
-                      Total
+                      Calc. Price
                     </th>
                     <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
                       Actions
@@ -1489,8 +1504,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                           />
                         </td>
                         <td className="px-3 py-3 text-left min-w-[300px] max-w-[450px]">
-                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={item.description}>
-                            {item.description}
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={cleanText(item.description)}>
+                            {cleanText(item.description)}
                           </p>
                         </td>
                         <td className="px-3 py-3 text-center">
@@ -1498,6 +1513,16 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                         </td>
                         <td className="px-3 py-3 text-center">
                           <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.quantity.toLocaleString()}</span>
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                            {(item.unit_price && item.unit_price > 0) ? item.unit_price.toLocaleString() : '-'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                            {(item.total_price && item.total_price > 0) ? item.total_price.toLocaleString() : ((item.unit_price && item.unit_price > 0) ? (item.unit_price * item.quantity).toLocaleString() : '-')}
+                          </span>
                         </td>
                         <td className="px-3 py-3 text-right bg-purple-500/5">
                           <EditableAIRate
@@ -1512,17 +1537,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                             "text-sm font-bold",
                             calculatedPrice > 0 ? "text-primary" : "text-slate-500"
                           )}>
-                            {calculatedPrice > 0 ? calculatedPrice.toLocaleString() : (item.unit_price ? item.unit_price.toLocaleString() : '-')}
-                          </span>
-                          {calculatedPrice > 0 && item.unit_price && calculatedPrice !== item.unit_price && (
-                            <p className="text-xs text-slate-400 line-through">
-                              {item.unit_price.toLocaleString()}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-3 py-3 text-right bg-primary/5">
-                          <span className="text-sm font-bold text-primary">
-                            {totalPrice > 0 ? totalPrice.toLocaleString() : '-'}
+                            {calculatedPrice > 0 ? calculatedPrice.toLocaleString() : '-'}
                           </span>
                         </td>
                         <td className="px-3 py-3 text-center">
