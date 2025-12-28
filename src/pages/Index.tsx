@@ -460,27 +460,27 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground">{t('appDescription')}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
               {/* Cost Analysis Link */}
               <Link to="/cost-analysis">
-                <Button variant="default" size="sm" className="gap-2">
-                  <Scale className="w-4 h-4" />
-                  {isArabic ? 'تحليل التكاليف' : 'Cost Analysis'}
+                <Button variant="default" size="sm" className="gap-1.5 h-8 text-xs sm:text-sm px-2 sm:px-3">
+                  <Scale className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{isArabic ? 'تحليل التكاليف' : 'Cost Analysis'}</span>
                 </Button>
               </Link>
               
               {/* About Page Link */}
               <Link to="/about">
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" className="h-8 text-xs sm:text-sm px-2">
                   {isArabic ? 'من نحن' : 'About'}
                 </Button>
               </Link>
               
               {/* Saved Projects Link */}
               <Link to="/projects">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Save className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t('savedProjects') || 'Saved Projects'}</span>
+                <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs sm:text-sm px-2 sm:px-3">
+                  <Save className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">{t('savedProjects') || 'Saved Projects'}</span>
                 </Button>
               </Link>
               
@@ -519,24 +519,24 @@ const Index = () => {
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : user ? (
                 <>
-                  <span className="text-sm text-muted-foreground hidden sm:block">
+                  <span className="text-xs text-muted-foreground hidden lg:block max-w-[120px] truncate">
                     {user.email}
                   </span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => signOut()}
-                    className="gap-2"
+                    className="gap-1.5 h-8 text-xs sm:text-sm px-2"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">{t('signOut')}</span>
                   </Button>
                 </>
               ) : (
                 <Link to="/auth">
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <LogIn className="w-4 h-4" />
-                    {t('signIn')}
+                  <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs sm:text-sm px-2 sm:px-3">
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{t('signIn')}</span>
                   </Button>
                 </Link>
               )}
