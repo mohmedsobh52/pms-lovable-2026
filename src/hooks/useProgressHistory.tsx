@@ -29,6 +29,17 @@ interface SaveProgressParams {
   recordDate?: Date;
 }
 
+interface EVMAlertSettings {
+  notifications_enabled: boolean;
+  email: string;
+  spi_warning_threshold: number;
+  spi_critical_threshold: number;
+  cpi_warning_threshold: number;
+  cpi_critical_threshold: number;
+  vac_warning_percentage: number;
+  vac_critical_percentage: number;
+}
+
 export function useProgressHistory(projectId?: string) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -68,8 +79,93 @@ export function useProgressHistory(projectId?: string) {
     }
   }, [user, projectId, toast]);
 
+  // Check EVM thresholds and send alert
+  const checkEVMThresholdsAndAlert = useCallback(async (
+    spi: number | undefined,
+    cpi: number | undefined,
+    projectName?: string
+  ) => {
+    if (!user || (!spi && !cpi)) return;
+
+    try {
+      // Fetch user's EVM alert settings
+      const { data: settings, error: settingsError } = await supabase
+        .from("evm_alert_settings")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (settingsError && settingsError.code !== 'PGRST116') {
+        console.error("Error fetching alert settings:", settingsError);
+        return;
+      }
+
+      if (!settings || !settings.notifications_enabled) {
+        return; // Notifications disabled or no settings
+      }
+
+      const alertSettings = settings as EVMAlertSettings;
+
+      // Determine alert level
+      let alertLevel: 'warning' | 'critical' | null = null;
+      const violations: string[] = [];
+
+      if (spi !== undefined) {
+        if (spi < alertSettings.spi_critical_threshold) {
+          alertLevel = 'critical';
+          violations.push(`SPI (${spi.toFixed(2)}) below critical threshold (${alertSettings.spi_critical_threshold})`);
+        } else if (spi < alertSettings.spi_warning_threshold) {
+          alertLevel = alertLevel === 'critical' ? 'critical' : 'warning';
+          violations.push(`SPI (${spi.toFixed(2)}) below warning threshold (${alertSettings.spi_warning_threshold})`);
+        }
+      }
+
+      if (cpi !== undefined) {
+        if (cpi < alertSettings.cpi_critical_threshold) {
+          alertLevel = 'critical';
+          violations.push(`CPI (${cpi.toFixed(2)}) below critical threshold (${alertSettings.cpi_critical_threshold})`);
+        } else if (cpi < alertSettings.cpi_warning_threshold) {
+          alertLevel = alertLevel === 'critical' ? 'critical' : 'warning';
+          violations.push(`CPI (${cpi.toFixed(2)}) below warning threshold (${alertSettings.cpi_warning_threshold})`);
+        }
+      }
+
+      if (alertLevel && violations.length > 0) {
+        // Send alert via edge function
+        const { error: alertError } = await supabase.functions.invoke('send-evm-alert', {
+          body: {
+            email: alertSettings.email,
+            alertLevel,
+            projectName: projectName || 'Unknown Project',
+            spi,
+            cpi,
+            thresholds: {
+              spiWarning: alertSettings.spi_warning_threshold,
+              spiCritical: alertSettings.spi_critical_threshold,
+              cpiWarning: alertSettings.cpi_warning_threshold,
+              cpiCritical: alertSettings.cpi_critical_threshold,
+            },
+            violations,
+          },
+        });
+
+        if (alertError) {
+          console.error("Error sending EVM alert:", alertError);
+        } else {
+          toast({
+            title: alertLevel === 'critical' ? "تنبيه حرج" : "تحذير",
+            description: `تم إرسال تنبيه EVM إلى ${alertSettings.email}`,
+            variant: alertLevel === 'critical' ? "destructive" : "default",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error checking EVM thresholds:", error);
+    }
+  }, [user, toast]);
+
   // Save progress record
-  const saveProgress = useCallback(async (params: SaveProgressParams) => {
+  const saveProgress = useCallback(async (params: SaveProgressParams, projectName?: string) => {
     if (!user) {
       toast({
         title: "Error",
@@ -111,6 +207,9 @@ export function useProgressHistory(projectId?: string) {
         description: "تم حفظ التقدم بنجاح",
       });
 
+      // Check EVM thresholds and send alert if needed
+      await checkEVMThresholdsAndAlert(params.spi, params.cpi, projectName);
+
       // Refresh history
       fetchHistory();
       return data;
@@ -125,7 +224,7 @@ export function useProgressHistory(projectId?: string) {
     } finally {
       setSaving(false);
     }
-  }, [user, projectId, toast, fetchHistory]);
+  }, [user, projectId, toast, fetchHistory, checkEVMThresholdsAndAlert]);
 
   // Delete a progress record
   const deleteRecord = useCallback(async (recordId: string) => {
