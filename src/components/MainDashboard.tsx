@@ -24,7 +24,11 @@ import {
   Image as ImageIcon,
   Upload,
   X,
-  GitCompare
+  GitCompare,
+  ShieldAlert,
+  FileSignature,
+  Calculator,
+  Link2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +44,11 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { ProjectComparisonReport } from "./ProjectComparisonReport";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RiskManagement } from "./RiskManagement";
+import { ContractManagement } from "./ContractManagement";
+import { CostBenefitAnalysis } from "./CostBenefitAnalysis";
+import { ContractLinkage } from "./ContractLinkage";
 import {
   BarChart,
   Bar,
@@ -588,22 +597,49 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-            <LayoutDashboard className="w-5 h-5 text-primary-foreground" />
+      {/* Tabs for different management sections */}
+      <Tabs defaultValue="dashboard" className="w-full">
+        <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <LayoutDashboard className="w-4 h-4" />
+            <span className="hidden sm:inline">{isArabic ? "لوحة التحكم" : "Dashboard"}</span>
+          </TabsTrigger>
+          <TabsTrigger value="risks" className="flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4" />
+            <span className="hidden sm:inline">{isArabic ? "المخاطر" : "Risks"}</span>
+          </TabsTrigger>
+          <TabsTrigger value="contracts" className="flex items-center gap-2">
+            <FileSignature className="w-4 h-4" />
+            <span className="hidden sm:inline">{isArabic ? "العقود" : "Contracts"}</span>
+          </TabsTrigger>
+          <TabsTrigger value="cost-benefit" className="flex items-center gap-2">
+            <Calculator className="w-4 h-4" />
+            <span className="hidden sm:inline">{isArabic ? "التكلفة/العائد" : "Cost/Benefit"}</span>
+          </TabsTrigger>
+          <TabsTrigger value="linkage" className="flex items-center gap-2">
+            <Link2 className="w-4 h-4" />
+            <span className="hidden sm:inline">{isArabic ? "الربط" : "Linkage"}</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Dashboard Tab */}
+        <TabsContent value="dashboard" className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <LayoutDashboard className="w-5 h-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold">
+                  {isArabic ? "لوحة التحكم" : "Dashboard"}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {isArabic ? "ملخص جميع المشاريع والعروض" : "Overview of all projects and quotations"}
+                </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-bold">
-              {isArabic ? "لوحة التحكم" : "Dashboard"}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {isArabic ? "ملخص جميع المشاريع والعروض" : "Overview of all projects and quotations"}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
           {/* Date Filter */}
           <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
             <PopoverTrigger asChild>
@@ -1095,12 +1131,34 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <Receipt className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>{isArabic ? "لا توجد عروض أسعار" : "No quotations yet"}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              <p>{isArabic ? "لا توجد عروض أسعار" : "No quotations yet"}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
-  );
+  </TabsContent>
+
+  {/* Risks Tab */}
+  <TabsContent value="risks">
+    <RiskManagement />
+  </TabsContent>
+
+  {/* Contracts Tab */}
+  <TabsContent value="contracts">
+    <ContractManagement />
+  </TabsContent>
+
+  {/* Cost Benefit Tab */}
+  <TabsContent value="cost-benefit">
+    <CostBenefitAnalysis />
+  </TabsContent>
+
+  {/* Linkage Tab */}
+  <TabsContent value="linkage">
+    <ContractLinkage />
+  </TabsContent>
+</Tabs>
+</div>
+);
 }
