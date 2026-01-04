@@ -34,6 +34,11 @@ import { WordExportDialog } from "./WordExportDialog";
 import { EVMDashboard } from "./EVMDashboard";
 import { MultiProjectEVMComparison } from "./MultiProjectEVMComparison";
 import { ProgressHistoryPanel } from "./ProgressHistoryPanel";
+import { ProgressHistoryChart } from "./ProgressHistoryChart";
+import { RiskManagement } from "./RiskManagement";
+import { ContractManagement } from "./ContractManagement";
+import { CostBenefitAnalysis } from "./CostBenefitAnalysis";
+import { ProjectComparisonPDFExport } from "./ProjectComparisonPDFExport";
 import { CompanyLogoUpload, getStoredLogo } from "./CompanyLogoUpload";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
 import { useItemCodes } from "@/hooks/useItemCodes";
@@ -1904,6 +1909,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
               plannedProgress={40}
               currency={data.summary?.currency || "SAR"}
             />
+            <ProgressHistoryChart />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <MultiProjectEVMComparison
                 currency={data.summary?.currency || "SAR"}
@@ -1917,6 +1923,13 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                 cpi={0.921}
                 currency={data.summary?.currency || "SAR"}
               />
+            </div>
+            
+            {/* Risk, Contract & Cost-Benefit Management */}
+            <div className="grid grid-cols-1 gap-6">
+              <RiskManagement />
+              <ContractManagement />
+              <CostBenefitAnalysis />
             </div>
           </div>
         )}

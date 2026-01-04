@@ -127,6 +127,80 @@ export type Database = {
         }
         Relationships: []
       }
+      contracts: {
+        Row: {
+          contract_number: string
+          contract_title: string
+          contract_type: string | null
+          contract_value: number | null
+          contractor_name: string | null
+          created_at: string
+          currency: string | null
+          documents_url: string | null
+          end_date: string | null
+          id: string
+          notes: string | null
+          payment_terms: string | null
+          project_id: string | null
+          scope_of_work: string | null
+          start_date: string | null
+          status: string | null
+          terms_conditions: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          contract_number: string
+          contract_title: string
+          contract_type?: string | null
+          contract_value?: number | null
+          contractor_name?: string | null
+          created_at?: string
+          currency?: string | null
+          documents_url?: string | null
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          payment_terms?: string | null
+          project_id?: string | null
+          scope_of_work?: string | null
+          start_date?: string | null
+          status?: string | null
+          terms_conditions?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          contract_number?: string
+          contract_title?: string
+          contract_type?: string | null
+          contract_value?: number | null
+          contractor_name?: string | null
+          created_at?: string
+          currency?: string | null
+          documents_url?: string | null
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          payment_terms?: string | null
+          project_id?: string | null
+          scope_of_work?: string | null
+          start_date?: string | null
+          status?: string | null
+          terms_conditions?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cost_analysis: {
         Row: {
           admin_cost: number | null
@@ -215,6 +289,80 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "cost_analysis_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_benefit_analysis: {
+        Row: {
+          analysis_name: string
+          analysis_period_years: number | null
+          annual_benefits: number | null
+          annual_costs: number | null
+          assumptions: string | null
+          bcr: number | null
+          created_at: string
+          description: string | null
+          discount_rate: number | null
+          id: string
+          initial_investment: number | null
+          irr: number | null
+          npv: number | null
+          payback_period: number | null
+          project_id: string | null
+          recommendations: string | null
+          risks: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_name: string
+          analysis_period_years?: number | null
+          annual_benefits?: number | null
+          annual_costs?: number | null
+          assumptions?: string | null
+          bcr?: number | null
+          created_at?: string
+          description?: string | null
+          discount_rate?: number | null
+          id?: string
+          initial_investment?: number | null
+          irr?: number | null
+          npv?: number | null
+          payback_period?: number | null
+          project_id?: string | null
+          recommendations?: string | null
+          risks?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_name?: string
+          analysis_period_years?: number | null
+          annual_benefits?: number | null
+          annual_costs?: number | null
+          assumptions?: string | null
+          bcr?: number | null
+          created_at?: string
+          description?: string | null
+          discount_rate?: number | null
+          id?: string
+          initial_investment?: number | null
+          irr?: number | null
+          npv?: number | null
+          payback_period?: number | null
+          project_id?: string | null
+          recommendations?: string | null
+          risks?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_benefit_analysis_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "saved_projects"
@@ -727,6 +875,74 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "project_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      risks: {
+        Row: {
+          category: string | null
+          contingency_plan: string | null
+          created_at: string
+          id: string
+          identified_date: string | null
+          impact: string | null
+          mitigation_strategy: string | null
+          probability: string | null
+          project_id: string | null
+          review_date: string | null
+          risk_description: string | null
+          risk_owner: string | null
+          risk_score: number | null
+          risk_title: string
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          contingency_plan?: string | null
+          created_at?: string
+          id?: string
+          identified_date?: string | null
+          impact?: string | null
+          mitigation_strategy?: string | null
+          probability?: string | null
+          project_id?: string | null
+          review_date?: string | null
+          risk_description?: string | null
+          risk_owner?: string | null
+          risk_score?: number | null
+          risk_title: string
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          contingency_plan?: string | null
+          created_at?: string
+          id?: string
+          identified_date?: string | null
+          impact?: string | null
+          mitigation_strategy?: string | null
+          probability?: string | null
+          project_id?: string | null
+          review_date?: string | null
+          risk_description?: string | null
+          risk_owner?: string | null
+          risk_score?: number | null
+          risk_title?: string
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
             referencedColumns: ["id"]
           },
         ]

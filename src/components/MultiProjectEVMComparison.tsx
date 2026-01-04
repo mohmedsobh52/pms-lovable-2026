@@ -6,7 +6,8 @@ import {
   X,
   BarChart3,
   Download,
-  RefreshCw
+  RefreshCw,
+  FileDown
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ProjectComparisonPDFExport } from "./ProjectComparisonPDFExport";
 import {
   BarChart,
   Bar,
@@ -195,74 +197,94 @@ export function MultiProjectEVMComparison({
               </p>
             </div>
           </div>
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Plus className="w-4 h-4" />
-                {isArabic ? "إضافة مشروع" : "Add Project"}
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  {isArabic ? "إضافة مشروع للمقارنة" : "Add Project for Comparison"}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>{isArabic ? "اسم المشروع" : "Project Name"}</Label>
-                  <Input
-                    value={newProject.name || ""}
-                    onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                    placeholder={isArabic ? "أدخل اسم المشروع" : "Enter project name"}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{isArabic ? "الميزانية (BAC)" : "Budget (BAC)"}</Label>
-                    <Input
-                      type="number"
-                      value={newProject.bac || ""}
-                      onChange={(e) => setNewProject({ ...newProject, bac: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{isArabic ? "التكلفة الفعلية" : "Actual Cost"}</Label>
-                    <Input
-                      type="number"
-                      value={newProject.actualSpent || ""}
-                      onChange={(e) => setNewProject({ ...newProject, actualSpent: Number(e.target.value) })}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{isArabic ? "التقدم الفعلي %" : "Actual Progress %"}</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={newProject.actualProgress || ""}
-                      onChange={(e) => setNewProject({ ...newProject, actualProgress: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{isArabic ? "التقدم المخطط %" : "Planned Progress %"}</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={newProject.plannedProgress || ""}
-                      onChange={(e) => setNewProject({ ...newProject, plannedProgress: Number(e.target.value) })}
-                    />
-                  </div>
-                </div>
-                <Button onClick={addProject} className="w-full">
-                  {isArabic ? "إضافة" : "Add"}
+          <div className="flex gap-2">
+            {projects.length >= 2 && (
+              <ProjectComparisonPDFExport
+                projects={projectMetrics.map(p => ({
+                  id: p.id,
+                  name: p.name,
+                  totalValue: p.bac,
+                  itemsCount: 0,
+                  currency: currency,
+                  progress: p.actualProgress,
+                  spi: p.spi,
+                  cpi: p.cpi,
+                  ev: p.ev,
+                  pv: p.pv,
+                  ac: p.ac,
+                }))}
+                comparisonName={isArabic ? "تقرير مقارنة المشاريع" : "Project Comparison Report"}
+              />
+            )}
+            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  {isArabic ? "إضافة مشروع" : "Add Project"}
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>
+                    {isArabic ? "إضافة مشروع للمقارنة" : "Add Project for Comparison"}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "اسم المشروع" : "Project Name"}</Label>
+                    <Input
+                      value={newProject.name || ""}
+                      onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                      placeholder={isArabic ? "أدخل اسم المشروع" : "Enter project name"}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{isArabic ? "الميزانية (BAC)" : "Budget (BAC)"}</Label>
+                      <Input
+                        type="number"
+                        value={newProject.bac || ""}
+                        onChange={(e) => setNewProject({ ...newProject, bac: Number(e.target.value) })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{isArabic ? "التكلفة الفعلية" : "Actual Cost"}</Label>
+                      <Input
+                        type="number"
+                        value={newProject.actualSpent || ""}
+                        onChange={(e) => setNewProject({ ...newProject, actualSpent: Number(e.target.value) })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{isArabic ? "التقدم الفعلي %" : "Actual Progress %"}</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={newProject.actualProgress || ""}
+                        onChange={(e) => setNewProject({ ...newProject, actualProgress: Number(e.target.value) })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{isArabic ? "التقدم المخطط %" : "Planned Progress %"}</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={newProject.plannedProgress || ""}
+                        onChange={(e) => setNewProject({ ...newProject, plannedProgress: Number(e.target.value) })}
+                      />
+                    </div>
+                  </div>
+                  <Button onClick={addProject} className="w-full">
+                    {isArabic ? "إضافة" : "Add"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </CardHeader>
 
