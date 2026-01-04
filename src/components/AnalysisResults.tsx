@@ -28,6 +28,8 @@ import { PriceComparisonReport } from "./PriceComparisonReport";
 import { WBSTreeDiagram } from "./WBSTreeDiagram";
 import { ComprehensivePDFReport } from "./ComprehensivePDFReport";
 import { WBSFlowDiagram } from "./WBSFlowDiagram";
+import { SCurveChart } from "./SCurveChart";
+import { PrintableReport } from "./PrintableReport";
 import { CompanyLogoUpload, getStoredLogo } from "./CompanyLogoUpload";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
 import { useItemCodes } from "@/hooks/useItemCodes";
@@ -1174,6 +1176,26 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
                     />
                   </div>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <div className="p-0">
+                    <PrintableReport
+                      projectName={fileName || "المشروع"}
+                      boqItems={data.items || []}
+                      timelineItems={wbsData?.wbs?.map((item, idx) => ({
+                        code: item.code,
+                        title: item.title,
+                        level: item.level,
+                        startDay: idx * 7,
+                        duration: 14 + (item.items?.length || 0) * 2,
+                        progress: 0,
+                        isCritical: idx < 3,
+                      })) || []}
+                      currency={data.summary?.currency || "SAR"}
+                      companyName={companyInfo?.name}
+                      companyLogo={getStoredLogo() || undefined}
+                    />
+                  </div>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -1835,7 +1857,24 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName }: Analys
         )}
 
         {activeTab === "charts" && data.items && (
-          <DataCharts items={data.items} summary={data.summary} wbsData={wbsData?.wbs} />
+          <div className="space-y-6">
+            <DataCharts items={data.items} summary={data.summary} wbsData={wbsData?.wbs} />
+            <SCurveChart 
+              boqItems={data.items}
+              timelineItems={wbsData?.wbs?.map((item, idx) => ({
+                code: item.code,
+                title: item.title,
+                level: item.level,
+                startDay: idx * 7,
+                duration: 14 + (item.items?.length || 0) * 2,
+                progress: Math.floor(Math.random() * 100),
+                isCritical: idx < 3,
+              })) || []}
+              currency={data.summary?.currency || "SAR"}
+              actualProgress={35}
+              actualSpentPercentage={38}
+            />
+          </div>
         )}
 
         {activeTab === "timeline" && wbsData?.wbs && (
