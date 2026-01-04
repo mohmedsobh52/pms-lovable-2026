@@ -9,42 +9,36 @@ import {
   FileStack, 
   Calendar, 
   Bell, 
-  FolderOpen,
-  Share2,
   FileText,
   GitCompare,
   ChevronRight,
-  Sparkles,
-  GripVertical,
+  ChevronDown,
+  Search,
+  TrendingUp,
+  Shield,
+  Users,
+  BarChart3,
   Settings,
-  RotateCcw
+  HelpCircle,
+  FileSpreadsheet,
+  DollarSign,
+  ClipboardList,
+  Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/useLanguage";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { Badge } from "@/components/ui/badge";
 
-interface ToolItem {
+interface MenuItem {
   id: string;
   icon: React.ReactNode;
   label: string;
   labelAr: string;
+  badge?: string;
+  badgeVariant?: "default" | "destructive" | "secondary" | "outline";
+  children?: MenuItem[];
   onClick?: () => void;
   disabled?: boolean;
 }
@@ -58,113 +52,6 @@ interface FloatingToolbarProps {
   onShowReport?: () => void;
 }
 
-const STORAGE_KEY = "floating-toolbar-order";
-
-const defaultToolsOrder = [
-  "dashboard",
-  "procurement", 
-  "upload",
-  "compare",
-  "boq-compare",
-  "p6-export",
-  "settings",
-];
-
-// Sortable Tool Item Component
-function SortableToolItem({ 
-  tool, 
-  isActive, 
-  isArabic, 
-  onSelect,
-  isEditMode
-}: { 
-  tool: ToolItem; 
-  isActive: boolean; 
-  isArabic: boolean; 
-  onSelect: () => void;
-  isEditMode: boolean;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: tool.id, disabled: !isEditMode });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition: transition || "transform 250ms cubic-bezier(0.25, 1, 0.5, 1)",
-    zIndex: isDragging ? 50 : undefined,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "group relative",
-        isDragging && "opacity-90 scale-105"
-      )}
-    >
-      <button
-        onClick={onSelect}
-        disabled={isEditMode}
-        className={cn(
-          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl",
-          "transition-all duration-300 ease-out",
-          "hover:bg-primary/10 active:scale-[0.98]",
-          "transform-gpu",
-          isActive && "bg-primary/15 text-primary shadow-sm",
-          isEditMode && "cursor-grab active:cursor-grabbing",
-          isDragging && "shadow-lg bg-background ring-2 ring-primary/30"
-        )}
-      >
-        {isEditMode && (
-          <div
-            {...attributes}
-            {...listeners}
-            className={cn(
-              "w-6 h-6 flex items-center justify-center rounded-md",
-              "hover:bg-muted cursor-grab active:cursor-grabbing",
-              "transition-all duration-200",
-              isDragging && "scale-110"
-            )}
-          >
-            <GripVertical className="w-4 h-4 text-muted-foreground" />
-          </div>
-        )}
-        <div className={cn(
-          "w-9 h-9 rounded-lg flex items-center justify-center",
-          "transition-all duration-300 ease-out transform-gpu",
-          isActive 
-            ? "bg-primary text-primary-foreground scale-105 shadow-md" 
-            : "bg-muted group-hover:bg-primary/20 group-hover:scale-105"
-        )}>
-          {tool.icon}
-        </div>
-        <span className={cn(
-          "flex-1 text-sm font-medium",
-          isArabic ? "text-right" : "text-left",
-          "transition-colors duration-200"
-        )}>
-          {isArabic ? tool.labelAr : tool.label}
-        </span>
-        {!isEditMode && (
-          <ChevronRight className={cn(
-            "w-4 h-4 text-muted-foreground",
-            "transition-all duration-300 ease-out",
-            "group-hover:translate-x-1",
-            isArabic && "rotate-180 group-hover:-translate-x-1",
-            isActive && "text-primary"
-          )} />
-        )}
-      </button>
-    </div>
-  );
-}
-
 export function FloatingToolbar({ 
   onNavigate, 
   currentTab,
@@ -174,332 +61,392 @@ export function FloatingToolbar({
   onShowReport
 }: FloatingToolbarProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [toolsOrder, setToolsOrder] = useState<string[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : defaultToolsOrder;
-  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(["analysis"]);
   const { isArabic } = useLanguage();
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  const allTools: Record<string, ToolItem> = {
-    dashboard: {
+  const menuItems: MenuItem[] = [
+    {
       id: "dashboard",
-      icon: <LayoutDashboard className="w-5 h-5" />,
+      icon: <LayoutDashboard className="w-4 h-4" />,
       label: "Dashboard",
       labelAr: "لوحة التحكم",
     },
-    procurement: {
-      id: "procurement",
-      icon: <Package className="w-5 h-5" />,
-      label: "Procurement",
-      labelAr: "المشتريات والموارد",
+    {
+      id: "analysis",
+      icon: <BarChart3 className="w-4 h-4" />,
+      label: "Analysis Tools",
+      labelAr: "أدوات التحليل",
+      badge: String(4),
+      children: [
+        {
+          id: "cost-analysis",
+          icon: <DollarSign className="w-4 h-4" />,
+          label: "Cost Analysis",
+          labelAr: "تحليل التكاليف",
+        },
+        {
+          id: "compare",
+          icon: <Scale className="w-4 h-4" />,
+          label: "Quote Compare",
+          labelAr: "مقارنة العروض",
+        },
+        {
+          id: "boq-compare",
+          icon: <FileStack className="w-4 h-4" />,
+          label: "BOQ Compare",
+          labelAr: "مقارنة BOQ",
+          badge: "New",
+          badgeVariant: "destructive",
+        },
+        {
+          id: "market-rates",
+          icon: <TrendingUp className="w-4 h-4" />,
+          label: "Market Rates",
+          labelAr: "أسعار السوق",
+        },
+      ],
     },
-    upload: {
+    {
+      id: "procurement",
+      icon: <Package className="w-4 h-4" />,
+      label: "Procurement",
+      labelAr: "المشتريات",
+      children: [
+        {
+          id: "procurement-schedule",
+          icon: <ClipboardList className="w-4 h-4" />,
+          label: "Schedule",
+          labelAr: "الجدولة",
+        },
+        {
+          id: "resources",
+          icon: <Users className="w-4 h-4" />,
+          label: "Resources",
+          labelAr: "الموارد",
+        },
+      ],
+    },
+    {
       id: "upload",
-      icon: <Receipt className="w-5 h-5" />,
+      icon: <Receipt className="w-4 h-4" />,
       label: "Quotations",
       labelAr: "عروض الأسعار",
     },
-    compare: {
-      id: "compare",
-      icon: <Scale className="w-5 h-5" />,
-      label: "Compare",
-      labelAr: "مقارنة العروض",
-    },
-    "boq-compare": {
-      id: "boq-compare",
-      icon: <FileStack className="w-5 h-5" />,
-      label: "BOQ Compare",
-      labelAr: "مقارنة BOQ",
-    },
-    "p6-export": {
-      id: "p6-export",
-      icon: <Calendar className="w-5 h-5" />,
-      label: "P6 Export",
-      labelAr: "تصدير P6",
-    },
-    settings: {
-      id: "settings",
-      icon: <Bell className="w-5 h-5" />,
-      label: "Notifications",
-      labelAr: "الإشعارات",
-    },
-  };
-
-  const tools = toolsOrder.map(id => allTools[id]).filter(Boolean);
-
-  const quickActions: ToolItem[] = [
     {
-      id: "report",
-      icon: <FileText className="w-5 h-5" />,
-      label: "Full Report",
-      labelAr: "التقرير الشامل",
-      onClick: onShowReport,
-      disabled: !hasAnalysisData,
+      id: "reports",
+      icon: <FileText className="w-4 h-4" />,
+      label: "Reports",
+      labelAr: "التقارير",
+      children: [
+        {
+          id: "report",
+          icon: <FileSpreadsheet className="w-4 h-4" />,
+          label: "Full Report",
+          labelAr: "التقرير الشامل",
+          onClick: onShowReport,
+          disabled: !hasAnalysisData,
+        },
+        {
+          id: "version-compare",
+          icon: <GitCompare className="w-4 h-4" />,
+          label: "Version Compare",
+          labelAr: "مقارنة الإصدارات",
+          onClick: onShowBOQComparison,
+          disabled: !hasAnalysisData,
+        },
+        {
+          id: "p6-export",
+          icon: <Calendar className="w-4 h-4" />,
+          label: "P6 Export",
+          labelAr: "تصدير P6",
+        },
+      ],
     },
     {
-      id: "version-compare",
-      icon: <GitCompare className="w-5 h-5" />,
-      label: "Version Compare",
-      labelAr: "مقارنة الإصدارات",
-      onClick: onShowBOQComparison,
-      disabled: !hasAnalysisData,
+      id: "risk",
+      icon: <Shield className="w-4 h-4" />,
+      label: "Risk Management",
+      labelAr: "إدارة المخاطر",
+      badge: "New",
+      badgeVariant: "destructive",
+    },
+    {
+      id: "contracts",
+      icon: <Building2 className="w-4 h-4" />,
+      label: "Contracts",
+      labelAr: "العقود",
     },
   ];
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    
-    if (over && active.id !== over.id) {
-      setToolsOrder((items) => {
-        const oldIndex = items.indexOf(active.id as string);
-        const newIndex = items.indexOf(over.id as string);
-        const newOrder = arrayMove(items, oldIndex, newIndex);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newOrder));
-        return newOrder;
-      });
-    }
-  }, []);
+  const settingsItems: MenuItem[] = [
+    {
+      id: "settings",
+      icon: <Bell className="w-4 h-4" />,
+      label: "Notifications",
+      labelAr: "الإشعارات",
+    },
+    {
+      id: "preferences",
+      icon: <Settings className="w-4 h-4" />,
+      label: "Settings",
+      labelAr: "الإعدادات",
+    },
+    {
+      id: "help",
+      icon: <HelpCircle className="w-4 h-4" />,
+      label: "Help & Support",
+      labelAr: "المساعدة",
+    },
+  ];
 
-  const resetOrder = useCallback(() => {
-    setToolsOrder(defaultToolsOrder);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultToolsOrder));
-  }, []);
+  const toggleExpand = (id: string) => {
+    setExpandedMenus(prev => 
+      prev.includes(id) 
+        ? prev.filter(item => item !== id)
+        : [...prev, id]
+    );
+  };
+
+  const handleItemClick = (item: MenuItem) => {
+    if (item.children) {
+      toggleExpand(item.id);
+    } else if (item.onClick) {
+      item.onClick();
+      setIsOpen(false);
+    } else {
+      onNavigate(item.id);
+      setIsOpen(false);
+    }
+  };
+
+  const filterItems = (items: MenuItem[]): MenuItem[] => {
+    if (!searchQuery) return items;
+    
+    return items.filter(item => {
+      const matchesSearch = 
+        item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.labelAr.includes(searchQuery);
+      
+      if (item.children) {
+        const filteredChildren = filterItems(item.children);
+        return matchesSearch || filteredChildren.length > 0;
+      }
+      
+      return matchesSearch;
+    });
+  };
+
+  const renderMenuItem = (item: MenuItem, level: number = 0) => {
+    const isExpanded = expandedMenus.includes(item.id);
+    const hasChildren = item.children && item.children.length > 0;
+    const isActive = currentTab === item.id;
+    const filteredChildren = item.children ? filterItems(item.children) : [];
+
+    return (
+      <div key={item.id}>
+        <button
+          onClick={() => handleItemClick(item)}
+          disabled={item.disabled}
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg",
+            "transition-all duration-200 ease-out",
+            "hover:bg-white/10",
+            "group relative",
+            level === 0 ? "text-white/90" : "text-white/70",
+            isActive && "bg-white/15 text-white",
+            item.disabled && "opacity-50 cursor-not-allowed",
+            level > 0 && "pr-3"
+          )}
+          style={{ paddingRight: isArabic ? `${12 + level * 12}px` : undefined, paddingLeft: !isArabic ? `${12 + level * 12}px` : undefined }}
+        >
+          <span className={cn(
+            "flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center",
+            "transition-all duration-200",
+            isActive 
+              ? "bg-white/20 text-white" 
+              : "bg-white/5 text-white/70 group-hover:bg-white/15 group-hover:text-white"
+          )}>
+            {item.icon}
+          </span>
+          
+          <span className={cn(
+            "flex-1 text-sm font-medium truncate",
+            isArabic ? "text-right" : "text-left"
+          )}>
+            {isArabic ? item.labelAr : item.label}
+          </span>
+
+          {item.badge && (
+            <Badge 
+              variant={item.badgeVariant || "default"}
+              className={cn(
+                "text-[10px] px-1.5 py-0 h-5",
+                item.badgeVariant === "destructive" 
+                  ? "bg-red-500 text-white border-0" 
+                  : "bg-primary/80 text-white border-0"
+              )}
+            >
+              {item.badge}
+            </Badge>
+          )}
+
+          {hasChildren && (
+            <ChevronDown 
+              className={cn(
+                "w-4 h-4 text-white/50 transition-transform duration-300",
+                isExpanded && "rotate-180"
+              )} 
+            />
+          )}
+        </button>
+
+        {/* Submenu */}
+        {hasChildren && (
+          <div 
+            className={cn(
+              "overflow-hidden transition-all duration-300 ease-out",
+              isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+            )}
+          >
+            <div className={cn(
+              "py-1 space-y-0.5",
+              isArabic ? "border-r-2 border-white/20 mr-6" : "border-l-2 border-white/20 ml-6"
+            )}>
+              {filteredChildren.map(child => renderMenuItem(child, level + 1))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
-      {/* Backdrop with smooth animation */}
+      {/* Backdrop */}
       <div 
         className={cn(
-          "fixed inset-0 bg-black/20 backdrop-blur-sm z-40",
-          "transition-all duration-500 ease-out",
+          "fixed inset-0 bg-black/40 backdrop-blur-sm z-40",
+          "transition-all duration-400 ease-out",
           isOpen 
             ? "opacity-100 pointer-events-auto" 
             : "opacity-0 pointer-events-none"
         )}
-        onClick={() => {
-          setIsOpen(false);
-          setIsEditMode(false);
-        }}
+        onClick={() => setIsOpen(false)}
       />
 
-      {/* Floating Button with enhanced animation */}
+      {/* Toggle Button */}
       <Button
-        onClick={() => {
-          setIsOpen(!isOpen);
-          if (isOpen) setIsEditMode(false);
-        }}
+        onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "fixed z-50 w-14 h-14 rounded-full shadow-2xl",
-          "transition-all duration-500 ease-out transform-gpu",
-          "bg-gradient-to-br from-primary to-primary/80",
-          "hover:from-primary/90 hover:to-primary/70",
-          "hover:scale-110 hover:shadow-primary/30 hover:shadow-xl",
-          "active:scale-95",
+          "fixed z-50 w-12 h-12 rounded-xl shadow-lg",
+          "transition-all duration-300 ease-out transform-gpu",
+          "bg-[#3a4a6b] hover:bg-[#4a5a7b]",
+          "border border-white/10",
           "flex items-center justify-center",
           isArabic ? "left-4 bottom-20" : "right-4 bottom-20",
-          isOpen && "rotate-180 scale-105"
+          isOpen && "opacity-0 pointer-events-none"
         )}
         size="icon"
       >
-        <div className={cn(
-          "transition-all duration-500 ease-out transform-gpu",
-          isOpen ? "rotate-180" : "rotate-0"
-        )}>
-          {isOpen ? (
-            <X className="w-6 h-6 text-primary-foreground" />
-          ) : (
-            <Menu className="w-6 h-6 text-primary-foreground" />
-          )}
-        </div>
+        <Menu className="w-5 h-5 text-white" />
       </Button>
 
-      {/* Floating Panel with stagger animations */}
+      {/* Sidebar Panel */}
       <div
         className={cn(
-          "fixed z-50",
-          "transition-all duration-500 ease-out transform-gpu",
-          isArabic ? "left-4" : "right-4",
-          "bottom-36",
+          "fixed z-50 top-0 h-full w-72",
+          "transition-all duration-400 ease-out transform-gpu",
+          "bg-gradient-to-b from-[#3a4a6b] to-[#2d3a54]",
+          "shadow-2xl",
+          isArabic ? "right-0" : "left-0",
           isOpen 
-            ? "opacity-100 translate-y-0 scale-100 pointer-events-auto" 
-            : "opacity-0 translate-y-8 scale-95 pointer-events-none"
+            ? "translate-x-0" 
+            : isArabic ? "translate-x-full" : "-translate-x-full"
         )}
       >
-        <div className={cn(
-          "bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl overflow-hidden w-72",
-          "transition-all duration-500 ease-out",
-          isOpen && "animate-in fade-in-0 slide-in-from-bottom-4"
-        )}>
-          {/* Header with edit mode toggle */}
-          <div className="px-4 py-3 bg-gradient-to-r from-primary/10 to-primary/5 border-b border-border/50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className={cn(
-                  "w-5 h-5 text-primary",
-                  "transition-transform duration-500",
-                  isOpen && "animate-pulse"
-                )} />
-                <h3 className="font-semibold text-sm">
-                  {isArabic ? "الأدوات السريعة" : "Quick Tools"}
-                </h3>
+        {/* Header */}
+        <div className="p-4 border-b border-white/10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                <BarChart3 className="w-4 h-4 text-white" />
               </div>
-              <div className="flex items-center gap-1">
-                {isEditMode && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={resetOrder}
-                    title={isArabic ? "إعادة الترتيب الافتراضي" : "Reset order"}
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "h-7 w-7 transition-all duration-300",
-                    isEditMode ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
-                  )}
-                  onClick={() => setIsEditMode(!isEditMode)}
-                  title={isArabic ? "تخصيص الترتيب" : "Customize order"}
-                >
-                  <Settings className={cn(
-                    "w-3.5 h-3.5 transition-transform duration-500",
-                    isEditMode && "rotate-90"
-                  )} />
-                </Button>
+              <div>
+                <h2 className="text-white font-bold text-sm">
+                  {isArabic ? "تحليل BOQ" : "BOQ Analyzer"}
+                </h2>
+                <p className="text-white/50 text-xs">
+                  {isArabic ? "الإصدار 2.0" : "Version 2.0"}
+                </p>
               </div>
             </div>
-            {isEditMode && (
-              <p className={cn(
-                "text-xs text-primary mt-1",
-                "animate-in fade-in-0 slide-in-from-top-2 duration-300"
-              )}>
-                {isArabic ? "اسحب لإعادة الترتيب" : "Drag to reorder"}
-              </p>
-            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(false)}
+              className="text-white/70 hover:text-white hover:bg-white/10 h-8 w-8"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
 
-          {/* Tools List with DnD */}
-          <div className="p-2 max-h-[60vh] overflow-y-auto">
-            {/* Main Navigation */}
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground px-2 py-1 font-medium">
-                {isArabic ? "التنقل" : "Navigation"}
-              </p>
-              
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={toolsOrder}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {tools.map((tool, index) => (
-                    <div
-                      key={tool.id}
-                      style={{
-                        animationDelay: `${index * 50}ms`,
-                      }}
-                      className={cn(
-                        isOpen && "animate-in fade-in-0 slide-in-from-bottom-2"
-                      )}
-                    >
-                      <SortableToolItem
-                        tool={tool}
-                        isActive={currentTab === tool.id}
-                        isArabic={isArabic}
-                        isEditMode={isEditMode}
-                        onSelect={() => {
-                          onNavigate(tool.id);
-                          setIsOpen(false);
-                        }}
-                      />
-                    </div>
-                  ))}
-                </SortableContext>
-              </DndContext>
-            </div>
+          {/* Search */}
+          <div className="relative">
+            <Search className={cn(
+              "absolute top-1/2 -translate-y-1/2 w-4 h-4 text-white/40",
+              isArabic ? "right-3" : "left-3"
+            )} />
+            <Input
+              placeholder={isArabic ? "بحث..." : "Search..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={cn(
+                "bg-white/10 border-white/10 text-white placeholder:text-white/40",
+                "focus:bg-white/15 focus:border-white/20",
+                "h-9 text-sm",
+                isArabic ? "pr-9 text-right" : "pl-9"
+              )}
+            />
+          </div>
+        </div>
 
-            {/* Divider */}
-            <div className="my-2 border-t border-border/50" />
+        {/* Menu Content */}
+        <div className="flex-1 overflow-y-auto py-3 px-2 space-y-1 max-h-[calc(100vh-200px)]">
+          {/* Main Menu */}
+          {filterItems(menuItems).map(item => renderMenuItem(item))}
 
-            {/* Quick Actions */}
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground px-2 py-1 font-medium">
-                {isArabic ? "إجراءات سريعة" : "Quick Actions"}
-              </p>
-              {quickActions.map((action, index) => (
-                <button
-                  key={action.id}
-                  onClick={() => {
-                    action.onClick?.();
-                    setIsOpen(false);
-                  }}
-                  disabled={action.disabled}
-                  style={{
-                    animationDelay: `${(tools.length + index) * 50}ms`,
-                  }}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl",
-                    "transition-all duration-300 ease-out transform-gpu",
-                    "hover:bg-accent/10 active:scale-[0.98]",
-                    "group",
-                    action.disabled && "opacity-50 cursor-not-allowed hover:bg-transparent",
-                    isOpen && "animate-in fade-in-0 slide-in-from-bottom-2"
-                  )}
-                >
-                  <div className={cn(
-                    "w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center",
-                    "transition-all duration-300 ease-out transform-gpu",
-                    "group-hover:bg-accent/20 group-hover:scale-105"
-                  )}>
-                    {action.icon}
-                  </div>
-                  <span className={cn(
-                    "flex-1 text-sm font-medium",
-                    isArabic ? "text-right" : "text-left"
-                  )}>
-                    {isArabic ? action.labelAr : action.label}
-                  </span>
-                  <ChevronRight className={cn(
-                    "w-4 h-4 text-muted-foreground",
-                    "transition-all duration-300 ease-out",
-                    "group-hover:translate-x-1",
-                    isArabic && "rotate-180 group-hover:-translate-x-1"
-                  )} />
-                </button>
-              ))}
-            </div>
+          {/* Divider */}
+          <div className="py-3">
+            <div className="border-t border-white/10" />
           </div>
 
-          {/* Footer */}
-          <div className={cn(
-            "px-4 py-2 bg-muted/50 border-t border-border/50",
-            "transition-all duration-300"
+          {/* Section Label */}
+          <p className={cn(
+            "px-3 py-2 text-[11px] font-semibold text-white/40 uppercase tracking-wider",
+            isArabic ? "text-right" : "text-left"
           )}>
-            <p className="text-xs text-muted-foreground text-center">
-              {isEditMode 
-                ? (isArabic ? "اضغط ⚙️ للحفظ" : "Tap ⚙️ to save") 
-                : (isArabic ? "اضغط للوصول السريع" : "Tap for quick access")
-              }
-            </p>
+            {isArabic ? "الإعدادات" : "Settings"}
+          </p>
+
+          {/* Settings Menu */}
+          {filterItems(settingsItems).map(item => renderMenuItem(item))}
+        </div>
+
+        {/* Footer */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10 bg-[#2d3a54]/80 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+              <span className="text-white text-sm font-bold">A</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-sm font-medium truncate">
+                {isArabic ? "مستخدم" : "Admin User"}
+              </p>
+              <p className="text-white/50 text-xs truncate">
+                admin@example.com
+              </p>
+            </div>
           </div>
         </div>
       </div>
