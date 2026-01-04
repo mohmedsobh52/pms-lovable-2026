@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown } from "lucide-react";
+import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip } from "lucide-react";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -23,6 +23,7 @@ import { MainDashboard } from "@/components/MainDashboard";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { ProcurementResourcesSchedule } from "@/components/ProcurementResourcesSchedule";
 import { FloatingToolbar } from "@/components/FloatingToolbar";
+import { ProjectAttachments } from "@/components/ProjectAttachments";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -919,10 +920,14 @@ const Index = () => {
               {user && (
                 <div ref={tabsRef} className="glass-card p-6 animate-slide-up">
                   <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-7 mb-4">
+                    <TabsList className="grid w-full grid-cols-8 mb-4">
                       <TabsTrigger value="dashboard" className="gap-2">
                         <LayoutDashboard className="w-4 h-4" />
                         <span className="hidden sm:inline">{isArabic ? 'لوحة التحكم' : 'Dashboard'}</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="attachments" className="gap-2">
+                        <Paperclip className="w-4 h-4" />
+                        <span className="hidden sm:inline">{isArabic ? 'المرفقات' : 'Attachments'}</span>
                       </TabsTrigger>
                       <TabsTrigger value="procurement" className="gap-2">
                         <Package className="w-4 h-4" />
@@ -964,6 +969,9 @@ const Index = () => {
                           updateStepStatus("export", "complete");
                         }}
                       />
+                    </TabsContent>
+                    <TabsContent value="attachments">
+                      <ProjectAttachments projectId={savedProjectId || undefined} />
                     </TabsContent>
                     <TabsContent value="procurement">
                       <ProcurementResourcesSchedule 
