@@ -28,8 +28,26 @@ import {
   Network,
   PieChart,
   Clock,
-  Link2
+  Link2,
+  GripVertical
 } from "lucide-react";
+import { 
+  DndContext, 
+  closestCenter, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors,
+  DragEndEvent
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -57,6 +75,150 @@ interface FloatingToolbarProps {
   onShowReport?: () => void;
 }
 
+const MENU_ORDER_KEY = "boq-menu-order";
+
+// Sortable menu item component
+function SortableMenuItem({ 
+  item, 
+  level = 0,
+  isExpanded,
+  currentTab,
+  isArabic,
+  onItemClick,
+  onToggleExpand,
+  filterItems,
+  renderChildren
+}: {
+  item: MenuItem;
+  level?: number;
+  isExpanded: boolean;
+  currentTab?: string;
+  isArabic: boolean;
+  onItemClick: (item: MenuItem) => void;
+  onToggleExpand: (id: string) => void;
+  filterItems: (items: MenuItem[]) => MenuItem[];
+  renderChildren: (children: MenuItem[], level: number) => React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.8 : 1,
+  };
+
+  const hasChildren = item.children && item.children.length > 0;
+  const isActive = currentTab === item.id;
+  const filteredChildren = item.children ? filterItems(item.children) : [];
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <div className="flex items-center gap-1">
+        {/* Drag Handle - only for top level items */}
+        {level === 0 && (
+          <button
+            {...attributes}
+            {...listeners}
+            className={cn(
+              "flex-shrink-0 w-6 h-6 rounded flex items-center justify-center",
+              "text-white/30 hover:text-white/60 hover:bg-white/10",
+              "cursor-grab active:cursor-grabbing transition-colors",
+              isDragging && "cursor-grabbing"
+            )}
+          >
+            <GripVertical className="w-3 h-3" />
+          </button>
+        )}
+        
+        <button
+          onClick={() => onItemClick(item)}
+          disabled={item.disabled}
+          className={cn(
+            "flex-1 flex items-center gap-3 px-3 py-2.5 rounded-lg",
+            "transition-all duration-200 ease-out",
+            "hover:bg-white/10",
+            "group relative",
+            level === 0 ? "text-white/90" : "text-white/70",
+            isActive && "bg-white/15 text-white",
+            item.disabled && "opacity-50 cursor-not-allowed",
+            level > 0 && "pr-3",
+            isDragging && "bg-white/20 shadow-lg"
+          )}
+          style={{ 
+            paddingRight: isArabic ? `${12 + level * 12}px` : undefined, 
+            paddingLeft: !isArabic ? `${level > 0 ? 12 + level * 12 : 12}px` : undefined 
+          }}
+        >
+          <span className={cn(
+            "flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center",
+            "transition-all duration-200",
+            isActive 
+              ? "bg-white/20 text-white" 
+              : "bg-white/5 text-white/70 group-hover:bg-white/15 group-hover:text-white"
+          )}>
+            {item.icon}
+          </span>
+          
+          <span className={cn(
+            "flex-1 text-sm font-medium truncate",
+            isArabic ? "text-right" : "text-left"
+          )}>
+            {isArabic ? item.labelAr : item.label}
+          </span>
+
+          {item.badge && (
+            <Badge 
+              variant={item.badgeVariant || "default"}
+              className={cn(
+                "text-[10px] px-1.5 py-0 h-5",
+                item.badgeVariant === "destructive" 
+                  ? "bg-red-500 text-white border-0" 
+                  : "bg-primary/80 text-white border-0"
+              )}
+            >
+              {item.badge}
+            </Badge>
+          )}
+
+          {hasChildren && (
+            <ChevronDown 
+              className={cn(
+                "w-4 h-4 text-white/50 transition-transform duration-300",
+                isExpanded && "rotate-180"
+              )} 
+            />
+          )}
+        </button>
+      </div>
+
+      {/* Submenu */}
+      {hasChildren && (
+        <div 
+          className={cn(
+            "overflow-hidden transition-all duration-300 ease-out",
+            isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+          )}
+        >
+          <div className={cn(
+            "py-1 space-y-0.5",
+            isArabic ? "border-r-2 border-white/20 mr-6" : "border-l-2 border-white/20 ml-6"
+          )}>
+            {renderChildren(filteredChildren, level + 1)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function FloatingToolbar({ 
   onNavigate, 
   currentTab,
@@ -65,12 +227,12 @@ export function FloatingToolbar({
   onShowP6Export,
   onShowReport
 }: FloatingToolbarProps) {
-  const [isOpen, setIsOpen] = useState(true); // Start open by default
+  const [isOpen, setIsOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedMenus, setExpandedMenus] = useState<string[]>(["items-menu"]);
   const { isArabic } = useLanguage();
 
-  const menuItems: MenuItem[] = [
+  const defaultMenuItems: MenuItem[] = [
     {
       id: "dashboard",
       icon: <LayoutDashboard className="w-4 h-4" />,
@@ -229,6 +391,30 @@ export function FloatingToolbar({
     },
   ];
 
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(defaultMenuItems);
+
+  // Load saved order from localStorage
+  useEffect(() => {
+    const savedOrder = localStorage.getItem(MENU_ORDER_KEY);
+    if (savedOrder) {
+      try {
+        const orderIds = JSON.parse(savedOrder) as string[];
+        const reordered = orderIds
+          .map(id => defaultMenuItems.find(item => item.id === id))
+          .filter((item): item is MenuItem => item !== undefined);
+        
+        // Add any new items that weren't in the saved order
+        const newItems = defaultMenuItems.filter(
+          item => !orderIds.includes(item.id)
+        );
+        
+        setMenuItems([...reordered, ...newItems]);
+      } catch (e) {
+        console.error("Failed to parse saved menu order:", e);
+      }
+    }
+  }, []);
+
   const settingsItems: MenuItem[] = [
     {
       id: "settings",
@@ -250,6 +436,37 @@ export function FloatingToolbar({
     },
   ];
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setMenuItems((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        
+        // Save to localStorage
+        localStorage.setItem(
+          MENU_ORDER_KEY,
+          JSON.stringify(newItems.map((item) => item.id))
+        );
+        
+        return newItems;
+      });
+    }
+  };
+
   const toggleExpand = (id: string) => {
     setExpandedMenus(prev => 
       prev.includes(id) 
@@ -270,7 +487,7 @@ export function FloatingToolbar({
     }
   };
 
-  const filterItems = (items: MenuItem[]): MenuItem[] => {
+  const filterItems = useCallback((items: MenuItem[]): MenuItem[] => {
     if (!searchQuery) return items;
     
     return items.filter(item => {
@@ -285,91 +502,66 @@ export function FloatingToolbar({
       
       return matchesSearch;
     });
-  };
+  }, [searchQuery]);
 
-  const renderMenuItem = (item: MenuItem, level: number = 0) => {
-    const isExpanded = expandedMenus.includes(item.id);
-    const hasChildren = item.children && item.children.length > 0;
-    const isActive = currentTab === item.id;
-    const filteredChildren = item.children ? filterItems(item.children) : [];
-
-    return (
-      <div key={item.id}>
-        <button
-          onClick={() => handleItemClick(item)}
-          disabled={item.disabled}
-          className={cn(
-            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg",
-            "transition-all duration-200 ease-out",
-            "hover:bg-white/10",
-            "group relative",
-            level === 0 ? "text-white/90" : "text-white/70",
-            isActive && "bg-white/15 text-white",
-            item.disabled && "opacity-50 cursor-not-allowed",
-            level > 0 && "pr-3"
-          )}
-          style={{ paddingRight: isArabic ? `${12 + level * 12}px` : undefined, paddingLeft: !isArabic ? `${12 + level * 12}px` : undefined }}
-        >
-          <span className={cn(
-            "flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center",
-            "transition-all duration-200",
-            isActive 
-              ? "bg-white/20 text-white" 
-              : "bg-white/5 text-white/70 group-hover:bg-white/15 group-hover:text-white"
-          )}>
-            {item.icon}
-          </span>
-          
-          <span className={cn(
-            "flex-1 text-sm font-medium truncate",
-            isArabic ? "text-right" : "text-left"
-          )}>
-            {isArabic ? item.labelAr : item.label}
-          </span>
-
-          {item.badge && (
-            <Badge 
-              variant={item.badgeVariant || "default"}
-              className={cn(
-                "text-[10px] px-1.5 py-0 h-5",
-                item.badgeVariant === "destructive" 
-                  ? "bg-red-500 text-white border-0" 
-                  : "bg-primary/80 text-white border-0"
-              )}
-            >
-              {item.badge}
-            </Badge>
-          )}
-
-          {hasChildren && (
-            <ChevronDown 
-              className={cn(
-                "w-4 h-4 text-white/50 transition-transform duration-300",
-                isExpanded && "rotate-180"
-              )} 
-            />
-          )}
-        </button>
-
-        {/* Submenu */}
-        {hasChildren && (
-          <div 
+  const renderChildren = (children: MenuItem[], level: number) => {
+    return children.map(child => (
+      <div key={child.id}>
+        <div className="flex items-center">
+          <button
+            onClick={() => handleItemClick(child)}
+            disabled={child.disabled}
             className={cn(
-              "overflow-hidden transition-all duration-300 ease-out",
-              isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+              "flex-1 flex items-center gap-3 px-3 py-2.5 rounded-lg",
+              "transition-all duration-200 ease-out",
+              "hover:bg-white/10",
+              "group relative text-white/70",
+              currentTab === child.id && "bg-white/15 text-white",
+              child.disabled && "opacity-50 cursor-not-allowed"
             )}
+            style={{ 
+              paddingRight: isArabic ? `${12 + level * 12}px` : undefined, 
+              paddingLeft: !isArabic ? `${12 + level * 12}px` : undefined 
+            }}
           >
-            <div className={cn(
-              "py-1 space-y-0.5",
-              isArabic ? "border-r-2 border-white/20 mr-6" : "border-l-2 border-white/20 ml-6"
+            <span className={cn(
+              "flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center",
+              "transition-all duration-200",
+              currentTab === child.id 
+                ? "bg-white/20 text-white" 
+                : "bg-white/5 text-white/70 group-hover:bg-white/15 group-hover:text-white"
             )}>
-              {filteredChildren.map(child => renderMenuItem(child, level + 1))}
-            </div>
-          </div>
-        )}
+              {child.icon}
+            </span>
+            
+            <span className={cn(
+              "flex-1 text-sm font-medium truncate",
+              isArabic ? "text-right" : "text-left"
+            )}>
+              {isArabic ? child.labelAr : child.label}
+            </span>
+
+            {child.badge && (
+              <Badge 
+                variant={child.badgeVariant || "default"}
+                className={cn(
+                  "text-[10px] px-1.5 py-0 h-5",
+                  child.badgeVariant === "destructive" 
+                    ? "bg-red-500 text-white border-0" 
+                    : "bg-primary/80 text-white border-0"
+                )}
+              >
+                {child.badge}
+              </Badge>
+            )}
+          </button>
+        </div>
       </div>
-    );
+    ));
   };
+
+  const filteredMenuItems = filterItems(menuItems);
+  const filteredSettingsItems = filterItems(settingsItems);
 
   return (
     <>
@@ -463,8 +655,40 @@ export function FloatingToolbar({
 
         {/* Menu Content */}
         <div className="flex-1 overflow-y-auto py-3 px-2 space-y-1 max-h-[calc(100vh-200px)]">
-          {/* Main Menu */}
-          {filterItems(menuItems).map(item => renderMenuItem(item))}
+          {/* Drag hint */}
+          <p className={cn(
+            "px-3 py-1 text-[10px] text-white/30",
+            isArabic ? "text-right" : "text-left"
+          )}>
+            {isArabic ? "اسحب لإعادة الترتيب" : "Drag to reorder"}
+          </p>
+
+          {/* Main Menu with DnD */}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={filteredMenuItems.map(item => item.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {filteredMenuItems.map(item => (
+                <SortableMenuItem
+                  key={item.id}
+                  item={item}
+                  level={0}
+                  isExpanded={expandedMenus.includes(item.id)}
+                  currentTab={currentTab}
+                  isArabic={isArabic}
+                  onItemClick={handleItemClick}
+                  onToggleExpand={toggleExpand}
+                  filterItems={filterItems}
+                  renderChildren={renderChildren}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
 
           {/* Divider */}
           <div className="py-3">
@@ -479,8 +703,40 @@ export function FloatingToolbar({
             {isArabic ? "الإعدادات" : "Settings"}
           </p>
 
-          {/* Settings Menu */}
-          {filterItems(settingsItems).map(item => renderMenuItem(item))}
+          {/* Settings Menu (not draggable) */}
+          {filteredSettingsItems.map(item => (
+            <div key={item.id}>
+              <button
+                onClick={() => handleItemClick(item)}
+                disabled={item.disabled}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg",
+                  "transition-all duration-200 ease-out",
+                  "hover:bg-white/10",
+                  "group relative text-white/90",
+                  currentTab === item.id && "bg-white/15 text-white",
+                  item.disabled && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <span className={cn(
+                  "flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center",
+                  "transition-all duration-200",
+                  currentTab === item.id 
+                    ? "bg-white/20 text-white" 
+                    : "bg-white/5 text-white/70 group-hover:bg-white/15 group-hover:text-white"
+                )}>
+                  {item.icon}
+                </span>
+                
+                <span className={cn(
+                  "flex-1 text-sm font-medium truncate",
+                  isArabic ? "text-right" : "text-left"
+                )}>
+                  {isArabic ? item.labelAr : item.label}
+                </span>
+              </button>
+            </div>
+          ))}
         </div>
 
         {/* Footer */}
