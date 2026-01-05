@@ -17,6 +17,16 @@ import CostAnalysisPage from "./pages/CostAnalysisPage";
 import Changelog from "./pages/Changelog";
 import AdminVersions from "./pages/AdminVersions";
 import NotFound from "./pages/NotFound";
+import DashboardPage from "./pages/DashboardPage";
+import ProcurementPage from "./pages/ProcurementPage";
+import SubcontractorsPage from "./pages/SubcontractorsPage";
+import QuotationsPage from "./pages/QuotationsPage";
+import ContractsPage from "./pages/ContractsPage";
+import RiskPage from "./pages/RiskPage";
+import ReportsPage from "./pages/ReportsPage";
+import SettingsPage from "./pages/SettingsPage";
+import AnalysisToolsPage from "./pages/AnalysisToolsPage";
+import BOQItemsPage from "./pages/BOQItemsPage";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +50,17 @@ const App = () => (
               <Route path="/cost-analysis" element={<CostAnalysisPage />} />
               <Route path="/changelog" element={<Changelog />} />
               <Route path="/admin/versions" element={<AdminVersions />} />
+              {/* New separate pages */}
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/items" element={<BOQItemsPage />} />
+              <Route path="/analysis-tools" element={<AnalysisToolsPage />} />
+              <Route path="/procurement" element={<ProcurementPage />} />
+              <Route path="/quotations" element={<QuotationsPage />} />
+              <Route path="/subcontractors" element={<SubcontractorsPage />} />
+              <Route path="/contracts" element={<ContractsPage />} />
+              <Route path="/risk" element={<RiskPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
               </Routes>

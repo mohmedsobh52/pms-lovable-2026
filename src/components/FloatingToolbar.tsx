@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   Menu, 
   X, 
@@ -29,7 +30,8 @@ import {
   PieChart,
   Clock,
   Link2,
-  GripVertical
+  GripVertical,
+  Home
 } from "lucide-react";
 import { 
   DndContext, 
@@ -67,7 +69,7 @@ interface MenuItem {
 }
 
 interface FloatingToolbarProps {
-  onNavigate: (tab: string) => void;
+  onNavigate?: (tab: string) => void;
   currentTab?: string;
   hasAnalysisData?: boolean;
   onShowBOQComparison?: () => void;
@@ -231,6 +233,39 @@ export function FloatingToolbar({
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedMenus, setExpandedMenus] = useState<string[]>(["items-menu"]);
   const { isArabic } = useLanguage();
+  const navigate = useNavigate();
+
+  // Route mapping for navigation
+  const routeMap: Record<string, string> = {
+    "dashboard": "/",
+    "home": "/",
+    "analysis": "/items",
+    "wbs": "/items",
+    "cost-brief": "/items",
+    "charts": "/items",
+    "time-schedule": "/items",
+    "schedule-integration": "/items",
+    "items-menu": "/items",
+    "analysis-tools": "/analysis-tools",
+    "cost-analysis": "/analysis-tools",
+    "compare": "/quotations",
+    "boq-compare": "/analysis-tools",
+    "market-rates": "/analysis-tools",
+    "procurement": "/procurement",
+    "procurement-schedule": "/procurement",
+    "resources": "/procurement",
+    "upload": "/quotations",
+    "reports": "/reports",
+    "report": "/reports",
+    "version-compare": "/reports",
+    "p6-export": "/reports",
+    "risk": "/risk",
+    "contracts": "/contracts",
+    "settings": "/settings",
+    "preferences": "/settings",
+    "help": "/about",
+    "subcontractors": "/subcontractors",
+  };
 
   const defaultMenuItems: MenuItem[] = [
     {
@@ -482,7 +517,13 @@ export function FloatingToolbar({
       item.onClick();
       setIsOpen(false);
     } else {
-      onNavigate(item.id);
+      // Use route navigation if onNavigate is not provided
+      if (onNavigate) {
+        onNavigate(item.id);
+      } else {
+        const route = routeMap[item.id] || "/";
+        navigate(route);
+      }
       setIsOpen(false);
     }
   };
