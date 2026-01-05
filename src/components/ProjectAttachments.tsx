@@ -43,7 +43,10 @@ import {
   AlertCircle,
   Loader2,
   Brain,
-  Sparkles
+  Sparkles,
+  GitCompare,
+  Layers,
+  FileOutput
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -53,6 +56,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FilePreviewDialog } from "./FilePreviewDialog";
+import { AnalysisExportDialog } from "./AnalysisExportDialog";
+import { FilesComparisonDialog } from "./FilesComparisonDialog";
+import { BatchAnalysisDialog } from "./BatchAnalysisDialog";
 import * as XLSX from "xlsx";
 
 interface ProjectAttachment {
@@ -124,6 +130,12 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
   const [previewFile, setPreviewFile] = useState<ProjectAttachment | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [analyzingFileId, setAnalyzingFileId] = useState<string | null>(null);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isCompareDialogOpen, setIsCompareDialogOpen] = useState(false);
+  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
+
+  const analyzedFiles = attachments.filter(a => a.is_analyzed);
+  const unanalyzedFiles = attachments.filter(a => !a.is_analyzed);
 
   const fetchAttachments = useCallback(async () => {
     if (!user) return;
@@ -415,18 +427,59 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
     <>
       <Card>
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="flex items-center gap-2">
               <FolderOpen className="w-5 h-5" />
               {isArabic ? "مرفقات المشروع" : "Project Attachments"}
             </CardTitle>
-            <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  {isArabic ? "رفع ملفات" : "Upload Files"}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Batch Analysis Button */}
+              {unanalyzedFiles.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setIsBatchDialogOpen(true)}
+                >
+                  <Layers className="w-4 h-4" />
+                  {isArabic ? `تحليل ${unanalyzedFiles.length} ملفات` : `Analyze ${unanalyzedFiles.length} Files`}
                 </Button>
-              </DialogTrigger>
+              )}
+              
+              {/* Compare Button */}
+              {analyzedFiles.length >= 2 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setIsCompareDialogOpen(true)}
+                >
+                  <GitCompare className="w-4 h-4" />
+                  {isArabic ? "مقارنة" : "Compare"}
+                </Button>
+              )}
+              
+              {/* Export Button */}
+              {analyzedFiles.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setIsExportDialogOpen(true)}
+                >
+                  <FileOutput className="w-4 h-4" />
+                  {isArabic ? "تصدير" : "Export"}
+                </Button>
+              )}
+              
+              {/* Upload Button */}
+              <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    {isArabic ? "رفع ملفات" : "Upload Files"}
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>
@@ -521,9 +574,8 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
                 </div>
               </DialogContent>
             </Dialog>
+            </div>
           </div>
-
-          {/* Search and Filter */}
           <div className="flex flex-col sm:flex-row gap-3 mt-4">
             <div className="relative flex-1">
               <Search className={cn(
@@ -727,6 +779,28 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
         }}
         file={previewFile}
         onAnalyze={handleAnalyzeFile}
+      />
+
+      {/* Export Dialog */}
+      <AnalysisExportDialog
+        isOpen={isExportDialogOpen}
+        onClose={() => setIsExportDialogOpen(false)}
+        analyzedFiles={analyzedFiles}
+      />
+
+      {/* Comparison Dialog */}
+      <FilesComparisonDialog
+        isOpen={isCompareDialogOpen}
+        onClose={() => setIsCompareDialogOpen(false)}
+        analyzedFiles={analyzedFiles}
+      />
+
+      {/* Batch Analysis Dialog */}
+      <BatchAnalysisDialog
+        isOpen={isBatchDialogOpen}
+        onClose={() => setIsBatchDialogOpen(false)}
+        files={attachments}
+        onComplete={fetchAttachments}
       />
     </>
   );
