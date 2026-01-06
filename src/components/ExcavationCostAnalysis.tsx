@@ -966,7 +966,7 @@ export function ExcavationCostAnalysis({
                       {editingHeaders ? "إنهاء تعديل الهيدر" : "تعديل الهيدر"}
                     </Button>
                   </div>
-                  <ScrollArea className="max-h-[300px]">
+                  <ScrollArea className="h-[520px]">
                     <Table className="table-fixed">
                       <TableHeader>
                         <TableRow className="bg-primary/10">
@@ -1098,76 +1098,56 @@ export function ExcavationCostAnalysis({
                 </CardContent>
               </Card>
 
-              {/* Summary Section */}
-              <Card className="border-amber-500/30 bg-amber-500/5">
-                <CardContent className="pt-4">
-                  <Table>
-                    <TableBody>
-                      <TableRow className="border-b-2 border-primary/20">
-                        <TableCell className="text-right font-bold text-primary">الإجمالي</TableCell>
-                        <TableCell colSpan={2}></TableCell>
-                        <TableCell className="text-center">
-                          <Badge className="px-3 py-1 bg-primary text-primary-foreground">
-                            {formatNumber(calculations.subtotal)} {currency}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                      
-                      <TableRow>
-                        <TableCell className="text-right font-medium">نسبة هالك</TableCell>
-                        <TableCell colSpan={2} className="text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <Input
-                              type="number"
-                              value={wastePercentage}
-                              onChange={(e) => setWastePercentage(parseFloat(e.target.value) || 0)}
-                              className="w-16 h-7 text-center text-sm"
-                              min="0"
-                              max="100"
-                            />
-                            <span className="text-muted-foreground text-sm">%</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {formatNumber(calculations.wasteAmount)} {currency}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                      
-                      <TableRow>
-                        <TableCell className="text-right font-medium">مصاريف ادارية (تصاريح)</TableCell>
-                        <TableCell colSpan={2} className="text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <Input
-                              type="number"
-                              value={adminPercentage}
-                              onChange={(e) => setAdminPercentage(parseFloat(e.target.value) || 0)}
-                              className="w-16 h-7 text-center text-sm"
-                              min="0"
-                              max="100"
-                            />
-                            <span className="text-muted-foreground text-sm">%</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {formatNumber(calculations.adminAmount)} {currency}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                      
-                      <TableRow className="bg-primary/10 border-t-2 border-primary">
-                        <TableCell className="text-right font-bold text-lg text-primary">إجمال التكلفة</TableCell>
-                        <TableCell colSpan={2}></TableCell>
-                        <TableCell className="text-center">
-                          <Badge className="text-lg px-4 py-2 bg-green-600 text-white">
-                            {formatNumber(calculations.grandTotal)} {currency}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+              {/* Summary Section - Compact Footer */}
+              <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-primary/10">
+                <CardContent className="py-3 px-4">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    {/* Left side - Percentages */}
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">نسبة هالك:</Label>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={wastePercentage}
+                            onChange={(e) => setWastePercentage(parseFloat(e.target.value) || 0)}
+                            className="w-14 h-7 text-center text-sm"
+                            min="0"
+                            max="100"
+                          />
+                          <span className="text-xs text-muted-foreground">%</span>
+                        </div>
+                        <Badge variant="outline" className="font-mono text-xs h-6">
+                          {formatNumber(calculations.wasteAmount)}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">مصاريف إدارية:</Label>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={adminPercentage}
+                            onChange={(e) => setAdminPercentage(parseFloat(e.target.value) || 0)}
+                            className="w-14 h-7 text-center text-sm"
+                            min="0"
+                            max="100"
+                          />
+                          <span className="text-xs text-muted-foreground">%</span>
+                        </div>
+                        <Badge variant="outline" className="font-mono text-xs h-6">
+                          {formatNumber(calculations.adminAmount)}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    {/* Right side - Total */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-primary">الإجمالي</span>
+                      <Badge className="text-base px-4 py-1.5 bg-primary text-primary-foreground font-bold">
+                        {formatNumber(calculations.grandTotal)} {currency}
+                      </Badge>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>
