@@ -332,17 +332,66 @@ const Index = () => {
     setIsProcessing(true);
     updateStepStatus("analyze", "processing", 10);
 
+    // Helper function to invoke edge function with retry logic
+    const invokeWithRetry = async (
+      functionName: string, 
+      body: any, 
+      maxRetries: number = 3,
+      retryDelay: number = 2000
+    ) => {
+      let lastError: any;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 120000);
+          
+          const result = await supabase.functions.invoke(functionName, { body });
+          
+          clearTimeout(timeoutId);
+          
+          if (result.error) {
+            // Check if it's a retryable error
+            const isRetryable = result.error.message?.includes('Failed to fetch') ||
+                               result.error.message?.includes('FunctionsFetchError') ||
+                               result.error.message?.includes('network') ||
+                               result.error.name === 'AbortError';
+            
+            if (isRetryable && attempt < maxRetries) {
+              console.warn(`Attempt ${attempt} failed, retrying in ${retryDelay}ms...`, result.error);
+              await new Promise(resolve => setTimeout(resolve, retryDelay));
+              retryDelay *= 1.5; // Exponential backoff
+              lastError = result.error;
+              continue;
+            }
+            throw result.error;
+          }
+          
+          return result;
+        } catch (err: any) {
+          const isRetryable = err.message?.includes('Failed to fetch') ||
+                             err.message?.includes('FunctionsFetchError') ||
+                             err.message?.includes('network') ||
+                             err.name === 'AbortError';
+          
+          if (isRetryable && attempt < maxRetries) {
+            console.warn(`Attempt ${attempt} failed, retrying in ${retryDelay}ms...`, err);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            retryDelay *= 1.5;
+            lastError = err;
+            continue;
+          }
+          throw err;
+        }
+      }
+      throw lastError;
+    };
+
     try {
-      // Extract items analysis
-      // Use AbortController for timeout handling (120 seconds for large BOQ files)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000);
-      
-      const { data: itemsResult, error: itemsError } = await supabase.functions.invoke("analyze-boq", {
-        body: { text: textToAnalyze, analysis_type: "extract_items", language },
-      });
-      
-      clearTimeout(timeoutId);
+      // Extract items analysis with retry
+      const { data: itemsResult, error: itemsError } = await invokeWithRetry(
+        "analyze-boq", 
+        { text: textToAnalyze, analysis_type: "extract_items", language }
+      );
 
       if (itemsError) throw itemsError;
       
@@ -392,17 +441,13 @@ const Index = () => {
         description: `${itemsResult.items?.length || 0} ${t('itemsExtracted2')}`,
       });
 
-      // Create WBS
+      // Create WBS with retry
       updateStepStatus("wbs", "processing", 30);
       
-      const wbsController = new AbortController();
-      const wbsTimeoutId = setTimeout(() => wbsController.abort(), 120000);
-      
-      const { data: wbsResult, error: wbsError } = await supabase.functions.invoke("analyze-boq", {
-        body: { text: textToAnalyze, analysis_type: "create_wbs", language },
-      });
-      
-      clearTimeout(wbsTimeoutId);
+      const { data: wbsResult, error: wbsError } = await invokeWithRetry(
+        "analyze-boq",
+        { text: textToAnalyze, analysis_type: "create_wbs", language }
+      );
 
       if (wbsError) throw wbsError;
 
