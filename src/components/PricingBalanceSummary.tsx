@@ -1,7 +1,9 @@
 import { useMemo } from "react";
-import { CheckCircle2, TrendingUp, TrendingDown, AlertTriangle, Scale } from "lucide-react";
+import { CheckCircle2, TrendingUp, TrendingDown, AlertTriangle, Scale, Settings2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/hooks/useLanguage";
+import { getBalanceSettings } from "@/hooks/useBalanceSettings";
+import { BalanceSettingsDialog } from "@/components/BalanceSettingsDialog";
 import { cn } from "@/lib/utils";
 
 interface BOQItem {
@@ -25,18 +27,17 @@ interface PricingBalanceSummaryProps {
 
 type BalanceStatus = "balanced" | "slightly_high" | "slightly_low" | "high" | "low";
 
-const BALANCED_THRESHOLD = 5;
-const SLIGHT_THRESHOLD = 15;
-
 function getBalanceStatus(originalPrice: number, referencePrice: number): BalanceStatus {
+  const settings = getBalanceSettings();
+  
   if (originalPrice === 0 || referencePrice === 0) return "balanced";
   
   const variance = ((originalPrice - referencePrice) / referencePrice) * 100;
   
-  if (Math.abs(variance) <= BALANCED_THRESHOLD) return "balanced";
-  if (variance > SLIGHT_THRESHOLD) return "high";
-  if (variance > BALANCED_THRESHOLD) return "slightly_high";
-  if (variance < -SLIGHT_THRESHOLD) return "low";
+  if (Math.abs(variance) <= settings.balancedThreshold) return "balanced";
+  if (variance > settings.slightThreshold) return "high";
+  if (variance > settings.balancedThreshold) return "slightly_high";
+  if (variance < -settings.slightThreshold) return "low";
   return "slightly_low";
 }
 
@@ -97,6 +98,7 @@ export function PricingBalanceSummary({
       <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
         <Scale className="w-4 h-4" />
         <span>{isArabic ? "توازن التسعير:" : "Pricing Balance:"}</span>
+        <BalanceSettingsDialog />
       </div>
       
       <div className="flex items-center gap-2 flex-wrap">

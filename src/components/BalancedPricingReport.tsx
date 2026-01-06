@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/hooks/useLanguage";
+import { getBalanceSettings } from "@/hooks/useBalanceSettings";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -46,19 +47,17 @@ interface PricingRow {
   recommendation: string;
 }
 
-// Thresholds for balance status
-const BALANCED_THRESHOLD = 5; // ±5%
-const SLIGHT_THRESHOLD = 15; // ±15%
-
 function getBalanceStatus(originalPrice: number, referencePrice: number): BalanceStatus {
+  const settings = getBalanceSettings();
+  
   if (originalPrice === 0 || referencePrice === 0) return "balanced";
   
   const variance = ((originalPrice - referencePrice) / referencePrice) * 100;
   
-  if (Math.abs(variance) <= BALANCED_THRESHOLD) return "balanced";
-  if (variance > SLIGHT_THRESHOLD) return "high";
-  if (variance > BALANCED_THRESHOLD) return "slightly_high";
-  if (variance < -SLIGHT_THRESHOLD) return "low";
+  if (Math.abs(variance) <= settings.balancedThreshold) return "balanced";
+  if (variance > settings.slightThreshold) return "high";
+  if (variance > settings.balancedThreshold) return "slightly_high";
+  if (variance < -settings.slightThreshold) return "low";
   return "slightly_low";
 }
 

@@ -95,10 +95,30 @@ export function BOQTemplates({ onUseTemplate, currentItems = [] }: BOQTemplatesP
   const handleSaveAsTemplate = async () => {
     if (!user || !formData.name || currentItems.length === 0) return;
 
+    const trimmedName = formData.name.trim();
+
     try {
+      // Check for duplicate template name
+      const { data: existingTemplates } = await supabase
+        .from("boq_templates")
+        .select("id, name")
+        .eq("user_id", user.id)
+        .ilike("name", trimmedName);
+
+      if (existingTemplates && existingTemplates.length > 0) {
+        toast({
+          title: isArabic ? "اسم مكرر" : "Duplicate Name",
+          description: isArabic 
+            ? "يوجد قالب بنفس الاسم، يرجى اختيار اسم آخر"
+            : "A template with this name already exists",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const { data, error } = await supabase.from("boq_templates").insert({
         user_id: user.id,
-        name: formData.name,
+        name: trimmedName,
         description: formData.description || null,
         category: formData.category,
         items: currentItems,

@@ -45,7 +45,8 @@ export function SaveProjectDialog({
       return;
     }
 
-    if (!projectName.trim()) {
+    const trimmedName = projectName.trim();
+    if (!trimmedName) {
       toast({
         title: "اسم المشروع مطلوب",
         variant: "destructive",
@@ -55,9 +56,26 @@ export function SaveProjectDialog({
 
     setIsSaving(true);
 
+    // Check for duplicate project name
+    const { data: existingProjects } = await supabase
+      .from("saved_projects")
+      .select("id, name")
+      .eq("user_id", user.id)
+      .ilike("name", trimmedName);
+
+    if (existingProjects && existingProjects.length > 0) {
+      toast({
+        title: "اسم المشروع مكرر",
+        description: "يوجد مشروع بنفس الاسم، يرجى اختيار اسم آخر",
+        variant: "destructive",
+      });
+      setIsSaving(false);
+      return;
+    }
+
     const { data: savedData, error } = await supabase.from("saved_projects").insert({
       user_id: user.id,
-      name: projectName.trim(),
+      name: trimmedName,
       file_name: fileName || null,
       analysis_data: analysisData,
       wbs_data: wbsData,

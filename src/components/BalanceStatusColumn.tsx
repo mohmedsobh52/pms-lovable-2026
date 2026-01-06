@@ -3,6 +3,7 @@ import { CheckCircle2, TrendingUp, TrendingDown, AlertTriangle, XCircle, Minus }
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLanguage } from "@/hooks/useLanguage";
+import { getBalanceSettings } from "@/hooks/useBalanceSettings";
 import { cn } from "@/lib/utils";
 
 interface BalanceStatusColumnProps {
@@ -13,9 +14,6 @@ interface BalanceStatusColumnProps {
 
 type BalanceStatus = "balanced" | "slightly_high" | "slightly_low" | "high" | "low" | "no_reference";
 
-const BALANCED_THRESHOLD = 5;
-const SLIGHT_THRESHOLD = 15;
-
 export function BalanceStatusColumn({
   originalPrice,
   aiSuggestedPrice,
@@ -24,6 +22,7 @@ export function BalanceStatusColumn({
   const { isArabic } = useLanguage();
 
   const { status, variance, referenceType } = useMemo(() => {
+    const settings = getBalanceSettings();
     const referencePrice = aiSuggestedPrice > 0 ? aiSuggestedPrice : calculatedPrice;
     const refType = aiSuggestedPrice > 0 ? "ai" : calculatedPrice > 0 ? "calc" : "none";
     
@@ -34,10 +33,10 @@ export function BalanceStatusColumn({
     const varianceVal = ((originalPrice - referencePrice) / referencePrice) * 100;
     
     let statusVal: BalanceStatus;
-    if (Math.abs(varianceVal) <= BALANCED_THRESHOLD) statusVal = "balanced";
-    else if (varianceVal > SLIGHT_THRESHOLD) statusVal = "high";
-    else if (varianceVal > BALANCED_THRESHOLD) statusVal = "slightly_high";
-    else if (varianceVal < -SLIGHT_THRESHOLD) statusVal = "low";
+    if (Math.abs(varianceVal) <= settings.balancedThreshold) statusVal = "balanced";
+    else if (varianceVal > settings.slightThreshold) statusVal = "high";
+    else if (varianceVal > settings.balancedThreshold) statusVal = "slightly_high";
+    else if (varianceVal < -settings.slightThreshold) statusVal = "low";
     else statusVal = "slightly_low";
     
     return { status: statusVal, variance: varianceVal, referenceType: refType };

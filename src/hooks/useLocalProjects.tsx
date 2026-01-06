@@ -45,16 +45,33 @@ export function useLocalProjects() {
     }
   }, [toast]);
 
+  // Check if project name exists
+  const checkNameExists = useCallback((name: string): boolean => {
+    return projects.some(p => p.name.toLowerCase().trim() === name.toLowerCase().trim());
+  }, [projects]);
+
   // Save a new project
   const saveProject = useCallback((
     name: string,
     analysisData: any,
     wbsData?: any,
     fileName?: string
-  ) => {
+  ): LocalProject | null => {
+    const trimmedName = name.trim();
+    
+    // Check for duplicate name
+    if (checkNameExists(trimmedName)) {
+      toast({
+        title: "اسم مكرر / Duplicate Name",
+        description: "يوجد مشروع بنفس الاسم، يرجى اختيار اسم آخر / A project with this name already exists",
+        variant: "destructive",
+      });
+      return null;
+    }
+
     const newProject: LocalProject = {
       id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      name,
+      name: trimmedName,
       fileName,
       savedAt: new Date().toISOString(),
       analysisData,
@@ -78,11 +95,11 @@ export function useLocalProjects() {
     
     toast({
       title: "تم الحفظ بنجاح / Saved Successfully",
-      description: `تم حفظ المشروع "${name}" / Project "${name}" saved`,
+      description: `تم حفظ المشروع "${trimmedName}" / Project "${trimmedName}" saved`,
     });
 
     return newProject;
-  }, [projects, saveToStorage, toast]);
+  }, [projects, saveToStorage, toast, checkNameExists]);
 
   // Delete a project
   const deleteProject = useCallback((projectId: string) => {
@@ -112,6 +129,7 @@ export function useLocalProjects() {
     saveProject,
     deleteProject,
     loadProject,
+    checkNameExists,
     projectCount: projects.length,
     maxProjects: MAX_PROJECTS,
   };
