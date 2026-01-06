@@ -30,6 +30,7 @@ import { PriceComparisonReport } from "./PriceComparisonReport";
 import { BalancedPricingReport } from "./BalancedPricingReport";
 import { PricingBalanceSummary } from "./PricingBalanceSummary";
 import { BalanceStatusColumn } from "./BalanceStatusColumn";
+import { PricingAlerts } from "./PricingAlerts";
 import { WBSTreeDiagram } from "./WBSTreeDiagram";
 import { ComprehensivePDFReport } from "./ComprehensivePDFReport";
 import { WBSFlowDiagram } from "./WBSFlowDiagram";
@@ -1550,6 +1551,13 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                   </Select>
                 </div>
               )}
+
+              {/* Pricing Alerts */}
+              <PricingAlerts
+                items={data.items || []}
+                getItemCalculatedCosts={getItemCalculatedCosts}
+                showToasts={false}
+              />
 
               {/* Pricing Balance Summary Bar */}
               <PricingBalanceSummary

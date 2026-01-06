@@ -24,7 +24,7 @@ export function LocalProjectManager({
   onLoadProject 
 }: LocalProjectManagerProps) {
   const { isArabic } = useLanguage();
-  const { projects, saveProject, deleteProject, loadProject, projectCount, maxProjects } = useLocalProjects();
+  const { projects, saveProject, deleteProject, loadProject, checkNameExists, projectCount, maxProjects } = useLocalProjects();
   const [projectName, setProjectName] = useState("");
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -33,11 +33,18 @@ export function LocalProjectManager({
   const handleSave = async () => {
     if (!projectName.trim()) return;
     
+    // Check for duplicate name before saving
+    if (checkNameExists(projectName.trim())) {
+      return; // Toast is shown in the hook
+    }
+    
     setIsSaving(true);
     try {
-      saveProject(projectName.trim(), analysisData, wbsData, fileName);
-      setProjectName("");
-      setIsSaveDialogOpen(false);
+      const result = saveProject(projectName.trim(), analysisData, wbsData, fileName);
+      if (result) {
+        setProjectName("");
+        setIsSaveDialogOpen(false);
+      }
     } finally {
       setIsSaving(false);
     }
