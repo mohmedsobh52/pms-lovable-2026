@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import LZString from "https://esm.sh/lz-string@1.5.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -410,7 +411,32 @@ serve(async (req) => {
   }
 
   try {
-    const { text, analysis_type, language = 'en', file_type = 'pdf', generate_schedule = true } = await req.json();
+    const body = await req.json();
+    let { text, analysis_type, language = 'en', file_type = 'pdf', generate_schedule = true } = body;
+    
+    // Handle compressed text from client
+    if (body.isCompressed && body.textCompressed) {
+      console.log("Decompressing text from client...");
+      try {
+        text = LZString.decompressFromUTF16(body.textCompressed);
+        if (!text) {
+          text = LZString.decompress(body.textCompressed);
+        }
+        if (!text) {
+          text = LZString.decompressFromBase64(body.textCompressed);
+        }
+        console.log(`Decompressed text length: ${text?.length || 0} characters`);
+      } catch (decompressError) {
+        console.error("Decompression error:", decompressError);
+        return new Response(
+          JSON.stringify({ 
+            error: "Failed to decompress text",
+            suggestion: "Please try again without compression enabled in settings"
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
