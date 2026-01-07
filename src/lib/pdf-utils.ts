@@ -19,6 +19,63 @@ const BATCH_CONFIG = {
   LARGE_PDF_THRESHOLD: 50, // PDFs with 50+ pages use batch processing
 };
 
+// Clean mojibake (encoding corruption) from text - especially for Arabic
+function cleanMojibake(text: string): string {
+  if (!text) return '';
+  
+  // Pattern for common mojibake sequences (corrupted Arabic encoding)
+  const mojibakePatterns = [
+    /p[\*ˆ˜°´¸¹²³µ¶·ºª¡¿€£¥¢¤®©™±×÷«»‹›""''‚„†‡…‰ËŽxÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿA-Za-z]+/gi,
+    /[\u0080-\u009F]+/g, // C1 control characters
+    /Ã[\u0080-\u00BF]/g, // UTF-8 misinterpreted as Latin-1
+    /Â[\u0080-\u00BF]/g, // Another common UTF-8 misinterpretation
+  ];
+  
+  let cleaned = text;
+  
+  // Check if text has significant mojibake
+  const mojibakeRatio = (text.match(/[\u0080-\u00FF]/g) || []).length / text.length;
+  
+  if (mojibakeRatio > 0.1) {
+    // Text is likely corrupted, try to clean it
+    for (const pattern of mojibakePatterns) {
+      cleaned = cleaned.replace(pattern, '');
+    }
+    
+    // Remove remaining Latin-1 supplement if they're not part of valid Arabic
+    const hasArabic = /[\u0600-\u06FF]/.test(text);
+    if (!hasArabic) {
+      cleaned = cleaned.replace(/[\u00C0-\u00FF]+/g, '');
+    }
+  }
+  
+  // Clean up whitespace
+  return cleaned
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// Check if text is valid (not corrupted)
+function isValidText(text: string): boolean {
+  if (!text || text.length < 10) return false;
+  
+  // Count different character types
+  const arabicChars = (text.match(/[\u0600-\u06FF]/g) || []).length;
+  const latinChars = (text.match(/[A-Za-z]/g) || []).length;
+  const numbers = (text.match(/\d/g) || []).length;
+  const corruptedChars = (text.match(/[\u0080-\u00FF]/g) || []).length;
+  
+  const totalChars = text.replace(/\s/g, '').length;
+  if (totalChars === 0) return false;
+  
+  // If corrupted characters are more than 20% of text, it's invalid
+  if (corruptedChars / totalChars > 0.2) return false;
+  
+  // Valid if has meaningful text (Arabic, Latin, or numbers)
+  return (arabicChars + latinChars + numbers) / totalChars > 0.3;
+}
+
 // Convert PDF page to base64 image
 async function pageToImage(page: any, scale: number = 2): Promise<string> {
   const viewport = page.getViewport({ scale });
@@ -40,29 +97,60 @@ async function pageToImage(page: any, scale: number = 2): Promise<string> {
   return canvas.toDataURL('image/png');
 }
 
-// Process a single page and extract text
+// Process a single page and extract text with Arabic support
 async function extractPageText(pdf: any, pageNum: number): Promise<string> {
   try {
     const page = await pdf.getPage(pageNum);
-    const textContent = await page.getTextContent();
+    const textContent = await page.getTextContent({
+      // Enable better Arabic text extraction
+      includeMarkedContent: true,
+      disableCombineTextItems: false,
+    });
     
     let pageText = "";
     let lastY = -1;
+    let lastX = -1;
     
-    for (const item of textContent.items) {
+    // Sort items by position for better text flow (handle RTL Arabic)
+    const items = textContent.items.filter((item: any) => 'str' in item && item.str);
+    
+    for (const item of items) {
       if ('str' in item && item.str) {
         const currentY = 'transform' in item ? item.transform[5] : -1;
+        const currentX = 'transform' in item ? item.transform[4] : -1;
+        
+        // New line detection
         if (lastY !== -1 && Math.abs(currentY - lastY) > 5) {
           pageText += "\n";
         } else if (pageText.length > 0 && !pageText.endsWith(" ") && !item.str.startsWith(" ")) {
-          pageText += " ";
+          // Add space between words (but be careful with Arabic RTL)
+          const isArabicText = /[\u0600-\u06FF]/.test(item.str);
+          const prevIsArabic = /[\u0600-\u06FF]/.test(pageText.slice(-1));
+          
+          // Only add space if there's significant horizontal gap
+          if (lastX !== -1 && Math.abs(currentX - lastX) > 5) {
+            pageText += " ";
+          } else if (!isArabicText && !prevIsArabic) {
+            pageText += " ";
+          }
         }
+        
         pageText += item.str;
         lastY = currentY;
+        lastX = currentX + (item.width || 0);
       }
     }
     
-    return pageText.trim();
+    // Clean the extracted text
+    let cleanedText = cleanMojibake(pageText);
+    
+    // If text appears corrupted, return empty to trigger OCR
+    if (!isValidText(cleanedText) && pageText.length > 20) {
+      console.warn(`Page ${pageNum}: Text appears corrupted, may need OCR`);
+      return ""; // Return empty to trigger OCR
+    }
+    
+    return cleanedText;
   } catch (error) {
     console.warn(`Error extracting page ${pageNum}:`, error);
     return "";
@@ -212,6 +300,7 @@ export async function extractTextFromPDF(
     useOCR?: boolean;
     onOCRProgress?: (current: number, total: number) => void;
     onProgress?: (current: number, total: number) => void;
+    forceOCR?: boolean; // Force OCR even if text extraction works
   }
 ): Promise<string> {
   try {
@@ -220,14 +309,31 @@ export async function extractTextFromPDF(
     
     const arrayBuffer = await file.arrayBuffer();
     
-    // Use PDF.js to properly parse the PDF
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    // Use PDF.js to properly parse the PDF with Arabic support
+    const pdf = await pdfjsLib.getDocument({ 
+      data: arrayBuffer,
+      // Enable better Unicode/Arabic support
+      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/standard_fonts/',
+    }).promise;
+    
     const totalPages = pdf.numPages;
     console.log(`PDF loaded: ${totalPages} pages`);
+    
+    // If force OCR is requested, skip text extraction
+    if (options?.forceOCR) {
+      console.log("Force OCR requested, skipping text extraction");
+      const ocrText = await extractWithOCR(pdf, file.name, options?.onOCRProgress);
+      if (ocrText && ocrText.length > 50) {
+        return ocrText;
+      }
+    }
     
     let fullText = "";
     let successfulPages = 0;
     let failedPages = 0;
+    let corruptedPages = 0;
     
     // Use batch processing for large PDFs (50+ pages)
     if (totalPages >= BATCH_CONFIG.LARGE_PDF_THRESHOLD) {
@@ -245,8 +351,16 @@ export async function extractTextFromPDF(
           const pageText = await extractPageText(pdf, pageNum);
           
           if (pageText.length > 0) {
-            fullText += `--- Page ${pageNum} ---\n${pageText}\n\n`;
-            successfulPages++;
+            // Check if page text is valid (not corrupted)
+            if (isValidText(pageText)) {
+              fullText += `--- Page ${pageNum} ---\n${pageText}\n\n`;
+              successfulPages++;
+            } else {
+              console.warn(`Page ${pageNum}: Text appears corrupted`);
+              corruptedPages++;
+            }
+          } else {
+            failedPages++;
           }
           
           if (pageNum % 5 === 0 || pageNum === totalPages || totalPages <= 10) {
@@ -259,10 +373,10 @@ export async function extractTextFromPDF(
       }
     }
     
-    console.log(`Extraction complete: ${successfulPages} successful, ${failedPages} failed out of ${totalPages} pages`);
+    console.log(`Extraction complete: ${successfulPages} successful, ${failedPages} failed, ${corruptedPages} corrupted out of ${totalPages} pages`);
     
     // Clean up the extracted text while preserving important formatting
-    let extractedText = fullText
+    let extractedText = cleanMojibake(fullText)
       .replace(/\r\n/g, '\n')
       .replace(/[ \t]+/g, ' ')
       .replace(/\n{3,}/g, '\n\n')
@@ -273,14 +387,15 @@ export async function extractTextFromPDF(
     
     // Validate the extracted text
     const wordCount = extractedText.split(/\s+/).filter(w => w.length > 1).length;
+    const hasValidText = isValidText(extractedText);
     
-    console.log(`Standard extraction: ${extractedText.length} chars, ${wordCount} words`);
+    console.log(`Standard extraction: ${extractedText.length} chars, ${wordCount} words, valid: ${hasValidText}`);
     
-    // Check if extraction was successful
-    const needsOCR = extractedText.length < 50 || wordCount < 10;
+    // Check if extraction was successful - also check for corrupted text
+    const needsOCR = extractedText.length < 50 || wordCount < 10 || !hasValidText || corruptedPages > successfulPages;
     
     if (needsOCR) {
-      console.log("⚠️ Insufficient text - attempting OCR extraction");
+      console.log("⚠️ Insufficient or corrupted text - attempting OCR extraction");
       
       // If user requested OCR or we need it
       if (options?.useOCR !== false) {
@@ -305,6 +420,7 @@ export async function extractTextFromPDF(
 
 💡 هذا الملف يحتوي على:
 - صور ممسوحة ضوئياً (Scanned PDF)
+- نص بترميز غير صحيح
 - نص في شكل صور (يحتاج OCR)
 
 🔧 الحلول:
@@ -326,8 +442,8 @@ export async function extractTextFromPDF(
 
 🔧 الحل:
 1. تأكد من أن الملف ليس محمياً بكلمة مرور
-2. جرب فتح الملف ونسخ النص يدوياً
-3. الصق المحتوى في المربع أدناه`;
+2. جرب استخدام OCR لاستخراج النص
+3. أو افتح الملف ونسخ النص يدوياً`;
   }
 }
 
