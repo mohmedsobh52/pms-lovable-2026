@@ -269,15 +269,15 @@ async function extractWithOCR(
       
       if (error) {
         console.error(`OCR error on page ${pageNum}:`, error);
-        fullText += `\n[خطأ في صفحة ${pageNum}]\n`;
+        fullText += `\n--- Page ${pageNum} ---\n[خطأ في OCR]\n`;
         continue;
       }
       
       if (data?.success && data?.text) {
-        fullText += `\n--- صفحة ${pageNum} ---\n${data.text}\n`;
+        fullText += `\n--- Page ${pageNum} ---\n${data.text}\n`;
       } else if (data?.error) {
         console.error(`OCR failed on page ${pageNum}:`, data.error);
-        fullText += `\n[فشل OCR في صفحة ${pageNum}: ${data.error}]\n`;
+        fullText += `\n--- Page ${pageNum} ---\n[فشل OCR: ${data.error}]\n`;
       }
       
       // Small delay between pages to avoid rate limiting
@@ -287,11 +287,90 @@ async function extractWithOCR(
       
     } catch (pageError) {
       console.error(`Error processing page ${pageNum}:`, pageError);
-      fullText += `\n[خطأ في معالجة صفحة ${pageNum}]\n`;
+      fullText += `\n--- Page ${pageNum} ---\n[خطأ في معالجة صفحة OCR]\n`;
     }
   }
   
   return fullText.trim();
+}
+
+async function extractWithSelectiveOCR(
+  pdf: any,
+  fileName: string,
+  pageNumbers: number[],
+  onProgress?: (current: number, total: number) => void
+): Promise<Map<number, string>> {
+  const result = new Map<number, string>();
+  const total = pageNumbers.length;
+
+  console.log(`Starting selective OCR for ${total} pages`);
+
+  for (let i = 0; i < pageNumbers.length; i++) {
+    const pageNum = pageNumbers[i];
+    try {
+      onProgress?.(i + 1, total);
+      console.log(`Selective OCR page ${pageNum} (${i + 1}/${total})`);
+
+      const page = await pdf.getPage(pageNum);
+      const imageBase64 = await pageToImage(page);
+
+      const { data, error } = await supabase.functions.invoke('ocr-extract', {
+        body: {
+          imageBase64,
+          pageNumber: pageNum,
+          totalPages: pdf.numPages,
+          fileName,
+        },
+      });
+
+      if (error) {
+        console.error(`Selective OCR error on page ${pageNum}:`, error);
+        continue;
+      }
+
+      const text = data?.success && data?.text ? String(data.text) : '';
+      if (text.trim()) {
+        result.set(pageNum, text.trim());
+      }
+
+      // delay to reduce rate limiting risk
+      if (i < pageNumbers.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 400));
+      }
+    } catch (err) {
+      console.error(`Selective OCR failed for page ${pageNum}:`, err);
+    }
+  }
+
+  return result;
+}
+
+function parsePageBlocks(text: string): Map<number, string> {
+  const map = new Map<number, string>();
+  if (!text) return map;
+
+  const regex = /--- Page (\d+) ---\n([\s\S]*?)(?=\n--- Page \d+ ---\n|$)/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    const pageNum = Number(match[1]);
+    const pageText = (match[2] || '').trim();
+    if (!Number.isNaN(pageNum)) {
+      map.set(pageNum, pageText);
+    }
+  }
+
+  return map;
+}
+
+function buildPagedText(pageCount: number, pages: Map<number, string>): string {
+  let out = '';
+  for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+    const t = pages.get(pageNum);
+    if (t && t.trim()) {
+      out += `--- Page ${pageNum} ---\n${t.trim()}\n\n`;
+    }
+  }
+  return out.trim();
 }
 
 export async function extractTextFromPDF(
@@ -330,105 +409,107 @@ export async function extractTextFromPDF(
       }
     }
     
-    let fullText = "";
-    let successfulPages = 0;
-    let failedPages = 0;
-    let corruptedPages = 0;
-    
-    // Use batch processing for large PDFs (50+ pages)
+    const pages = new Map<number, string>();
+    const missingPages: number[] = [];
+
+    // Extract text page-by-page (or via batch), tracking missing pages
     if (totalPages >= BATCH_CONFIG.LARGE_PDF_THRESHOLD) {
       console.log(`Large PDF detected (${totalPages} pages), using batch processing...`);
       const batchResult = await batchExtractFromPDF(pdf, options?.onProgress);
-      fullText = batchResult.text;
-      successfulPages = batchResult.successCount;
-      failedPages = batchResult.failedCount;
+
+      const pageBlocks = parsePageBlocks(batchResult.text);
+      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        const t = pageBlocks.get(pageNum);
+        if (t && t.trim()) {
+          pages.set(pageNum, t.trim());
+        } else {
+          missingPages.push(pageNum);
+        }
+      }
+
+      console.log(`Batch extraction: got ${pages.size}/${totalPages} pages as text`);
     } else {
-      // Standard extraction for smaller PDFs
       for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
         try {
           options?.onProgress?.(pageNum, totalPages);
-          
+
           const pageText = await extractPageText(pdf, pageNum);
-          
-          if (pageText.length > 0) {
-            // Check if page text is valid (not corrupted)
-            if (isValidText(pageText)) {
-              fullText += `--- Page ${pageNum} ---\n${pageText}\n\n`;
-              successfulPages++;
-            } else {
-              console.warn(`Page ${pageNum}: Text appears corrupted`);
-              corruptedPages++;
-            }
+          if (pageText && pageText.trim() && isValidText(pageText)) {
+            pages.set(pageNum, pageText.trim());
           } else {
-            failedPages++;
+            missingPages.push(pageNum);
           }
-          
+
           if (pageNum % 5 === 0 || pageNum === totalPages || totalPages <= 10) {
             console.log(`Extracted page ${pageNum}/${totalPages} (${pageText.length} chars)`);
           }
         } catch (pageError) {
           console.warn(`Error extracting page ${pageNum}:`, pageError);
-          failedPages++;
+          missingPages.push(pageNum);
         }
       }
+
+      console.log(`Standard extraction: got ${pages.size}/${totalPages} pages as text`);
     }
-    
-    console.log(`Extraction complete: ${successfulPages} successful, ${failedPages} failed, ${corruptedPages} corrupted out of ${totalPages} pages`);
-    
-    // Clean up the extracted text while preserving important formatting
-    let extractedText = cleanMojibake(fullText)
+
+    // If we are missing pages, fill them with selective OCR
+    if (missingPages.length > 0 && options?.useOCR !== false) {
+      console.log(`⚠️ Missing ${missingPages.length} pages - running selective OCR...`);
+
+      try {
+        const ocrMap = await extractWithSelectiveOCR(pdf, file.name, missingPages, options?.onOCRProgress);
+        for (const [pageNum, t] of ocrMap.entries()) {
+          if (t && t.trim()) pages.set(pageNum, t.trim());
+        }
+      } catch (err) {
+        console.error('Selective OCR failed:', err);
+      }
+
+      // If still missing a lot, fallback to full OCR
+      const coverage = pages.size / totalPages;
+      if (coverage < 0.7) {
+        console.log(`Coverage is low (${Math.round(coverage * 100)}%), falling back to full OCR...`);
+        const ocrText = await extractWithOCR(pdf, file.name, options?.onOCRProgress);
+        if (ocrText && ocrText.length > 50) return ocrText;
+      }
+    }
+
+    // Build final text in correct page order
+    let extractedText = buildPagedText(totalPages, pages);
+
+    // Clean up while preserving formatting
+    extractedText = cleanMojibake(extractedText)
       .replace(/\r\n/g, '\n')
       .replace(/[ \t]+/g, ' ')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
-    
+
+    // Optional warning if some pages are still missing
+    if (pages.size < totalPages) {
+      const stillMissing: number[] = [];
+      for (let p = 1; p <= totalPages; p++) {
+        if (!pages.has(p)) stillMissing.push(p);
+      }
+      if (stillMissing.length > 0) {
+        extractedText += `\n\n[تنبيه: لم يتم استخراج ${stillMissing.length} صفحة: ${stillMissing.join(', ')}]`;
+      }
+    }
+
     console.log("Extracted text length:", extractedText.length);
     console.log("First 300 chars:", extractedText.substring(0, 300));
-    
-    // Validate the extracted text
+
     const wordCount = extractedText.split(/\s+/).filter(w => w.length > 1).length;
     const hasValidText = isValidText(extractedText);
-    
-    console.log(`Standard extraction: ${extractedText.length} chars, ${wordCount} words, valid: ${hasValidText}`);
-    
-    // Check if extraction was successful - also check for corrupted text
-    const needsOCR = extractedText.length < 50 || wordCount < 10 || !hasValidText || corruptedPages > successfulPages;
-    
-    if (needsOCR) {
-      console.log("⚠️ Insufficient or corrupted text - attempting OCR extraction");
-      
-      // If user requested OCR or we need it
-      if (options?.useOCR !== false) {
-        try {
-          const ocrText = await extractWithOCR(pdf, file.name, options?.onOCRProgress);
-          
-          if (ocrText && ocrText.length > 50) {
-            console.log(`✅ OCR extracted ${ocrText.length} characters`);
-            return ocrText;
-          }
-        } catch (ocrError) {
-          console.error("OCR extraction failed:", ocrError);
-        }
-      }
-      
-      // If OCR also failed or wasn't used
-      return `[فشل استخراج النص - يمكنك تجربة OCR]
 
-ملف: ${file.name}
-الحجم: ${(file.size / 1024).toFixed(2)} KB
-عدد الصفحات: ${pdf.numPages}
+    console.log(`Final extraction: ${extractedText.length} chars, ${wordCount} words, valid: ${hasValidText}`);
 
-💡 هذا الملف يحتوي على:
-- صور ممسوحة ضوئياً (Scanned PDF)
-- نص بترميز غير صحيح
-- نص في شكل صور (يحتاج OCR)
-
-🔧 الحلول:
-1. اضغط على زر "استخدم OCR" لاستخراج النص بالذكاء الاصطناعي
-2. أو افتح ملف PDF الأصلي وانسخ النص يدوياً`;
+    // If final result is still poor, attempt full OCR (unless explicitly disabled)
+    if ((!hasValidText || wordCount < 10) && options?.useOCR !== false) {
+      console.log("⚠️ Final text still insufficient - attempting full OCR extraction");
+      const ocrText = await extractWithOCR(pdf, file.name, options?.onOCRProgress);
+      if (ocrText && ocrText.length > 50) return ocrText;
     }
-    
-    console.log(`✅ Successfully extracted ${extractedText.length} characters, ${wordCount} words`);
+
     return extractedText;
     
   } catch (error) {
