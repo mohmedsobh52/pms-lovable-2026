@@ -175,69 +175,37 @@ export default function HistoricalPricingPage() {
         description: "قد يستغرق هذا بعض الوقت حسب حجم الملف",
       });
 
-      // Import pdfjs dynamically
-      const pdfjsLib = await import('pdfjs-dist');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-      
+      // Convert file to base64
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const numPages = pdf.numPages;
-      
-      toast({
-        title: "جاري استخراج الصفحات...",
-        description: `تم العثور على ${numPages} صفحة`,
-      });
-
-      const pageImages: string[] = [];
-      const maxPages = Math.min(numPages, 20); // Limit to 20 pages
-      
-      for (let i = 1; i <= maxPages; i++) {
-        const page = await pdf.getPage(i);
-        const scale = 2; // Higher scale for better OCR
-        const viewport = page.getViewport({ scale });
-        
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        
-        await page.render({
-          canvasContext: context!,
-          viewport: viewport
-        }).promise;
-        
-        const imageData = canvas.toDataURL('image/png');
-        pageImages.push(imageData);
-      }
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      bytes.forEach(byte => binary += String.fromCharCode(byte));
+      const pdfBase64 = btoa(binary);
 
       toast({
-        title: "جاري استخراج النص (OCR)...",
-        description: `معالجة ${pageImages.length} صفحة`,
+        title: "جاري استخراج البنود...",
+        description: "استخدام الذكاء الاصطناعي لتحليل المستند",
       });
 
-      // Call OCR edge function
-      const { data: ocrResult, error: ocrError } = await supabase.functions.invoke('extract-text-ocr', {
+      // Call edge function to process PDF
+      const { data, error } = await supabase.functions.invoke('process-pdf-boq', {
         body: {
-          images: pageImages,
+          pdfBase64,
           fileName: file.name
         }
       });
 
-      if (ocrError) throw ocrError;
+      if (error) throw error;
 
-      if (!ocrResult?.text) {
-        throw new Error('لم يتم استخراج نص من الملف');
-      }
-
-      toast({
-        title: "جاري تحليل البنود...",
-        description: "استخدام الذكاء الاصطناعي لاستخراج البنود",
-      });
-
-      // Parse BOQ items from OCR text using AI
-      const items = await parseOCRTextToBOQItems(ocrResult.text, file.name);
-      
-      if (items.length > 0) {
+      if (data?.items && Array.isArray(data.items) && data.items.length > 0) {
+        const items: BOQItem[] = data.items.map((item: any) => ({
+          item_number: item.item_number || "",
+          description: item.description || "",
+          unit: item.unit || "",
+          quantity: parseFloat(item.quantity) || 0,
+          unit_price: parseFloat(item.unit_price) || 0,
+          total_price: parseFloat(item.total_price) || 0,
+        }));
         setUploadedItems(items);
         toast({
           title: "✅ تم استخراج البنود",
@@ -253,36 +221,6 @@ export default function HistoricalPricingPage() {
     } catch (error: any) {
       console.error("PDF processing error:", error);
       throw error;
-    }
-  };
-
-  const parseOCRTextToBOQItems = async (text: string, fileName: string): Promise<BOQItem[]> => {
-    try {
-      const { data, error } = await supabase.functions.invoke('analyze-boq', {
-        body: {
-          text: text.substring(0, 50000), // Limit text size
-          fileName,
-          extractItems: true
-        }
-      });
-
-      if (error) throw error;
-
-      if (data?.items && Array.isArray(data.items)) {
-        return data.items.map((item: any) => ({
-          item_number: item.item_number || item.itemNumber || "",
-          description: item.description || "",
-          unit: item.unit || "",
-          quantity: parseFloat(item.quantity) || 0,
-          unit_price: parseFloat(item.unit_price || item.unitPrice) || 0,
-          total_price: parseFloat(item.total_price || item.totalPrice) || 0,
-        }));
-      }
-      
-      return [];
-    } catch (error) {
-      console.error("Error parsing OCR text:", error);
-      return [];
     }
   };
 
