@@ -414,18 +414,36 @@ serve(async (req) => {
     const body = await req.json();
     let { text, analysis_type, language = 'en', file_type = 'pdf', generate_schedule = true } = body;
     
-    // Handle compressed text from client
+    // Handle compressed text from client - client uses compressToBase64
     if (body.isCompressed && body.textCompressed) {
-      console.log("Decompressing text from client...");
+      console.log("Decompressing text from client (Base64 format)...");
       try {
-        text = LZString.decompressFromUTF16(body.textCompressed);
-        if (!text) {
+        // Client uses LZString.compressToBase64, so use decompressFromBase64 FIRST
+        text = LZString.decompressFromBase64(body.textCompressed);
+        console.log(`Decompressed from Base64: ${text?.length || 0} characters`);
+        
+        // Fallback methods if Base64 didn't work
+        if (!text || text.length < 5) {
+          console.log("Base64 failed, trying UTF16...");
+          text = LZString.decompressFromUTF16(body.textCompressed);
+        }
+        if (!text || text.length < 5) {
+          console.log("UTF16 failed, trying raw decompress...");
           text = LZString.decompress(body.textCompressed);
         }
-        if (!text) {
-          text = LZString.decompressFromBase64(body.textCompressed);
+        
+        console.log(`Final decompressed text length: ${text?.length || 0} characters`);
+        
+        if (!text || text.length < 10) {
+          console.error("All decompression methods failed");
+          return new Response(
+            JSON.stringify({ 
+              error: "Failed to decompress text - all methods returned empty result",
+              suggestion: "Please disable compression in settings and try again"
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
-        console.log(`Decompressed text length: ${text?.length || 0} characters`);
       } catch (decompressError) {
         console.error("Decompression error:", decompressError);
         return new Response(
