@@ -45,10 +45,6 @@ verify_jwt = false
 [functions.send-evm-alert]
 verify_jwt = false
 
-[functions.generate-p6-export]
-enabled = true
-verify_jwt = false
-
 [functions.analyze-attachment]
 verify_jwt = false
 
@@ -56,4 +52,13 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-scheduled-report]
+verify_jwt = false
+
+[functions.process-analysis-job]
+verify_jwt = false
+
+[functions.enhanced-pricing-analysis]
+verify_jwt = false
+
+[functions.process-pdf-boq]
 verify_jwt = false
