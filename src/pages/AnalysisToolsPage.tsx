@@ -1,10 +1,12 @@
 import { BOQComparison } from "@/components/BOQComparison";
 import { MarketRateSuggestions } from "@/components/MarketRateSuggestions";
 import { CostAnalysis } from "@/components/CostAnalysis";
+import { AIVsLocalPriceComparison } from "@/components/AIVsLocalPriceComparison";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
+import { Database, DollarSign, FileStack, TrendingUp } from "lucide-react";
 
 const AnalysisToolsPage = () => {
   const { analysisData, setAnalysisData } = useAnalysisData();
@@ -33,14 +35,21 @@ const AnalysisToolsPage = () => {
   return (
     <PageLayout>
       <Tabs defaultValue="cost-analysis" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="cost-analysis">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="cost-analysis" className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4" />
             {isArabic ? "تحليل التكاليف" : "Cost Analysis"}
           </TabsTrigger>
-          <TabsTrigger value="boq-compare">
+          <TabsTrigger value="price-comparison" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            {isArabic ? "مقارنة الأسعار" : "Price Compare"}
+          </TabsTrigger>
+          <TabsTrigger value="boq-compare" className="flex items-center gap-2">
+            <FileStack className="h-4 w-4" />
             {isArabic ? "مقارنة BOQ" : "BOQ Compare"}
           </TabsTrigger>
-          <TabsTrigger value="market-rates">
+          <TabsTrigger value="market-rates" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
             {isArabic ? "أسعار السوق" : "Market Rates"}
           </TabsTrigger>
         </TabsList>
@@ -48,6 +57,13 @@ const AnalysisToolsPage = () => {
           <CostAnalysis 
             items={analysisData?.items || []} 
             currency={analysisData?.summary?.currency || "SAR"} 
+          />
+        </TabsContent>
+        <TabsContent value="price-comparison">
+          <AIVsLocalPriceComparison 
+            items={analysisData?.items || []}
+            onApplyLocalPrice={handleApplyRate}
+            onApplyAIPrice={handleApplyRate}
           />
         </TabsContent>
         <TabsContent value="boq-compare">
