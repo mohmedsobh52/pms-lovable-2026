@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2 } from "lucide-react";
+import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2, Download, FileImage } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { extractRawDataFromExcel } from "@/lib/excel-utils";
+import * as XLSX from 'xlsx';
+import * as pdfjsLib from 'pdfjs-dist';
 import { Link } from "react-router-dom";
 import { PageLayout } from "@/components/PageLayout";
 import { HistoricalPricingStats } from "@/components/HistoricalPricingStats";
@@ -73,6 +75,8 @@ export default function HistoricalPricingPage() {
   const [uploadedItems, setUploadedItems] = useState<RawDataItem[]>([]);
   const [uploadedHeaders, setUploadedHeaders] = useState<string[]>([]);
   const [uploadedFileName, setUploadedFileName] = useState("");
+  const [pdfPagePreviews, setPdfPagePreviews] = useState<string[]>([]);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -163,7 +167,39 @@ export default function HistoricalPricingPage() {
         description: "قد يستغرق هذا بعض الوقت حسب حجم الملف",
       });
 
-      // Convert file to base64
+      // Generate PDF page previews first
+      try {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const previews: string[] = [];
+        
+        const numPages = Math.min(pdf.numPages, 5); // Preview first 5 pages
+        for (let i = 1; i <= numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 0.5 });
+          
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          
+          await page.render({
+            canvasContext: context!,
+            viewport: viewport
+          }).promise;
+          
+          previews.push(canvas.toDataURL('image/jpeg', 0.7));
+        }
+        
+        setPdfPagePreviews(previews);
+        setShowPdfPreview(true);
+      } catch (previewError) {
+        console.warn("Could not generate PDF previews:", previewError);
+      }
+
+      // Convert file to base64 for extraction
       const arrayBuffer = await file.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       let binary = '';
@@ -210,6 +246,44 @@ export default function HistoricalPricingPage() {
       console.error("PDF processing error:", error);
       throw error;
     }
+  };
+
+  // Export extracted data to Excel
+  const handleExportToExcel = () => {
+    if (uploadedItems.length === 0) return;
+
+    const ws = XLSX.utils.json_to_sheet(uploadedItems, { header: uploadedHeaders });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Extracted Data');
+    
+    const fileName = uploadedFileName ? 
+      `extracted_${uploadedFileName.replace(/\.[^/.]+$/, '')}.xlsx` : 
+      'extracted_data.xlsx';
+    
+    XLSX.writeFile(wb, fileName);
+    
+    toast({
+      title: "✅ تم التصدير",
+      description: `تم تصدير ${uploadedItems.length} صف إلى Excel`,
+    });
+  };
+
+  // Export saved file data to Excel
+  const handleExportSavedToExcel = (file: HistoricalFile) => {
+    if (!file.items || file.items.length === 0) return;
+
+    const headers = Object.keys(file.items[0] || {});
+    const ws = XLSX.utils.json_to_sheet(file.items, { header: headers });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Data');
+    
+    const fileName = `${file.project_name.replace(/[^a-zA-Z0-9أ-ي]/g, '_')}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    
+    toast({
+      title: "✅ تم التصدير",
+      description: `تم تصدير ${file.items.length} صف إلى Excel`,
+    });
   };
 
   const handleSaveFile = async () => {
@@ -489,10 +563,56 @@ export default function HistoricalPricingPage() {
                   </Label>
                 </div>
 
+                {/* PDF Page Preview */}
+                {showPdfPreview && pdfPagePreviews.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2">
+                        <FileImage className="w-4 h-4" />
+                        معاينة صفحات PDF ({pdfPagePreviews.length} صفحات)
+                      </Label>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setShowPdfPreview(false)}
+                      >
+                        إخفاء
+                      </Button>
+                    </div>
+                    <ScrollArea className="h-[200px] border rounded-lg p-2">
+                      <div className="flex gap-2">
+                        {pdfPagePreviews.map((preview, idx) => (
+                          <div key={idx} className="flex-shrink-0 border rounded-lg overflow-hidden">
+                            <img 
+                              src={preview} 
+                              alt={`صفحة ${idx + 1}`}
+                              className="h-[170px] w-auto object-contain"
+                            />
+                            <p className="text-xs text-center text-muted-foreground py-1">
+                              صفحة {idx + 1}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
+
                 {/* Preview Items - Dynamic columns */}
                 {uploadedItems.length > 0 && (
                   <div className="space-y-2">
-                    <Label>معاينة البيانات المستخرجة ({uploadedItems.length} صف)</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>معاينة البيانات المستخرجة ({uploadedItems.length} صف)</Label>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleExportToExcel}
+                        className="gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        تصدير إلى Excel
+                      </Button>
+                    </div>
                     <ScrollArea className="h-[250px] border rounded-lg">
                       <div className="min-w-max">
                         <Table>
@@ -691,6 +811,14 @@ export default function HistoricalPricingPage() {
                         <p className="text-xs text-muted-foreground">{file.currency}</p>
                       </div>
                       <div className="flex items-center gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleExportSavedToExcel(file)}
+                          title="تصدير إلى Excel"
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
                         <Button variant="outline" size="sm" onClick={() => handleViewFile(file)}>
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -791,6 +919,14 @@ export default function HistoricalPricingPage() {
             )}
 
             <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => selectedFile && handleExportSavedToExcel(selectedFile)}
+                className="gap-2"
+              >
+                <Download className="w-4 h-4" />
+                تصدير إلى Excel
+              </Button>
               <DialogClose asChild>
                 <Button variant="outline">إغلاق</Button>
               </DialogClose>
