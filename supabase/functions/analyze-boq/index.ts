@@ -644,6 +644,9 @@ Use the submit_boq_analysis function to return your structured analysis.`;
     console.log("Request body prepared, sending to AI Gateway...");
     console.log(`Text being analyzed: ${textToAnalyze.length} characters`);
 
+    // Track which provider was used for transparency
+    let usedProvider = 'lovable' as string;
+
     // Helper function with timeout and retry
     const fetchWithRetry = async (retryCount = 0, useOpenAI = false): Promise<Response> => {
       const maxRetries = 2;
@@ -686,8 +689,13 @@ Use the submit_boq_analysis function to return your structured analysis.`;
           const openAIKey = Deno.env.get("OPENAI_API_KEY");
           if (openAIKey) {
             console.log("Lovable AI credits exhausted, falling back to OpenAI...");
+            usedProvider = 'openai';
             return fetchWithRetry(0, true);
           }
+        }
+        
+        if (useOpenAI) {
+          usedProvider = 'openai';
         }
         
         return resp;
@@ -929,7 +937,17 @@ Use the submit_boq_analysis function to return your structured analysis.`;
       console.log(`- Cost variance: ${result.cost_loaded_schedule.project_summary.cost_variance} (should be 0)`);
     }
 
-    return new Response(JSON.stringify(result), {
+    // Add provider info to the response for transparency
+    const finalResult = {
+      ...result,
+      _meta: {
+        provider: usedProvider,
+        model: usedProvider === 'openai' ? 'gpt-4o-mini' : 'google/gemini-2.5-flash',
+        fallbackUsed: usedProvider === 'openai',
+      },
+    };
+
+    return new Response(JSON.stringify(finalResult), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
