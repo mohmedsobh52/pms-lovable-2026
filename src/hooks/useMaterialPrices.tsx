@@ -253,14 +253,105 @@ export const useMaterialPrices = () => {
   };
 
   const findMatchingPrice = (description: string, category?: string): MaterialPrice | null => {
-    const searchTerms = description.toLowerCase().split(/\s+/);
+    if (!description || materials.length === 0) return null;
     
-    return materials.find(m => {
-      const materialName = (m.name + ' ' + (m.name_ar || '') + ' ' + (m.description || '')).toLowerCase();
-      const matchesDescription = searchTerms.some(term => materialName.includes(term));
-      const matchesCategory = !category || m.category === category;
-      return matchesDescription && matchesCategory;
-    }) || null;
+    const descLower = description.toLowerCase();
+    const searchTerms = descLower.split(/[\s,،.-]+/).filter(t => t.length > 2);
+    
+    // Scoring system for better matching
+    let bestMatch: { material: MaterialPrice; score: number } | null = null;
+    
+    for (const material of materials) {
+      const materialText = (
+        material.name + ' ' + 
+        (material.name_ar || '') + ' ' + 
+        (material.description || '') + ' ' +
+        (material.subcategory || '')
+      ).toLowerCase();
+      
+      let score = 0;
+      
+      // Exact name match (highest priority)
+      if (materialText.includes(descLower) || descLower.includes(material.name.toLowerCase())) {
+        score += 50;
+      }
+      
+      // Term matching
+      for (const term of searchTerms) {
+        if (materialText.includes(term)) {
+          score += 10;
+        }
+      }
+      
+      // Category match bonus
+      if (category && material.category === category) {
+        score += 15;
+      }
+      
+      // Unit similarity bonus
+      // (would need unit from BOQ item, skipping for now)
+      
+      // Prefer verified prices
+      if (material.is_verified) {
+        score += 5;
+      }
+      
+      // Prefer recent prices
+      const priceAge = new Date().getTime() - new Date(material.price_date).getTime();
+      const daysOld = priceAge / (1000 * 60 * 60 * 24);
+      if (daysOld < 30) {
+        score += 10;
+      } else if (daysOld < 90) {
+        score += 5;
+      }
+      
+      if (score > 0 && (!bestMatch || score > bestMatch.score)) {
+        bestMatch = { material, score };
+      }
+    }
+    
+    // Only return match if score is above threshold
+    return bestMatch && bestMatch.score >= 20 ? bestMatch.material : null;
+  };
+
+  // Find multiple matching prices for a description
+  const findAllMatchingPrices = (description: string, category?: string, limit = 5): MaterialPrice[] => {
+    if (!description || materials.length === 0) return [];
+    
+    const descLower = description.toLowerCase();
+    const searchTerms = descLower.split(/[\s,،.-]+/).filter(t => t.length > 2);
+    
+    const scored = materials.map(material => {
+      const materialText = (
+        material.name + ' ' + 
+        (material.name_ar || '') + ' ' + 
+        (material.description || '')
+      ).toLowerCase();
+      
+      let score = 0;
+      
+      if (materialText.includes(descLower) || descLower.includes(material.name.toLowerCase())) {
+        score += 50;
+      }
+      
+      for (const term of searchTerms) {
+        if (materialText.includes(term)) {
+          score += 10;
+        }
+      }
+      
+      if (category && material.category === category) {
+        score += 15;
+      }
+      
+      return { material, score };
+    });
+    
+    return scored
+      .filter(s => s.score >= 10)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(s => s.material);
   };
 
   return {
@@ -276,5 +367,6 @@ export const useMaterialPrices = () => {
     findMatchingPrice,
     refreshMaterials: fetchMaterials,
     refreshSuppliers: fetchSuppliers,
+    findAllMatchingPrices,
   };
 };
