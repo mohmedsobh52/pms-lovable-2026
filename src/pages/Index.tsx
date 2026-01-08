@@ -646,6 +646,14 @@ const Index = () => {
       setAnalysisData(normalizedResult);
       updateStepStatus("analyze", "complete", 100);
 
+      // Notify if OpenAI fallback was used
+      if (itemsResult._meta?.fallbackUsed) {
+        toast({
+          title: t('aiSwitchedToOpenAI'),
+          description: t('aiSwitchedToOpenAIDesc'),
+        });
+      }
+
       toast({
         title: t('analysisSuccess'),
         description: `${itemsResult.items?.length || 0} ${t('itemsExtracted2')}`,
