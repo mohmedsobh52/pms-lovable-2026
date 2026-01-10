@@ -24,26 +24,57 @@ const ARABIC_DIGITS: Record<string, string> = {
   '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9'
 };
 
-// Convert Arabic numbers to Western digits
-function convertArabicNumbers(text: string): string {
+// Persian/Farsi digit map
+const PERSIAN_DIGITS: Record<string, string> = {
+  '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4',
+  '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9'
+};
+
+// Convert Arabic and Persian numbers to Western digits
+export function convertArabicNumbers(text: string): string {
   if (!text) return text;
-  return text.replace(/[٠-٩]/g, (digit) => ARABIC_DIGITS[digit] || digit);
+  return text
+    .replace(/[٠-٩]/g, (digit) => ARABIC_DIGITS[digit] || digit)
+    .replace(/[۰-۹]/g, (digit) => PERSIAN_DIGITS[digit] || digit);
 }
 
 // Normalize Arabic decimal and thousands separators
-function normalizeArabicNumbers(text: string): string {
+export function normalizeArabicNumbers(text: string): string {
   if (!text) return text;
   return text
     .replace(/٫/g, '.')  // Arabic decimal separator to dot
-    .replace(/٬/g, '');  // Arabic thousands separator removed
+    .replace(/٬/g, '')   // Arabic thousands separator removed
+    .replace(/،/g, ',')  // Arabic comma to regular comma
+    .replace(/؛/g, ';')  // Arabic semicolon
+    .replace(/\u00A0/g, ' '); // Non-breaking space to regular space
 }
 
-// Parse number with Arabic number handling
-function parseArabicNumber(value: string | number | undefined): number | undefined {
+// Normalize Arabic text for better matching
+export function normalizeArabicText(text: string): string {
+  if (!text) return text;
+  return text
+    // Normalize different forms of Arabic letters
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/[ىئ]/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/ؤ/g, 'و')
+    // Remove tatweel (stretching character)
+    .replace(/ـ/g, '')
+    // Normalize whitespace
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Parse number with Arabic/Persian number handling
+export function parseArabicNumber(value: string | number | undefined): number | undefined {
   if (value === undefined || value === null || value === '') return undefined;
+  
+  // If already a number, return it
+  if (typeof value === 'number') return isNaN(value) ? undefined : value;
   
   const strValue = String(value);
   const converted = normalizeArabicNumbers(convertArabicNumbers(strValue));
+  // Remove all non-numeric characters except decimal point and minus
   const cleaned = converted.replace(/[^\d.-]/g, '');
   const parsed = parseFloat(cleaned);
   
@@ -253,15 +284,17 @@ export async function extractDataFromExcel(
         
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         
-        // OPTIMIZED: Use minimal parsing options for speed
+        // OPTIMIZED: Use minimal parsing options for speed with better Arabic support
         const workbook = XLSX.read(data, { 
           type: 'array',
-          codepage: 65001,
+          codepage: 65001,     // UTF-8 for Arabic support
           cellFormula: false,  // Skip formulas
           cellHTML: false,     // Skip HTML
           cellStyles: false,   // Skip styles - major speedup!
           cellNF: false,       // Skip number formats
-          sheetRows: 500,      // Limit rows per sheet
+          sheetRows: 1000,     // Increased for larger files
+          dense: false,        // Use sparse format for efficiency
+          WTF: false,          // Don't throw on unknown features
         });
         
         onProgress?.('parsing', 50, 'تم تحليل الملف بنجاح');
@@ -296,12 +329,16 @@ export async function extractDataFromExcel(
         
         onProgress?.('formatting', 50, 'جاري تنسيق البيانات...');
         
-        // Clean up any mojibake in extracted items
+        // Clean up any mojibake and normalize Arabic text in extracted items
         allItems = allItems.map(item => ({
           ...item,
-          itemNo: cleanMojibake(item.itemNo),
+          itemNo: cleanMojibake(convertArabicNumbers(item.itemNo || '')),
           description: cleanMojibake(item.description),
           unit: cleanMojibake(item.unit),
+          // Re-parse numbers with Arabic support
+          quantity: parseArabicNumber(item.quantity),
+          unitPrice: parseArabicNumber(item.unitPrice),
+          totalPrice: parseArabicNumber(item.totalPrice),
         }));
         
         onProgress?.('formatting', 100, `تم استخراج ${allItems.length} عنصر`);
@@ -413,16 +450,18 @@ export async function extractRawDataFromExcel(
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         
-        // MAXIMUM SPEED: Disable all unnecessary features
+        // MAXIMUM SPEED with Arabic support: Disable unnecessary features
         const workbook = XLSX.read(data, { 
           type: 'array',
+          codepage: 65001,     // UTF-8 for Arabic support
           cellFormula: false,
           cellHTML: false,
           cellStyles: false,
           cellNF: false,
           cellDates: false,
-          sheetRows: 500, // Limit rows for speed
+          sheetRows: 1000,     // Increased for larger files
           raw: true,
+          dense: false,
         });
         
         const sheetNames = workbook.SheetNames;
@@ -462,9 +501,9 @@ export async function extractRawDataFromExcel(
           (h != null && String(h).trim()) || `Column_${idx + 1}`
         );
         
-        // Fast row extraction
+        // Fast row extraction with Arabic number conversion
         const rows: Array<Record<string, any>> = [];
-        const dataEndIndex = Math.min(rawData.length, 500);
+        const dataEndIndex = Math.min(rawData.length, 1000);
         
         for (let i = headerRowIndex + 1; i < dataEndIndex; i++) {
           const row = rawData[i];
@@ -474,8 +513,23 @@ export async function extractRawDataFromExcel(
           let hasData = false;
           
           for (let j = 0; j < headers.length; j++) {
-            const val = row[j];
+            let val = row[j];
             if (val != null && val !== '') {
+              // Convert Arabic numbers if it's a string that looks like a number
+              if (typeof val === 'string') {
+                const converted = convertArabicNumbers(normalizeArabicNumbers(val));
+                // Try to parse as number if it looks numeric
+                if (/^[\d.,\-+]+$/.test(converted.trim())) {
+                  const parsed = parseFloat(converted.replace(/,/g, ''));
+                  if (!isNaN(parsed)) {
+                    val = parsed;
+                  } else {
+                    val = converted;
+                  }
+                } else {
+                  val = converted;
+                }
+              }
               rowData[headers[j]] = val;
               hasData = true;
             }
