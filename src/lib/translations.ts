@@ -185,6 +185,9 @@ export const translations = {
     autoChunkingEnabled: "Auto-chunking enabled",
     splittingIntoBatches: "Splitting into smaller batches",
     batchProgress: "Batch progress",
+    downloadBOQTemplate: "Download BOQ Template",
+    templateDownloaded: "Template Downloaded",
+    templateDownloadedDesc: "BOQ template with required columns downloaded successfully",
   },
   ar: {
     // Header
@@ -372,6 +375,9 @@ export const translations = {
     autoChunkingEnabled: "التقسيم التلقائي مفعل",
     splittingIntoBatches: "جاري التقسيم إلى دفعات صغيرة",
     batchProgress: "تقدم الدفعة",
+    downloadBOQTemplate: "تحميل قالب BOQ",
+    templateDownloaded: "تم تحميل القالب",
+    templateDownloadedDesc: "تم تحميل قالب BOQ بالأعمدة المطلوبة بنجاح",
   },
 } as const;
 

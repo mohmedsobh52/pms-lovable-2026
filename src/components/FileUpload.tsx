@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { Upload, FileText, FileSpreadsheet, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/useLanguage";
+import { BOQTemplateDownload } from "./BOQTemplateDownload";
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -141,6 +142,11 @@ export function FileUpload({ onFileSelect, isProcessing, selectedFile, onClear }
           </span>
         </div>
       </label>
+      
+      {/* Download Template Button */}
+      <div className="mt-4 pt-4 border-t border-border/50">
+        <BOQTemplateDownload />
+      </div>
     </div>
   );
 }
