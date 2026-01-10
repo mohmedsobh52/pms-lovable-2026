@@ -780,19 +780,30 @@ Use the submit_boq_analysis function to return your structured analysis.`;
       throw new Error("Invalid response from AI. Please try again.");
     }
     
+    const message = data.choices?.[0]?.message;
+    const finishReason = data.choices?.[0]?.finish_reason;
+    
     console.log("AI response received successfully");
     console.log("Response structure:", JSON.stringify({
       hasChoices: !!data.choices,
       choicesLength: data.choices?.length,
-      hasToolCalls: !!data.choices?.[0]?.message?.tool_calls,
-      toolCallsLength: data.choices?.[0]?.message?.tool_calls?.length,
-      hasContent: !!data.choices?.[0]?.message?.content
+      finishReason: finishReason,
+      hasToolCalls: !!message?.tool_calls,
+      toolCallsLength: message?.tool_calls?.length,
+      hasContent: !!message?.content,
+      hasRefusal: !!message?.refusal
     }));
+
+    // Check for refusal
+    if (message?.refusal) {
+      console.error("AI refused the request:", message.refusal);
+      throw new Error("AI could not process this document. Please try with a different file format or smaller content.");
+    }
 
     // Extract tool call result
     let result: AnalysisResult;
     
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    const toolCall = message?.tool_calls?.[0];
     if (toolCall && toolCall.function?.name === "submit_boq_analysis") {
       try {
         console.log("Parsing tool call arguments...");
@@ -809,44 +820,115 @@ Use the submit_boq_analysis function to return your structured analysis.`;
       }
     } else {
       // Fallback: try to parse from message content
-      const content = data.choices?.[0]?.message?.content;
+      const content = message?.content;
       console.log("No tool call found, trying to parse content...");
       console.log("Content preview:", content?.slice(0, 500) || "No content");
       
+      // If no tool call AND no content, retry without tool_choice constraint
       if (!content) {
-        console.error("No content in response");
-        throw new Error("No response from AI - please try again");
-      }
-      
-      try {
-        // Try direct JSON parse
-        result = JSON.parse(content);
-        console.log("Direct JSON parse successful");
-      } catch (directParseError) {
-        console.log("Direct parse failed, trying extraction methods...");
+        console.log("No content in initial response, retrying without tool_choice...");
         
+        // Make a second request without forced tool calling
+        const retryRequestBody = {
+          model: usedProvider === 'openai' ? 'gpt-4o-mini' : 'google/gemini-2.5-flash',
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt + `\n\nIMPORTANT: Return your analysis as a valid JSON object with these keys: document_info, items, validation, analysis, executive_summary. Do NOT use markdown code blocks, just return raw JSON.` },
+          ],
+          // No tools or tool_choice - just ask for JSON directly
+        };
+        
+        const retryApiUrl = usedProvider === 'openai' 
+          ? "https://api.openai.com/v1/chat/completions"
+          : "https://ai.gateway.lovable.dev/v1/chat/completions";
+        
+        const retryApiKey = usedProvider === 'openai' 
+          ? Deno.env.get("OPENAI_API_KEY")
+          : LOVABLE_API_KEY;
+        
+        console.log("Sending retry request without tool_choice...");
+        
+        const retryResponse = await fetch(retryApiUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${retryApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(retryRequestBody),
+        });
+        
+        if (!retryResponse.ok) {
+          console.error("Retry request failed:", retryResponse.status);
+          throw new Error("No response from AI - please try again");
+        }
+        
+        const retryData = await retryResponse.json();
+        const retryContent = retryData.choices?.[0]?.message?.content;
+        
+        if (!retryContent) {
+          console.error("Retry also returned no content");
+          throw new Error("AI could not analyze this document. Please try with a smaller or different file.");
+        }
+        
+        console.log("Retry content received, length:", retryContent.length);
+        
+        // Parse the retry response
         try {
-          // Try to extract JSON from markdown code block
-          const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+          // Try direct JSON parse
+          result = JSON.parse(retryContent);
+          console.log("Direct JSON parse successful from retry");
+        } catch (directParseError) {
+          console.log("Direct parse failed, trying extraction methods...");
+          
+          const jsonMatch = retryContent.match(/```(?:json)?\s*([\s\S]*?)```/);
           if (jsonMatch) {
             result = JSON.parse(jsonMatch[1].trim());
-            console.log("Extracted from code block");
+            console.log("Extracted from code block in retry");
           } else {
-            // Try to find raw JSON object
-            const jsonStart = content.indexOf("{");
-            const jsonEnd = content.lastIndexOf("}");
+            const jsonStart = retryContent.indexOf("{");
+            const jsonEnd = retryContent.lastIndexOf("}");
             
             if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-              const jsonStr = content.slice(jsonStart, jsonEnd + 1);
+              const jsonStr = retryContent.slice(jsonStart, jsonEnd + 1);
               result = JSON.parse(jsonStr);
-              console.log("Extracted raw JSON");
+              console.log("Extracted raw JSON from retry");
             } else {
-              throw new Error("Could not find JSON structure in response");
+              throw new Error("Could not find JSON structure in retry response");
             }
           }
-        } catch (extractError) {
-          console.error("All JSON extraction methods failed:", extractError);
-          throw new Error("Failed to process AI response. Please try again.");
+        }
+      } else {
+        // We have content, try to parse it
+        try {
+          // Try direct JSON parse
+          result = JSON.parse(content);
+          console.log("Direct JSON parse successful");
+        } catch (directParseError) {
+          console.log("Direct parse failed, trying extraction methods...");
+          
+          try {
+            // Try to extract JSON from markdown code block
+            const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+            if (jsonMatch) {
+              result = JSON.parse(jsonMatch[1].trim());
+              console.log("Extracted from code block");
+            } else {
+              // Try to find raw JSON object
+              const jsonStart = content.indexOf("{");
+              const jsonEnd = content.lastIndexOf("}");
+              
+              if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+                const jsonStr = content.slice(jsonStart, jsonEnd + 1);
+                result = JSON.parse(jsonStr);
+                console.log("Extracted raw JSON");
+              } else {
+                throw new Error("Could not find JSON structure in response");
+              }
+            }
+          } catch (extractError) {
+            console.error("All JSON extraction methods failed:", extractError);
+            throw new Error("Failed to process AI response. Please try again.");
+          }
         }
       }
     }
