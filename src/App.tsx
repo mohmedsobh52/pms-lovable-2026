@@ -10,6 +10,7 @@ import { AnalysisTrackingProvider } from "@/hooks/useAnalysisTracking";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import BackgroundImage from "@/components/BackgroundImage";
 import Index from "./pages/Index";
+import HomePage from "./pages/HomePage";
 import Auth from "./pages/Auth";
 import SharedView from "./pages/SharedView";
 import SavedProjectsPage from "./pages/SavedProjectsPage";
@@ -51,7 +52,8 @@ const App = () => (
               <BrowserRouter>
                 <UpdateBanner />
                 <Routes>
-                <Route path="/" element={<Index />} />
+                <Route path="/" element={<HomePage />} />
+                <Route path="/analyze" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/shared/:shareCode" element={<SharedView />} />
                 <Route path="/projects" element={<SavedProjectsPage />} />
