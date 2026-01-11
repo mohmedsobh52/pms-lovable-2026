@@ -93,13 +93,15 @@ const COLUMN_PATTERNS = {
     'رقم بند', 'بند رقم', 'م.', 'ر', 'السطر', 'التسلسلي', 'رقم مسلسل'
   ],
   description: [
+    // Arabic patterns - PRIORITIZE المواصفات first
+    'المواصفات', 'مواصفات', 'spec', 'specification', 'specifications',
     // English patterns
-    'description', 'spec', 'specification', 'specifications', 'details', 'scope', 'name',
-    'desc', 'item description', 'work description', 'work', 'activity', 'task',
-    // Arabic patterns - from document + extended
+    'description', 'details', 'scope', 'name', 'desc', 'item description', 
+    'work description', 'work', 'activity', 'task',
+    // Other Arabic patterns
     'وصف', 'البيان', 'الوصف', 'شرح', 'تفاصيل', 'اسم البند', 'وصف البند',
-    'بيان الأعمال', 'بيان', 'العمل', 'المواصفات', 'التفاصيل', 'العنصر',
-    'الصنف', 'المادة', 'البيانات', 'اسم', 'مواصفات', 'وصف الأعمال',
+    'بيان الأعمال', 'بيان', 'العمل', 'التفاصيل', 'العنصر',
+    'الصنف', 'المادة', 'البيانات', 'اسم', 'وصف الأعمال',
     'وصف العمل', 'الأعمال', 'النشاط', 'المهمة', 'بيان العمل', 'تفصيل'
   ],
   unit: [
