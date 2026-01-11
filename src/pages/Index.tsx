@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, GitMerge, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2, FileSpreadsheet, Clock } from "lucide-react";
+import { FileUp, Sparkles, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, LogOut, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2, FileSpreadsheet, Clock, Layers } from "lucide-react";
+import { PMSLogo } from "@/components/PMSLogo";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -816,10 +817,7 @@ const Index = () => {
           <div className="flex items-center justify-between gap-4">
             {/* Logo */}
             <div className="flex items-center gap-2 shrink-0">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <GitMerge className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <h1 className="font-display text-lg font-bold gradient-text hidden sm:block">PMS</h1>
+              <PMSLogo size="md" showText />
             </div>
             
             {/* Navigation Tabs - Clean horizontal layout */}
@@ -1501,7 +1499,7 @@ const Index = () => {
                   {[
                     { icon: <FileUp className="w-4 h-4" />, textKey: 'featureManualEntry' },
                     { icon: <Sparkles className="w-4 h-4" />, textKey: 'featureAIAnalysis' },
-                    { icon: <GitMerge className="w-4 h-4" />, textKey: 'featureAutoWBS' },
+                    { icon: <Layers className="w-4 h-4" />, textKey: 'featureAutoWBS' },
                     { icon: <Download className="w-4 h-4" />, textKey: 'featureExport' },
                     { icon: <Save className="w-4 h-4" />, textKey: 'featureSaveProjects' },
                   ].map((feature, idx) => (

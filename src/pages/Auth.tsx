@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { GitMerge, Mail, Lock, Loader2, AlertCircle } from "lucide-react";
+import { Mail, Lock, Loader2, AlertCircle } from "lucide-react";
+import { PMSLogo } from "@/components/PMSLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,9 +88,7 @@ export default function Auth() {
         <div className="glass-card p-8">
           {/* Logo */}
           <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <GitMerge className="w-6 h-6 text-primary-foreground" />
-            </div>
+            <PMSLogo size="lg" />
             <div>
               <h1 className="font-display text-2xl font-bold gradient-text">PMS</h1>
             </div>

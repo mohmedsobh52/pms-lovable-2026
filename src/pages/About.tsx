@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { GitMerge, ArrowRight, Target, Lightbulb, Users, Shield, Rocket, Award } from "lucide-react";
+import { ArrowRight, Target, Lightbulb, Users, Shield, Rocket, Award } from "lucide-react";
+import { PMSLogo } from "@/components/PMSLogo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -54,9 +55,7 @@ const About = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <GitMerge className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <PMSLogo size="lg" />
               <div>
                 <h1 className="font-display text-xl font-bold gradient-text">PMS</h1>
                 <p className="text-xs text-muted-foreground">
