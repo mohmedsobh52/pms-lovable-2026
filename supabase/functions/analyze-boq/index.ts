@@ -512,16 +512,39 @@ serve(async (req) => {
     // Optimized system prompt - enhanced for Arabic content
     const isArabicContent = detectedLanguage.includes('Arabic');
     const systemPrompt = isArabicContent 
-      ? `أنت مهندس كميات محترف تقوم بتحليل مستندات جداول الكميات (BOQ). أجب باللغة ${outputLanguage === 'Arabic' ? 'العربية' : 'الإنجليزية'}.
+      ? `أنت مهندس كميات خبير ومحلل تكاليف بناء محترف.
 
-استخرج جميع البنود مع:
-- رقم البند (item_no)، الوصف (description)، الوحدة (unit - مُوحَّدة: م، م²، م³، كجم، عدد، طن، مقطوعية)
-- الكمية (quantity)، السعر (rate)، المبلغ (amount)
-- التصنيف (section_trade): أعمال الموقع، الأساسات، الخرسانة، الحديد، البناء، العزل، الكهرباء، السباكة، التكييف، الأبواب والنوافذ، التشطيبات، الأعمال الخارجية، أو أعمال عامة
+**مهمتك:**
+استخراج بيانات منظمة من مستند جدول الكميات (BOQ) المقدم.
 
-تحقق: المبلغ ≈ الكمية × السعر. أبلغ عن أي مشاكل.
+**تعليمات الاستخراج:**
+1. استخرج كل بند بـ:
+   - item_no: رقم البند
+   - description: الوصف الكامل
+   - unit: الوحدة (م، م²، م³، كجم، عدد، طن، L.S)
+   - quantity: الكمية (رقم)
+   - rate: سعر الوحدة (رقم)
+   - amount: المبلغ الإجمالي (رقم)
+   - section_trade: التصنيف
 
-استخدم دالة submit_boq_analysis لإرجاع التحليل المنظم.`
+2. **التصنيفات المعتمدة:**
+   - أعمال الموقع والحفر
+   - الأساسات والأعمال تحت الأرض
+   - الأعمال الخرسانية
+   - أعمال الحديد والمعادن
+   - أعمال البناء والطوب
+   - العزل والسقف
+   - الأعمال الكهربائية
+   - أعمال السباكة
+   - التكييف والتهوية
+   - الأبواب والنوافذ
+   - التشطيبات
+   - الأعمال الخارجية
+   - أعمال تمهيدية
+
+3. **التحقق:** تأكد أن المبلغ ≈ الكمية × السعر
+
+استخدم دالة submit_boq_analysis لإرجاع النتيجة.`
       : `You are a Quantity Surveyor analyzing BOQ documents. Respond in ${outputLanguage}.
 
 EXTRACT ALL ITEMS with:
@@ -583,9 +606,9 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
     // Helper function to sleep for exponential backoff
     const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-    // Strong exponential backoff schedule: 30s, 60s, 120s, 120s, 120s
+    // FASTER backoff: 5s, 10s only - return 429 quickly for Job Queue fallback
     const getBackoffDelay = (attempt: number): number => {
-      const delays = [30000, 60000, 120000, 120000, 120000];
+      const delays = [5000, 10000]; // Only 2 quick retries
       const baseDelay = delays[Math.min(attempt, delays.length - 1)];
       // Add jitter (±10%) to avoid thundering herd
       const jitter = baseDelay * 0.1 * (Math.random() * 2 - 1);
@@ -601,7 +624,7 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
       providerSwitches = 0
     ): Promise<Response> => {
       const maxRetries = 2; // Retries for timeouts
-      const maxRateLimitRetries = 5; // Strong retry: 5 attempts per provider
+      const maxRateLimitRetries = 2; // Quick retries - return 429 fast for Job Queue
       const maxProviderSwitches = 1; // Max provider switches (auto mode)
 
       const controller = new AbortController();
@@ -629,8 +652,15 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
         );
       }
 
-      // Use faster model based on file size
-      const modelToUse = useOpenAI ? "gpt-4o-mini" : modelToUseDefault;
+      // Use faster model based on file size - with fallback to lighter model
+      let modelToUse = useOpenAI ? "gpt-4o-mini" : modelToUseDefault;
+      
+      // If this is a retry after rate limit, try lighter model
+      if (rateLimitRetry > 0 && !useOpenAI) {
+        modelToUse = "google/gemini-2.5-flash-lite"; // Fallback to lighter model
+        console.log(`Switching to fallback model: ${modelToUse}`);
+      }
+      
       const currentRequestBody = {
         ...requestBody,
         model: modelToUse,
@@ -721,23 +751,25 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
 
     if (!response.ok) {
       if (response.status === 429) {
-        console.error("Rate limit exceeded after all retries (5 attempts with 30s-120s backoff)");
+        console.error("Rate limit exceeded after 2 quick retries - returning for Job Queue fallback");
         const isArabicLang = language === 'ar' || isArabicContent;
 
         // IMPORTANT: Return 200 to avoid client-side "Edge function returned 429" runtime crashes.
         // The client must rely on `errorCode` to detect this condition.
+        // Quick return for Job Queue fallback
         return new Response(
           JSON.stringify({
             ok: false,
             statusCode: 429,
-            error: "Rate limit exceeded. Please try again later.",
+            error: "Rate limit exceeded. Switching to background processing.",
             errorCode: "RATE_LIMIT_429",
             suggestion: isArabicLang
-              ? "تجاوز حد الاستخدام بعد 5 محاولات. يرجى تفعيل 'معالجة في الخلفية' من الإعدادات أو الانتظار دقيقتين."
-              : "Rate limit exceeded after 5 retries. Please enable 'Background Processing' in settings or wait 2 minutes.",
-            retryAfter: 120, // Suggest waiting 2 minutes
-            retriesAttempted: 5,
+              ? "تجاوز حد الاستخدام. يتم التحويل للمعالجة الخلفية تلقائياً..."
+              : "Rate limit hit. Switching to background processing automatically...",
+            retryAfter: 30, // Shorter wait for Job Queue
+            retriesAttempted: 2,
             provider: usedProvider,
+            shouldUseJobQueue: true, // Signal to frontend to use Job Queue
             _meta: {
               isArabicContent,
               textLength: text.length,
@@ -749,7 +781,7 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
             headers: {
               ...corsHeaders,
               "Content-Type": "application/json",
-              "Retry-After": "120",
+              "Retry-After": "30",
             },
           }
         );

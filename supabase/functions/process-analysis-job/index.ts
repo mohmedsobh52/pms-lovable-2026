@@ -25,9 +25,10 @@ const jitter = (baseMs: number) => {
   return baseMs + (Math.random() * variance * 2 - variance);
 };
 
-// Strong exponential backoff schedule: 30s, 60s, 120s, 120s, 120s
+// STRONG exponential backoff for Job Queue: 15s, 30s, 60s, 90s, 120s
+// Longer waits in background since user isn't actively waiting
 const getBackoffDelay = (attempt: number): number => {
-  const delays = [30000, 60000, 120000, 120000, 120000];
+  const delays = [15000, 30000, 60000, 90000, 120000];
   const baseDelay = delays[Math.min(attempt - 1, delays.length - 1)];
   return jitter(baseDelay);
 };
@@ -220,7 +221,7 @@ serve(async (req) => {
       );
     }
 
-    const maxAttemptsPerChunk = 5; // Strong retry: 5 attempts per chunk
+    const maxAttemptsPerChunk = 6; // Strong retry: 6 attempts per chunk with longer backoff
 
     for (let i = resumeFromChunk; i < chunks.length; i++) {
       const chunk = chunks[i];
@@ -239,63 +240,34 @@ serve(async (req) => {
         .eq('id', jobId);
 
       const systemPrompt = isArabic
-        ? `أنت مهندس كميات محترف تقوم بتحليل مستندات جداول الكميات (BOQ).
-
-أرجع كائن JSON بهذا الهيكل:
+        ? `أنت مهندس كميات خبير. استخرج بيانات BOQ كـ JSON:
 {
-  "items": [
-    {
-      "itemNumber": "رقم البند",
-      "description": "الوصف",
-      "unit": "الوحدة (م، م²، م³، كجم، عدد، طن، مقطوعية)",
-      "quantity": رقم,
-      "unitPrice": رقم,
-      "totalPrice": رقم,
-      "category": "التصنيف"
-    }
-  ],
+  "items": [{
+    "itemNumber": "رقم البند",
+    "description": "الوصف",
+    "unit": "الوحدة",
+    "quantity": رقم,
+    "unitPrice": رقم,
+    "totalPrice": رقم,
+    "category": "التصنيف"
+  }],
   "summary": {
     "totalItems": رقم,
     "totalValue": رقم,
-    "currency": "العملة",
-    "categories": ["التصنيفات"]
+    "currency": "SAR"
   }
 }
 
-مهم:
-- استخرج جميع البنود بتفاصيلها
-- احسب المجاميع إذا لم تكن موجودة
-- حدد التصنيفات بناءً على أنواع الأعمال
-- هذه القطعة ${i + 1} من ${chunks.length}`
-        : `You are an expert quantity surveyor and construction cost analyst. Analyze the Bill of Quantities (BOQ) text and extract structured data.
-
-Return a JSON object with this structure:
+**التصنيفات:** أعمال الموقع، الأساسات، الخرسانة، الحديد، البناء، الكهرباء، السباكة، التكييف، التشطيبات، أو عامة.
+هذه القطعة ${i + 1} من ${chunks.length}.`
+        : `Expert QS: Extract BOQ as JSON:
 {
-  "items": [
-    {
-      "itemNumber": "string",
-      "description": "string",
-      "unit": "string",
-      "quantity": number,
-      "unitPrice": number,
-      "totalPrice": number,
-      "category": "string"
-    }
-  ],
-  "summary": {
-    "totalItems": number,
-    "totalValue": number,
-    "currency": "string",
-    "categories": ["string"]
-  }
+  "items": [{"itemNumber","description","unit","quantity","unitPrice","totalPrice","category"}],
+  "summary": {"totalItems","totalValue","currency"}
 }
 
-Important:
-- Extract ALL line items with their details
-- Calculate totals if not provided
-- Identify categories based on work types
-- Handle both Arabic and English text
-- This is chunk ${i + 1} of ${chunks.length}`;
+Categories: Site Work, Foundations, Concrete, Steel, Masonry, Electrical, Plumbing, HVAC, Finishes, or General.
+Chunk ${i + 1}/${chunks.length}.`;
 
       // Call AI for analysis with strong backoff on 429/timeouts
       let parsedResult: any = null;
