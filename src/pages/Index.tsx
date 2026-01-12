@@ -425,10 +425,35 @@ const Index = () => {
     setIsProcessing(true);
     updateStepStatus("analyze", "processing", 10);
 
-    // Auto-determine if we should use Job Queue based on file size
+    // Auto-determine if we should use Job Queue based on file size, language, or file type
     // Use Job Queue for files > autoJobQueueThreshold KB (default 200KB)
+    // ALSO force Job Queue for Arabic content or Excel files (they benefit from background processing)
     const autoJobQueueThresholdBytes = (analysisSettings.autoJobQueueThreshold || 200) * 1024;
-    const shouldUseJobQueue = analysisSettings.useJobQueue && user && rawText.length > autoJobQueueThresholdBytes;
+    
+    // Detect Arabic content by checking for Arabic characters
+    const isArabicContent = /[\u0600-\u06FF]/.test(rawText) && 
+      (rawText.match(/[\u0600-\u06FF]/g) || []).length > 100;
+    
+    // Check if file is Excel
+    const isExcel = selectedFile && isExcelFile(selectedFile);
+    
+    // Force Job Queue for Arabic content or Excel files (regardless of size)
+    const shouldUseJobQueue = analysisSettings.useJobQueue && user && (
+      rawText.length > autoJobQueueThresholdBytes ||
+      isArabicContent ||  // Always use Job Queue for Arabic files
+      isExcel             // Always use Job Queue for Excel files
+    );
+    
+    // Show login prompt for Arabic/Excel files if user is not logged in
+    if ((isArabicContent || isExcel) && !user) {
+      toast({
+        title: isArabic ? '💡 يُنصح بتسجيل الدخول' : '💡 Login Recommended',
+        description: isArabic 
+          ? 'الملفات العربية تحتاج معالجة في الخلفية لنتائج أفضل. يرجى تسجيل الدخول.'
+          : 'Arabic/Excel files need background processing for best results. Please login.',
+        duration: 10000,
+      });
+    }
 
     // Use Job Queue for large files (auto-enabled for files over threshold)
     if (shouldUseJobQueue) {
@@ -662,19 +687,18 @@ const Index = () => {
       
       // Check for rate limit error with suggestion to use Job Queue
       if (itemsResult.errorCode === 'RATE_LIMIT_429' || itemsResult.statusCode === 429) {
-        // Auto-escalate to Job Queue if user is logged in
+        // Auto-escalate to Job Queue IMMEDIATELY if user is logged in (no waiting)
         if (user && analysisSettings.useJobQueue) {
           toast({
-            title: isArabic ? 'التبديل للمعالجة الخلفية' : 'Switching to Background Processing',
+            title: isArabic ? '🔄 التبديل للمعالجة الخلفية' : '🔄 Switching to Background Processing',
             description: isArabic 
-              ? 'تجاوز حد الطلبات. سيتم معالجة الملف في الخلفية.'
-              : 'Rate limit hit. Switching to background processing.',
+              ? 'تجاوز حد الطلبات. سيتم معالجة الملف في الخلفية فوراً.'
+              : 'Rate limit hit. Switching to background processing immediately.',
             duration: 8000,
           });
 
-          // Wait for suggested retry time before using Job Queue
-          const waitTime = Math.min((itemsResult.retryAfter || 30) * 1000, 60000);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
+          // NO WAIT - Switch to Job Queue immediately for better user experience
+          // The Job Queue has its own strong backoff (30s, 60s, 120s)
 
           const jobId = await createAnalysisJob(rawText, 'extract_items', selectedFile?.name);
           if (jobId) {
@@ -713,10 +737,30 @@ const Index = () => {
             );
             return;
           }
+        } else {
+          // User is not logged in or Job Queue is disabled - show helpful error
+          setAnalysisError({
+            type: 'rate_limit',
+            message: isArabic 
+              ? 'تجاوز حد الطلبات. يرجى تسجيل الدخول لتفعيل المعالجة في الخلفية.'
+              : 'Rate limit exceeded. Please login to enable background processing.',
+            errorCode: 'RATE_LIMIT_429_NO_JOB_QUEUE',
+            timestamp: new Date(),
+            retryAfter: itemsResult.retryAfter || 120,
+          });
+          updateStepStatus("analyze", "error");
+          setIsProcessing(false);
+          
+          toast({
+            title: isArabic ? '⚠️ تجاوز حد الطلبات' : '⚠️ Rate Limit Exceeded',
+            description: isArabic 
+              ? 'يرجى تسجيل الدخول لتفعيل المعالجة في الخلفية، أو الانتظار دقيقتين وإعادة المحاولة.'
+              : 'Please login to enable background processing, or wait 2 minutes and try again.',
+            variant: 'destructive',
+            duration: 15000,
+          });
+          return;
         }
-
-        // If no auto-escalation, throw error with helpful message
-        throw new Error(itemsResult.suggestion || itemsResult.error);
       }
 
       if (itemsResult.error) {
