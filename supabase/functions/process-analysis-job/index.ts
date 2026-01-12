@@ -270,35 +270,47 @@ Categories: Site Work, Foundations, Concrete, Steel, Masonry, Electrical, Plumbi
 Chunk ${i + 1}/${chunks.length}.`;
 
       // Call AI for analysis with strong backoff on 429/timeouts
+      // Fallback to OpenAI if Lovable AI credits exhausted (402)
       let parsedResult: any = null;
       let lastErrText = '';
       let lastErrStatus = 0;
+      let useOpenAI = false;
+      const openAIKey = Deno.env.get('OPENAI_API_KEY');
 
       for (let attempt = 1; attempt <= maxAttemptsPerChunk; attempt++) {
+        const providerName = useOpenAI ? 'OpenAI' : 'Lovable AI';
         const stepMsg = isArabic
-          ? `طلب AI (قطعة ${i + 1}/${chunks.length}) - محاولة ${attempt}/${maxAttemptsPerChunk}`
-          : `AI request (chunk ${i + 1}/${chunks.length}) - attempt ${attempt}/${maxAttemptsPerChunk}`;
+          ? `طلب ${providerName} (قطعة ${i + 1}/${chunks.length}) - محاولة ${attempt}/${maxAttemptsPerChunk}`
+          : `${providerName} request (chunk ${i + 1}/${chunks.length}) - attempt ${attempt}/${maxAttemptsPerChunk}`;
 
         await supabase
           .from('analysis_jobs')
           .update({ current_step: stepMsg })
           .eq('id', jobId);
 
-        console.log(`[Job ${jobId}] Chunk ${i + 1}, attempt ${attempt}/${maxAttemptsPerChunk}`);
+        console.log(`[Job ${jobId}] Chunk ${i + 1}, attempt ${attempt}/${maxAttemptsPerChunk} (${providerName})`);
 
         try {
           const controller = new AbortController();
           const timeoutMs = isArabic ? 180000 : 120000; // 180s for Arabic, 120s otherwise
           const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-          const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          // Choose endpoint and headers based on provider
+          const endpoint = useOpenAI 
+            ? 'https://api.openai.com/v1/chat/completions'
+            : 'https://ai.gateway.lovable.dev/v1/chat/completions';
+          
+          const authKey = useOpenAI ? openAIKey : apiKey;
+          const model = useOpenAI ? 'gpt-4o-mini' : 'google/gemini-2.5-flash';
+
+          const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${apiKey}`,
+              'Authorization': `Bearer ${authKey}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              model: 'google/gemini-2.5-flash',
+              model: model,
               messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: `Analyze this BOQ section:\n\n${chunk}` },
@@ -315,7 +327,16 @@ Chunk ${i + 1}/${chunks.length}.`;
             lastErrText = await response.text();
             lastErrStatus = response.status;
 
-            console.warn(`[Job ${jobId}] Chunk ${i + 1} attempt ${attempt} failed: ${response.status}`);
+            console.warn(`[Job ${jobId}] Chunk ${i + 1} attempt ${attempt} failed: ${response.status} (${providerName})`);
+
+            // 402 Payment Required from Lovable AI: Switch to OpenAI immediately
+            if (response.status === 402 && !useOpenAI && openAIKey) {
+              console.log(`[Job ${jobId}] Lovable AI credits exhausted, switching to OpenAI`);
+              useOpenAI = true;
+              // Don't count this as an attempt, retry immediately with OpenAI
+              attempt--;
+              continue;
+            }
 
             // 429: strong backoff and retry
             if (response.status === 429 && attempt < maxAttemptsPerChunk) {
@@ -354,7 +375,7 @@ Chunk ${i + 1}/${chunks.length}.`;
             const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
               parsedResult = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-              console.log(`[Job ${jobId}] Chunk ${i + 1} parsed successfully: ${parsedResult?.items?.length || 0} items`);
+              console.log(`[Job ${jobId}] Chunk ${i + 1} parsed successfully (${providerName}): ${parsedResult?.items?.length || 0} items`);
               break;
             }
           } catch (parseErr) {
