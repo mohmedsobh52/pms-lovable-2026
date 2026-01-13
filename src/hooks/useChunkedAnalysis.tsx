@@ -33,6 +33,13 @@ interface ChunkedAnalysisOptions {
   maxRetries?: number;
   useCompression?: boolean;
   useJobQueue?: boolean;
+  // Throttle options - NEW
+  enableThrottle?: boolean;
+  maxRequestsPerMinute?: number;
+  delayBetweenChunks?: number; // in seconds
+  // Arabic optimization - NEW
+  arabicOptimization?: boolean;
+  arabicChunkSize?: number;
 }
 
 const DEFAULT_CHUNK_SIZE = 30000;
@@ -169,6 +176,10 @@ export function useChunkedAnalysis() {
   const [currentJob, setCurrentJob] = useState<AnalysisJob | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Throttle tracking - NEW
+  const requestCountRef = useRef<number>(0);
+  const minuteStartRef = useRef<number>(Date.now());
 
   // Cleanup on unmount
   useEffect(() => {
@@ -288,19 +299,36 @@ export function useChunkedAnalysis() {
     throw lastError;
   };
 
-  // Chunked analysis (client-side processing) with strong retry
+  // Chunked analysis (client-side processing) with strong retry and throttle
   const analyzeWithChunks = useCallback(async (
     text: string,
     functionName: string = 'analyze-boq',
     options: ChunkedAnalysisOptions = {}
   ): Promise<any> => {
     const {
-      chunkSize = DEFAULT_CHUNK_SIZE,
+      chunkSize: baseChunkSize = DEFAULT_CHUNK_SIZE,
       overlapSize = DEFAULT_OVERLAP_SIZE,
       maxRetries = 5, // Strong retry: 5 attempts
       useCompression = true,
+      // Throttle options - NEW
+      enableThrottle = true,
+      maxRequestsPerMinute = 3,
+      delayBetweenChunks = 5,
+      // Arabic optimization - NEW
+      arabicOptimization = true,
+      arabicChunkSize = 15000,
     } = options;
 
+    // Detect if content is Arabic and adjust chunk size
+    const contentIsArabic = isArabicText(text);
+    const chunkSize = (arabicOptimization && contentIsArabic) 
+      ? Math.min(arabicChunkSize, baseChunkSize) 
+      : baseChunkSize;
+
+    // Reset throttle tracking
+    requestCountRef.current = 0;
+    minuteStartRef.current = Date.now();
+    
     abortControllerRef.current = new AbortController();
     
     try {
@@ -319,16 +347,55 @@ export function useChunkedAnalysis() {
       toast({
         title: isArabic ? 'بدء التحليل المجزأ' : 'Starting Chunked Analysis',
         description: isArabic 
-          ? `تقسيم الملف إلى ${chunks.length} أجزاء للتحليل`
-          : `Splitting file into ${chunks.length} chunks for analysis`,
+          ? `تقسيم الملف إلى ${chunks.length} أجزاء للتحليل${contentIsArabic ? ' (تحسين عربي مفعّل)' : ''}`
+          : `Splitting file into ${chunks.length} chunks for analysis${contentIsArabic ? ' (Arabic optimization enabled)' : ''}`,
       });
 
-      // Process each chunk
+      // Process each chunk with throttle support
       const results: any[] = [];
       
       for (let i = 0; i < chunks.length; i++) {
         if (abortControllerRef.current.signal.aborted) {
           throw new Error('Analysis cancelled');
+        }
+
+        // Throttle check - NEW
+        if (enableThrottle) {
+          const now = Date.now();
+          const elapsedMs = now - minuteStartRef.current;
+          
+          // Reset counter if minute has passed
+          if (elapsedMs >= 60000) {
+            requestCountRef.current = 0;
+            minuteStartRef.current = now;
+          }
+          
+          // Wait if we've hit the limit
+          if (requestCountRef.current >= maxRequestsPerMinute) {
+            const waitTime = 60000 - elapsedMs;
+            const waitSecs = Math.ceil(waitTime / 1000);
+            
+            setProgress(prev => ({
+              ...prev,
+              status: 'rate_limited',
+              waitingSeconds: waitSecs,
+              totalWaitSeconds: waitSecs,
+              currentStep: isArabic 
+                ? `انتظار ${waitSecs} ثانية (تحديد السرعة)...`
+                : `Waiting ${waitSecs}s (throttle limit)...`,
+            }));
+            
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            requestCountRef.current = 0;
+            minuteStartRef.current = Date.now();
+            
+            setProgress(prev => ({
+              ...prev,
+              status: 'processing',
+              waitingSeconds: undefined,
+              totalWaitSeconds: undefined,
+            }));
+          }
         }
 
         setProgress(prev => ({
@@ -341,6 +408,8 @@ export function useChunkedAnalysis() {
         }));
 
         try {
+          requestCountRef.current++; // Track request for throttle
+          
           const result = await processChunk(
             chunks[i],
             i,
@@ -362,8 +431,18 @@ export function useChunkedAnalysis() {
           processedChunks: i + 1,
         }));
 
-        // Small cooldown between chunks to avoid rate limits
-        if (i < chunks.length - 1) {
+        // Delay between chunks (throttle) - NEW
+        if (enableThrottle && i < chunks.length - 1) {
+          const delayMs = delayBetweenChunks * 1000;
+          setProgress(prev => ({
+            ...prev,
+            currentStep: isArabic
+              ? `انتظار ${delayBetweenChunks} ثانية قبل القطعة التالية...`
+              : `Waiting ${delayBetweenChunks}s before next chunk...`,
+          }));
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        } else if (i < chunks.length - 1) {
+          // Small cooldown even without throttle
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
