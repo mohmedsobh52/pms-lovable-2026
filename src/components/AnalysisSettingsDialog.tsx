@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings2, Zap, FileText, Gauge, Layers, Archive, Clock, SplitSquareVertical, Bot, AlertTriangle, CheckCircle2, Server } from 'lucide-react';
+import { Settings2, Zap, FileText, Gauge, Layers, Archive, Clock, SplitSquareVertical, Bot, AlertTriangle, CheckCircle2, Server, Timer, Languages } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,13 @@ export interface AnalysisSettings {
   showEstimatedTime: boolean;
   // Auto job queue for large files
   autoJobQueueThreshold: number; // in KB (size threshold for auto job queue)
+  // Throttle settings - NEW
+  enableThrottle: boolean;
+  maxRequestsPerMinute: number; // 1-10 (default: 3)
+  delayBetweenChunks: number; // 1-30 seconds (default: 5)
+  // Arabic optimization - NEW
+  arabicOptimization: boolean;
+  arabicChunkSize: number; // 10, 15, 20 (default: 15)
 }
 
 const DEFAULT_SETTINGS: AnalysisSettings = {
@@ -50,6 +57,13 @@ const DEFAULT_SETTINGS: AnalysisSettings = {
   autoChunkThreshold: 500, // 500KB
   showEstimatedTime: true,
   autoJobQueueThreshold: 200, // 200KB - auto use job queue for files > 200KB
+  // Throttle settings - NEW
+  enableThrottle: true,
+  maxRequestsPerMinute: 3,
+  delayBetweenChunks: 5,
+  // Arabic optimization - NEW
+  arabicOptimization: true,
+  arabicChunkSize: 15,
 };
 
 const STORAGE_KEY = 'analysis_settings';
@@ -496,6 +510,107 @@ export function AnalysisSettingsDialog({ trigger, onSettingsChange }: AnalysisSe
                     {isArabic 
                       ? `الملفات أكبر من ${settings.autoJobQueueThreshold} KB ستُعالج في الخلفية`
                       : `Files larger than ${settings.autoJobQueueThreshold} KB will be processed in background`}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Throttle Settings - NEW */}
+          <div className="pt-4 border-t">
+            <div className="flex items-center justify-between mb-4">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <Timer className="h-4 w-4" />
+                  {isArabic ? 'تحديد السرعة (Throttle)' : 'Rate Limiting (Throttle)'}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {isArabic 
+                    ? 'تقليل سرعة الطلبات لتجنب خطأ 429' 
+                    : 'Slow down requests to avoid 429 errors'}
+                </p>
+              </div>
+              <Switch
+                checked={settings.enableThrottle}
+                onCheckedChange={(checked) => setSettings(s => ({ ...s, enableThrottle: checked }))}
+              />
+            </div>
+
+            {settings.enableThrottle && (
+              <div className="space-y-4 pl-6 border-l-2 border-muted">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Label>{isArabic ? 'الحد الأقصى للطلبات/دقيقة' : 'Max Requests/Minute'}</Label>
+                    <span className="text-sm font-medium">{settings.maxRequestsPerMinute}</span>
+                  </div>
+                  <Slider
+                    value={[settings.maxRequestsPerMinute]}
+                    onValueChange={([value]) => setSettings(s => ({ ...s, maxRequestsPerMinute: value }))}
+                    min={1}
+                    max={10}
+                    step={1}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Label>{isArabic ? 'التأخير بين القطع (ثانية)' : 'Delay Between Chunks (sec)'}</Label>
+                    <span className="text-sm font-medium">{settings.delayBetweenChunks}s</span>
+                  </div>
+                  <Slider
+                    value={[settings.delayBetweenChunks]}
+                    onValueChange={([value]) => setSettings(s => ({ ...s, delayBetweenChunks: value }))}
+                    min={1}
+                    max={30}
+                    step={1}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {isArabic 
+                      ? 'زمن انتظار أطول = أكثر استقراراً، أبطأ'
+                      : 'Longer delay = more stable, slower'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Arabic Optimization - NEW */}
+          <div className="pt-4 border-t">
+            <div className="flex items-center justify-between mb-4">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <Languages className="h-4 w-4" />
+                  {isArabic ? 'تحسين للمستندات العربية' : 'Arabic Document Optimization'}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {isArabic 
+                    ? 'تقليل حجم القطعة تلقائياً للمحتوى العربي' 
+                    : 'Auto-reduce chunk size for Arabic content'}
+                </p>
+              </div>
+              <Switch
+                checked={settings.arabicOptimization}
+                onCheckedChange={(checked) => setSettings(s => ({ ...s, arabicOptimization: checked }))}
+              />
+            </div>
+
+            {settings.arabicOptimization && (
+              <div className="space-y-4 pl-6 border-l-2 border-muted">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Label>{isArabic ? 'حجم القطعة للعربي' : 'Arabic Chunk Size'}</Label>
+                    <span className="text-sm font-medium">{settings.arabicChunkSize}K</span>
+                  </div>
+                  <Slider
+                    value={[settings.arabicChunkSize]}
+                    onValueChange={([value]) => setSettings(s => ({ ...s, arabicChunkSize: value }))}
+                    min={10}
+                    max={20}
+                    step={5}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {isArabic 
+                      ? `قطع أصغر = أكثر استقراراً للنص العربي`
+                      : 'Smaller chunks = more stable for Arabic text'}
                   </p>
                 </div>
               </div>
