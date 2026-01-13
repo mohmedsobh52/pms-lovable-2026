@@ -62,6 +62,13 @@ export type Database = {
             referencedRelation: "analysis_comments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "analysis_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_comments_secure"
+            referencedColumns: ["id"]
+          },
         ]
       }
       analysis_jobs: {
@@ -1802,7 +1809,63 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      analysis_comments_secure: {
+        Row: {
+          author_email: string | null
+          author_name: string | null
+          comment_text: string | null
+          comment_type: string | null
+          created_at: string | null
+          id: string | null
+          is_resolved: boolean | null
+          item_id: string | null
+          parent_id: string | null
+          share_code: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          author_email?: never
+          author_name?: string | null
+          comment_text?: string | null
+          comment_type?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_resolved?: boolean | null
+          item_id?: string | null
+          parent_id?: string | null
+          share_code?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          author_email?: never
+          author_name?: string | null
+          comment_text?: string | null
+          comment_type?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_resolved?: boolean | null
+          item_id?: string | null
+          parent_id?: string | null
+          share_code?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analysis_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_comments_secure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       has_role: {
