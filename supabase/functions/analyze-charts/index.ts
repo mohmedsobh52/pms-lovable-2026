@@ -166,10 +166,17 @@ ${dataSummary.topItems.map((item, i) => `${i + 1}. ${item.description}: ${item.v
     );
 
   } catch (error) {
-    console.error("Error in analyze-charts:", error);
+    // Log full error details server-side for debugging
+    console.error("[analyze-charts] Error:", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
+    
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: 'An error occurred processing your request. Please try again.',
+        errorAr: 'حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى.',
         insights: [],
       }),
       { 
