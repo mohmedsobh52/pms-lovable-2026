@@ -286,11 +286,17 @@ Translate all Arabic text to English in your response.`;
     );
 
   } catch (error) {
-    console.error("Error in analyze-quotation function:", error);
+    // Log full error details server-side for debugging
+    console.error("[analyze-quotation] Error:", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
+    
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : "حدث خطأ أثناء التحليل",
-        errorEn: "An error occurred during analysis",
+        error: 'حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى.',
+        errorEn: 'An error occurred processing your request. Please try again.',
         suggestion: "يرجى المحاولة مرة أخرى",
         canRetry: true
       }),

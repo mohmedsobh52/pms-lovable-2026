@@ -345,10 +345,17 @@ Requirements:
     );
 
   } catch (error) {
-    console.error("Error in generate-timeline:", error);
+    // Log full error details server-side for debugging
+    console.error("[generate-timeline] Error:", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
+    
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: 'An error occurred processing your request. Please try again.',
+        errorAr: 'حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى.',
         timeline: [],
       }),
       { 

@@ -1101,10 +1101,66 @@ Extract ALL items, validate amounts, summarize by section. Use submit_boq_analys
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error in analyze-boq function:", error);
+    // Log full error details server-side for debugging
+    console.error("[analyze-boq] Error:", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Return safe error message to client
+    const safeMessage = getSafeErrorMessage(error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ 
+        error: safeMessage,
+        errorAr: getSafeErrorMessageAr(error)
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
+
+// Safe error message functions
+function getSafeErrorMessage(error: unknown): string {
+  const errorMsg = error instanceof Error ? error.message.toLowerCase() : "";
+  
+  if (errorMsg.includes('rate limit') || errorMsg.includes('429') || errorMsg.includes('too many')) {
+    return 'Service temporarily busy. Please try again in a few moments.';
+  }
+  if (errorMsg.includes('payment') || errorMsg.includes('402') || errorMsg.includes('credits') || errorMsg.includes('quota')) {
+    return 'Service temporarily unavailable. Please contact support.';
+  }
+  if (errorMsg.includes('api key') || errorMsg.includes('not configured') || errorMsg.includes('unauthorized') || errorMsg.includes('401')) {
+    return 'Service configuration error. Please contact support.';
+  }
+  if (errorMsg.includes('timeout') || errorMsg.includes('timed out') || errorMsg.includes('deadline')) {
+    return 'Request timed out. Please try again.';
+  }
+  if (errorMsg.includes('network') || errorMsg.includes('fetch') || errorMsg.includes('connection')) {
+    return 'Network error. Please check your connection and try again.';
+  }
+  
+  return 'An error occurred processing your request. Please try again.';
+}
+
+function getSafeErrorMessageAr(error: unknown): string {
+  const errorMsg = error instanceof Error ? error.message.toLowerCase() : "";
+  
+  if (errorMsg.includes('rate limit') || errorMsg.includes('429') || errorMsg.includes('too many')) {
+    return 'الخدمة مشغولة مؤقتاً. يرجى المحاولة مرة أخرى بعد قليل.';
+  }
+  if (errorMsg.includes('payment') || errorMsg.includes('402') || errorMsg.includes('credits') || errorMsg.includes('quota')) {
+    return 'الخدمة غير متاحة مؤقتاً. يرجى الاتصال بالدعم.';
+  }
+  if (errorMsg.includes('api key') || errorMsg.includes('not configured') || errorMsg.includes('unauthorized') || errorMsg.includes('401')) {
+    return 'خطأ في تكوين الخدمة. يرجى الاتصال بالدعم.';
+  }
+  if (errorMsg.includes('timeout') || errorMsg.includes('timed out') || errorMsg.includes('deadline')) {
+    return 'انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.';
+  }
+  if (errorMsg.includes('network') || errorMsg.includes('fetch') || errorMsg.includes('connection')) {
+    return 'خطأ في الشبكة. يرجى التحقق من اتصالك والمحاولة مرة أخرى.';
+  }
+  
+  return 'حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى.';
+}

@@ -25,6 +25,7 @@ export type Database = {
           is_resolved: boolean | null
           item_id: string | null
           parent_id: string | null
+          session_id: string | null
           share_code: string
           updated_at: string | null
         }
@@ -38,6 +39,7 @@ export type Database = {
           is_resolved?: boolean | null
           item_id?: string | null
           parent_id?: string | null
+          session_id?: string | null
           share_code: string
           updated_at?: string | null
         }
@@ -51,6 +53,7 @@ export type Database = {
           is_resolved?: boolean | null
           item_id?: string | null
           parent_id?: string | null
+          session_id?: string | null
           share_code?: string
           updated_at?: string | null
         }
