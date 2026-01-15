@@ -3,6 +3,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -472,7 +473,9 @@ export function ProjectAttachments({ projectId, onFileAnalyze }: ProjectAttachme
     }
   };
 
-  const handlePreview = (attachment: ProjectAttachment) => {
+  const handlePreview = async (attachment: ProjectAttachment) => {
+    // For images and PDFs, we'll use signed URLs in FilePreviewDialog
+    // FilePreviewDialog now handles signed URLs internally
     setPreviewFile(attachment);
     setIsPreviewOpen(true);
   };
