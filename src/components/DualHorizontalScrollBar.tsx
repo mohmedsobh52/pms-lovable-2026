@@ -128,11 +128,11 @@ export function DualHorizontalScrollBar({
   if (!hasOverflow) return null;
 
   const positionClasses = position === "top" 
-    ? "fixed top-20 left-1/2 -translate-x-1/2 z-50" 
+    ? "sticky top-0 z-20 bg-background/95 backdrop-blur-sm py-2 mb-2 rounded-lg border border-border" 
     : "fixed bottom-4 left-1/2 -translate-x-1/2 z-50";
 
   return (
-    <div className={cn(positionClasses, "flex items-center gap-2")}>
+    <div className={cn(positionClasses, position === "top" ? "flex items-center justify-center gap-2" : "flex items-center gap-2")}>
       {showArrows && (
         <Button
           variant="ghost"
