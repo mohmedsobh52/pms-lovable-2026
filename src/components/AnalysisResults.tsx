@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud } from "lucide-react";
+import { DualHorizontalScrollBar } from "./DualHorizontalScrollBar";
 import { TableControls, BOQ_TABLE_COLUMNS } from "./TableControls";
 import {
   DropdownMenu,
@@ -204,6 +205,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   
   // State for tracking recently applied AI rates (for visual confirmation)
   const [recentlyAppliedItems, setRecentlyAppliedItems] = useState<Set<string>>(new Set());
+  
+  // Ref for horizontal scroll bar
+  const tableContainerRef = useRef<HTMLDivElement>(null);
   
   // Table zoom, pinned columns, and visible columns state
   const [tableZoom, setTableZoom] = useState(() => {
@@ -1745,8 +1749,16 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               </div>
             )}
 
+            {/* Horizontal Scroll Bar Above Table */}
+            <DualHorizontalScrollBar 
+              containerRef={tableContainerRef} 
+              position="top" 
+              showArrows={true} 
+            />
+
             {/* BOQ Items Table - With Calculated Costs */}
             <div 
+              ref={tableContainerRef}
               className="overflow-x-auto border border-border rounded-xl shadow-sm w-full"
               style={{ 
                 transform: `scale(${tableZoom / 100})`,
