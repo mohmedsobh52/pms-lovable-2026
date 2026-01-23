@@ -8,8 +8,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLanguage } from '@/hooks/useLanguage';
-import { Check, X, Edit2, RotateCcw, FileSpreadsheet, AlertTriangle, Columns, Table2, ArrowRight } from 'lucide-react';
+import { useColumnMappingTemplates, ColumnMappingTemplate } from '@/hooks/useColumnMappingTemplates';
+import { 
+  Check, X, RotateCcw, FileSpreadsheet, AlertTriangle, Columns, Table2, ArrowRight,
+  Save, Trash2, Download, Upload, GitCompare, Eye
+} from 'lucide-react';
 import { ExcelBOQItem, reExtractWithMapping } from '@/lib/excel-utils';
+import { toast } from 'sonner';
 
 interface ExcelDataPreviewProps {
   isOpen: boolean;
@@ -17,7 +22,6 @@ interface ExcelDataPreviewProps {
   items: ExcelBOQItem[];
   onConfirm: (items: ExcelBOQItem[]) => void;
   fileName?: string;
-  // New props for column remapping
   rawData?: (string | number | undefined)[][];
   detectedHeaderRow?: number;
   columnMapping?: Record<string, number>;
@@ -43,14 +47,20 @@ export function ExcelDataPreview({
   columnMapping: initialColumnMapping = {}
 }: ExcelDataPreviewProps) {
   const { isArabic } = useLanguage();
+  const { templates, addTemplate, deleteTemplate, incrementUsage } = useColumnMappingTemplates();
+  
   const [editedItems, setEditedItems] = useState<ExcelBOQItem[]>(initialItems);
   const [editingCell, setEditingCell] = useState<{ row: number; field: string } | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [activeTab, setActiveTab] = useState<'preview' | 'remap'>('preview');
+  const [activeTab, setActiveTab] = useState<'preview' | 'remap' | 'compare'>('preview');
   
   // Column remapping state
   const [customMapping, setCustomMapping] = useState<Record<string, number | undefined>>(initialColumnMapping);
   const [headerRowOffset, setHeaderRowOffset] = useState(detectedHeaderRow);
+  
+  // Template state
+  const [templateName, setTemplateName] = useState('');
+  const [showTemplateInput, setShowTemplateInput] = useState(false);
 
   // Reset when items change
   React.useEffect(() => {
@@ -61,7 +71,7 @@ export function ExcelDataPreview({
 
   const displayItems = useMemo(() => editedItems.slice(0, 50), [editedItems]);
 
-  // Get raw data headers and sample rows for remapping UI
+  // Get raw data headers and sample rows
   const rawHeaders = useMemo(() => {
     if (!rawData || rawData.length <= headerRowOffset) return [];
     const headerRow = rawData[headerRowOffset] || [];
@@ -75,6 +85,18 @@ export function ExcelDataPreview({
     if (!rawData) return [];
     return rawData.slice(headerRowOffset + 1, headerRowOffset + 6).filter(r => r && r.length > 0);
   }, [rawData, headerRowOffset]);
+
+  // Comparison data - show raw vs extracted side by side
+  const comparisonData = useMemo(() => {
+    if (!rawData || editedItems.length === 0) return [];
+    
+    const dataRows = rawData.slice(headerRowOffset + 1, headerRowOffset + 21);
+    return dataRows.map((rawRow, idx) => ({
+      rowIndex: idx,
+      raw: rawRow,
+      extracted: editedItems[idx] || null,
+    }));
+  }, [rawData, headerRowOffset, editedItems]);
 
   const stats = useMemo(() => {
     const withDescription = editedItems.filter(i => i.description && i.description.trim().length > 3).length;
@@ -105,7 +127,6 @@ export function ExcelDataPreview({
         (newItem as Record<string, unknown>)[field] = editValue;
       }
       
-      // Recalculate total if quantity or unit price changed
       if (field === 'quantity' || field === 'unitPrice') {
         const qty = field === 'quantity' ? parseFloat(editValue) || 0 : (item.quantity || 0);
         const price = field === 'unitPrice' ? parseFloat(editValue) || 0 : (item.unitPrice || 0);
@@ -125,11 +146,8 @@ export function ExcelDataPreview({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSaveEdit();
-    } else if (e.key === 'Escape') {
-      handleCancelEdit();
-    }
+    if (e.key === 'Enter') handleSaveEdit();
+    else if (e.key === 'Escape') handleCancelEdit();
   };
 
   const handleReset = () => {
@@ -152,7 +170,6 @@ export function ExcelDataPreview({
   const handleApplyMapping = () => {
     if (!rawData) return;
     
-    // Filter out undefined values
     const cleanMapping: Record<string, number> = {};
     Object.entries(customMapping).forEach(([key, value]) => {
       if (value !== undefined && value !== -1) {
@@ -163,13 +180,44 @@ export function ExcelDataPreview({
     const newItems = reExtractWithMapping(rawData, headerRowOffset, cleanMapping);
     setEditedItems(newItems);
     setActiveTab('preview');
+    toast.success(isArabic ? `تم استخراج ${newItems.length} بند` : `Extracted ${newItems.length} items`);
   };
 
   const updateColumnMapping = (field: string, columnIndex: number | undefined) => {
-    setCustomMapping(prev => ({
-      ...prev,
-      [field]: columnIndex,
-    }));
+    setCustomMapping(prev => ({ ...prev, [field]: columnIndex }));
+  };
+
+  // Template functions
+  const handleSaveTemplate = () => {
+    if (!templateName.trim()) {
+      toast.error(isArabic ? 'أدخل اسم القالب' : 'Enter template name');
+      return;
+    }
+    
+    const cleanMapping: Record<string, number> = {};
+    Object.entries(customMapping).forEach(([key, value]) => {
+      if (value !== undefined && value !== -1) {
+        cleanMapping[key] = value;
+      }
+    });
+    
+    addTemplate(templateName.trim(), cleanMapping, headerRowOffset);
+    toast.success(isArabic ? 'تم حفظ القالب بنجاح' : 'Template saved successfully');
+    setTemplateName('');
+    setShowTemplateInput(false);
+  };
+
+  const handleApplyTemplate = (template: ColumnMappingTemplate) => {
+    setCustomMapping(template.mapping);
+    setHeaderRowOffset(template.headerRowIndex);
+    incrementUsage(template.id);
+    toast.success(isArabic ? `تم تطبيق القالب: ${template.name}` : `Applied template: ${template.name}`);
+  };
+
+  const handleDeleteTemplate = (template: ColumnMappingTemplate, e: React.MouseEvent) => {
+    e.stopPropagation();
+    deleteTemplate(template.id);
+    toast.success(isArabic ? 'تم حذف القالب' : 'Template deleted');
   };
 
   const renderCell = (item: ExcelBOQItem, field: string, rowIndex: number) => {
@@ -217,22 +265,18 @@ export function ExcelDataPreview({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5 text-primary" />
             {isArabic ? 'معاينة البيانات المستخرجة' : 'Preview Extracted Data'}
-            {fileName && (
-              <Badge variant="secondary" className="text-xs">
-                {fileName}
-              </Badge>
-            )}
+            {fileName && <Badge variant="secondary" className="text-xs">{fileName}</Badge>}
           </DialogTitle>
         </DialogHeader>
 
         {hasRemappingData && (
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'preview' | 'remap')} className="flex-1 flex flex-col">
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'preview' | 'remap' | 'compare')} className="flex-1 flex flex-col">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="preview" className="gap-2">
                 <Table2 className="h-4 w-4" />
                 {isArabic ? 'معاينة البيانات' : 'Data Preview'}
@@ -240,6 +284,10 @@ export function ExcelDataPreview({
               <TabsTrigger value="remap" className="gap-2">
                 <Columns className="h-4 w-4" />
                 {isArabic ? 'إعادة تعيين الأعمدة' : 'Remap Columns'}
+              </TabsTrigger>
+              <TabsTrigger value="compare" className="gap-2">
+                <GitCompare className="h-4 w-4" />
+                {isArabic ? 'مقارنة البيانات' : 'Compare Data'}
               </TabsTrigger>
             </TabsList>
 
@@ -270,8 +318,8 @@ export function ExcelDataPreview({
                   <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
                   <span>
                     {isArabic 
-                      ? 'بعض البنود تحتاج مراجعة. انقر على "إعادة تعيين الأعمدة" لتصحيح تعيين الأعمدة.'
-                      : 'Some items need review. Click "Remap Columns" to correct column assignments.'}
+                      ? 'بعض البنود تحتاج مراجعة. انقر على "إعادة تعيين الأعمدة" أو "مقارنة البيانات" للتصحيح.'
+                      : 'Some items need review. Click "Remap Columns" or "Compare Data" to correct.'}
                   </span>
                 </div>
               )}
@@ -294,14 +342,10 @@ export function ExcelDataPreview({
                   <TableBody>
                     {displayItems.map((item, index) => (
                       <TableRow key={index} className="group">
-                        <TableCell className="text-center text-xs text-muted-foreground">
-                          {index + 1}
-                        </TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground">{index + 1}</TableCell>
                         <TableCell>{renderCell(item, 'itemNo', index)}</TableCell>
                         <TableCell className="max-w-[300px]">
-                          <div className="truncate">
-                            {renderCell(item, 'description', index)}
-                          </div>
+                          <div className="truncate">{renderCell(item, 'description', index)}</div>
                         </TableCell>
                         <TableCell>{renderCell(item, 'unit', index)}</TableCell>
                         <TableCell className="text-right">{renderCell(item, 'quantity', index)}</TableCell>
@@ -336,24 +380,50 @@ export function ExcelDataPreview({
             <TabsContent value="remap" className="flex-1 flex flex-col mt-4 gap-4">
               <div className="text-sm text-muted-foreground">
                 {isArabic 
-                  ? 'اختر العمود المناسب لكل حقل من الملف الأصلي. سيتم إعادة استخراج البيانات بناءً على اختياراتك.'
-                  : 'Select the appropriate column for each field from the original file. Data will be re-extracted based on your choices.'}
+                  ? 'اختر العمود المناسب لكل حقل من الملف الأصلي. يمكنك حفظ التعيين كقالب لاستخدامه لاحقاً.'
+                  : 'Select the appropriate column for each field. You can save the mapping as a template for future use.'}
               </div>
+
+              {/* Saved Templates */}
+              {templates.length > 0 && (
+                <div className="border rounded-lg p-3 bg-muted/30">
+                  <div className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    {isArabic ? 'القوالب المحفوظة' : 'Saved Templates'}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {templates.map(template => (
+                      <Badge 
+                        key={template.id}
+                        variant="secondary" 
+                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors gap-1 pr-1"
+                        onClick={() => handleApplyTemplate(template)}
+                      >
+                        {template.name}
+                        <span className="text-xs opacity-60">({template.usageCount})</span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-4 w-4 ml-1 hover:bg-destructive/20"
+                          onClick={(e) => handleDeleteTemplate(template, e)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Header row selector */}
               <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg">
-                <span className="text-sm font-medium">
-                  {isArabic ? 'صف العناوين:' : 'Header Row:'}
-                </span>
-                <Select 
-                  value={headerRowOffset.toString()} 
-                  onValueChange={(v) => setHeaderRowOffset(parseInt(v))}
-                >
+                <span className="text-sm font-medium">{isArabic ? 'صف العناوين:' : 'Header Row:'}</span>
+                <Select value={headerRowOffset.toString()} onValueChange={(v) => setHeaderRowOffset(parseInt(v))}>
                   <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {[0, 1, 2, 3, 4, 5].map(i => (
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
                       <SelectItem key={i} value={i.toString()}>
                         {isArabic ? `الصف ${i + 1}` : `Row ${i + 1}`}
                       </SelectItem>
@@ -366,9 +436,7 @@ export function ExcelDataPreview({
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {COLUMN_FIELDS.map(field => (
                   <div key={field.key} className="space-y-1">
-                    <label className="text-sm font-medium">
-                      {isArabic ? field.labelAr : field.labelEn}
-                    </label>
+                    <label className="text-sm font-medium">{isArabic ? field.labelAr : field.labelEn}</label>
                     <Select 
                       value={customMapping[field.key]?.toString() ?? '-1'} 
                       onValueChange={(v) => updateColumnMapping(field.key, v === '-1' ? undefined : parseInt(v))}
@@ -377,13 +445,10 @@ export function ExcelDataPreview({
                         <SelectValue placeholder={isArabic ? 'اختر عمود' : 'Select column'} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="-1">
-                          {isArabic ? '-- لا شيء --' : '-- None --'}
-                        </SelectItem>
+                        <SelectItem value="-1">{isArabic ? '-- لا شيء --' : '-- None --'}</SelectItem>
                         {rawHeaders.map(header => (
                           <SelectItem key={header.index} value={header.index.toString()}>
-                            {header.index + 1}: {header.value.substring(0, 30)}
-                            {header.value.length > 30 ? '...' : ''}
+                            {header.index + 1}: {header.value.substring(0, 30)}{header.value.length > 30 ? '...' : ''}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -413,14 +478,10 @@ export function ExcelDataPreview({
                     <TableBody>
                       {rawSampleRows.map((row, rowIdx) => (
                         <TableRow key={rowIdx}>
-                          <TableCell className="text-center text-xs text-muted-foreground">
-                            {rowIdx + 1}
-                          </TableCell>
+                          <TableCell className="text-center text-xs text-muted-foreground">{rowIdx + 1}</TableCell>
                           {rawHeaders.map(header => (
                             <TableCell key={header.index} className="text-xs max-w-[150px]">
-                              <div className="truncate">
-                                {row[header.index]?.toString() || '-'}
-                              </div>
+                              <div className="truncate">{row[header.index]?.toString() || '-'}</div>
                             </TableCell>
                           ))}
                         </TableRow>
@@ -430,19 +491,153 @@ export function ExcelDataPreview({
                 </ScrollArea>
               </div>
 
-              {/* Apply button */}
-              <Button onClick={handleApplyMapping} className="gap-2 self-end">
-                <ArrowRight className="h-4 w-4" />
-                {isArabic ? 'تطبيق التعيين' : 'Apply Mapping'}
-              </Button>
+              {/* Action buttons */}
+              <div className="flex items-center justify-between gap-2">
+                {/* Save template */}
+                {showTemplateInput ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder={isArabic ? 'اسم القالب...' : 'Template name...'}
+                      value={templateName}
+                      onChange={(e) => setTemplateName(e.target.value)}
+                      className="w-48"
+                      onKeyDown={(e) => e.key === 'Enter' && handleSaveTemplate()}
+                    />
+                    <Button size="sm" onClick={handleSaveTemplate}>
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setShowTemplateInput(false)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setShowTemplateInput(true)} className="gap-2">
+                    <Save className="h-4 w-4" />
+                    {isArabic ? 'حفظ كقالب' : 'Save as Template'}
+                  </Button>
+                )}
+
+                <Button onClick={handleApplyMapping} className="gap-2">
+                  <ArrowRight className="h-4 w-4" />
+                  {isArabic ? 'تطبيق التعيين' : 'Apply Mapping'}
+                </Button>
+              </div>
+            </TabsContent>
+
+            {/* Compare Tab - Side by Side Comparison */}
+            <TabsContent value="compare" className="flex-1 flex flex-col mt-4 gap-4">
+              <div className="text-sm text-muted-foreground">
+                {isArabic 
+                  ? 'مقارنة البيانات الأصلية من Excel مع البيانات المستخرجة جنباً إلى جنب للتحقق من صحة الاستخراج.'
+                  : 'Compare original Excel data with extracted data side by side to verify extraction accuracy.'}
+              </div>
+
+              <ScrollArea className="flex-1 border rounded-md">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background z-10">
+                    <TableRow>
+                      <TableHead className="w-10 text-center border-r">#</TableHead>
+                      {/* Original Data Headers */}
+                      <TableHead colSpan={rawHeaders.length} className="text-center bg-blue-50 dark:bg-blue-950 border-r">
+                        <div className="flex items-center justify-center gap-2">
+                          <Eye className="h-4 w-4" />
+                          {isArabic ? 'البيانات الأصلية (Excel)' : 'Original Data (Excel)'}
+                        </div>
+                      </TableHead>
+                      {/* Extracted Data Headers */}
+                      <TableHead colSpan={6} className="text-center bg-green-50 dark:bg-green-950">
+                        <div className="flex items-center justify-center gap-2">
+                          <Check className="h-4 w-4" />
+                          {isArabic ? 'البيانات المستخرجة' : 'Extracted Data'}
+                        </div>
+                      </TableHead>
+                    </TableRow>
+                    <TableRow>
+                      <TableHead className="w-10 border-r"></TableHead>
+                      {/* Original columns */}
+                      {rawHeaders.slice(0, 6).map(header => (
+                        <TableHead key={`raw-${header.index}`} className="text-xs min-w-[100px] bg-blue-50/50 dark:bg-blue-950/50">
+                          <div className="text-primary font-bold">{header.index + 1}</div>
+                          <div className="truncate text-muted-foreground">{header.value}</div>
+                        </TableHead>
+                      ))}
+                      <TableHead className="border-r bg-blue-50/50 dark:bg-blue-950/50"></TableHead>
+                      {/* Extracted columns */}
+                      <TableHead className="text-xs bg-green-50/50 dark:bg-green-950/50">{isArabic ? 'رقم' : 'No.'}</TableHead>
+                      <TableHead className="text-xs min-w-[150px] bg-green-50/50 dark:bg-green-950/50">{isArabic ? 'الوصف' : 'Desc'}</TableHead>
+                      <TableHead className="text-xs bg-green-50/50 dark:bg-green-950/50">{isArabic ? 'وحدة' : 'Unit'}</TableHead>
+                      <TableHead className="text-xs text-right bg-green-50/50 dark:bg-green-950/50">{isArabic ? 'كمية' : 'Qty'}</TableHead>
+                      <TableHead className="text-xs text-right bg-green-50/50 dark:bg-green-950/50">{isArabic ? 'سعر' : 'Price'}</TableHead>
+                      <TableHead className="text-xs text-right bg-green-50/50 dark:bg-green-950/50">{isArabic ? 'إجمالي' : 'Total'}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {comparisonData.map((row, idx) => {
+                      const hasExtracted = row.extracted !== null;
+                      const descMatch = hasExtracted && row.extracted.description && 
+                        row.raw.some(cell => cell?.toString().includes(row.extracted.description?.substring(0, 20) || ''));
+                      
+                      return (
+                        <TableRow key={idx} className={!hasExtracted ? 'bg-red-50/30 dark:bg-red-950/30' : ''}>
+                          <TableCell className="text-center text-xs text-muted-foreground border-r">
+                            {idx + 1}
+                          </TableCell>
+                          {/* Original data cells */}
+                          {rawHeaders.slice(0, 6).map(header => (
+                            <TableCell key={`raw-${header.index}`} className="text-xs max-w-[120px] bg-blue-50/20 dark:bg-blue-950/20">
+                              <div className="truncate">{row.raw[header.index]?.toString() || '-'}</div>
+                            </TableCell>
+                          ))}
+                          <TableCell className="border-r bg-blue-50/20 dark:bg-blue-950/20"></TableCell>
+                          {/* Extracted data cells */}
+                          <TableCell className={`text-xs bg-green-50/20 dark:bg-green-950/20 ${!row.extracted?.itemNo ? 'text-muted-foreground' : ''}`}>
+                            {row.extracted?.itemNo || '-'}
+                          </TableCell>
+                          <TableCell className={`text-xs max-w-[150px] bg-green-50/20 dark:bg-green-950/20 ${!row.extracted?.description ? 'text-destructive' : ''}`}>
+                            <div className="truncate" title={row.extracted?.description}>
+                              {row.extracted?.description || (isArabic ? 'مفقود!' : 'Missing!')}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs bg-green-50/20 dark:bg-green-950/20">
+                            {row.extracted?.unit || '-'}
+                          </TableCell>
+                          <TableCell className="text-xs text-right bg-green-50/20 dark:bg-green-950/20">
+                            {row.extracted?.quantity?.toLocaleString() || '-'}
+                          </TableCell>
+                          <TableCell className="text-xs text-right bg-green-50/20 dark:bg-green-950/20">
+                            {row.extracted?.unitPrice?.toLocaleString() || '-'}
+                          </TableCell>
+                          <TableCell className="text-xs text-right bg-green-50/20 dark:bg-green-950/20">
+                            {row.extracted?.totalPrice?.toLocaleString() || '-'}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900 rounded"></div>
+                  <span>{isArabic ? 'البيانات الأصلية' : 'Original Data'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-green-100 dark:bg-green-900 rounded"></div>
+                  <span>{isArabic ? 'البيانات المستخرجة' : 'Extracted Data'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-red-100 dark:bg-red-900 rounded"></div>
+                  <span>{isArabic ? 'بيانات مفقودة' : 'Missing Data'}</span>
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         )}
 
-        {/* Fallback when no raw data (shouldn't happen normally) */}
+        {/* Fallback when no raw data */}
         {!hasRemappingData && (
           <>
-            {/* Stats */}
             <div className="flex flex-wrap gap-3 py-2 border-b">
               <Badge variant="outline" className="gap-1">
                 {isArabic ? 'إجمالي البنود' : 'Total Items'}: {stats.total}
