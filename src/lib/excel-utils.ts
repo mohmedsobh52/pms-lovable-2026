@@ -432,13 +432,13 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
     const item: ExcelBOQItem = {};
 
     // Map known columns with Arabic number conversion
-    if (columnMapping.itemNo !== undefined && row[columnMapping.itemNo] !== undefined) {
+    if (columnMapping.itemNo !== undefined && columnMapping.itemNo >= 0 && row[columnMapping.itemNo] !== undefined) {
       const rawValue = row[columnMapping.itemNo]?.toString();
       item.itemNo = convertArabicNumbers(rawValue || '');
     }
     
     // For description, use the mapped column
-    if (columnMapping.description !== undefined) {
+    if (columnMapping.description !== undefined && columnMapping.description >= 0) {
       const descValue = row[columnMapping.description]?.toString()?.trim();
       if (descValue) {
         item.description = descValue;
@@ -453,7 +453,7 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
         columnMapping.quantity,
         columnMapping.unitPrice,
         columnMapping.totalPrice
-      ].filter(v => v !== undefined) as number[]);
+      ].filter(v => v !== undefined && v >= 0) as number[]);
       
       row.forEach((cell, idx) => {
         if (skipIndices.has(idx)) return;
@@ -471,20 +471,25 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
       }
     }
     
-    if (columnMapping.unit !== undefined && row[columnMapping.unit] !== undefined) {
+    if (columnMapping.unit !== undefined && columnMapping.unit >= 0 && row[columnMapping.unit] !== undefined) {
       item.unit = row[columnMapping.unit]?.toString();
     }
-    if (columnMapping.quantity !== undefined && row[columnMapping.quantity] !== undefined) {
+    if (columnMapping.quantity !== undefined && columnMapping.quantity >= 0 && row[columnMapping.quantity] !== undefined) {
       item.quantity = parseArabicNumber(row[columnMapping.quantity]);
     }
-    if (columnMapping.unitPrice !== undefined && row[columnMapping.unitPrice] !== undefined) {
+    if (columnMapping.unitPrice !== undefined && columnMapping.unitPrice >= 0 && row[columnMapping.unitPrice] !== undefined) {
       item.unitPrice = parseArabicNumber(row[columnMapping.unitPrice]);
     }
-    if (columnMapping.totalPrice !== undefined && row[columnMapping.totalPrice] !== undefined) {
+    if (columnMapping.totalPrice !== undefined && columnMapping.totalPrice >= 0 && row[columnMapping.totalPrice] !== undefined) {
       item.totalPrice = parseArabicNumber(row[columnMapping.totalPrice]);
     }
-    if (columnMapping.notes !== undefined && row[columnMapping.notes] !== undefined) {
+    if (columnMapping.notes !== undefined && columnMapping.notes >= 0 && row[columnMapping.notes] !== undefined) {
       item.notes = row[columnMapping.notes]?.toString();
+    }
+
+    // Auto-calculate total if missing
+    if (!item.totalPrice && item.quantity && item.unitPrice) {
+      item.totalPrice = item.quantity * item.unitPrice;
     }
 
     // Only add items that have meaningful data
@@ -886,40 +891,97 @@ export function reExtractWithMapping(
   
   const endRow = Math.min(rawData.length, maxRows);
   
+  console.log('reExtractWithMapping - headerRowIndex:', headerRowIndex);
+  console.log('reExtractWithMapping - customMapping:', customMapping);
+  
   for (let i = headerRowIndex + 1; i < endRow; i++) {
     const row = rawData[i];
     if (!row || row.every(cell => !cell || cell.toString().trim() === '')) continue;
     
     const item: ExcelBOQItem = {};
     
-    if (customMapping.itemNo !== undefined && row[customMapping.itemNo] !== undefined) {
-      item.itemNo = convertArabicNumbers(row[customMapping.itemNo]?.toString() || '');
+    // Extract Item Number
+    if (customMapping.itemNo !== undefined && customMapping.itemNo >= 0) {
+      const val = row[customMapping.itemNo];
+      if (val !== undefined && val !== null) {
+        item.itemNo = convertArabicNumbers(val.toString().trim());
+      }
     }
     
-    if (customMapping.description !== undefined && row[customMapping.description] !== undefined) {
-      item.description = row[customMapping.description]?.toString()?.trim();
+    // Extract Description - this is critical
+    if (customMapping.description !== undefined && customMapping.description >= 0) {
+      const val = row[customMapping.description];
+      if (val !== undefined && val !== null) {
+        const descText = val.toString().trim();
+        if (descText) {
+          item.description = descText;
+        }
+      }
     }
     
-    if (customMapping.unit !== undefined && row[customMapping.unit] !== undefined) {
-      item.unit = row[customMapping.unit]?.toString();
+    // Fallback: If no description found, search for longest text in row
+    if (!item.description) {
+      let longestText = '';
+      const skipIndices = new Set([
+        customMapping.itemNo,
+        customMapping.quantity,
+        customMapping.unitPrice,
+        customMapping.totalPrice
+      ].filter(v => v !== undefined && v >= 0) as number[]);
+      
+      row.forEach((cell, idx) => {
+        if (skipIndices.has(idx)) return;
+        const cellText = cell?.toString()?.trim() || '';
+        // Must be longer than current and look like text (not pure number)
+        if (cellText.length > longestText.length && cellText.length > 5) {
+          const numVal = parseFloat(cellText.replace(/[,،]/g, ''));
+          if (isNaN(numVal) || cellText.length > 15) {
+            longestText = cellText;
+          }
+        }
+      });
+      if (longestText) {
+        item.description = longestText;
+      }
     }
     
-    if (customMapping.quantity !== undefined) {
+    // Extract Unit
+    if (customMapping.unit !== undefined && customMapping.unit >= 0) {
+      const val = row[customMapping.unit];
+      if (val !== undefined && val !== null) {
+        item.unit = val.toString().trim();
+      }
+    }
+    
+    // Extract Quantity
+    if (customMapping.quantity !== undefined && customMapping.quantity >= 0) {
       item.quantity = parseArabicNumber(row[customMapping.quantity]);
     }
     
-    if (customMapping.unitPrice !== undefined) {
+    // Extract Unit Price
+    if (customMapping.unitPrice !== undefined && customMapping.unitPrice >= 0) {
       item.unitPrice = parseArabicNumber(row[customMapping.unitPrice]);
     }
     
-    if (customMapping.totalPrice !== undefined) {
+    // Extract Total Price
+    if (customMapping.totalPrice !== undefined && customMapping.totalPrice >= 0) {
       item.totalPrice = parseArabicNumber(row[customMapping.totalPrice]);
+    }
+    
+    // Auto-calculate total if missing but qty and unit price exist
+    if (!item.totalPrice && item.quantity && item.unitPrice) {
+      item.totalPrice = item.quantity * item.unitPrice;
     }
     
     // Only add items that have meaningful data
     if (item.description || (item.itemNo && item.itemNo !== '')) {
       items.push(item);
     }
+  }
+  
+  console.log('reExtractWithMapping - extracted items count:', items.length);
+  if (items.length > 0) {
+    console.log('reExtractWithMapping - sample item:', items[0]);
   }
   
   return items;
