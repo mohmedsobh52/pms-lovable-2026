@@ -255,18 +255,47 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
   const headers = (data[headerRowIndex] || []).map(h => h?.toString() || '');
   let columnMapping = detectColumnMapping(headers);
 
-  // If no headers matched at all, use a safe positional fallback
+  // Debug: log detected mapping
+  console.log('Excel extraction - Headers:', headers);
+  console.log('Excel extraction - Column mapping:', columnMapping);
+
+  // If no headers matched at all, try smart positional detection
   if (Object.keys(columnMapping).length === 0) {
-    columnMapping = {
-      itemNo: 0,
-      description: 1,
-      unit: 3,
-      quantity: 4,
-      unitPrice: 5,
-      totalPrice: 6,
-      notes: 7,
-    };
+    // Try to detect based on data patterns in first data row
+    const firstDataRow = data[headerRowIndex + 1];
+    if (firstDataRow) {
+      columnMapping = detectColumnMappingFromData(headers, firstDataRow);
+    }
+    
+    // Last resort: sequential fallback
+    if (Object.keys(columnMapping).length === 0) {
+      const nonEmptyIndices = headers
+        .map((h, i) => (h && h.trim()) ? i : -1)
+        .filter(i => i >= 0);
+      
+      if (nonEmptyIndices.length >= 2) {
+        columnMapping = {
+          itemNo: nonEmptyIndices[0],
+          description: nonEmptyIndices[1],
+          unit: nonEmptyIndices[2],
+          quantity: nonEmptyIndices[3],
+          unitPrice: nonEmptyIndices[4],
+          totalPrice: nonEmptyIndices[5],
+        };
+      } else {
+        columnMapping = {
+          itemNo: 0,
+          description: 1,
+          unit: 2,
+          quantity: 3,
+          unitPrice: 4,
+          totalPrice: 5,
+        };
+      }
+    }
   }
+
+  console.log('Excel extraction - Final mapping:', columnMapping);
 
   // Extract items
   const endRow = Math.min(data.length, maxRows);
@@ -277,35 +306,129 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
     const item: ExcelBOQItem = {};
 
     // Map known columns with Arabic number conversion
-    if (columnMapping.itemNo !== undefined) {
+    if (columnMapping.itemNo !== undefined && row[columnMapping.itemNo] !== undefined) {
       const rawValue = row[columnMapping.itemNo]?.toString();
       item.itemNo = convertArabicNumbers(rawValue || '');
     }
+    
+    // For description, try multiple columns if primary is empty
     if (columnMapping.description !== undefined) {
-      item.description = row[columnMapping.description]?.toString();
+      const descValue = row[columnMapping.description]?.toString()?.trim();
+      if (descValue) {
+        item.description = descValue;
+      }
     }
-    if (columnMapping.unit !== undefined) {
+    
+    // If description is still empty, try to find it from other columns
+    if (!item.description) {
+      // Look for the longest text value in the row as potential description
+      let longestText = '';
+      let longestIndex = -1;
+      row.forEach((cell, idx) => {
+        if (idx === columnMapping.itemNo) return; // Skip item number column
+        const cellText = cell?.toString()?.trim() || '';
+        if (cellText.length > longestText.length && cellText.length > 3 && isNaN(parseFloat(cellText))) {
+          longestText = cellText;
+          longestIndex = idx;
+        }
+      });
+      if (longestText) {
+        item.description = longestText;
+      }
+    }
+    
+    if (columnMapping.unit !== undefined && row[columnMapping.unit] !== undefined) {
       item.unit = row[columnMapping.unit]?.toString();
     }
-    if (columnMapping.quantity !== undefined) {
+    if (columnMapping.quantity !== undefined && row[columnMapping.quantity] !== undefined) {
       item.quantity = parseArabicNumber(row[columnMapping.quantity]);
     }
-    if (columnMapping.unitPrice !== undefined) {
+    if (columnMapping.unitPrice !== undefined && row[columnMapping.unitPrice] !== undefined) {
       item.unitPrice = parseArabicNumber(row[columnMapping.unitPrice]);
     }
-    if (columnMapping.totalPrice !== undefined) {
+    if (columnMapping.totalPrice !== undefined && row[columnMapping.totalPrice] !== undefined) {
       item.totalPrice = parseArabicNumber(row[columnMapping.totalPrice]);
     }
-    if (columnMapping.notes !== undefined) {
+    if (columnMapping.notes !== undefined && row[columnMapping.notes] !== undefined) {
       item.notes = row[columnMapping.notes]?.toString();
     }
 
-    if (item.description || item.itemNo) {
+    // Only add items that have meaningful data
+    if (item.description || (item.itemNo && item.itemNo !== '')) {
       items.push(item);
     }
   }
 
+  console.log('Excel extraction - Extracted items count:', items.length);
+  if (items.length > 0) {
+    console.log('Excel extraction - Sample item:', items[0]);
+  }
+
   return items;
+}
+
+// Detect column mapping from data patterns
+function detectColumnMappingFromData(
+  headers: string[], 
+  sampleRow: (string | number | undefined)[]
+): Record<string, number> {
+  const mapping: Record<string, number> = {};
+  
+  sampleRow.forEach((value, index) => {
+    if (value === undefined || value === null) return;
+    const strValue = value.toString().trim();
+    const numValue = parseArabicNumber(strValue);
+    
+    // Try to detect column type from value pattern
+    if (!strValue) return;
+    
+    // Short numeric or alphanumeric could be item number
+    if (!mapping.itemNo && strValue.length <= 10 && /^[\d\.\-\/\sA-Za-z]*$/.test(strValue)) {
+      // Check if it looks like an item number (short, possibly with dots/dashes)
+      if (/^\d+[\.\-]?\d*$/.test(strValue) || /^[A-Za-z]{1,3}[\-\.\s]?\d+/.test(strValue)) {
+        mapping.itemNo = index;
+        return;
+      }
+    }
+    
+    // Long text is likely description
+    if (!mapping.description && strValue.length > 10 && isNaN(numValue || NaN)) {
+      mapping.description = index;
+      return;
+    }
+    
+    // Short text with unit patterns
+    if (!mapping.unit && strValue.length <= 10 && 
+        /^(m|m2|m3|no|nos|kg|ton|ls|عدد|م|م2|م3|طن|كجم|وحدة|مقطوعية|متر)$/i.test(strValue)) {
+      mapping.unit = index;
+      return;
+    }
+  });
+  
+  // Try to assign remaining numeric columns to quantity, unitPrice, totalPrice
+  const usedIndices = new Set(Object.values(mapping));
+  const numericIndices: number[] = [];
+  
+  sampleRow.forEach((value, index) => {
+    if (usedIndices.has(index)) return;
+    const numValue = parseArabicNumber(value);
+    if (numValue !== undefined && !isNaN(numValue)) {
+      numericIndices.push(index);
+    }
+  });
+  
+  // Assign numeric columns in order: quantity, unitPrice, totalPrice
+  if (numericIndices.length >= 1 && !mapping.quantity) {
+    mapping.quantity = numericIndices[0];
+  }
+  if (numericIndices.length >= 2 && !mapping.unitPrice) {
+    mapping.unitPrice = numericIndices[1];
+  }
+  if (numericIndices.length >= 3 && !mapping.totalPrice) {
+    mapping.totalPrice = numericIndices[2];
+  }
+  
+  return mapping;
 }
 
 function dataToText(data: (string | number | undefined)[][], maxRows: number = 300): string {
