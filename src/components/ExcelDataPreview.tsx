@@ -47,7 +47,15 @@ export function ExcelDataPreview({
   columnMapping: initialColumnMapping = {}
 }: ExcelDataPreviewProps) {
   const { isArabic } = useLanguage();
-  const { templates, addTemplate, deleteTemplate, incrementUsage } = useColumnMappingTemplates();
+  const { 
+    templates, 
+    addTemplate, 
+    deleteTemplate, 
+    incrementUsage,
+    findMatchingTemplate,
+    downloadTemplatesFile,
+    importFromFile,
+  } = useColumnMappingTemplates();
   
   const [editedItems, setEditedItems] = useState<ExcelBOQItem[]>(initialItems);
   const [editingCell, setEditingCell] = useState<{ row: number; field: string } | null>(null);
@@ -61,6 +69,8 @@ export function ExcelDataPreview({
   // Template state
   const [templateName, setTemplateName] = useState('');
   const [showTemplateInput, setShowTemplateInput] = useState(false);
+  const [suggestedTemplate, setSuggestedTemplate] = useState<{ template: { id: string; name: string; mapping: Record<string, number>; headerRowIndex: number }; score: number } | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Reset when items change
   React.useEffect(() => {
@@ -68,6 +78,23 @@ export function ExcelDataPreview({
     setCustomMapping(initialColumnMapping);
     setHeaderRowOffset(detectedHeaderRow);
   }, [initialItems, initialColumnMapping, detectedHeaderRow]);
+
+  // Auto-detect matching template when headers change
+  React.useEffect(() => {
+    if (!rawData || rawData.length === 0) return;
+    
+    const headerRow = rawData[detectedHeaderRow] || [];
+    const headerStrings = headerRow.map(h => h?.toString()?.trim() || '').filter(Boolean);
+    
+    if (headerStrings.length > 0) {
+      const match = findMatchingTemplate(headerStrings);
+      if (match && match.score > 30) {
+        setSuggestedTemplate(match);
+      } else {
+        setSuggestedTemplate(null);
+      }
+    }
+  }, [rawData, detectedHeaderRow, findMatchingTemplate]);
 
   const displayItems = useMemo(() => editedItems.slice(0, 50), [editedItems]);
 
@@ -201,7 +228,11 @@ export function ExcelDataPreview({
       }
     });
     
-    addTemplate(templateName.trim(), cleanMapping, headerRowOffset);
+    // Get header signature for smart matching
+    const headerRow = rawData?.[headerRowOffset] || [];
+    const headerSignature = headerRow.map(h => h?.toString()?.trim() || '').filter(Boolean);
+    
+    addTemplate(templateName.trim(), cleanMapping, headerRowOffset, headerSignature);
     toast.success(isArabic ? 'تم حفظ القالب بنجاح' : 'Template saved successfully');
     setTemplateName('');
     setShowTemplateInput(false);
@@ -211,6 +242,7 @@ export function ExcelDataPreview({
     setCustomMapping(template.mapping);
     setHeaderRowOffset(template.headerRowIndex);
     incrementUsage(template.id);
+    setSuggestedTemplate(null);
     toast.success(isArabic ? `تم تطبيق القالب: ${template.name}` : `Applied template: ${template.name}`);
   };
 
@@ -218,6 +250,37 @@ export function ExcelDataPreview({
     e.stopPropagation();
     deleteTemplate(template.id);
     toast.success(isArabic ? 'تم حذف القالب' : 'Template deleted');
+  };
+
+  // Export/Import handlers
+  const handleExportTemplates = () => {
+    downloadTemplatesFile();
+    toast.success(isArabic ? 'تم تصدير القوالب بنجاح' : 'Templates exported successfully');
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const result = await importFromFile(file);
+    if (result.success) {
+      toast.success(isArabic ? `تم استيراد ${result.count} قالب بنجاح` : `Imported ${result.count} templates successfully`);
+    } else {
+      toast.error(isArabic ? `فشل الاستيراد: ${result.error}` : `Import failed: ${result.error}`);
+    }
+    
+    // Reset input
+    e.target.value = '';
+  };
+
+  const handleApplySuggestedTemplate = () => {
+    if (suggestedTemplate) {
+      handleApplyTemplate(suggestedTemplate.template as ColumnMappingTemplate);
+    }
   };
 
   const renderCell = (item: ExcelBOQItem, field: string, rowIndex: number) => {
@@ -293,6 +356,28 @@ export function ExcelDataPreview({
 
             {/* Preview Tab */}
             <TabsContent value="preview" className="flex-1 flex flex-col mt-4">
+              {/* Suggested Template Banner */}
+              {suggestedTemplate && suggestedTemplate.score > 50 && (
+                <div className="flex items-center justify-between p-3 bg-primary/10 border border-primary/30 rounded-lg mb-3">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="h-4 w-4 text-primary" />
+                    <span className="text-sm">
+                      {isArabic 
+                        ? `تم اكتشاف قالب مطابق: "${suggestedTemplate.template.name}" (${Math.round(suggestedTemplate.score)}% تطابق)`
+                        : `Matching template found: "${suggestedTemplate.template.name}" (${Math.round(suggestedTemplate.score)}% match)`}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setSuggestedTemplate(null)}>
+                      {isArabic ? 'تجاهل' : 'Dismiss'}
+                    </Button>
+                    <Button size="sm" onClick={handleApplySuggestedTemplate}>
+                      {isArabic ? 'تطبيق القالب' : 'Apply Template'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Stats */}
               <div className="flex flex-wrap gap-3 py-2 border-b">
                 <Badge variant="outline" className="gap-1">
@@ -384,13 +469,46 @@ export function ExcelDataPreview({
                   : 'Select the appropriate column for each field. You can save the mapping as a template for future use.'}
               </div>
 
-              {/* Saved Templates */}
-              {templates.length > 0 && (
-                <div className="border rounded-lg p-3 bg-muted/30">
-                  <div className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <Download className="h-4 w-4" />
-                    {isArabic ? 'القوالب المحفوظة' : 'Saved Templates'}
+              {/* Hidden file input for import */}
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                accept=".json"
+                className="hidden"
+                onChange={handleImportFile}
+              />
+
+              {/* Saved Templates with Export/Import */}
+              <div className="border rounded-lg p-3 bg-muted/30">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Save className="h-4 w-4" />
+                    {isArabic ? 'القوالب المحفوظة' : 'Saved Templates'} ({templates.length})
                   </div>
+                  <div className="flex gap-1">
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={handleExportTemplates}
+                      disabled={templates.length === 0}
+                      className="h-7 gap-1 text-xs"
+                    >
+                      <Download className="h-3 w-3" />
+                      {isArabic ? 'تصدير' : 'Export'}
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={handleImportClick}
+                      className="h-7 gap-1 text-xs"
+                    >
+                      <Upload className="h-3 w-3" />
+                      {isArabic ? 'استيراد' : 'Import'}
+                    </Button>
+                  </div>
+                </div>
+                
+                {templates.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {templates.map(template => (
                       <Badge 
@@ -412,8 +530,12 @@ export function ExcelDataPreview({
                       </Badge>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {isArabic ? 'لا توجد قوالب محفوظة. احفظ تعيين الأعمدة كقالب لاستخدامه لاحقاً.' : 'No saved templates. Save a column mapping as a template for future use.'}
+                  </p>
+                )}
+              </div>
 
               {/* Header row selector */}
               <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg">
