@@ -1,0 +1,258 @@
+import { useState, useEffect } from "react";
+import { Plus, FolderOpen, Loader2, Check } from "lucide-react";
+import { useLanguage } from "@/hooks/useLanguage";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import type { UploadedFile } from "./FastExtractionUploader";
+
+interface Project {
+  id: string;
+  name: string;
+  file_name: string | null;
+  created_at: string;
+}
+
+interface FastExtractionProjectSelectorProps {
+  files: UploadedFile[];
+}
+
+export default function FastExtractionProjectSelector({
+  files,
+}: FastExtractionProjectSelectorProps) {
+  const { language } = useLanguage();
+  const isArabic = language === "ar";
+  const navigate = useNavigate();
+
+  const [mode, setMode] = useState<"existing" | "new">("new");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [newProjectName, setNewProjectName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("saved_projects")
+        .select("id, name, file_name, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    const successFiles = files.filter((f) => f.status === "success" && f.storagePath);
+
+    if (successFiles.length === 0) {
+      toast.error(isArabic ? "لا توجد ملفات للحفظ" : "No files to save");
+      return;
+    }
+
+    if (mode === "new" && !newProjectName.trim()) {
+      toast.error(isArabic ? "أدخل اسم المشروع" : "Enter project name");
+      return;
+    }
+
+    if (mode === "existing" && !selectedProjectId) {
+      toast.error(isArabic ? "اختر مشروعاً" : "Select a project");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      let projectId = selectedProjectId;
+
+      // Create new project if needed
+      if (mode === "new") {
+        const { data: newProject, error: projectError } = await supabase
+          .from("saved_projects")
+          .insert({
+            name: newProjectName.trim(),
+            user_id: user.id,
+            file_name: successFiles[0]?.name || null,
+          })
+          .select()
+          .single();
+
+        if (projectError) throw projectError;
+        projectId = newProject.id;
+      }
+
+      // Save attachments
+      const attachments = successFiles.map((file) => ({
+        project_id: projectId,
+        user_id: user.id,
+        file_name: file.name,
+        file_path: file.storagePath!,
+        file_type: file.type,
+        file_size: file.size,
+        category: file.category || "general",
+      }));
+
+      const { error: attachError } = await supabase
+        .from("project_attachments")
+        .insert(attachments);
+
+      if (attachError) throw attachError;
+
+      toast.success(
+        isArabic
+          ? `تم حفظ ${successFiles.length} ملفات بنجاح`
+          : `Successfully saved ${successFiles.length} files`
+      );
+
+      // Navigate to project
+      navigate(`/projects`);
+    } catch (error) {
+      console.error("Save error:", error);
+      toast.error(isArabic ? "فشل حفظ الملفات" : "Failed to save files");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const successFiles = files.filter((f) => f.status === "success");
+  const successCount = successFiles.length;
+
+  // Build category counts
+  const categoryCounts: Record<string, number> = {};
+  successFiles.forEach((file) => {
+    const cat = file.category || "general";
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h3 className="text-lg font-semibold">
+          {isArabic ? "ربط بالمشروع" : "Link to Project"}
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          {isArabic
+            ? `سيتم حفظ ${successCount} ملفات في المشروع المختار`
+            : `${successCount} files will be saved to the selected project`}
+        </p>
+      </div>
+
+      {/* Mode Selection */}
+      <RadioGroup
+        value={mode}
+        onValueChange={(v) => setMode(v as "existing" | "new")}
+        className="space-y-3"
+      >
+        <div className="flex items-center space-x-3 rtl:space-x-reverse">
+          <RadioGroupItem value="new" id="new" />
+          <Label htmlFor="new" className="flex items-center gap-2 cursor-pointer">
+            <Plus className="h-4 w-4" />
+            {isArabic ? "إنشاء مشروع جديد" : "Create new project"}
+          </Label>
+        </div>
+        <div className="flex items-center space-x-3 rtl:space-x-reverse">
+          <RadioGroupItem value="existing" id="existing" />
+          <Label htmlFor="existing" className="flex items-center gap-2 cursor-pointer">
+            <FolderOpen className="h-4 w-4" />
+            {isArabic ? "اختيار مشروع موجود" : "Select existing project"}
+          </Label>
+        </div>
+      </RadioGroup>
+
+      {/* New Project Input */}
+      {mode === "new" && (
+        <div className="space-y-2">
+          <Label>{isArabic ? "اسم المشروع" : "Project Name"}</Label>
+          <Input
+            value={newProjectName}
+            onChange={(e) => setNewProjectName(e.target.value)}
+            placeholder={isArabic ? "أدخل اسم المشروع" : "Enter project name"}
+          />
+        </div>
+      )}
+
+      {/* Existing Project Selection */}
+      {mode === "existing" && (
+        <div className="space-y-2">
+          <Label>{isArabic ? "اختر المشروع" : "Select Project"}</Label>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : projects.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">
+              {isArabic ? "لا توجد مشاريع محفوظة" : "No saved projects"}
+            </p>
+          ) : (
+            <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={isArabic ? "اختر مشروعاً" : "Select a project"}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      )}
+
+      {/* Files Summary */}
+      <div className="p-4 rounded-lg bg-muted/50 border">
+        <h4 className="text-sm font-medium mb-2">
+          {isArabic ? "ملخص الملفات" : "Files Summary"}
+        </h4>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          {Object.entries(categoryCounts).map(([cat, count]) => (
+            <div key={cat} className="flex justify-between">
+              <span className="text-muted-foreground capitalize">{cat}</span>
+              <span className="font-medium">{count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Save Button */}
+      <Button
+        className="w-full gap-2"
+        size="lg"
+        onClick={handleSave}
+        disabled={isSaving || successCount === 0}
+      >
+        {isSaving ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Check className="h-4 w-4" />
+        )}
+        {isArabic ? "حفظ وإكمال" : "Save & Complete"}
+      </Button>
+    </div>
+  );
+}
