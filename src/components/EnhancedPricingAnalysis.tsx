@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Brain, Sparkles, TrendingUp, TrendingDown, Minus, CheckCircle2, AlertTriangle, Loader2, Settings2, BarChart3, Users, Shield, Calculator, ChevronDown, ChevronRight, Target, Lightbulb, Database } from "lucide-react";
+import { Brain, Sparkles, TrendingUp, TrendingDown, Minus, CheckCircle2, Loader2, Settings2, BarChart3, Users, Shield, Calculator, ChevronDown, ChevronRight, Target, Lightbulb, Database, Trash2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import { AnalyzerWeightsDialog } from "./AnalyzerWeightsDialog";
 import { HistoricalPriceComparison } from "./HistoricalPriceComparison";
 import { EnhancedAnalysisPDFReport } from "./EnhancedAnalysisPDFReport";
 import { Link } from "react-router-dom";
+
 interface BOQItem {
   item_number: string;
   description: string;
@@ -54,10 +55,10 @@ interface EnhancedPricingAnalysisProps {
 }
 
 const ANALYZERS = [
-  { id: "construction_expert", name: "Construction Expert", nameAr: "خبير البناء", icon: Users, description: "خبرة 25+ سنة في السعودية مع أسعار مرجعية" },
-  { id: "market_analyst", name: "Market Analyst", nameAr: "محلل السوق", icon: BarChart3, description: "أسعار السوق الحالية 2024-2025" },
+  { id: "construction_expert", name: "Construction Expert", nameAr: "خبير البناء", icon: Users, description: "خبرة 25+ سنة في السعودية" },
+  { id: "market_analyst", name: "Market Analyst", nameAr: "محلل السوق", icon: BarChart3, description: "أسعار السوق 2024-2025" },
   { id: "quantity_surveyor", name: "Quantity Surveyor", nameAr: "مهندس كميات", icon: Calculator, description: "تحليل تفصيلي للتكاليف" },
-  { id: "database_comparator", name: "Historical Database", nameAr: "قاعدة بيانات تاريخية", icon: Shield, description: "مقارنة مع مشاريع سابقة حقيقية" },
+  { id: "database_comparator", name: "Historical Database", nameAr: "قاعدة بيانات", icon: Shield, description: "مقارنة مشاريع سابقة" },
 ];
 
 const LOCATIONS = [
@@ -78,6 +79,7 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
   const [summary, setSummary] = useState<any>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [customWeights, setCustomWeights] = useState<Record<string, number>>({});
+  const [deletedSuggestions, setDeletedSuggestions] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { selectedModel } = useAnalysisTracking();
 
@@ -87,7 +89,6 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // Normalize to 0-1 scale
         const total = Object.values(parsed).reduce((sum: number, val: any) => sum + (val as number), 0) as number;
         const normalized: Record<string, number> = {};
         for (const [key, val] of Object.entries(parsed)) {
@@ -120,6 +121,14 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
     });
   };
 
+  const handleDeleteSuggestion = (itemNumber: string) => {
+    setDeletedSuggestions(prev => new Set(prev).add(itemNumber));
+    toast({
+      title: "تم إخفاء البند",
+      description: `البند ${itemNumber} لن يظهر في النتائج`,
+    });
+  };
+
   const handleAnalyze = async () => {
     if (!items || items.length === 0) {
       toast({
@@ -143,8 +152,8 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
     setProgress(0);
     setSuggestions([]);
     setSummary(null);
+    setDeletedSuggestions(new Set());
 
-    // Simulate progress
     const progressInterval = setInterval(() => {
       setProgress(prev => Math.min(prev + 5, 90));
     }, 500);
@@ -173,7 +182,6 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
       setSummary(data.summary);
       setProgress(100);
 
-      // Apply rates if callback provided
       if (onApplyRates && data.suggestions?.length > 0) {
         const rates = data.suggestions.map((s: EnhancedSuggestion) => ({
           itemId: s.item_number,
@@ -223,8 +231,9 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
   };
 
   const handleApplyAll = () => {
-    if (onApplyRates && suggestions.length > 0) {
-      const rates = suggestions.map(s => ({
+    const filteredSuggestions = suggestions.filter(s => !deletedSuggestions.has(s.item_number));
+    if (onApplyRates && filteredSuggestions.length > 0) {
+      const rates = filteredSuggestions.map(s => ({
         itemId: s.item_number,
         rate: s.final_suggested_price,
       }));
@@ -236,6 +245,8 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
     }
   };
 
+  const visibleSuggestions = suggestions.filter(s => !deletedSuggestions.has(s.item_number));
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -244,7 +255,7 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
           <span>تحليل متقدم للأسعار</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-5xl max-h-[90vh]">
+      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
             <Brain className="w-5 h-5 text-primary" />
@@ -252,16 +263,16 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Settings Panel */}
-          <div className="p-4 bg-muted/30 rounded-lg border space-y-4">
-            <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 flex-1 overflow-hidden">
+          {/* Section 1: Settings Panel - Compact */}
+          <div className="p-3 bg-muted/30 rounded-lg border">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Settings2 className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">إعدادات التحليل</span>
+                <span className="font-medium text-sm">إعدادات التحليل</span>
               </div>
               <Select value={location} onValueChange={setLocation}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-[180px] h-8 text-sm">
                   <SelectValue placeholder="اختر المدينة" />
                 </SelectTrigger>
                 <SelectContent>
@@ -272,125 +283,121 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
               </Select>
             </div>
 
-            {/* Analyzers Selection */}
-            <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">المحللات النشطة</Label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {ANALYZERS.map(analyzer => {
-                  const Icon = analyzer.icon;
-                  const isActive = activeAnalyzers.includes(analyzer.id);
-                  return (
-                    <div
-                      key={analyzer.id}
-                      className={cn(
-                        "p-3 rounded-lg border cursor-pointer transition-all",
-                        isActive 
-                          ? "bg-primary/10 border-primary" 
-                          : "bg-background hover:bg-muted/50"
-                      )}
-                      onClick={() => toggleAnalyzer(analyzer.id)}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Icon className={cn("w-4 h-4", isActive ? "text-primary" : "text-muted-foreground")} />
-                        <Switch checked={isActive} />
-                      </div>
-                      <p className="text-xs font-medium">{analyzer.nameAr}</p>
-                      <p className="text-xs text-muted-foreground truncate">{analyzer.description}</p>
+            {/* Analyzers Selection - Horizontal */}
+            <div className="grid grid-cols-4 gap-2">
+              {ANALYZERS.map(analyzer => {
+                const Icon = analyzer.icon;
+                const isActive = activeAnalyzers.includes(analyzer.id);
+                return (
+                  <div
+                    key={analyzer.id}
+                    className={cn(
+                      "p-2 rounded-lg border cursor-pointer transition-all",
+                      isActive 
+                        ? "bg-primary/10 border-primary" 
+                        : "bg-background hover:bg-muted/50"
+                    )}
+                    onClick={() => toggleAnalyzer(analyzer.id)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon className={cn("w-4 h-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                      <span className="text-xs font-medium flex-1">{analyzer.nameAr}</span>
+                      <Switch checked={isActive} className="scale-75" />
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
+          </div>
 
-            {/* Analyze Button */}
-            <div className="flex items-center gap-3">
-              <Button 
-                onClick={handleAnalyze} 
-                disabled={isLoading || activeAnalyzers.length === 0}
-                className="gap-2"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    جاري التحليل...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    بدء التحليل المتقدم ({items.length} بند)
-                  </>
-                )}
-              </Button>
-
-              {suggestions.length > 0 && (
+          {/* Section 2: Primary Actions Bar */}
+          <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
+            <Button 
+              onClick={handleAnalyze} 
+              disabled={isLoading || activeAnalyzers.length === 0}
+              className="gap-2"
+              size="lg"
+            >
+              {isLoading ? (
                 <>
-                  <Button variant="secondary" onClick={handleApplyAll} className="gap-2">
-                    <CheckCircle2 className="w-4 h-4" />
-                    تطبيق جميع الأسعار
-                  </Button>
-
-                  <HistoricalPriceComparison 
-                    items={items} 
-                    suggestions={suggestions}
-                    onApplyAdjustedPrices={onApplyRates}
-                  />
-
-                  <EnhancedAnalysisPDFReport 
-                    suggestions={suggestions}
-                    summary={summary}
-                  />
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  جاري التحليل...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  بدء التحليل المتقدم ({items.length} بند)
                 </>
               )}
+            </Button>
 
-              <div className="mr-auto flex items-center gap-2">
-                <Link to="/historical-pricing">
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Database className="w-4 h-4" />
-                    قاعدة البيانات التاريخية
-                  </Button>
-                </Link>
-                <AnalyzerWeightsDialog onWeightsChange={setCustomWeights} />
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            {isLoading && (
-              <div className="space-y-1">
-                <Progress value={progress} className="h-2" />
-                <p className="text-xs text-muted-foreground text-center">
-                  جاري التحليل باستخدام {activeAnalyzers.length} محلل...
-                </p>
-              </div>
+            {visibleSuggestions.length > 0 && (
+              <Button variant="secondary" onClick={handleApplyAll} className="gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                تطبيق جميع الأسعار ({visibleSuggestions.length})
+              </Button>
             )}
           </div>
 
-          {/* Summary Stats */}
+          {/* Section 3: Secondary Tools Bar */}
+          {suggestions.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <HistoricalPriceComparison 
+                items={items} 
+                suggestions={suggestions}
+                onApplyAdjustedPrices={onApplyRates}
+              />
+              <EnhancedAnalysisPDFReport 
+                suggestions={suggestions}
+                summary={summary}
+              />
+              <Link to="/historical-pricing">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Database className="w-4 h-4" />
+                  قاعدة البيانات
+                </Button>
+              </Link>
+              <AnalyzerWeightsDialog onWeightsChange={setCustomWeights} />
+            </div>
+          )}
+
+          {/* Section 4: Progress Bar */}
+          {isLoading && (
+            <div className="space-y-1">
+              <Progress value={progress} className="h-2" />
+              <p className="text-xs text-muted-foreground text-center">
+                جاري التحليل باستخدام {activeAnalyzers.length} محلل... ({progress}%)
+              </p>
+            </div>
+          )}
+
+          {/* Section 5: Summary Stats - Sticky */}
           {summary && (
-            <div className="grid grid-cols-4 gap-3">
-              <div className="p-3 bg-primary/10 rounded-lg text-center">
+            <div className="grid grid-cols-4 gap-3 sticky top-0 bg-background z-10 py-2 border-b">
+              <div className="p-3 bg-primary/10 rounded-lg text-center border">
                 <p className="text-2xl font-bold text-primary">{summary.analyzed_items}</p>
                 <p className="text-xs text-muted-foreground">بند تم تحليله</p>
               </div>
-              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg text-center">
+              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg text-center border border-green-200 dark:border-green-800">
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">{summary.average_confidence}%</p>
                 <p className="text-xs text-muted-foreground">متوسط الثقة</p>
               </div>
-              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-center">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-center border border-blue-200 dark:border-blue-800">
                 <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{summary.average_consensus}%</p>
                 <p className="text-xs text-muted-foreground">توافق المحللين</p>
               </div>
-              <div className="p-3 bg-muted rounded-lg text-center">
-                <p className="text-2xl font-bold">{summary.analyzers_used?.length || 0}</p>
+              <div className="p-3 bg-muted rounded-lg text-center border">
+                <p className="text-2xl font-bold">{activeAnalyzers.length}</p>
                 <p className="text-xs text-muted-foreground">محلل نشط</p>
               </div>
             </div>
           )}
 
-          {/* Results List */}
-          {suggestions.length > 0 && (
-            <ScrollArea className="h-[400px] pr-4">
+          {/* Section 6: Results List - Scrollable */}
+          {visibleSuggestions.length > 0 && (
+            <ScrollArea className="flex-1 min-h-0 pr-4">
               <div className="space-y-2">
-                {suggestions.map((suggestion) => {
+                {visibleSuggestions.map((suggestion) => {
                   const isExpanded = expandedItems.has(suggestion.item_number);
                   const variance = getVarianceIndicator(suggestion.current_price, suggestion.final_suggested_price);
                   const VarianceIcon = variance.icon;
@@ -398,40 +405,65 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
                   return (
                     <Collapsible key={suggestion.item_number} open={isExpanded}>
                       <div className="border rounded-lg overflow-hidden">
-                        <CollapsibleTrigger 
-                          className="w-full p-3 hover:bg-muted/50 transition-colors"
-                          onClick={() => toggleExpanded(suggestion.item_number)}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                              <div className="text-right">
-                                <p className="font-medium text-sm">{suggestion.item_number}</p>
-                                <p className="text-xs text-muted-foreground truncate max-w-[300px]">
-                                  {suggestion.description}
-                                </p>
-                              </div>
+                        <div className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors">
+                          <CollapsibleTrigger 
+                            className="flex items-center gap-3 flex-1"
+                            onClick={() => toggleExpanded(suggestion.item_number)}
+                          >
+                            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                            <div className="text-right">
+                              <p className="font-medium text-sm">{suggestion.item_number}</p>
+                              <p className="text-xs text-muted-foreground truncate max-w-[250px]">
+                                {suggestion.description}
+                              </p>
+                            </div>
+                          </CollapsibleTrigger>
+                          
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <p className="text-xs text-muted-foreground">الحالي</p>
+                              <p className="font-medium">{suggestion.current_price.toFixed(2)}</p>
                             </div>
                             
-                            <div className="flex items-center gap-4">
-                              <div className="text-right">
-                                <p className="text-xs text-muted-foreground">الحالي</p>
-                                <p className="font-medium">{suggestion.current_price.toFixed(2)}</p>
-                              </div>
-                              
-                              <VarianceIcon className={cn("w-5 h-5", variance.color)} />
-                              
-                              <div className="text-right">
-                                <p className="text-xs text-muted-foreground">المقترح</p>
-                                <p className="font-bold text-primary">{suggestion.final_suggested_price.toFixed(2)}</p>
-                              </div>
+                            <VarianceIcon className={cn("w-5 h-5", variance.color)} />
+                            
+                            <div className="text-right">
+                              <p className="text-xs text-muted-foreground">المقترح</p>
+                              <p className="font-bold text-primary">{suggestion.final_suggested_price.toFixed(2)}</p>
+                            </div>
 
-                              <Badge className={getConsensusColor(suggestion.consensus_score)}>
-                                توافق {suggestion.consensus_score}%
-                              </Badge>
+                            <Badge className={getConsensusColor(suggestion.consensus_score)}>
+                              توافق {suggestion.consensus_score}%
+                            </Badge>
+
+                            {/* Item Actions */}
+                            <div className="flex items-center gap-1 border-r pr-3 mr-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-7 px-2 gap-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpanded(suggestion.item_number);
+                                }}
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                <span className="text-xs">فتح</span>
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-7 px-2 text-destructive hover:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSuggestion(suggestion.item_number);
+                                }}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
                             </div>
                           </div>
-                        </CollapsibleTrigger>
+                        </div>
 
                         <CollapsibleContent>
                           <div className="p-4 bg-muted/20 border-t space-y-4">
@@ -481,9 +513,9 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
             </ScrollArea>
           )}
 
-          {/* Empty State */}
+          {/* Section 7: Empty State */}
           {!isLoading && suggestions.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
+            <div className="text-center py-12 text-muted-foreground flex-1 flex flex-col items-center justify-center">
               <Brain className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>اختر المحللات وابدأ التحليل للحصول على أسعار دقيقة</p>
             </div>
