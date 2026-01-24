@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle } from "lucide-react";
 import { DualHorizontalScrollBar } from "./DualHorizontalScrollBar";
 import { TableControls, BOQ_TABLE_COLUMNS } from "./TableControls";
 import {
@@ -206,8 +206,12 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   // State for tracking recently applied AI rates (for visual confirmation)
   const [recentlyAppliedItems, setRecentlyAppliedItems] = useState<Set<string>>(new Set());
   
-  // Ref for horizontal scroll bar
+  // Ref for horizontal scroll bar and page scroll
   const tableContainerRef = useRef<HTMLDivElement>(null);
+  const pageContainerRef = useRef<HTMLDivElement>(null);
+  
+  // State for deleted items (to hide zero quantity rows)
+  const [deletedItemNumbers, setDeletedItemNumbers] = useState<Set<string>>(new Set());
   
   // Table zoom, pinned columns, and visible columns state
   const [tableZoom, setTableZoom] = useState(() => {
@@ -538,10 +542,13 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     return { units, categories };
   }, [data.items]);
 
-  // Filter and sort items - also filter out items without item_number
+  // Filter and sort items - also filter out items without item_number and deleted items
   const filteredItems = useMemo(() => {
     // Items should already be normalized, but double-check item_number exists
-    let items = (data.items || []).filter(item => !!item.item_number);
+    // Also filter out deleted items
+    let items = (data.items || []).filter(item => 
+      !!item.item_number && !deletedItemNumbers.has(item.item_number)
+    );
     
     // Search filter
     if (searchQuery) {
@@ -606,7 +613,54 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     }
     
     return items;
-  }, [data.items, searchQuery, unitFilter, categoryFilter, costRangeFilter, sortField, sortDirection]);
+  }, [data.items, searchQuery, unitFilter, categoryFilter, costRangeFilter, sortField, sortDirection, deletedItemNumbers]);
+
+  // Count zero quantity items
+  const zeroQuantityItems = useMemo(() => {
+    return (data.items || []).filter(item => 
+      !!item.item_number && 
+      !deletedItemNumbers.has(item.item_number) && 
+      (!item.quantity || item.quantity === 0)
+    );
+  }, [data.items, deletedItemNumbers]);
+
+  // Handler to delete a single zero quantity row
+  const handleDeleteZeroQtyRow = useCallback((itemNumber: string) => {
+    setDeletedItemNumbers(prev => {
+      const newSet = new Set(prev);
+      newSet.add(itemNumber);
+      return newSet;
+    });
+    toast({
+      title: isArabic ? "تم حذف البند" : "Item Deleted",
+      description: isArabic ? `تم حذف البند ${itemNumber}` : `Deleted item ${itemNumber}`,
+    });
+  }, [isArabic, toast]);
+
+  // Handler to delete all zero quantity rows
+  const handleDeleteAllZeroQtyRows = useCallback(() => {
+    const zeroQtyItemNumbers = zeroQuantityItems.map(item => item.item_number);
+    setDeletedItemNumbers(prev => {
+      const newSet = new Set(prev);
+      zeroQtyItemNumbers.forEach(num => newSet.add(num));
+      return newSet;
+    });
+    toast({
+      title: isArabic ? "تم حذف البنود" : "Items Deleted",
+      description: isArabic 
+        ? `تم حذف ${zeroQtyItemNumbers.length} بند بكمية صفر` 
+        : `Deleted ${zeroQtyItemNumbers.length} zero quantity items`,
+    });
+  }, [zeroQuantityItems, isArabic, toast]);
+
+  // Scroll navigation handlers
+  const handleScrollToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const handleScrollToBottom = useCallback(() => {
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+  }, []);
 
   const clearFilters = useCallback(() => {
     setSearchQuery("");
@@ -1672,10 +1726,26 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
 
               {/* Items Found Counter */}
               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>
-                  {filteredItems.length} {isArabic ? "عنصر" : "items"} 
-                  {hasActiveFilters && ` (${isArabic ? "من" : "of"} ${data.items?.length || 0})`}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span>
+                    {filteredItems.length} {isArabic ? "عنصر" : "items"} 
+                    {hasActiveFilters && ` (${isArabic ? "من" : "of"} ${data.items?.length || 0})`}
+                  </span>
+                  {/* Delete Zero Quantity Items Button */}
+                  {zeroQuantityItems.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDeleteAllZeroQtyRows}
+                      className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      {isArabic 
+                        ? `حذف ${zeroQuantityItems.length} بند بكمية صفر` 
+                        : `Delete ${zeroQuantityItems.length} zero qty items`}
+                    </Button>
+                  )}
+                </div>
                 {hasActiveFilters && (
                   <div className="flex flex-wrap gap-1">
                     {searchQuery && (
@@ -1985,22 +2055,36 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                           </td>
                         )}
                         <td className="px-3 py-3 text-center">
-                          <ItemCostEditor
-                            itemId={item.item_number}
-                            itemDescription={item.description}
-                            quantity={item.quantity}
-                            currentCosts={costData}
-                            calculatedCosts={calcCosts}
-                            onSave={handleSaveItemCost}
-                            onCopyFrom={handleCopyFromItem}
-                            onSaveAsTemplate={handleSaveAsTemplate}
-                            onApplyTemplate={handleApplyTemplate}
-                            onDeleteTemplate={handleDeleteTemplate}
-                            savedTemplate={savedTemplate}
-                            savedTemplates={savedTemplates}
-                            availableItems={availableItemsForCopy}
-                            currency={data.summary?.currency || "SAR"}
-                          />
+                          <div className="flex items-center justify-center gap-1">
+                            <ItemCostEditor
+                              itemId={item.item_number}
+                              itemDescription={item.description}
+                              quantity={item.quantity}
+                              currentCosts={costData}
+                              calculatedCosts={calcCosts}
+                              onSave={handleSaveItemCost}
+                              onCopyFrom={handleCopyFromItem}
+                              onSaveAsTemplate={handleSaveAsTemplate}
+                              onApplyTemplate={handleApplyTemplate}
+                              onDeleteTemplate={handleDeleteTemplate}
+                              savedTemplate={savedTemplate}
+                              savedTemplates={savedTemplates}
+                              availableItems={availableItemsForCopy}
+                              currency={data.summary?.currency || "SAR"}
+                            />
+                            {/* Delete button for zero quantity items */}
+                            {(!item.quantity || item.quantity === 0) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteZeroQtyRow(item.item_number)}
+                                className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                                title={isArabic ? "حذف البند (كمية صفر)" : "Delete item (zero qty)"}
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -2227,6 +2311,28 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
             currency={data.summary?.currency} 
           />
         )}
+      </div>
+
+      {/* Floating Scroll Navigation Bar */}
+      <div className="fixed right-4 bottom-1/2 translate-y-1/2 z-40 flex flex-col gap-2">
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={handleScrollToTop}
+          className="h-10 w-10 rounded-full shadow-lg border border-border hover:bg-primary hover:text-primary-foreground transition-colors"
+          title={isArabic ? "الذهاب للأعلى" : "Go to top"}
+        >
+          <ArrowUp className="w-5 h-5" />
+        </Button>
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={handleScrollToBottom}
+          className="h-10 w-10 rounded-full shadow-lg border border-border hover:bg-primary hover:text-primary-foreground transition-colors"
+          title={isArabic ? "الذهاب للأسفل" : "Go to bottom"}
+        >
+          <ArrowDown className="w-5 h-5" />
+        </Button>
       </div>
     </div>
   );
