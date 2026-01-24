@@ -37,6 +37,7 @@ import HistoricalPricingPage from "./pages/HistoricalPricingPage";
 import ResourcesPage from "./pages/ResourcesPage";
 import MaterialPricesPage from "./pages/MaterialPricesPage";
 import CalendarPage from "./pages/CalendarPage";
+import FastExtractionPage from "./pages/FastExtractionPage";
 
 const queryClient = new QueryClient();
 
@@ -81,8 +82,8 @@ const App = () => (
                 <Route path="/resources" element={<ResourcesPage />} />
                 <Route path="/material-prices" element={<MaterialPricesPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/fast-extraction" element={<FastExtractionPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
                 <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
