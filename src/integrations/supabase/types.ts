@@ -530,67 +530,103 @@ export type Database = {
       }
       contracts: {
         Row: {
+          advance_payment_percentage: number | null
+          contract_duration_months: number | null
           contract_number: string
           contract_title: string
           contract_type: string | null
           contract_value: number | null
+          contractor_address: string | null
+          contractor_category: string | null
+          contractor_email: string | null
+          contractor_license_number: string | null
           contractor_name: string | null
+          contractor_phone: string | null
           created_at: string
           currency: string | null
           documents_url: string | null
           end_date: string | null
+          execution_percentage: number | null
           id: string
           notes: string | null
           payment_terms: string | null
+          performance_bond_percentage: number | null
+          performance_bond_value: number | null
           project_id: string | null
+          retention_percentage: number | null
           scope_of_work: string | null
           start_date: string | null
           status: string | null
           terms_conditions: string | null
           updated_at: string
           user_id: string
+          variation_limit_percentage: number | null
         }
         Insert: {
+          advance_payment_percentage?: number | null
+          contract_duration_months?: number | null
           contract_number: string
           contract_title: string
           contract_type?: string | null
           contract_value?: number | null
+          contractor_address?: string | null
+          contractor_category?: string | null
+          contractor_email?: string | null
+          contractor_license_number?: string | null
           contractor_name?: string | null
+          contractor_phone?: string | null
           created_at?: string
           currency?: string | null
           documents_url?: string | null
           end_date?: string | null
+          execution_percentage?: number | null
           id?: string
           notes?: string | null
           payment_terms?: string | null
+          performance_bond_percentage?: number | null
+          performance_bond_value?: number | null
           project_id?: string | null
+          retention_percentage?: number | null
           scope_of_work?: string | null
           start_date?: string | null
           status?: string | null
           terms_conditions?: string | null
           updated_at?: string
           user_id: string
+          variation_limit_percentage?: number | null
         }
         Update: {
+          advance_payment_percentage?: number | null
+          contract_duration_months?: number | null
           contract_number?: string
           contract_title?: string
           contract_type?: string | null
           contract_value?: number | null
+          contractor_address?: string | null
+          contractor_category?: string | null
+          contractor_email?: string | null
+          contractor_license_number?: string | null
           contractor_name?: string | null
+          contractor_phone?: string | null
           created_at?: string
           currency?: string | null
           documents_url?: string | null
           end_date?: string | null
+          execution_percentage?: number | null
           id?: string
           notes?: string | null
           payment_terms?: string | null
+          performance_bond_percentage?: number | null
+          performance_bond_value?: number | null
           project_id?: string | null
+          retention_percentage?: number | null
           scope_of_work?: string | null
           start_date?: string | null
           status?: string | null
           terms_conditions?: string | null
           updated_at?: string
           user_id?: string
+          variation_limit_percentage?: number | null
         }
         Relationships: [
           {
