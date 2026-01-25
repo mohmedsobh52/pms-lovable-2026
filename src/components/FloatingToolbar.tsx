@@ -782,15 +782,16 @@ export function FloatingToolbar({
         className={cn(
           "fixed z-50 w-12 h-12 rounded-xl shadow-lg",
           "transition-all duration-300 ease-out transform-gpu",
-          "bg-[#3a4a6b] hover:bg-[#4a5a7b]",
-          "border border-white/10",
+          "bg-sidebar-background dark:bg-sidebar-background",
+          "border border-sidebar-border",
           "flex items-center justify-center",
+          "hover:bg-sidebar-accent",
           isArabic ? "left-4 bottom-20" : "right-4 bottom-20",
           isOpen && "opacity-0 pointer-events-none"
         )}
         size="icon"
       >
-        <Menu className="w-5 h-5 text-white" />
+        <Menu className="w-5 h-5 text-sidebar-foreground" />
       </Button>
 
       {/* Sidebar Panel */}
@@ -798,7 +799,7 @@ export function FloatingToolbar({
         className={cn(
           "fixed z-50 top-0 h-full w-72",
           "transition-all duration-400 ease-out transform-gpu",
-          "bg-gradient-to-b from-[#3a4a6b] to-[#2d3a54]",
+          "bg-slate-800 dark:bg-slate-900",
           "shadow-2xl",
           isArabic ? "right-0" : "left-0",
           isOpen 
@@ -939,7 +940,7 @@ export function FloatingToolbar({
         </div>
 
         {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10 bg-[#2d3a54]/80 backdrop-blur-sm">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10 bg-slate-900/80 backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
               <span className="text-white text-sm font-bold">A</span>
