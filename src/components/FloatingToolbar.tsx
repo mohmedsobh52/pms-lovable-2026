@@ -36,7 +36,11 @@ import {
   FolderOpen,
   Zap,
   History,
-  Wrench
+  Wrench,
+  FileSignature,
+  CreditCard,
+  FilePlus,
+  FolderArchive
 } from "lucide-react";
 import { 
   DndContext, 
@@ -283,6 +287,10 @@ export function FloatingToolbar({
     "risk": "/risk",
     "contracts": "/contracts",
     "subcontractors": "/subcontractors",
+    "fidic-templates": "/contracts",
+    "change-orders": "/contracts",
+    "payment-tracking": "/contracts",
+    "contract-documents": "/attachments",
     "attachments": "/attachments",
     "calendar": "/calendar",
     // Settings
@@ -293,14 +301,14 @@ export function FloatingToolbar({
   };
 
   const defaultMenuItems: MenuItem[] = [
-    // 1. Dashboard - نقطة البداية
+    // 1. Dashboard - لوحة التحكم
     {
       id: "dashboard",
       icon: <LayoutDashboard className="w-4 h-4" />,
       label: "Dashboard",
       labelAr: "لوحة التحكم",
     },
-    // 2. Projects - الوصول السريع للمشاريع
+    // 2. Projects - المشاريع
     {
       id: "projects-menu",
       icon: <Briefcase className="w-4 h-4" />,
@@ -327,13 +335,12 @@ export function FloatingToolbar({
         },
       ],
     },
-    // 3. BOQ Items - العمل الأساسي (مبسط)
+    // 3. BOQ Items - جدول الكميات
     {
       id: "items-menu",
       icon: <Layers className="w-4 h-4" />,
       label: "BOQ Items",
       labelAr: "جدول الكميات",
-      badge: String(4),
       children: [
         {
           id: "analysis",
@@ -361,13 +368,12 @@ export function FloatingToolbar({
         },
       ],
     },
-    // 4. Analysis & Estimating - دمج التحليل والتسعير
+    // 4. Analysis & Estimating - التحليل والتسعير
     {
       id: "analysis-estimating",
       icon: <BarChart3 className="w-4 h-4" />,
       label: "Analysis & Estimating",
       labelAr: "التحليل والتسعير",
-      badge: String(7),
       children: [
         {
           id: "cost-analysis",
@@ -415,63 +421,7 @@ export function FloatingToolbar({
         },
       ],
     },
-    // 5. Library & Procurement - دمج المكتبة والمشتريات
-    {
-      id: "library-procurement",
-      icon: <Database className="w-4 h-4" />,
-      label: "Library & Procurement",
-      labelAr: "المكتبة والمشتريات",
-      badge: "New",
-      badgeVariant: "destructive",
-      children: [
-        {
-          id: "library",
-          icon: <Database className="w-4 h-4" />,
-          label: "Library",
-          labelAr: "المكتبة",
-        },
-        {
-          id: "material-prices",
-          icon: <Database className="w-4 h-4" />,
-          label: "Material Prices",
-          labelAr: "أسعار المواد",
-        },
-        {
-          id: "procurement-schedule",
-          icon: <ClipboardList className="w-4 h-4" />,
-          label: "Procurement Schedule",
-          labelAr: "جدولة المشتريات",
-        },
-        {
-          id: "resources",
-          icon: <Users className="w-4 h-4" />,
-          label: "Resources",
-          labelAr: "الموارد",
-        },
-      ],
-    },
-    // 6. Contract Management - إدارة العقود
-    {
-      id: "contract-management",
-      icon: <Building2 className="w-4 h-4" />,
-      label: "Contract Management",
-      labelAr: "إدارة العقود",
-      children: [
-        {
-          id: "contracts",
-          icon: <FileText className="w-4 h-4" />,
-          label: "Contracts",
-          labelAr: "العقود",
-        },
-        {
-          id: "subcontractors",
-          icon: <Users className="w-4 h-4" />,
-          label: "Subcontractors",
-          labelAr: "المقاولين من الباطن",
-        },
-      ],
-    },
-    // 7. Scheduling - الجدولة والتخطيط (مدمج جديد)
+    // 5. Scheduling - الجدولة والتخطيط
     {
       id: "scheduling",
       icon: <Calendar className="w-4 h-4" />,
@@ -504,10 +454,88 @@ export function FloatingToolbar({
         },
       ],
     },
-    // 8. Project Management - إدارة المشروع (مدمج جديد)
+    // 6. Contract Management - إدارة العقود
+    {
+      id: "contract-management",
+      icon: <Building2 className="w-4 h-4" />,
+      label: "Contract Management",
+      labelAr: "إدارة العقود",
+      children: [
+        {
+          id: "contracts",
+          icon: <FileText className="w-4 h-4" />,
+          label: "Contracts",
+          labelAr: "العقود",
+        },
+        {
+          id: "fidic-templates",
+          icon: <FileSignature className="w-4 h-4" />,
+          label: "FIDIC Templates",
+          labelAr: "نماذج FIDIC",
+        },
+        {
+          id: "change-orders",
+          icon: <FilePlus className="w-4 h-4" />,
+          label: "Change Orders",
+          labelAr: "أوامر التغيير",
+        },
+        {
+          id: "payment-tracking",
+          icon: <CreditCard className="w-4 h-4" />,
+          label: "Payment Tracking",
+          labelAr: "متابعة الدفعات",
+        },
+        {
+          id: "contract-documents",
+          icon: <FolderArchive className="w-4 h-4" />,
+          label: "Documents",
+          labelAr: "المستندات",
+        },
+        {
+          id: "subcontractors",
+          icon: <Users className="w-4 h-4" />,
+          label: "Subcontractors",
+          labelAr: "المقاولين من الباطن",
+        },
+      ],
+    },
+    // 7. Library & Procurement - المكتبة والمشتريات
+    {
+      id: "library-procurement",
+      icon: <Database className="w-4 h-4" />,
+      label: "Library & Procurement",
+      labelAr: "المكتبة والمشتريات",
+      children: [
+        {
+          id: "library",
+          icon: <Database className="w-4 h-4" />,
+          label: "Library",
+          labelAr: "المكتبة",
+        },
+        {
+          id: "material-prices",
+          icon: <DollarSign className="w-4 h-4" />,
+          label: "Material Prices",
+          labelAr: "أسعار المواد",
+        },
+        {
+          id: "procurement-schedule",
+          icon: <ClipboardList className="w-4 h-4" />,
+          label: "Procurement Schedule",
+          labelAr: "جدولة المشتريات",
+        },
+        {
+          id: "resources",
+          icon: <Users className="w-4 h-4" />,
+          label: "Resources",
+          labelAr: "الموارد",
+        },
+      ],
+    },
+    // 8. Project Management - إدارة المشروع
     {
       id: "project-management",
-      icon: <Briefcase className="w-4 h-4" />,
+      icon: <Shield className="w-4 h-4" />,
       label: "Project Management",
       labelAr: "إدارة المشروع",
       children: [
