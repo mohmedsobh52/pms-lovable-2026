@@ -7,11 +7,12 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
-import { LogIn, Settings2 } from "lucide-react";
+import { LogIn, Settings2, Home } from "lucide-react";
 import BackgroundImage from "@/components/BackgroundImage";
 import { PageLoadingProgress } from "@/components/PageLoadingProgress";
 import { PageTransition } from "@/components/PageTransition";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { BackToHomeButton } from "@/components/BackToHomeButton";
 
 interface PageLayoutProps {
   children: ReactNode;
@@ -125,7 +126,12 @@ export function PageLayout({ children }: PageLayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 container mx-auto px-4 py-8">
-        <Breadcrumbs />
+        <div className="flex items-center gap-4 mb-4">
+          <BackToHomeButton />
+          <div className="flex-1">
+            <Breadcrumbs />
+          </div>
+        </div>
         <PageTransition>
           {children}
         </PageTransition>

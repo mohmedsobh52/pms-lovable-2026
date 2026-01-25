@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FileUp, Sparkles, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2, FileSpreadsheet, Clock, Layers, Zap } from "lucide-react";
+import { FileUp, Sparkles, Download, FileText, Edit3, Loader2, CheckCircle2, AlertTriangle, LogIn, Save, User, Receipt, Scale, ScanLine, FileStack, Calendar, GitCompare, Bell, LayoutDashboard, Package, MoreHorizontal, Share2, FolderOpen, ChevronDown, Paperclip, Users, Copy, Settings2, FileSpreadsheet, Clock, Layers, Zap, Home } from "lucide-react";
 import { PMSLogo } from "@/components/PMSLogo";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -1342,9 +1342,16 @@ const Index = () => {
             <nav className="flex-1 flex items-center justify-center overflow-x-auto scrollbar-hide">
               <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-1">
                 <Link to="/">
+                  <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs font-medium hover:bg-background/80 rounded-md">
+                    <Home className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{isArabic ? 'الرئيسية' : 'Home'}</span>
+                  </Button>
+                </Link>
+                
+                <Link to="/dashboard">
                   <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs font-medium hover:bg-background/80 data-[active=true]:bg-background data-[active=true]:shadow-sm rounded-md" data-active="true">
                     <LayoutDashboard className="w-3.5 h-3.5" />
-                    <span>{isArabic ? 'الرئيسية' : 'Dashboard'}</span>
+                    <span>{isArabic ? 'لوحة التحكم' : 'Dashboard'}</span>
                   </Button>
                 </Link>
                 
