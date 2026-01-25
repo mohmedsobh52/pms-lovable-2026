@@ -462,24 +462,24 @@ export function FloatingToolbar({
         },
       ],
     },
-    // 6. Stakeholders - دمج المقاولين والعقود
+    // 6. Contract Management - إدارة العقود
     {
-      id: "stakeholders",
-      icon: <Users className="w-4 h-4" />,
-      label: "Stakeholders",
-      labelAr: "الأطراف المعنية",
+      id: "contract-management",
+      icon: <Building2 className="w-4 h-4" />,
+      label: "Contract Management",
+      labelAr: "إدارة العقود",
       children: [
+        {
+          id: "contracts",
+          icon: <FileText className="w-4 h-4" />,
+          label: "Contracts",
+          labelAr: "العقود",
+        },
         {
           id: "subcontractors",
           icon: <Users className="w-4 h-4" />,
           label: "Subcontractors",
           labelAr: "المقاولين من الباطن",
-        },
-        {
-          id: "contracts",
-          icon: <Building2 className="w-4 h-4" />,
-          label: "Contracts",
-          labelAr: "العقود",
         },
       ],
     },
