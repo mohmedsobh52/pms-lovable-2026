@@ -186,7 +186,8 @@ export default function ProjectDetailsPage() {
           .from("project_items")
           .select("*")
           .eq("project_id", projectId)
-          .order("item_number");
+          .order("sort_order", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: true });
 
         if (itemsError) throw itemsError;
         setItems(itemsData || []);
@@ -1215,8 +1216,8 @@ export default function ProjectDetailsPage() {
                                 }}
                               />
                             </TableCell>
-                            <TableCell className="font-mono text-sm">{item.item_number}</TableCell>
-                            <TableCell className="max-w-[300px] truncate">{item.description || '-'}</TableCell>
+                            <TableCell className="font-mono text-sm whitespace-nowrap">{item.item_number}</TableCell>
+                            <TableCell className="min-w-[350px] max-w-[500px] whitespace-pre-wrap break-words text-sm leading-relaxed">{item.description || '-'}</TableCell>
                             <TableCell>{item.unit || '-'}</TableCell>
                             <TableCell className="text-right">{item.quantity?.toLocaleString() || '-'}</TableCell>
                             <TableCell className="text-right">
