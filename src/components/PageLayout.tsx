@@ -29,7 +29,7 @@ export function PageLayout({ children }: PageLayoutProps) {
     if (path === "/cost-analysis") return "cost-analysis";
     if (path === "/procurement") return "procurement";
     if (path === "/quotations") return "upload";
-    if (path === "/subcontractors") return "subcontractors";
+    if (path === "/subcontractors") return "contracts";
     if (path === "/contracts") return "contracts";
     if (path === "/risk") return "risk";
     if (path === "/reports") return "reports";
@@ -77,7 +77,7 @@ export function PageLayout({ children }: PageLayoutProps) {
       "help": "/about",
       "attachments": "/attachments",
       "templates": "/templates",
-      "subcontractors": "/subcontractors",
+      "subcontractors": "/contracts",
       "library": "/library",
       "historical-pricing": "/historical-pricing",
       "fast-extraction": "/fast-extraction",
@@ -85,7 +85,7 @@ export function PageLayout({ children }: PageLayoutProps) {
       // Merged menu routes
       "analysis-estimating": "/analysis-tools",
       "library-procurement": "/library",
-      "stakeholders": "/subcontractors",
+      "stakeholders": "/contracts",
     };
     
     const route = routes[tab] || "/";
