@@ -95,13 +95,22 @@ const PricingScenarios = ({ pricingSettings, totals, currency = "SAR" }: Pricing
            totals.totalSubcontractorsCosts;
   }, [totals]);
 
+  // Pre-calculate realistic scenario total to avoid recursion
+  const realisticScenarioData = useMemo(() => {
+    const realistic = scenarios.find(s => s.id === 'realistic');
+    if (!realistic) return 0;
+    const adjustedCosts = baseCosts * realistic.costMultiplier;
+    const profit = adjustedCosts * (realistic.profitMargin / 100);
+    const contingencyAmount = adjustedCosts * (realistic.contingency / 100);
+    return adjustedCosts + profit + contingencyAmount;
+  }, [scenarios, baseCosts]);
+
   const calculateScenarioValues = (scenario: Scenario) => {
     const adjustedCosts = baseCosts * scenario.costMultiplier;
     const profit = adjustedCosts * (scenario.profitMargin / 100);
     const contingencyAmount = adjustedCosts * (scenario.contingency / 100);
     const total = adjustedCosts + profit + contingencyAmount;
-    const realisticTotal = scenarios.find(s => s.id === 'realistic');
-    const difference = realisticTotal ? total - calculateScenarioValues({ ...realisticTotal, id: 'temp', icon: 'realistic' }).total : 0;
+    const difference = scenario.id === 'realistic' ? 0 : total - realisticScenarioData;
 
     return {
       costs: adjustedCosts,

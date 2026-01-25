@@ -31,12 +31,14 @@ interface TenderPDFExportProps {
     insuranceCosts: number;
     guaranteesCosts: number;
     indirectCosts: number;
+    subcontractorsCosts: number;
   };
   staffData?: any[];
   facilitiesData?: any[];
   insuranceData?: any[];
   guaranteesData?: any[];
   indirectCostsData?: any[];
+  subcontractorsData?: any[];
 }
 
 export function TenderPDFExport({
@@ -49,6 +51,7 @@ export function TenderPDFExport({
   insuranceData = [],
   guaranteesData = [],
   indirectCostsData = [],
+  subcontractorsData = [],
 }: TenderPDFExportProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -58,6 +61,7 @@ export function TenderPDFExport({
     includeInsurance: true,
     includeGuarantees: true,
     includeIndirectCosts: true,
+    includeSubcontractors: true,
     includeSummary: true,
   });
 
@@ -276,6 +280,38 @@ export function TenderPDFExport({
         yPos = (doc as any).lastAutoTable.finalY + 10;
       }
 
+      // Subcontractors
+      if (options.includeSubcontractors && subcontractorsData.length > 0) {
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        doc.setFontSize(12);
+        doc.text("Subcontractors", margin, yPos);
+        yPos += 8;
+
+        const subcontractorsTableData = subcontractorsData.map((s: any) => [
+          s.name || s.nameEn,
+          s.specialty || "-",
+          s.scopeOfWork || "-",
+          formatCurrency(s.contractValue || 0),
+        ]);
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [["Subcontractor", "Specialty", "Scope", "Contract Value"]],
+          body: subcontractorsTableData,
+          foot: [["", "", "Total", formatCurrency(totals.subcontractorsCosts)]],
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 9 },
+          headStyles: { fillColor: [236, 72, 153] },
+          footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+      }
+
       // Final Summary
       if (options.includeSummary) {
         if (yPos > 220) {
@@ -288,7 +324,7 @@ export function TenderPDFExport({
         doc.text("Financial Summary", margin, yPos);
         yPos += 10;
 
-        const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts;
+        const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts + totals.subcontractorsCosts;
         const subtotal = totalIndirect;
         const profit = subtotal * (pricingSettings.profitMargin / 100);
         const contingency = subtotal * (pricingSettings.contingency / 100);
@@ -300,6 +336,7 @@ export function TenderPDFExport({
           ["Insurance Costs", formatCurrency(totals.insuranceCosts)],
           ["Guarantees Costs", formatCurrency(totals.guaranteesCosts)],
           ["Other Indirect Costs", formatCurrency(totals.indirectCosts)],
+          ["Subcontractors Costs", formatCurrency(totals.subcontractorsCosts)],
           ["─────────────────", "─────────────"],
           ["Total Indirect Costs", formatCurrency(totalIndirect)],
           [`Profit (${pricingSettings.profitMargin}%)`, formatCurrency(profit)],
@@ -382,6 +419,7 @@ export function TenderPDFExport({
             { key: "includeInsurance", labelAr: "التأمين", labelEn: "Insurance" },
             { key: "includeGuarantees", labelAr: "الضمانات", labelEn: "Guarantees" },
             { key: "includeIndirectCosts", labelAr: "التكاليف غير المباشرة", labelEn: "Indirect Costs" },
+            { key: "includeSubcontractors", labelAr: "مقاولي الباطن", labelEn: "Subcontractors" },
             { key: "includeSummary", labelAr: "الملخص المالي", labelEn: "Financial Summary" },
           ].map((item) => (
             <div key={item.key} className="flex items-center space-x-2 rtl:space-x-reverse">
