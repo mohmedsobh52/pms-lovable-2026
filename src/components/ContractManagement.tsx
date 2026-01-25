@@ -10,14 +10,19 @@ import {
   DollarSign,
   Building2,
   Clock,
-  CheckCircle,
-  AlertCircle,
-  XCircle,
   Search,
   Filter,
   Eye,
-  Download,
-  PieChart,
+  ChevronLeft,
+  ChevronRight,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  Shield,
+  Percent,
+  FileCheck,
+  CheckCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,7 +49,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, differenceInMonths } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -55,6 +60,11 @@ interface Contract {
   contract_number: string;
   contract_title: string;
   contractor_name: string | null;
+  contractor_license_number: string | null;
+  contractor_phone: string | null;
+  contractor_email: string | null;
+  contractor_address: string | null;
+  contractor_category: string | null;
   contract_type: string;
   contract_value: number | null;
   currency: string;
@@ -65,12 +75,27 @@ interface Contract {
   scope_of_work: string | null;
   terms_conditions: string | null;
   notes: string | null;
+  retention_percentage: number | null;
+  advance_payment_percentage: number | null;
+  performance_bond_value: number | null;
+  performance_bond_percentage: number | null;
+  execution_percentage: number | null;
+  variation_limit_percentage: number | null;
+  contract_duration_months: number | null;
   created_at: string;
 }
 
 interface ContractManagementProps {
   projectId?: string;
 }
+
+const WIZARD_STEPS = [
+  { id: 1, labelEn: "Basic Info", labelAr: "معلومات أساسية", icon: FileText },
+  { id: 2, labelEn: "Contractor", labelAr: "بيانات المقاول", icon: Building2 },
+  { id: 3, labelEn: "Values & Dates", labelAr: "القيم والتواريخ", icon: DollarSign },
+  { id: 4, labelEn: "Financial Terms", labelAr: "الشروط المالية", icon: Shield },
+  { id: 5, labelEn: "Scope & Notes", labelAr: "النطاق والملاحظات", icon: FileCheck },
+];
 
 export function ContractManagement({ projectId }: ContractManagementProps) {
   const { isArabic } = useLanguage();
@@ -83,6 +108,7 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
+  const [currentStep, setCurrentStep] = useState(1);
   
   // Search and Filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -90,19 +116,45 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
   const [typeFilter, setTypeFilter] = useState("all");
   
   const [formData, setFormData] = useState({
+    // Step 1: Basic Info
     contract_number: "",
     contract_title: "",
-    contractor_name: "",
     contract_type: "fixed_price",
+    status: "draft",
+    // Step 2: Contractor Data
+    contractor_name: "",
+    contractor_license_number: "",
+    contractor_phone: "",
+    contractor_email: "",
+    contractor_address: "",
+    contractor_category: "first",
+    // Step 3: Values & Dates
     contract_value: "",
     currency: "SAR",
     start_date: "",
     end_date: "",
-    status: "draft",
+    contract_duration_months: "",
+    // Step 4: Financial Terms
+    retention_percentage: "10",
+    advance_payment_percentage: "20",
+    performance_bond_percentage: "5",
+    performance_bond_value: "",
+    variation_limit_percentage: "15",
+    // Step 5: Scope & Notes
     payment_terms: "",
     scope_of_work: "",
     notes: "",
   });
+
+  // Contractor categories
+  const contractorCategories = [
+    { value: "first", labelEn: "First Class", labelAr: "الفئة الأولى" },
+    { value: "second", labelEn: "Second Class", labelAr: "الفئة الثانية" },
+    { value: "third", labelEn: "Third Class", labelAr: "الفئة الثالثة" },
+    { value: "fourth", labelEn: "Fourth Class", labelAr: "الفئة الرابعة" },
+    { value: "fifth", labelEn: "Fifth Class", labelAr: "الفئة الخامسة" },
+    { value: "specialist", labelEn: "Specialist", labelAr: "متخصص" },
+  ];
 
   // FIDIC-based contract types with colors
   const contractTypes = [
@@ -155,6 +207,28 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     fetchContracts();
   }, [user, projectId]);
 
+  // Auto-calculate contract duration when dates change
+  useEffect(() => {
+    if (formData.start_date && formData.end_date) {
+      const start = new Date(formData.start_date);
+      const end = new Date(formData.end_date);
+      const months = differenceInMonths(end, start);
+      setFormData(prev => ({ ...prev, contract_duration_months: months.toString() }));
+    }
+  }, [formData.start_date, formData.end_date]);
+
+  // Auto-calculate performance bond value when percentage or contract value changes
+  useEffect(() => {
+    if (formData.contract_value && formData.performance_bond_percentage) {
+      const value = parseFloat(formData.contract_value);
+      const percentage = parseFloat(formData.performance_bond_percentage);
+      if (!isNaN(value) && !isNaN(percentage)) {
+        const bondValue = (value * percentage / 100).toFixed(2);
+        setFormData(prev => ({ ...prev, performance_bond_value: bondValue }));
+      }
+    }
+  }, [formData.contract_value, formData.performance_bond_percentage]);
+
   // Filtered contracts based on search and filters
   const filteredContracts = useMemo(() => {
     return contracts.filter(contract => {
@@ -180,12 +254,23 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
         contract_number: formData.contract_number,
         contract_title: formData.contract_title,
         contractor_name: formData.contractor_name || null,
+        contractor_license_number: formData.contractor_license_number || null,
+        contractor_phone: formData.contractor_phone || null,
+        contractor_email: formData.contractor_email || null,
+        contractor_address: formData.contractor_address || null,
+        contractor_category: formData.contractor_category || null,
         contract_type: formData.contract_type,
         contract_value: formData.contract_value ? parseFloat(formData.contract_value) : null,
         currency: formData.currency,
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
         status: formData.status,
+        retention_percentage: formData.retention_percentage ? parseFloat(formData.retention_percentage) : null,
+        advance_payment_percentage: formData.advance_payment_percentage ? parseFloat(formData.advance_payment_percentage) : null,
+        performance_bond_percentage: formData.performance_bond_percentage ? parseFloat(formData.performance_bond_percentage) : null,
+        performance_bond_value: formData.performance_bond_value ? parseFloat(formData.performance_bond_value) : null,
+        variation_limit_percentage: formData.variation_limit_percentage ? parseFloat(formData.variation_limit_percentage) : null,
+        contract_duration_months: formData.contract_duration_months ? parseInt(formData.contract_duration_months) : null,
         payment_terms: formData.payment_terms || null,
         scope_of_work: formData.scope_of_work || null,
         notes: formData.notes || null,
@@ -231,18 +316,30 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     setFormData({
       contract_number: "",
       contract_title: "",
-      contractor_name: "",
       contract_type: "fixed_price",
+      status: "draft",
+      contractor_name: "",
+      contractor_license_number: "",
+      contractor_phone: "",
+      contractor_email: "",
+      contractor_address: "",
+      contractor_category: "first",
       contract_value: "",
       currency: "SAR",
       start_date: "",
       end_date: "",
-      status: "draft",
+      contract_duration_months: "",
+      retention_percentage: "10",
+      advance_payment_percentage: "20",
+      performance_bond_percentage: "5",
+      performance_bond_value: "",
+      variation_limit_percentage: "15",
       payment_terms: "",
       scope_of_work: "",
       notes: "",
     });
     setEditingContract(null);
+    setCurrentStep(1);
   };
 
   const openEditDialog = (contract: Contract) => {
@@ -250,17 +347,29 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     setFormData({
       contract_number: contract.contract_number,
       contract_title: contract.contract_title,
-      contractor_name: contract.contractor_name || "",
       contract_type: contract.contract_type,
+      status: contract.status,
+      contractor_name: contract.contractor_name || "",
+      contractor_license_number: contract.contractor_license_number || "",
+      contractor_phone: contract.contractor_phone || "",
+      contractor_email: contract.contractor_email || "",
+      contractor_address: contract.contractor_address || "",
+      contractor_category: contract.contractor_category || "first",
       contract_value: contract.contract_value?.toString() || "",
       currency: contract.currency,
       start_date: contract.start_date || "",
       end_date: contract.end_date || "",
-      status: contract.status,
+      contract_duration_months: contract.contract_duration_months?.toString() || "",
+      retention_percentage: contract.retention_percentage?.toString() || "10",
+      advance_payment_percentage: contract.advance_payment_percentage?.toString() || "20",
+      performance_bond_percentage: contract.performance_bond_percentage?.toString() || "5",
+      performance_bond_value: contract.performance_bond_value?.toString() || "",
+      variation_limit_percentage: contract.variation_limit_percentage?.toString() || "15",
       payment_terms: contract.payment_terms || "",
       scope_of_work: contract.scope_of_work || "",
       notes: contract.notes || "",
     });
+    setCurrentStep(1);
     setIsDialogOpen(true);
   };
 
@@ -297,6 +406,386 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
       currency: currency === "SAR" ? "SAR" : currency,
       maximumFractionDigits: 0,
     }).format(value);
+  };
+
+  const canGoNext = () => {
+    switch (currentStep) {
+      case 1:
+        return formData.contract_number && formData.contract_title;
+      default:
+        return true;
+    }
+  };
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{isArabic ? "رقم العقد *" : "Contract Number *"}</Label>
+                <Input
+                  value={formData.contract_number}
+                  onChange={(e) => setFormData({ ...formData, contract_number: e.target.value })}
+                  placeholder={isArabic ? "مثال: CON-2024-001" : "e.g., CON-2024-001"}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{isArabic ? "الحالة" : "Status"}</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(v) => setFormData({ ...formData, status: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        <div className="flex items-center gap-2">
+                          <div className={cn("w-2 h-2 rounded-full", s.color)} />
+                          {isArabic ? s.labelAr : s.labelEn}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{isArabic ? "عنوان العقد *" : "Contract Title *"}</Label>
+              <Input
+                value={formData.contract_title}
+                onChange={(e) => setFormData({ ...formData, contract_title: e.target.value })}
+                placeholder={isArabic ? "أدخل عنوان العقد" : "Enter contract title"}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{isArabic ? "نوع العقد" : "Contract Type"}</Label>
+              <Select
+                value={formData.contract_type}
+                onValueChange={(v) => setFormData({ ...formData, contract_type: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {contractTypes.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      <div className="flex items-center gap-2">
+                        <div className={cn("w-2 h-2 rounded-full", t.color)} />
+                        {isArabic ? t.labelAr : t.labelEn}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  {isArabic ? "اسم المقاول" : "Contractor Name"}
+                </Label>
+                <Input
+                  value={formData.contractor_name}
+                  onChange={(e) => setFormData({ ...formData, contractor_name: e.target.value })}
+                  placeholder={isArabic ? "اسم المقاول" : "Contractor name"}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  {isArabic ? "رقم الترخيص" : "License Number"}
+                </Label>
+                <Input
+                  value={formData.contractor_license_number}
+                  onChange={(e) => setFormData({ ...formData, contractor_license_number: e.target.value })}
+                  placeholder={isArabic ? "رقم الترخيص" : "License number"}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Phone className="w-4 h-4" />
+                  {isArabic ? "رقم الهاتف" : "Phone Number"}
+                </Label>
+                <Input
+                  value={formData.contractor_phone}
+                  onChange={(e) => setFormData({ ...formData, contractor_phone: e.target.value })}
+                  placeholder={isArabic ? "رقم الهاتف" : "Phone number"}
+                  dir="ltr"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  {isArabic ? "البريد الإلكتروني" : "Email"}
+                </Label>
+                <Input
+                  type="email"
+                  value={formData.contractor_email}
+                  onChange={(e) => setFormData({ ...formData, contractor_email: e.target.value })}
+                  placeholder={isArabic ? "البريد الإلكتروني" : "Email address"}
+                  dir="ltr"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4" />
+                  {isArabic ? "تصنيف المقاول" : "Contractor Category"}
+                </Label>
+                <Select
+                  value={formData.contractor_category}
+                  onValueChange={(v) => setFormData({ ...formData, contractor_category: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contractorCategories.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {isArabic ? c.labelAr : c.labelEn}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  {isArabic ? "العنوان" : "Address"}
+                </Label>
+                <Input
+                  value={formData.contractor_address}
+                  onChange={(e) => setFormData({ ...formData, contractor_address: e.target.value })}
+                  placeholder={isArabic ? "عنوان المقاول" : "Contractor address"}
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  {isArabic ? "قيمة العقد" : "Contract Value"}
+                </Label>
+                <Input
+                  type="number"
+                  value={formData.contract_value}
+                  onChange={(e) => setFormData({ ...formData, contract_value: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{isArabic ? "العملة" : "Currency"}</Label>
+                <Select
+                  value={formData.currency}
+                  onValueChange={(v) => setFormData({ ...formData, currency: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SAR">SAR - ريال سعودي</SelectItem>
+                    <SelectItem value="USD">USD - دولار أمريكي</SelectItem>
+                    <SelectItem value="EUR">EUR - يورو</SelectItem>
+                    <SelectItem value="AED">AED - درهم إماراتي</SelectItem>
+                    <SelectItem value="EGP">EGP - جنيه مصري</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  {isArabic ? "تاريخ البدء" : "Start Date"}
+                </Label>
+                <Input
+                  type="date"
+                  value={formData.start_date}
+                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  {isArabic ? "تاريخ الانتهاء" : "End Date"}
+                </Label>
+                <Input
+                  type="date"
+                  value={formData.end_date}
+                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-muted/50 border">
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <span className="text-muted-foreground">{isArabic ? "مدة العقد:" : "Contract Duration:"}</span>
+                <span className="font-medium">
+                  {formData.contract_duration_months 
+                    ? `${formData.contract_duration_months} ${isArabic ? "شهر" : "months"}`
+                    : isArabic ? "حدد التواريخ" : "Set dates"}
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Percent className="w-4 h-4" />
+                  {isArabic ? "نسبة المحتجز (%)" : "Retention (%)"}
+                </Label>
+                <Input
+                  type="number"
+                  value={formData.retention_percentage}
+                  onChange={(e) => setFormData({ ...formData, retention_percentage: e.target.value })}
+                  placeholder="10"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Percent className="w-4 h-4" />
+                  {isArabic ? "نسبة الدفعة المقدمة (%)" : "Advance Payment (%)"}
+                </Label>
+                <Input
+                  type="number"
+                  value={formData.advance_payment_percentage}
+                  onChange={(e) => setFormData({ ...formData, advance_payment_percentage: e.target.value })}
+                  placeholder="20"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  {isArabic ? "نسبة الضمان النهائي (%)" : "Performance Bond (%)"}
+                </Label>
+                <Input
+                  type="number"
+                  value={formData.performance_bond_percentage}
+                  onChange={(e) => setFormData({ ...formData, performance_bond_percentage: e.target.value })}
+                  placeholder="5"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  {isArabic ? "قيمة الضمان (حساب تلقائي)" : "Bond Value (auto)"}
+                </Label>
+                <Input
+                  type="number"
+                  value={formData.performance_bond_value}
+                  onChange={(e) => setFormData({ ...formData, performance_bond_value: e.target.value })}
+                  placeholder="0"
+                  className="bg-muted/50"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Percent className="w-4 h-4" />
+                {isArabic ? "حد التغييرات (%)" : "Variation Limit (%)"}
+              </Label>
+              <Input
+                type="number"
+                value={formData.variation_limit_percentage}
+                onChange={(e) => setFormData({ ...formData, variation_limit_percentage: e.target.value })}
+                placeholder="15"
+              />
+            </div>
+
+            {formData.contract_value && (
+              <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 space-y-2">
+                <h4 className="font-medium text-sm">{isArabic ? "ملخص الحسابات" : "Calculations Summary"}</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{isArabic ? "المحتجز:" : "Retention:"}</span>
+                    <span className="font-medium">
+                      {formatCurrency(parseFloat(formData.contract_value) * parseFloat(formData.retention_percentage || "0") / 100, formData.currency)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{isArabic ? "الدفعة المقدمة:" : "Advance:"}</span>
+                    <span className="font-medium">
+                      {formatCurrency(parseFloat(formData.contract_value) * parseFloat(formData.advance_payment_percentage || "0") / 100, formData.currency)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      case 5:
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{isArabic ? "شروط الدفع" : "Payment Terms"}</Label>
+              <Textarea
+                value={formData.payment_terms}
+                onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })}
+                rows={3}
+                placeholder={isArabic ? "أدخل شروط الدفع..." : "Enter payment terms..."}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{isArabic ? "نطاق العمل" : "Scope of Work"}</Label>
+              <Textarea
+                value={formData.scope_of_work}
+                onChange={(e) => setFormData({ ...formData, scope_of_work: e.target.value })}
+                rows={4}
+                placeholder={isArabic ? "أدخل نطاق العمل..." : "Enter scope of work..."}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{isArabic ? "ملاحظات إضافية" : "Additional Notes"}</Label>
+              <Textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                rows={3}
+                placeholder={isArabic ? "أي ملاحظات إضافية..." : "Any additional notes..."}
+              />
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
   };
 
   return (
@@ -404,6 +893,7 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
               const contractType = getContractTypeInfo(contract.contract_type);
               const progress = getContractProgress(contract);
               const daysRemaining = getDaysRemaining(contract);
+              const category = contractorCategories.find(c => c.value === contract.contractor_category);
 
               return (
                 <div key={contract.id} className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow">
@@ -424,10 +914,15 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                       </div>
                       <h4 className="font-medium">{contract.contract_title}</h4>
                       {contract.contractor_name && (
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                           <Building2 className="w-3 h-3" />
-                          {contract.contractor_name}
-                        </p>
+                          <span>{contract.contractor_name}</span>
+                          {category && (
+                            <Badge variant="outline" className="text-xs">
+                              {isArabic ? category.labelAr : category.labelEn}
+                            </Badge>
+                          )}
+                        </div>
                       )}
                     </div>
                     <div className="flex gap-1">
@@ -525,11 +1020,39 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                 
                 <Separator />
                 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">{isArabic ? "المقاول" : "Contractor"}</Label>
-                    <p className="font-medium">{viewingContract.contractor_name || "-"}</p>
+                {/* Contractor Info */}
+                <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+                  <h4 className="font-medium flex items-center gap-2">
+                    <Building2 className="w-4 h-4" />
+                    {isArabic ? "بيانات المقاول" : "Contractor Information"}
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <Label className="text-muted-foreground">{isArabic ? "الاسم" : "Name"}</Label>
+                      <p className="font-medium">{viewingContract.contractor_name || "-"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">{isArabic ? "التصنيف" : "Category"}</Label>
+                      <p className="font-medium">
+                        {contractorCategories.find(c => c.value === viewingContract.contractor_category)?.[isArabic ? "labelAr" : "labelEn"] || "-"}
+                      </p>
+                    </div>
+                    {viewingContract.contractor_phone && (
+                      <div>
+                        <Label className="text-muted-foreground">{isArabic ? "الهاتف" : "Phone"}</Label>
+                        <p className="font-medium">{viewingContract.contractor_phone}</p>
+                      </div>
+                    )}
+                    {viewingContract.contractor_email && (
+                      <div>
+                        <Label className="text-muted-foreground">{isArabic ? "البريد" : "Email"}</Label>
+                        <p className="font-medium">{viewingContract.contractor_email}</p>
+                      </div>
+                    )}
                   </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-muted-foreground">{isArabic ? "نوع العقد" : "Contract Type"}</Label>
                     <p className="font-medium">{getContractTypeInfo(viewingContract.contract_type)?.[isArabic ? "labelAr" : "labelEn"]}</p>
@@ -539,10 +1062,6 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                     <p className="font-medium text-lg text-primary">
                       {viewingContract.contract_value ? formatCurrency(viewingContract.contract_value, viewingContract.currency) : "-"}
                     </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">{isArabic ? "العملة" : "Currency"}</Label>
-                    <p className="font-medium">{viewingContract.currency}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">{isArabic ? "تاريخ البدء" : "Start Date"}</Label>
@@ -558,6 +1077,30 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                   </div>
                 </div>
 
+                {/* Financial Terms */}
+                {(viewingContract.retention_percentage || viewingContract.advance_payment_percentage) && (
+                  <>
+                    <Separator />
+                    <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                      <h4 className="font-medium mb-3">{isArabic ? "الشروط المالية" : "Financial Terms"}</h4>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <Label className="text-muted-foreground">{isArabic ? "المحتجز" : "Retention"}</Label>
+                          <p className="font-medium">{viewingContract.retention_percentage}%</p>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground">{isArabic ? "الدفعة المقدمة" : "Advance"}</Label>
+                          <p className="font-medium">{viewingContract.advance_payment_percentage}%</p>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground">{isArabic ? "الضمان" : "Bond"}</Label>
+                          <p className="font-medium">{viewingContract.performance_bond_percentage}%</p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 {viewingContract.start_date && viewingContract.end_date && (
                   <>
                     <Separator />
@@ -567,16 +1110,6 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                       <p className="text-sm text-muted-foreground text-center">
                         {getContractProgress(viewingContract).toFixed(0)}%
                       </p>
-                    </div>
-                  </>
-                )}
-                
-                {viewingContract.payment_terms && (
-                  <>
-                    <Separator />
-                    <div>
-                      <Label className="text-muted-foreground">{isArabic ? "شروط الدفع" : "Payment Terms"}</Label>
-                      <p className="mt-1 p-3 bg-muted rounded-lg text-sm">{viewingContract.payment_terms}</p>
                     </div>
                   </>
                 )}
@@ -610,9 +1143,9 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Add/Edit Dialog */}
+      {/* Add/Edit Dialog - Multi-Step Wizard */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {editingContract
@@ -621,154 +1154,81 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{isArabic ? "رقم العقد *" : "Contract Number *"}</Label>
-                <Input
-                  value={formData.contract_number}
-                  onChange={(e) => setFormData({ ...formData, contract_number: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{isArabic ? "الحالة" : "Status"}</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(v) => setFormData({ ...formData, status: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>
-                        {isArabic ? s.labelAr : s.labelEn}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          {/* Step Progress */}
+          <div className="py-4">
+            <div className="flex items-center justify-between mb-2">
+              {WIZARD_STEPS.map((step, index) => {
+                const StepIcon = step.icon;
+                const isActive = currentStep === step.id;
+                const isCompleted = currentStep > step.id;
+                
+                return (
+                  <div key={step.id} className="flex items-center">
+                    <div
+                      className={cn(
+                        "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all",
+                        isActive && "border-primary bg-primary text-primary-foreground",
+                        isCompleted && "border-green-500 bg-green-500 text-white",
+                        !isActive && !isCompleted && "border-muted-foreground/30"
+                      )}
+                    >
+                      {isCompleted ? (
+                        <CheckCircle className="w-5 h-5" />
+                      ) : (
+                        <StepIcon className="w-4 h-4" />
+                      )}
+                    </div>
+                    {index < WIZARD_STEPS.length - 1 && (
+                      <div className={cn(
+                        "w-full h-1 mx-2 rounded",
+                        isCompleted ? "bg-green-500" : "bg-muted"
+                      )} style={{ width: '40px' }} />
+                    )}
+                  </div>
+                );
+              })}
             </div>
-
-            <div className="space-y-2">
-              <Label>{isArabic ? "عنوان العقد *" : "Contract Title *"}</Label>
-              <Input
-                value={formData.contract_title}
-                onChange={(e) => setFormData({ ...formData, contract_title: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{isArabic ? "اسم المقاول" : "Contractor Name"}</Label>
-                <Input
-                  value={formData.contractor_name}
-                  onChange={(e) => setFormData({ ...formData, contractor_name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{isArabic ? "نوع العقد" : "Contract Type"}</Label>
-                <Select
-                  value={formData.contract_type}
-                  onValueChange={(v) => setFormData({ ...formData, contract_type: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contractTypes.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {isArabic ? t.labelAr : t.labelEn}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{isArabic ? "قيمة العقد" : "Contract Value"}</Label>
-                <Input
-                  type="number"
-                  value={formData.contract_value}
-                  onChange={(e) => setFormData({ ...formData, contract_value: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{isArabic ? "العملة" : "Currency"}</Label>
-                <Select
-                  value={formData.currency}
-                  onValueChange={(v) => setFormData({ ...formData, currency: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SAR">SAR - ريال سعودي</SelectItem>
-                    <SelectItem value="USD">USD - دولار أمريكي</SelectItem>
-                    <SelectItem value="EUR">EUR - يورو</SelectItem>
-                    <SelectItem value="AED">AED - درهم إماراتي</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{isArabic ? "تاريخ البدء" : "Start Date"}</Label>
-                <Input
-                  type="date"
-                  value={formData.start_date}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{isArabic ? "تاريخ الانتهاء" : "End Date"}</Label>
-                <Input
-                  type="date"
-                  value={formData.end_date}
-                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{isArabic ? "شروط الدفع" : "Payment Terms"}</Label>
-              <Textarea
-                value={formData.payment_terms}
-                onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })}
-                rows={2}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{isArabic ? "نطاق العمل" : "Scope of Work"}</Label>
-              <Textarea
-                value={formData.scope_of_work}
-                onChange={(e) => setFormData({ ...formData, scope_of_work: e.target.value })}
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
-              <Textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={2}
-              />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              {WIZARD_STEPS.map((step) => (
+                <span key={step.id} className={cn(
+                  "text-center",
+                  currentStep === step.id && "text-primary font-medium"
+                )}>
+                  {isArabic ? step.labelAr : step.labelEn}
+                </span>
+              ))}
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              {isArabic ? "إلغاء" : "Cancel"}
-            </Button>
-            <Button onClick={handleSave} disabled={saving || !formData.contract_number || !formData.contract_title}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              <span className="ml-2">{isArabic ? "حفظ" : "Save"}</span>
-            </Button>
+          <ScrollArea className="flex-1 px-1">
+            {renderStepContent()}
+          </ScrollArea>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-4 border-t">
+            <div className="flex gap-2 w-full sm:w-auto">
+              {currentStep > 1 && (
+                <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)}>
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  {isArabic ? "السابق" : "Previous"}
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                {isArabic ? "إلغاء" : "Cancel"}
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              {currentStep < WIZARD_STEPS.length ? (
+                <Button onClick={() => setCurrentStep(currentStep + 1)} disabled={!canGoNext()}>
+                  {isArabic ? "التالي" : "Next"}
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              ) : (
+                <Button onClick={handleSave} disabled={saving || !formData.contract_number || !formData.contract_title}>
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <span className="ml-2">{isArabic ? "حفظ" : "Save"}</span>
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
