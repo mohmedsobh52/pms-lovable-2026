@@ -1331,6 +1331,7 @@ export type Database = {
           profit_percentage: number | null
           project_id: string
           quantity: number | null
+          sort_order: number | null
           total_price: number | null
           unit: string | null
           unit_price: number | null
@@ -1348,6 +1349,7 @@ export type Database = {
           profit_percentage?: number | null
           project_id: string
           quantity?: number | null
+          sort_order?: number | null
           total_price?: number | null
           unit?: string | null
           unit_price?: number | null
@@ -1365,6 +1367,7 @@ export type Database = {
           profit_percentage?: number | null
           project_id?: string
           quantity?: number | null
+          sort_order?: number | null
           total_price?: number | null
           unit?: string | null
           unit_price?: number | null
