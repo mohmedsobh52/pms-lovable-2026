@@ -1,4 +1,5 @@
 import { useLocation, Link } from "react-router-dom";
+import { BackToHomeButton } from "./BackToHomeButton";
 import { useLanguage } from "@/hooks/useLanguage";
 import { ChevronRight, Home } from "lucide-react";
 import {
@@ -20,6 +21,7 @@ interface RouteConfig {
 const routeConfigs: RouteConfig[] = [
   { path: "/", labelEn: "Home", labelAr: "الرئيسية" },
   { path: "/dashboard", labelEn: "Dashboard", labelAr: "لوحة التحكم", parent: "/" },
+  { path: "/analyze", labelEn: "New Analysis", labelAr: "تحليل جديد", parent: "/" },
   { path: "/items", labelEn: "BOQ Items", labelAr: "بنود الكميات", parent: "/" },
   { path: "/analysis-tools", labelEn: "Analysis Tools", labelAr: "أدوات التحليل", parent: "/" },
   { path: "/procurement", labelEn: "Procurement", labelAr: "المشتريات", parent: "/" },
@@ -34,7 +36,14 @@ const routeConfigs: RouteConfig[] = [
   { path: "/p6-export", labelEn: "P6 Export", labelAr: "تصدير P6", parent: "/reports" },
   { path: "/compare-versions", labelEn: "Version Compare", labelAr: "مقارنة الإصدارات", parent: "/reports" },
   { path: "/projects", labelEn: "Saved Projects", labelAr: "المشاريع المحفوظة", parent: "/" },
+  { path: "/saved-projects", labelEn: "Saved Projects", labelAr: "المشاريع المحفوظة", parent: "/" },
   { path: "/cost-analysis", labelEn: "Cost Analysis", labelAr: "تحليل التكاليف", parent: "/" },
+  { path: "/library", labelEn: "Library", labelAr: "المكتبة", parent: "/" },
+  { path: "/material-prices", labelEn: "Material Prices", labelAr: "أسعار المواد", parent: "/" },
+  { path: "/resources", labelEn: "Resources", labelAr: "الموارد", parent: "/" },
+  { path: "/calendar", labelEn: "Calendar", labelAr: "التقويم", parent: "/" },
+  { path: "/historical", labelEn: "Historical Pricing", labelAr: "الأسعار التاريخية", parent: "/" },
+  { path: "/fast-extraction", labelEn: "Fast Extraction", labelAr: "الاستخراج السريع", parent: "/" },
   { path: "/about", labelEn: "About", labelAr: "عن التطبيق", parent: "/" },
   { path: "/changelog", labelEn: "Changelog", labelAr: "سجل التغييرات", parent: "/" },
   { path: "/auth", labelEn: "Login", labelAr: "تسجيل الدخول", parent: "/" },
