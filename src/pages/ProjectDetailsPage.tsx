@@ -4,7 +4,8 @@ import {
   ArrowLeft, Home, ChevronRight, Edit, Play, MoreVertical,
   Package, Percent, DollarSign, FileText, Building2, Calendar,
   File, Settings, LayoutList, FolderOpen, Loader2, Search,
-  Filter, Download, Trash2, CheckCircle, XCircle, Upload, Save, X
+  Filter, Download, Trash2, CheckCircle, XCircle, Upload, Save, X,
+  Plus, Wand2, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
@@ -137,6 +148,15 @@ export default function ProjectDetailsPage() {
   const [editForm, setEditForm] = useState({ name: "", currency: "SAR" });
   const [isSaving, setIsSaving] = useState(false);
 
+  // BOQ pricing state
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isAutoPricing, setIsAutoPricing] = useState(false);
+  const [showAddItemDialog, setShowAddItemDialog] = useState(false);
+  const [showQuickPriceDialog, setShowQuickPriceDialog] = useState<string | null>(null);
+  const [quickPriceValue, setQuickPriceValue] = useState("");
+  const [newItem, setNewItem] = useState({ item_number: "", description: "", unit: "", quantity: "" });
+  const [isAddingItem, setIsAddingItem] = useState(false);
+
   // Fetch project data
   useEffect(() => {
     if (!user || !projectId) return;
@@ -208,11 +228,14 @@ export default function ProjectDetailsPage() {
   const pricingStats = useMemo(() => {
     const totalItems = items.length;
     const pricedItems = items.filter(item => item.unit_price && item.unit_price > 0).length;
+    const confirmedItems = items.filter(item => 
+      item.unit_price && item.unit_price > 0 && item.total_price && item.total_price > 0
+    ).length;
     const unpricedItems = totalItems - pricedItems;
-    const pricingPercentage = totalItems > 0 ? Math.round((pricedItems / totalItems) * 100) : 0;
+    const pricingPercentage = totalItems > 0 ? Math.round((pricedItems / totalItems) * 100 * 10) / 10 : 0;
     const totalValue = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
     
-    return { totalItems, pricedItems, unpricedItems, pricingPercentage, totalValue };
+    return { totalItems, pricedItems, confirmedItems, unpricedItems, pricingPercentage, totalValue };
   }, [items]);
 
   // Chart data: Pricing distribution
@@ -417,6 +440,171 @@ export default function ProjectDetailsPage() {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Handle auto pricing for all unpriced items
+  const handleAutoPricing = async () => {
+    setIsAutoPricing(true);
+    try {
+      // Get unpriced items
+      const unpricedItems = items.filter(item => !item.unit_price || item.unit_price === 0);
+      
+      // For demo: assign random prices (in production, this would call AI)
+      for (const item of unpricedItems) {
+        const estimatedPrice = Math.round(Math.random() * 100 + 10);
+        const totalPrice = (item.quantity || 1) * estimatedPrice;
+        
+        await supabase
+          .from("project_items")
+          .update({ unit_price: estimatedPrice, total_price: totalPrice })
+          .eq("id", item.id);
+      }
+
+      // Refetch items
+      const { data: updatedItems } = await supabase
+        .from("project_items")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("item_number");
+      
+      if (updatedItems) setItems(updatedItems);
+
+      toast({
+        title: isArabic ? "تم التسعير التلقائي" : "Auto pricing complete",
+        description: isArabic 
+          ? `تم تسعير ${unpricedItems.length} بند` 
+          : `Priced ${unpricedItems.length} items`,
+      });
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "خطأ في التسعير" : "Pricing error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsAutoPricing(false);
+    }
+  };
+
+  // Handle add new item
+  const handleAddItem = async () => {
+    if (!newItem.item_number || !projectId || !user) return;
+    
+    setIsAddingItem(true);
+    try {
+      const { data, error } = await supabase
+        .from("project_items")
+        .insert({
+          project_id: projectId,
+          item_number: newItem.item_number,
+          description: newItem.description || null,
+          unit: newItem.unit || null,
+          quantity: parseFloat(newItem.quantity) || null,
+          unit_price: 0,
+          total_price: 0,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setItems(prev => [...prev, data]);
+      setShowAddItemDialog(false);
+      setNewItem({ item_number: "", description: "", unit: "", quantity: "" });
+      
+      toast({
+        title: isArabic ? "تمت إضافة البند" : "Item added",
+      });
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "خطأ في الإضافة" : "Error adding item",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingItem(false);
+    }
+  };
+
+  // Handle quick price
+  const handleQuickPrice = async () => {
+    if (!showQuickPriceDialog || !quickPriceValue) return;
+    
+    const item = items.find(i => i.id === showQuickPriceDialog);
+    if (!item) return;
+
+    const unitPrice = parseFloat(quickPriceValue);
+    const totalPrice = (item.quantity || 0) * unitPrice;
+
+    try {
+      await supabase
+        .from("project_items")
+        .update({ unit_price: unitPrice, total_price: totalPrice })
+        .eq("id", item.id);
+
+      setItems(prev => prev.map(i => 
+        i.id === item.id ? { ...i, unit_price: unitPrice, total_price: totalPrice } : i
+      ));
+
+      setShowQuickPriceDialog(null);
+      setQuickPriceValue("");
+      
+      toast({
+        title: isArabic ? "تم تحديث السعر" : "Price updated",
+      });
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "خطأ في التحديث" : "Error updating",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle delete item
+  const handleDeleteItem = async (itemId: string) => {
+    try {
+      await supabase.from("project_items").delete().eq("id", itemId);
+      setItems(prev => prev.filter(i => i.id !== itemId));
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+      toast({
+        title: isArabic ? "تم حذف البند" : "Item deleted",
+      });
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "خطأ في الحذف" : "Error deleting",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle unconfirm/clear price
+  const handleUnconfirmItem = async (itemId: string) => {
+    try {
+      await supabase
+        .from("project_items")
+        .update({ unit_price: 0, total_price: 0 })
+        .eq("id", itemId);
+
+      setItems(prev => prev.map(i => 
+        i.id === itemId ? { ...i, unit_price: 0, total_price: 0 } : i
+      ));
+      
+      toast({
+        title: isArabic ? "تم إلغاء التسعير" : "Price cleared",
+      });
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -882,6 +1070,58 @@ export default function ProjectDetailsPage() {
 
           {/* BOQ Tab */}
           <TabsContent value="boq" className="space-y-4">
+            {/* Statistics Row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="border-border/50">
+                <CardContent className="p-4 text-center">
+                  <p className="text-2xl font-bold">{pricingStats.totalItems}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {isArabic ? "إجمالي البنود" : "Total Items"}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-border/50">
+                <CardContent className="p-4 text-center">
+                  <p className="text-2xl font-bold text-green-600">{pricingStats.pricedItems}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {isArabic ? "بنود مسعرة" : "Priced Items"}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-border/50">
+                <CardContent className="p-4 text-center">
+                  <p className="text-2xl font-bold text-blue-600">{pricingStats.confirmedItems}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {isArabic ? "بنود مؤكدة" : "Confirmed Items"}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-border/50">
+                <CardContent className="p-4 text-center">
+                  <p className="text-2xl font-bold">
+                    {project?.currency || 'SAR'} {formatCurrency(pricingStats.totalValue)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {isArabic ? "إجمالي القيمة" : "Total Value"}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Progress Bar */}
+            <Card className="border-border/50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">
+                    {isArabic ? "تقدم التسعير" : "Pricing Progress"}
+                  </span>
+                  <span className="text-sm font-bold">{pricingStats.pricingPercentage}%</span>
+                </div>
+                <Progress value={pricingStats.pricingPercentage} className="h-3" />
+              </CardContent>
+            </Card>
+
+            {/* BOQ Table Card */}
             <Card>
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -890,21 +1130,44 @@ export default function ProjectDetailsPage() {
                     {isArabic ? "جدول الكميات" : "Bill of Quantities"}
                     <Badge variant="secondary">{items.length}</Badge>
                   </CardTitle>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
                         placeholder={isArabic ? "بحث في البنود..." : "Search items..."}
                         value={itemsSearch}
                         onChange={(e) => setItemsSearch(e.target.value)}
-                        className="pl-9 w-64"
+                        className="pl-9 w-48 md:w-64"
                       />
                     </div>
                     <Button variant="outline" size="icon">
                       <Filter className="w-4 h-4" />
                     </Button>
                     <Button variant="outline" size="icon">
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="icon">
                       <Download className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="gap-2"
+                      onClick={handleAutoPricing}
+                      disabled={isAutoPricing || pricingStats.unpricedItems === 0}
+                    >
+                      {isAutoPricing ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Wand2 className="w-4 h-4" />
+                      )}
+                      {isArabic ? "تسعير تلقائي" : "Auto Price"}
+                    </Button>
+                    <Button 
+                      className="gap-2"
+                      onClick={() => setShowAddItemDialog(true)}
+                    >
+                      <Plus className="w-4 h-4" />
+                      {isArabic ? "إضافة بند" : "Add Item"}
                     </Button>
                   </div>
                 </div>
@@ -914,33 +1177,116 @@ export default function ProjectDetailsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-[50px]">
+                          <Checkbox 
+                            checked={selectedItems.size === filteredItems.length && filteredItems.length > 0}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedItems(new Set(filteredItems.map(i => i.id)));
+                              } else {
+                                setSelectedItems(new Set());
+                              }
+                            }}
+                          />
+                        </TableHead>
                         <TableHead className="w-[100px]">{isArabic ? "رقم البند" : "Item No."}</TableHead>
                         <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
                         <TableHead className="w-[80px]">{isArabic ? "الوحدة" : "Unit"}</TableHead>
                         <TableHead className="w-[100px] text-right">{isArabic ? "الكمية" : "Qty"}</TableHead>
                         <TableHead className="w-[120px] text-right">{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
                         <TableHead className="w-[140px] text-right">{isArabic ? "الإجمالي" : "Total"}</TableHead>
+                        <TableHead className="w-[100px]">{isArabic ? "الحالة" : "Status"}</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredItems.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                             {isArabic ? "لا توجد بنود" : "No items found"}
                           </TableCell>
                         </TableRow>
                       ) : (
                         filteredItems.slice(0, 50).map((item) => (
                           <TableRow key={item.id}>
+                            <TableCell>
+                              <Checkbox 
+                                checked={selectedItems.has(item.id)}
+                                onCheckedChange={(checked) => {
+                                  const newSet = new Set(selectedItems);
+                                  if (checked) newSet.add(item.id);
+                                  else newSet.delete(item.id);
+                                  setSelectedItems(newSet);
+                                }}
+                              />
+                            </TableCell>
                             <TableCell className="font-mono text-sm">{item.item_number}</TableCell>
                             <TableCell className="max-w-[300px] truncate">{item.description || '-'}</TableCell>
                             <TableCell>{item.unit || '-'}</TableCell>
                             <TableCell className="text-right">{item.quantity?.toLocaleString() || '-'}</TableCell>
                             <TableCell className="text-right">
-                              {item.unit_price ? formatCurrency(item.unit_price) : '-'}
+                              {item.unit_price && item.unit_price > 0 ? formatCurrency(item.unit_price) : '-'}
                             </TableCell>
                             <TableCell className="text-right font-medium">
-                              {item.total_price ? formatCurrency(item.total_price) : '-'}
+                              {item.total_price && item.total_price > 0 ? formatCurrency(item.total_price) : '-'}
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={item.unit_price && item.unit_price > 0 ? "default" : "secondary"}
+                                className={item.unit_price && item.unit_price > 0 
+                                  ? "bg-green-500/10 text-green-600 border-green-500/20" 
+                                  : ""}
+                              >
+                                {item.unit_price && item.unit_price > 0 
+                                  ? (isArabic ? "مسعر" : "Priced") 
+                                  : (isArabic ? "غير مسعر" : "Unpriced")}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align={isArabic ? "start" : "end"}>
+                                  <DropdownMenuItem 
+                                    onClick={() => {
+                                      setShowQuickPriceDialog(item.id);
+                                      setQuickPriceValue(item.unit_price?.toString() || "");
+                                    }}
+                                    className="gap-2"
+                                  >
+                                    <DollarSign className="w-4 h-4" />
+                                    {isArabic ? "تسعير سريع" : "Quick Price"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="gap-2">
+                                    <FileText className="w-4 h-4" />
+                                    {isArabic ? "تسعير مفصل" : "Detailed Price"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="gap-2">
+                                    <Edit className="w-4 h-4" />
+                                    {isArabic ? "تعديل" : "Edit"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleUnconfirmItem(item.id)}
+                                    className="gap-2"
+                                    disabled={!item.unit_price || item.unit_price === 0}
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                    {isArabic ? "إلغاء التحقق" : "Clear Price"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteItem(item.id)}
+                                    className="gap-2 text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    {isArabic ? "حذف" : "Delete"}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </TableCell>
                           </TableRow>
                         ))
@@ -1171,6 +1517,127 @@ export default function ProjectDetailsPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Quick Price Dialog */}
+      <Dialog open={!!showQuickPriceDialog} onOpenChange={() => setShowQuickPriceDialog(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{isArabic ? "تسعير سريع" : "Quick Price"}</DialogTitle>
+            <DialogDescription>
+              {isArabic 
+                ? "أدخل سعر الوحدة لهذا البند" 
+                : "Enter the unit price for this item"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="unitPrice">{isArabic ? "سعر الوحدة" : "Unit Price"}</Label>
+              <Input 
+                id="unitPrice"
+                type="number" 
+                step="0.01"
+                placeholder={isArabic ? "أدخل السعر" : "Enter price"}
+                value={quickPriceValue}
+                onChange={(e) => setQuickPriceValue(e.target.value)}
+              />
+            </div>
+            {showQuickPriceDialog && (() => {
+              const item = items.find(i => i.id === showQuickPriceDialog);
+              const price = parseFloat(quickPriceValue) || 0;
+              const total = (item?.quantity || 0) * price;
+              return item ? (
+                <div className="p-3 bg-muted/50 rounded-lg space-y-1 text-sm">
+                  <p><span className="text-muted-foreground">{isArabic ? "البند:" : "Item:"}</span> {item.item_number}</p>
+                  <p><span className="text-muted-foreground">{isArabic ? "الكمية:" : "Qty:"}</span> {item.quantity?.toLocaleString()}</p>
+                  <p><span className="text-muted-foreground">{isArabic ? "الإجمالي:" : "Total:"}</span> <span className="font-bold">{formatCurrency(total)}</span></p>
+                </div>
+              ) : null;
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQuickPriceDialog(null)}>
+              {isArabic ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={handleQuickPrice} disabled={!quickPriceValue}>
+              {isArabic ? "تطبيق السعر" : "Apply Price"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Item Dialog */}
+      <Dialog open={showAddItemDialog} onOpenChange={setShowAddItemDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{isArabic ? "إضافة بند جديد" : "Add New Item"}</DialogTitle>
+            <DialogDescription>
+              {isArabic 
+                ? "أدخل بيانات البند الجديد" 
+                : "Enter the details for the new item"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="itemNumber">{isArabic ? "رقم البند" : "Item Number"} *</Label>
+              <Input 
+                id="itemNumber"
+                placeholder={isArabic ? "مثال: 1.2.3" : "e.g., 1.2.3"}
+                value={newItem.item_number}
+                onChange={(e) => setNewItem(prev => ({ ...prev, item_number: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">{isArabic ? "الوصف" : "Description"}</Label>
+              <Textarea 
+                id="description"
+                placeholder={isArabic ? "وصف البند" : "Item description"}
+                value={newItem.description}
+                onChange={(e) => setNewItem(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="unit">{isArabic ? "الوحدة" : "Unit"}</Label>
+                <Input 
+                  id="unit"
+                  placeholder={isArabic ? "مثال: م³" : "e.g., m³"}
+                  value={newItem.unit}
+                  onChange={(e) => setNewItem(prev => ({ ...prev, unit: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quantity">{isArabic ? "الكمية" : "Quantity"}</Label>
+                <Input 
+                  id="quantity"
+                  type="number"
+                  step="0.01"
+                  placeholder="0"
+                  value={newItem.quantity}
+                  onChange={(e) => setNewItem(prev => ({ ...prev, quantity: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddItemDialog(false)}>
+              {isArabic ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleAddItem} 
+              disabled={!newItem.item_number || isAddingItem}
+              className="gap-2"
+            >
+              {isAddingItem ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
+              {isArabic ? "إضافة" : "Add Item"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
