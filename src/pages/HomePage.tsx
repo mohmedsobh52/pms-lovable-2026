@@ -89,57 +89,64 @@ const quickActions = [
     icon: FileUp, 
     label: { ar: "تحليل ملف BOQ", en: "Analyze BOQ File" }, 
     href: "/analyze", 
-    color: "from-blue-500 to-blue-600",
+    colorVar: "qa-blue",
     description: { ar: "رفع وتحليل ملفات BOQ", en: "Upload and analyze BOQ files" }
   },
   { 
     icon: Zap, 
     label: { ar: "الاستخراج السريع", en: "Fast Extraction" }, 
     href: "/fast-extraction", 
-    color: "from-orange-500 to-amber-500",
+    colorVar: "qa-orange",
     description: { ar: "رفع وتصنيف ملفات متعددة بسرعة", en: "Quickly upload and classify multiple files" }
   },
   { 
     icon: Library, 
     label: { ar: "المكتبة", en: "Library" }, 
     href: "/library", 
-    color: "from-teal-500 to-cyan-500",
+    colorVar: "qa-teal",
     description: { ar: "إدارة المواد والعمالة والمعدات", en: "Manage materials, labor & equipment" }
   },
   { 
     icon: Plus, 
     label: { ar: "مشروع جديد", en: "New Project" }, 
     href: "/analyze", 
-    color: "from-green-500 to-green-600",
+    colorVar: "qa-green",
     description: { ar: "إنشاء مشروع جديد", en: "Create a new project" }
   },
   { 
     icon: Receipt, 
     label: { ar: "عروض الأسعار", en: "Quotations" }, 
     href: "/quotations", 
-    color: "from-purple-500 to-purple-600",
+    colorVar: "qa-purple",
     description: { ar: "إدارة عروض الأسعار", en: "Manage price quotations" }
   },
   { 
     icon: FileText, 
     label: { ar: "العقود", en: "Contracts" }, 
     href: "/contracts", 
-    color: "from-amber-500 to-orange-600",
+    colorVar: "qa-amber",
     description: { ar: "إدارة العقود والاتفاقيات", en: "Manage contracts" }
   },
   { 
     icon: FolderOpen, 
     label: { ar: "المشاريع المحفوظة", en: "Saved Projects" }, 
     href: "/projects", 
-    color: "from-indigo-500 to-indigo-600",
+    colorVar: "qa-indigo",
     description: { ar: "عرض وإدارة المشاريع المحفوظة", en: "View and manage saved projects" }
   },
   { 
     icon: BarChart3, 
     label: { ar: "التقارير", en: "Reports" }, 
     href: "/reports", 
-    color: "from-rose-500 to-pink-600",
+    colorVar: "qa-rose",
     description: { ar: "عرض وتصدير تقارير المشاريع", en: "View and export project reports" }
+  },
+  { 
+    icon: Shield, 
+    label: { ar: "إدارة المخاطر", en: "Risk Management" }, 
+    href: "/risk", 
+    colorVar: "qa-red",
+    description: { ar: "تتبع وإدارة مخاطر المشروع", en: "Track and manage project risks" }
   },
 ];
 
@@ -451,16 +458,21 @@ export default function HomePage() {
         </section>
 
         {/* Quick Actions */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {quickActions.map((action, index) => (
             <Link key={index} to={action.href}>
-              <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer border-2 hover:border-primary/50">
+              <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer border-2 hover:border-primary/50 h-full">
                 <CardContent className="p-6 text-center space-y-3">
-                  <div className={`w-14 h-14 mx-auto rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
+                  <div 
+                    className="w-14 h-14 mx-auto rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform"
+                    style={{
+                      background: `linear-gradient(135deg, hsl(var(--${action.colorVar})) 0%, hsl(var(--${action.colorVar}) / 0.8) 100%)`
+                    }}
+                  >
                     <action.icon className="w-7 h-7 text-white" />
                   </div>
-                  <h3 className="font-semibold">{isArabic ? action.label.ar : action.label.en}</h3>
-                  <p className="text-xs text-muted-foreground">{isArabic ? action.description.ar : action.description.en}</p>
+                  <h3 className="font-semibold text-sm">{isArabic ? action.label.ar : action.label.en}</h3>
+                  <p className="text-xs text-muted-foreground line-clamp-2">{isArabic ? action.description.ar : action.description.en}</p>
                 </CardContent>
               </Card>
             </Link>

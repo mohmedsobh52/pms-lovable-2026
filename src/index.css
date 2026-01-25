@@ -71,6 +71,17 @@
     --sidebar-accent-foreground: 222 47% 11%;
     --sidebar-border: 214 20% 91%;
     --sidebar-ring: 224 76% 48%;
+
+    /* Quick Action Card Colors */
+    --qa-blue: 224 76% 48%;
+    --qa-orange: 25 95% 53%;
+    --qa-teal: 173 80% 40%;
+    --qa-green: 142 71% 45%;
+    --qa-purple: 262 83% 58%;
+    --qa-amber: 38 92% 50%;
+    --qa-indigo: 239 84% 67%;
+    --qa-rose: 350 89% 60%;
+    --qa-red: 0 72% 51%;
   }
 
   .dark {
@@ -121,6 +132,17 @@
     --sidebar-accent-foreground: 214 32% 95%;
     --sidebar-border: 222 30% 22%;
     --sidebar-ring: 217 91% 60%;
+
+    /* Quick Action Card Colors - Dark Mode */
+    --qa-blue: 217 91% 60%;
+    --qa-orange: 25 95% 58%;
+    --qa-teal: 173 80% 45%;
+    --qa-green: 142 71% 50%;
+    --qa-purple: 262 83% 63%;
+    --qa-amber: 38 92% 55%;
+    --qa-indigo: 239 84% 72%;
+    --qa-rose: 350 89% 65%;
+    --qa-red: 0 72% 56%;
   }
 }
 
