@@ -84,7 +84,7 @@ const quickActions = [
   { 
     icon: FileUp, 
     label: { ar: "تحليل ملف BOQ", en: "Analyze BOQ File" }, 
-    href: "/analyze", 
+    href: "/projects?tab=analyze", 
     bgClass: "bg-blue-500",
     description: { ar: "رفع وتحليل ملفات BOQ", en: "Upload and analyze BOQ files" }
   },
@@ -105,9 +105,9 @@ const quickActions = [
   { 
     icon: Plus, 
     label: { ar: "مشروع جديد", en: "New Project" }, 
-    href: "/analyze", 
+    href: "/projects/new", 
     bgClass: "bg-green-500",
-    description: { ar: "إنشاء مشروع جديد", en: "Create a new project" }
+    description: { ar: "إنشاء مشروع جديد فارغ", en: "Create a new empty project" }
   },
   { 
     icon: Receipt, 

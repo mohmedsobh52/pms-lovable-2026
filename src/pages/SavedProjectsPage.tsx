@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { 
   FolderOpen, Trash2, Loader2, Calendar, FileText, Search, 
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
-  SortAsc, SortDesc, Download, Settings2
+  SortAsc, SortDesc, Download, Settings2, FileUp, Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -22,6 +23,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
+import { BOQAnalyzerPanel } from "@/components/BOQAnalyzerPanel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +68,7 @@ interface ProjectItem {
 
 export default function SavedProjectsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { isArabic, t } = useLanguage();
   const { toast } = useToast();
@@ -78,6 +81,18 @@ export default function SavedProjectsPage() {
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(null);
   const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
+  
+  // Tab state - check URL for initial tab
+  const initialTab = searchParams.get("tab") === "analyze" ? "analyze" : "projects";
+  const [activeTab, setActiveTab] = useState(initialTab);
+  
+  // Update tab when URL changes
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "analyze") {
+      setActiveTab("analyze");
+    }
+  }, [searchParams]);
 
   const fetchProjects = async () => {
     if (!user) return;
@@ -247,10 +262,10 @@ export default function SavedProjectsPage() {
               </div>
               <div>
                 <h1 className="font-display text-xl font-bold">
-                  {isArabic ? "المشاريع المحفوظة" : "Saved Projects"}
+                  {isArabic ? "المشاريع" : "Projects"}
                 </h1>
                 <p className="text-xs text-muted-foreground">
-                  {isArabic ? "إدارة مشاريعك المحفوظة" : "Manage your saved projects"}
+                  {isArabic ? "إدارة المشاريع وتحليل ملفات BOQ" : "Manage projects and analyze BOQ files"}
                 </p>
               </div>
             </div>
@@ -270,9 +285,33 @@ export default function SavedProjectsPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Search and Filter Bar */}
-        <div className="glass-card p-4 mb-6">
-          <div className="flex flex-col sm:flex-row gap-3">
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <TabsList className="grid w-full sm:w-auto grid-cols-2">
+              <TabsTrigger value="projects" className="gap-2">
+                <FolderOpen className="w-4 h-4" />
+                {isArabic ? "المشاريع المحفوظة" : "Saved Projects"}
+              </TabsTrigger>
+              <TabsTrigger value="analyze" className="gap-2">
+                <FileUp className="w-4 h-4" />
+                {isArabic ? "تحليل ملف BOQ" : "Analyze BOQ"}
+              </TabsTrigger>
+            </TabsList>
+            
+            {activeTab === "projects" && (
+              <Button onClick={() => navigate("/projects/new")} className="gap-2">
+                <Plus className="w-4 h-4" />
+                {isArabic ? "مشروع جديد" : "New Project"}
+              </Button>
+            )}
+          </div>
+          
+          {/* Projects Tab */}
+          <TabsContent value="projects" className="space-y-6">
+            {/* Search and Filter Bar */}
+            <div className="glass-card p-4">
+              <div className="flex flex-col sm:flex-row gap-3">
             {/* Search */}
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -458,6 +497,20 @@ export default function SavedProjectsPage() {
             ))}
           </div>
         )}
+          </TabsContent>
+          
+          {/* Analyze BOQ Tab */}
+          <TabsContent value="analyze">
+            <BOQAnalyzerPanel 
+              embedded 
+              onProjectSaved={(projectId) => {
+                setActiveTab("projects");
+                fetchProjects();
+                navigate(`/projects/${projectId}`);
+              }} 
+            />
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Project Details Dialog */}
