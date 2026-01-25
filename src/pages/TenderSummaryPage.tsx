@@ -127,9 +127,20 @@ export default function TenderSummaryPage() {
         .from("saved_projects")
         .select("*")
         .eq("id", projectId)
-        .single();
+        .maybeSingle();
 
       if (projectError) throw projectError;
+      
+      if (!projectData) {
+        toast({
+          title: isArabic ? "خطأ" : "Error",
+          description: isArabic ? "المشروع غير موجود" : "Project not found",
+          variant: "destructive",
+        });
+        navigate("/projects");
+        return;
+      }
+      
       setProject(projectData);
 
       // Load pricing data
@@ -139,6 +150,10 @@ export default function TenderSummaryPage() {
         .eq("project_id", projectId)
         .maybeSingle();
 
+      if (pricingError) {
+        console.warn("No pricing data found, using defaults");
+      }
+
       if (pricingData) {
         setPricingSettings({
           contractValue: Number(pricingData.contract_value) || 10000000,
@@ -146,8 +161,6 @@ export default function TenderSummaryPage() {
           contingency: Number(pricingData.contingency) || 5,
           projectDuration: pricingData.project_duration || 12,
           currency: pricingData.currency || "SAR",
-          startDate: pricingData.start_date || undefined,
-          endDate: pricingData.end_date || undefined,
         });
 
         setTotals({
@@ -247,6 +260,18 @@ export default function TenderSummaryPage() {
     const contingency = totalIndirect * (pricingSettings.contingency / 100);
     return totalIndirect + profit + contingency;
   };
+
+  // Extract project items from analysis_data for subcontractor linking
+  const projectItems = useMemo(() => {
+    if (project?.analysis_data?.items) {
+      return (project.analysis_data.items as any[]).map((item: any) => ({
+        itemNumber: item.item_no || item.itemNumber || item.id || '',
+        description: item.description || '',
+        totalPrice: item.total_price || item.totalPrice || 0
+      }));
+    }
+    return [];
+  }, [project]);
 
   const handleSubcontractorsChange = (data: TenderSubcontractor[], total: number) => {
     setSubcontractorsData(data);
@@ -368,6 +393,7 @@ export default function TenderSummaryPage() {
                 insuranceData={insuranceData}
                 guaranteesData={guaranteesData}
                 indirectCostsData={indirectCostsData}
+                subcontractorsData={subcontractorsData}
               />
               <Button
                 onClick={handleCalculate}
@@ -588,6 +614,7 @@ export default function TenderSummaryPage() {
             <TenderSubcontractorsTab
               projectId={projectId || ""}
               initialData={subcontractorsData}
+              projectItems={projectItems}
               contractValue={pricingSettings.contractValue}
               currency={pricingSettings.currency}
               onDataChange={handleSubcontractorsChange}

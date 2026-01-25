@@ -10,6 +10,7 @@ interface TenderChartsProps {
     insuranceCosts: number;
     guaranteesCosts: number;
     indirectCosts: number;
+    subcontractorsCosts: number;
   };
   directCosts?: number;
 }
@@ -20,60 +21,70 @@ export function TenderCharts({ isArabic, totals, directCosts = 0 }: TenderCharts
   const pieData = [
     { 
       name: isArabic ? "طاقم الموقع" : "Site Staff", 
-      value: totals.staffCosts,
+      value: totals.staffCosts || 0,
       color: COLORS[0]
     },
     { 
       name: isArabic ? "المرافق" : "Facilities", 
-      value: totals.facilitiesCosts,
+      value: totals.facilitiesCosts || 0,
       color: COLORS[1]
     },
     { 
       name: isArabic ? "التأمين" : "Insurance", 
-      value: totals.insuranceCosts,
+      value: totals.insuranceCosts || 0,
       color: COLORS[2]
     },
     { 
       name: isArabic ? "الضمانات" : "Guarantees", 
-      value: totals.guaranteesCosts,
+      value: totals.guaranteesCosts || 0,
       color: COLORS[3]
     },
     { 
       name: isArabic ? "تكاليف غير مباشرة" : "Indirect Costs", 
-      value: totals.indirectCosts,
+      value: totals.indirectCosts || 0,
       color: COLORS[4]
+    },
+    { 
+      name: isArabic ? "مقاولي الباطن" : "Subcontractors", 
+      value: totals.subcontractorsCosts || 0,
+      color: COLORS[5]
     },
   ].filter(item => item.value > 0);
 
   const barData = [
     { 
       name: isArabic ? "طاقم الموقع" : "Staff", 
-      value: totals.staffCosts,
+      value: totals.staffCosts || 0,
       fill: COLORS[0]
     },
     { 
       name: isArabic ? "المرافق" : "Facilities", 
-      value: totals.facilitiesCosts,
+      value: totals.facilitiesCosts || 0,
       fill: COLORS[1]
     },
     { 
       name: isArabic ? "التأمين" : "Insurance", 
-      value: totals.insuranceCosts,
+      value: totals.insuranceCosts || 0,
       fill: COLORS[2]
     },
     { 
       name: isArabic ? "الضمانات" : "Guarantees", 
-      value: totals.guaranteesCosts,
+      value: totals.guaranteesCosts || 0,
       fill: COLORS[3]
     },
     { 
       name: isArabic ? "غير مباشرة" : "Indirect", 
-      value: totals.indirectCosts,
+      value: totals.indirectCosts || 0,
       fill: COLORS[4]
+    },
+    { 
+      name: isArabic ? "مقاولين" : "Subcontractors", 
+      value: totals.subcontractorsCosts || 0,
+      fill: COLORS[5]
     },
   ];
 
-  const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts;
+  const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts + (totals.subcontractorsCosts || 0);
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000) {
