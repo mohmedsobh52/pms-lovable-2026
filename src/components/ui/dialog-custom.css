@@ -58,3 +58,10 @@
   pointer-events: auto !important;
   cursor: pointer !important;
 }
+
+/* Ensure all tabs in tabs-navigation-safe are clickable */
+.tabs-navigation-safe > button,
+.tabs-navigation-safe [role="tab"] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}

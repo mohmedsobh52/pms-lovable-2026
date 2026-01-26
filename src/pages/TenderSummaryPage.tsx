@@ -647,7 +647,7 @@ export default function TenderSummaryPage() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full justify-start overflow-x-auto flex-nowrap mb-6 bg-muted/50">
+          <TabsList className="w-full justify-start overflow-x-auto flex-nowrap mb-6 bg-muted/50 tabs-navigation-safe">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
