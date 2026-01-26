@@ -1,56 +1,96 @@
 
-
-# خطة إصلاح مشكلة القائمة الجانبية (⋮) - الخيارات لا تعمل عند النقر
+# خطة إصلاح مشكلة عدم عمل "Quick Price" في القائمة الجانبية
 
 ## تشخيص المشكلة
 
-بعد فحص الكود، وجدت أن القائمة **تظهر بشكل صحيح** (كما في الصورة) لكن **الخيارات لا تعمل عند النقر عليها**.
+### السبب الجذري
+تم تغيير `onClick` إلى `onSelect` في آخر تعديل، لكن هذا سبب مشكلة:
 
-### السبب المحتمل:
-Radix UI `DropdownMenuItem` يستخدم `onSelect` كـ handler رئيسي بدلاً من `onClick`. بينما `onClick` قد يعمل أحياناً، لكنه قد يتعارض مع الـ internal event handling في Radix.
+| المعالج | التوقيت | المشكلة |
+|---------|---------|---------|
+| `onClick` | يُنفذ فوراً عند النقر | ✅ يفتح الـ Dialog مباشرة |
+| `onSelect` | يُنفذ بعد إغلاق القائمة | ❌ قد يتأخر أو يُفقد |
+
+### الكود الحالي (لا يعمل):
+```typescript
+<DropdownMenuItem 
+  onSelect={() => onQuickPrice(item.id)}
+  className="gap-2"
+>
+```
+
+### الدليل على أن `onClick` يعمل:
+الملفات التالية تستخدم `onClick` وتعمل بشكل صحيح:
+- `AnalysisResults.tsx` (سطر 1401-1437)
+- `AttachmentFolders.tsx` (سطر 392)
+- `ProjectAttachments.tsx` (سطر 1010-1025)
 
 ---
 
 ## الحل المقترح
 
-### تغيير `onClick` إلى `onSelect` في جميع DropdownMenuItem
+### إعادة `onClick` بدلاً من `onSelect` مع إضافة `e.preventDefault()`
 
-في ملف `src/components/project-details/ProjectBOQTab.tsx`:
+**الملف:** `src/components/project-details/ProjectBOQTab.tsx`
 
-| السطر | قبل | بعد |
-|-------|-----|-----|
-| 329 | `onClick={() => onQuickPrice(item.id)}` | `onSelect={() => onQuickPrice(item.id)}` |
-| 336 | `onClick={() => onDetailedPrice(item)}` | `onSelect={() => onDetailedPrice(item)}` |
-| 344 | `onClick={() => onEditItem(item)}` | `onSelect={() => onEditItem(item)}` |
-| 351 | `onClick={() => onUnconfirmItem(item.id)}` | `onSelect={() => onUnconfirmItem(item.id)}` |
-| 360 | `onClick={() => onDeleteItem(item.id)}` | `onSelect={() => onDeleteItem(item.id)}` |
-
-### إضافة حماية إضافية في CSS
-
-في `dialog-custom.css`، سنضيف:
-
-```css
-/* Additional protection for dropdown item interaction */
-[data-radix-dropdown-menu-item]:hover {
-  background-color: hsl(var(--accent));
-  cursor: pointer !important;
-}
-
-[data-radix-dropdown-menu-content] * {
-  pointer-events: auto !important;
-}
-```
-
-### تحديث `cursor-default` إلى `cursor-pointer`
-
-في `dropdown-menu.tsx` سطر 82:
+**التغييرات (السطور 328-365):**
 
 ```typescript
-// قبل
-"relative flex cursor-default select-none items-center..."
+<DropdownMenuItem 
+  onClick={(e) => {
+    e.preventDefault();
+    onQuickPrice(item.id);
+  }}
+  className="gap-2"
+>
+  <DollarSign className="w-4 h-4" />
+  {isArabic ? "تسعير سريع" : "Quick Price"}
+</DropdownMenuItem>
 
-// بعد  
-"relative flex cursor-pointer select-none items-center..."
+<DropdownMenuItem 
+  onClick={(e) => {
+    e.preventDefault();
+    onDetailedPrice(item);
+  }}
+  className="gap-2"
+>
+  <FileText className="w-4 h-4" />
+  {isArabic ? "تسعير مفصل" : "Detailed Price"}
+</DropdownMenuItem>
+
+<DropdownMenuItem 
+  onClick={(e) => {
+    e.preventDefault();
+    onEditItem(item);
+  }}
+  className="gap-2"
+>
+  <Edit className="w-4 h-4" />
+  {isArabic ? "تعديل" : "Edit"}
+</DropdownMenuItem>
+
+<DropdownMenuItem 
+  onClick={(e) => {
+    e.preventDefault();
+    onUnconfirmItem(item.id);
+  }}
+  className="gap-2"
+  disabled={!item.unit_price || item.unit_price === 0}
+>
+  <XCircle className="w-4 h-4" />
+  {isArabic ? "إلغاء التحقق" : "Clear Price"}
+</DropdownMenuItem>
+
+<DropdownMenuItem 
+  onClick={(e) => {
+    e.preventDefault();
+    onDeleteItem(item.id);
+  }}
+  className="gap-2 text-destructive"
+>
+  <Trash2 className="w-4 h-4" />
+  {isArabic ? "حذف" : "Delete"}
+</DropdownMenuItem>
 ```
 
 ---
@@ -59,18 +99,43 @@ Radix UI `DropdownMenuItem` يستخدم `onSelect` كـ handler رئيسي بد
 
 | الملف | السطر | التغيير |
 |-------|-------|---------|
-| `ProjectBOQTab.tsx` | 329, 336, 344, 351, 360 | تغيير `onClick` إلى `onSelect` |
-| `dialog-custom.css` | جديد | إضافة حماية hover والـ content children |
-| `dropdown-menu.tsx` | 82 | تغيير `cursor-default` إلى `cursor-pointer` |
+| `ProjectBOQTab.tsx` | 328-365 | إعادة `onClick` بدلاً من `onSelect` مع `e.preventDefault()` |
 
 ---
 
 ## الاختبار المطلوب بعد التنفيذ
 
 1. **النقر على زر النقاط الثلاث (⋮)** → القائمة تظهر ✓
-2. **النقر على "Quick Price"** → يفتح dialog التسعير السريع
+2. **النقر على "Quick Price"** → يفتح dialog التسعير السريع فوراً
 3. **النقر على "Detailed Price"** → يفتح dialog التسعير المفصل
 4. **النقر على "Edit"** → يفتح dialog التعديل
 5. **النقر على "Clear Price"** → يمسح السعر (للبنود المسعرة فقط)
 6. **النقر على "Delete"** → يحذف البند
 
+---
+
+## لماذا يعمل `onClick` بينما `onSelect` لا يعمل؟
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                 سلسلة الأحداث مع onClick                     │
+├─────────────────────────────────────────────────────────────┤
+│ 1. المستخدم ينقر على العنصر                                  │
+│ 2. onClick يُنفذ فوراً → setShowQuickPriceDialog(itemId)     │
+│ 3. Dialog يظهر مباشرة                                        │
+│ 4. القائمة تُغلق                                             │
+│                                                             │
+│ النتيجة: ✅ Dialog يظهر                                      │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                 سلسلة الأحداث مع onSelect                    │
+├─────────────────────────────────────────────────────────────┤
+│ 1. المستخدم ينقر على العنصر                                  │
+│ 2. القائمة تبدأ بالإغلاق                                     │
+│ 3. onSelect يُنفذ بعد الإغلاق                                │
+│ 4. قد يكون هناك تعارض مع pointer-events                     │
+│                                                             │
+│ النتيجة: ❌ Dialog قد لا يظهر                                │
+└─────────────────────────────────────────────────────────────┘
+```
