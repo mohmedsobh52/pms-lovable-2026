@@ -1,212 +1,181 @@
 
+# خطة إصلاح مشكلة "Project not found"
 
-# خطة اختبار شامل للتبويبات والقوائم المنسدلة وأزرار التنقل
+## تشخيص المشكلة
 
-## ملخص المشكلة
+### السبب الجذري
+يوجد **جدولان منفصلان** لتخزين المشاريع مما يسبب تضارباً:
 
-بعد فحص المشروع بالكامل، وجدت أن هناك **صفحات كثيرة** تحتوي على TabsList و Select dropdowns **غير محمية** بـ `tabs-navigation-safe` class، مما قد يسبب مشاكل z-index مشابهة للمشاكل التي أصلحناها.
-
----
-
-## الصفحات المحمية حالياً ✅
-
-| الصفحة | الملف | الحالة |
-|--------|-------|--------|
-| Project Details | `ProjectDetailsPage.tsx` | ✅ محمي |
-| Saved Projects | `SavedProjectsPage.tsx` | ✅ محمي |
-| Tender Summary | `TenderSummaryPage.tsx` | ✅ محمي |
-
----
-
-## الصفحات التي تحتاج حماية ❌
-
-### 1. صفحة التقارير (ReportsPage.tsx)
-- **السطر 281**: `<TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">`
-- **التبويبات**: Export, Price Analysis, Compare Projects, Summary, Recent, Advanced
-
-### 2. صفحة العقود (ContractsPage.tsx)
-- **السطر 204**: `<TabsList className="flex flex-wrap h-auto gap-1">`
-- **التبويبات**: Contracts, Dashboard, Milestones, Payments, Timeline, Warranties, Maintenance, FIDIC, Alerts
-
-### 3. صفحة المقاولين من الباطن (SubcontractorsPage.tsx)
-- **السطر 193**: `<TabsList className="grid grid-cols-3 w-full md:w-auto">`
-- **التبويبات**: Dashboard, Management, BOQ Link
-
-### 4. صفحة عروض الأسعار (QuotationsPage.tsx)
-- **السطر 13**: `<TabsList>`
-- **التبويبات**: Upload Quotations, Compare Quotations
-
-### 5. صفحة أدوات التحليل (AnalysisToolsPage.tsx)
-- **السطر 38**: `<TabsList className="grid w-full grid-cols-4">`
-- **التبويبات**: Cost Analysis, Cost Breakdown, BOQ Comparison, Market Rates
-
-### 6. صفحة الأسعار التاريخية (HistoricalPricingPage.tsx)
-- **السطر 670**: `<TabsList>`
-- **التبويبات**: Files, Statistics
-
-### 7. مكون المكتبة (LibraryDatabase.tsx)
-- **السطر 134**: `<TabsList className="grid w-full grid-cols-3 h-12">`
-- **التبويبات**: Materials, Labor, Equipment
-
----
-
-## التغييرات المطلوبة
-
-### الملف 1: src/pages/ReportsPage.tsx (سطر 281)
-```typescript
-// قبل
-<TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
-
-// بعد
-<TabsList className="w-full flex flex-wrap h-auto gap-1 p-1 tabs-navigation-safe">
+```text
+┌────────────────────────────────────────────────────────────────┐
+│                    مسار البيانات الحالي                        │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  MainDashboard.tsx                                            │
+│  ↓                                                            │
+│  يجلب المشاريع من: saved_projects                             │
+│  ↓                                                            │
+│  ينتقل إلى: /projects/${project.id}                           │
+│  ↓                                                            │
+│  ProjectDetailsPage.tsx                                       │
+│  ↓                                                            │
+│  يبحث في: project_data ❌                                     │
+│  ↓                                                            │
+│  النتيجة: "Project not found"                                 │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-### الملف 2: src/pages/ContractsPage.tsx (سطر 204)
-```typescript
-// قبل
-<TabsList className="flex flex-wrap h-auto gap-1">
+### الجدولان المتضاربان:
 
-// بعد
-<TabsList className="flex flex-wrap h-auto gap-1 tabs-navigation-safe">
-```
-
-### الملف 3: src/pages/SubcontractorsPage.tsx (سطر 193)
-```typescript
-// قبل
-<TabsList className="grid grid-cols-3 w-full md:w-auto">
-
-// بعد
-<TabsList className="grid grid-cols-3 w-full md:w-auto tabs-navigation-safe">
-```
-
-### الملف 4: src/pages/QuotationsPage.tsx (سطر 13)
-```typescript
-// قبل
-<TabsList>
-
-// بعد
-<TabsList className="tabs-navigation-safe">
-```
-
-### الملف 5: src/pages/AnalysisToolsPage.tsx (سطر 38)
-```typescript
-// قبل
-<TabsList className="grid w-full grid-cols-4">
-
-// بعد
-<TabsList className="grid w-full grid-cols-4 tabs-navigation-safe">
-```
-
-### الملف 6: src/pages/HistoricalPricingPage.tsx (سطر 670)
-```typescript
-// قبل
-<TabsList>
-
-// بعد
-<TabsList className="tabs-navigation-safe">
-```
-
-### الملف 7: src/components/LibraryDatabase.tsx (سطر 134)
-```typescript
-// قبل
-<TabsList className="grid w-full grid-cols-3 h-12">
-
-// بعد
-<TabsList className="grid w-full grid-cols-3 h-12 tabs-navigation-safe">
-```
-
----
-
-## اختبار التنقل (NavigationBar و FloatingBackButton)
-
-### NavigationBar موجود في:
-- **PageLayout.tsx** - يظهر تلقائياً في جميع الصفحات التي تستخدم PageLayout
-- يحتوي على: زر **رجوع**، زر **الرئيسية**، و**Breadcrumbs**
-
-### FloatingBackButton موجود في:
-- **App.tsx** - عام لجميع الصفحات
-- يظهر بعد التمرير 300px
-- يحتوي على: زر **رجوع** و**العودة للأعلى**
-
-### الصفحات التي تستخدم PageLayout:
-1. ✅ ReportsPage
-2. ✅ ContractsPage
-3. ✅ SubcontractorsPage
-4. ✅ QuotationsPage
-5. ✅ AnalysisToolsPage
-6. ✅ ProcurementPage
-7. ✅ RiskPage
-8. ✅ TemplatesPage
-9. ✅ P6ExportPage
-10. ✅ LibraryPage
-11. ✅ MaterialPricesPage
-12. ✅ ResourcesPage
-13. ✅ SettingsPage
-
----
-
-## قائمة الاختبار الشاملة
-
-### اختبار التبويبات (Tabs)
-
-| الصفحة | المسار | التبويبات للاختبار |
-|--------|--------|-------------------|
-| Reports | `/reports` | Export, Price Analysis, Compare, Summary, Recent, Advanced |
-| Contracts | `/contracts` | Contracts, Dashboard, Milestones, Payments, Timeline, Warranties, Maintenance, FIDIC, Alerts |
-| Subcontractors | `/subcontractors` | Dashboard, Management, BOQ Link |
-| Quotations | `/quotations` | Upload, Compare |
-| Analysis Tools | `/analysis-tools` | Cost Analysis, Cost Breakdown, BOQ Comparison, Market Rates |
-| Historical Pricing | `/historical-pricing` | Files, Statistics |
-| Library | `/library` | Materials, Labor, Equipment |
-| Projects | `/projects` | Saved Projects, Analyze BOQ |
-| Tender Summary | `/projects/:id/pricing` | جميع التبويبات الـ 8 |
-| Project Details | `/projects/:id` | Overview, BOQ, Documents, Settings |
-
-### اختبار القوائم المنسدلة (Select/Dropdown)
-
-| الصفحة | القائمة | الغرض |
-|--------|--------|-------|
-| Project Details | Project Status | تغيير حالة المشروع |
-| Project Details | Project Type | تغيير نوع المشروع |
-| Project Details | Currency | تغيير العملة |
-| Reports | Status Filter | فلترة حسب الحالة |
-| Resources | Type Filter | فلترة حسب النوع |
-| Resources | Status Filter | فلترة حسب الحالة |
-| Cost Analysis | Template Select | تحميل قالب |
-
-### اختبار أزرار التنقل
-
-| العنصر | الموقع | الوظيفة |
+| الجدول | المصدر | الأعمدة |
 |--------|--------|---------|
-| زر رجوع | NavigationBar | العودة للصفحة السابقة |
-| زر الرئيسية | NavigationBar | العودة للصفحة الرئيسية |
-| Breadcrumbs | NavigationBar | التنقل بين المستويات |
-| FloatingBackButton | أسفل يمين الشاشة | رجوع سريع بعد التمرير |
-| زر العودة للأعلى | أسفل يمين الشاشة | التمرير لأعلى الصفحة |
+| `saved_projects` | MainDashboard, SavedProjects component | id, name, status, analysis_data |
+| `project_data` | ProjectDetailsPage, SavedProjectsPage | id, name, currency, total_value, analysis_data |
+
+### المشروع المتأثر:
+- **ID:** `53146e3a-70eb-40a2-8ad1-50ee4957a1dd`
+- **الاسم:** "The Beach"
+- **موجود في:** `saved_projects` ✅
+- **غير موجود في:** `project_data` ❌
 
 ---
 
-## خطوات التنفيذ
+## الحل المقترح
 
-1. **إضافة `tabs-navigation-safe` class** لجميع TabsList غير المحمية (7 ملفات)
-2. **اختبار كل تبويب** في كل صفحة
-3. **اختبار القوائم المنسدلة** في جميع الصفحات
-4. **اختبار أزرار التنقل** في جميع الصفحات
-5. **اختبار بعد إغلاق Dialog** للتأكد من عدم حدوث تجميد
+### الخيار 1: دمج البحث في كلا الجدولين (الحل الموصى به)
+
+تعديل `ProjectDetailsPage.tsx` ليبحث في كلا الجدولين:
+1. البحث أولاً في `project_data`
+2. إذا لم يوجد، البحث في `saved_projects`
+3. تحويل البيانات لتتوافق مع الواجهة المطلوبة
+
+### الخيار 2: توحيد مصادر البيانات (حل طويل المدى)
+
+جعل جميع المكونات تستخدم جدول `project_data` فقط:
+1. تعديل `MainDashboard.tsx` ليجلب من `project_data`
+2. ترحيل البيانات من `saved_projects` إلى `project_data`
+
+---
+
+## التغييرات المطلوبة (الخيار 1)
+
+### الملف: src/pages/ProjectDetailsPage.tsx
+
+تعديل useEffect لجلب البيانات (السطور 91-151):
+
+```typescript
+useEffect(() => {
+  if (!user || !projectId) return;
+
+  const fetchProjectData = async () => {
+    setIsLoading(true);
+    try {
+      // 1. البحث أولاً في project_data
+      let { data: projectData, error: projectError } = await supabase
+        .from("project_data")
+        .select("*")
+        .eq("id", projectId)
+        .maybeSingle();
+
+      if (projectError) throw projectError;
+      
+      // 2. إذا لم يوجد، البحث في saved_projects
+      if (!projectData) {
+        const { data: savedProject, error: savedError } = await supabase
+          .from("saved_projects")
+          .select("*")
+          .eq("id", projectId)
+          .maybeSingle();
+          
+        if (savedError) throw savedError;
+        
+        if (savedProject) {
+          // تحويل البيانات لتتوافق مع واجهة ProjectData
+          projectData = {
+            ...savedProject,
+            currency: "SAR",
+            total_value: savedProject.analysis_data?.summary?.total_value || 0,
+            items_count: savedProject.analysis_data?.items?.length || 0,
+          };
+        }
+      }
+      
+      // 3. التعامل مع حالة عدم وجود المشروع
+      if (!projectData) {
+        setIsLoading(false);
+        setProject(null);
+        return;
+      }
+
+      setProject(projectData);
+      // ... باقي الكود كما هو
+    } catch (error: any) {
+      // معالجة الأخطاء
+    }
+  };
+
+  fetchProjectData();
+}, [user, projectId]);
+```
+
+### الملف: src/components/MainDashboard.tsx (اختياري)
+
+تحديث التنقل ليذهب إلى صفحة مختلفة للمشاريع من `saved_projects`:
+
+```typescript
+// السطر 1096 - إضافة معامل لتحديد نوع المشروع
+onClick={() => navigate(`/projects/${project.id}?source=saved`)}
+```
 
 ---
 
 ## ملخص التغييرات
 
-| الملف | السطر | التغيير |
-|-------|-------|---------|
-| ReportsPage.tsx | 281 | إضافة `tabs-navigation-safe` |
-| ContractsPage.tsx | 204 | إضافة `tabs-navigation-safe` |
-| SubcontractorsPage.tsx | 193 | إضافة `tabs-navigation-safe` |
-| QuotationsPage.tsx | 13 | إضافة `tabs-navigation-safe` |
-| AnalysisToolsPage.tsx | 38 | إضافة `tabs-navigation-safe` |
-| HistoricalPricingPage.tsx | 670 | إضافة `tabs-navigation-safe` |
-| LibraryDatabase.tsx | 134 | إضافة `tabs-navigation-safe` |
+| الملف | السطور | التغيير |
+|-------|--------|---------|
+| `ProjectDetailsPage.tsx` | 91-151 | البحث في كلا الجدولين |
+| `ProjectDetailsPage.tsx` | جديد | تحويل بيانات saved_projects |
 
-**إجمالي: 7 ملفات تحتاج تعديل**
+---
 
+## اختبار بعد التطبيق
+
+1. **فتح مشروع من MainDashboard:**
+   - النقر على أي مشروع → يجب أن يفتح التفاصيل بدون "Project not found"
+
+2. **فتح مشروع من SavedProjectsPage:**
+   - النقر على "Open" → يجب أن يعمل بشكل صحيح
+
+3. **زر "Back to Projects":**
+   - النقر على الزر → يجب أن ينتقل إلى `/projects`
+
+4. **المشاريع الجديدة:**
+   - إنشاء مشروع جديد → يجب أن يفتح من `project_data`
+
+---
+
+## ملاحظات فنية
+
+### هيكل البيانات المتوقع:
+
+```typescript
+interface ProjectData {
+  id: string;
+  name: string;
+  file_name: string | null;
+  analysis_data: any;
+  wbs_data: any;
+  currency: string;        // غير موجود في saved_projects
+  total_value: number;     // غير موجود في saved_projects
+  items_count: number;     // غير موجود في saved_projects
+  created_at: string;
+  updated_at: string;
+  status?: string;         // موجود في saved_projects فقط
+}
+```
+
+### التحويل المطلوب:
+- `currency`: استخدام "SAR" كقيمة افتراضية
+- `total_value`: حسابها من `analysis_data.summary.total_value` أو `analysis_data.items`
+- `items_count`: حسابها من `analysis_data.items.length`
