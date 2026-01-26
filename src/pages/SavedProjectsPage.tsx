@@ -288,7 +288,7 @@ export default function SavedProjectsPage() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <TabsList className="grid w-full sm:w-auto grid-cols-2">
+            <TabsList className="grid w-full sm:w-auto grid-cols-2 tabs-navigation-safe">
               <TabsTrigger value="projects" className="gap-2">
                 <FolderOpen className="w-4 h-4" />
                 {isArabic ? "المشاريع المحفوظة" : "Saved Projects"}
