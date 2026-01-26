@@ -65,3 +65,22 @@
   pointer-events: auto !important;
   cursor: pointer !important;
 }
+
+/* Upload zone protection */
+.upload-zone,
+[class*="border-dashed"] {
+  position: relative;
+  z-index: 55;
+  pointer-events: auto !important;
+}
+
+.upload-zone label,
+[class*="border-dashed"] label {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.upload-zone input[type="file"],
+[class*="border-dashed"] input[type="file"] {
+  pointer-events: auto !important;
+}
