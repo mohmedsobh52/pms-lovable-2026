@@ -1,41 +1,56 @@
 
-
-# خطة إصلاح زر "Auto Price"
+# خطة إصلاح تبويب "Site Staff"
 
 ## تشخيص المشكلة
 
 ### السبب الجذري
-زر "Auto Price" يعاني من **نفس مشكلة z-index** التي أصلحناها سابقاً لأزرار "Start Pricing" و "Edit Project":
+بعد فحص الكود، وجدت أن المشكلة هي **نفس مشكلة z-index** التي أصلحناها في الصفحات السابقة:
 
 ```text
 ترتيب الطبقات الحالي:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ProjectHeader Actions:     z-[60] ✅ (محمي - تم إصلاحه)
-Tabs Navigation:           z-55   ✅ (محمي)
-BOQ Card Header Buttons:   z-auto ❌ (غير محمي!)
-Dialog Overlay:            z-50   (قد يحجب الأزرار)
+Header (TenderSummaryPage):  z-40   
+Tabs Navigation:             z-55   (من CSS)
+Dialog Overlay:              z-50   
+TabsTrigger:                 z-56   (من CSS)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-الأزرار في `CardHeader` داخل `ProjectBOQTab.tsx` (Auto Price, Add Item, Delete Zero Qty, File Order, Filter, etc.) ليس لها `z-index` عالي، لذلك تُحجب بواسطة Dialog Overlay بعد إغلاقه.
+المشكلة الرئيسية:
+1. **TabsList في TenderSummaryPage** لا يحتوي على class `tabs-navigation-safe` 
+2. الاعتماد على CSS selector `[data-radix-tabs-list]` قد لا يكون كافياً بسبب stacking context
+3. الـ overflow-x-auto على TabsList قد يُنشئ stacking context جديد يتعارض مع z-index
 
 ---
 
 ## الحل المقترح
 
-### 1. إضافة z-index لقسم أزرار BOQ
+### 1. إضافة class للـ TabsList في TenderSummaryPage
 
-**في ملف `src/components/project-details/ProjectBOQTab.tsx` - السطر 164:**
+**في ملف `src/pages/TenderSummaryPage.tsx` - السطر 650:**
 
 ```typescript
 // قبل
-<div className="flex items-center gap-2 flex-wrap">
+<TabsList className="w-full justify-start overflow-x-auto flex-nowrap mb-6 bg-muted/50">
 
 // بعد
-<div className="flex items-center gap-2 flex-wrap project-actions-section">
+<TabsList className="w-full justify-start overflow-x-auto flex-nowrap mb-6 bg-muted/50 tabs-navigation-safe">
 ```
 
-هذا يطبق نفس CSS المحمي الذي أضفناه سابقاً (`z-index: 60` و `pointer-events: auto`).
+---
+
+### 2. إضافة CSS لضمان أن TabsTrigger قابل للنقر دائماً
+
+**في ملف `src/components/ui/dialog-custom.css`:**
+
+```css
+/* Ensure all tabs on Tender Summary page are clickable */
+.tabs-navigation-safe > button,
+.tabs-navigation-safe [role="tab"] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+```
 
 ---
 
@@ -43,19 +58,8 @@ Dialog Overlay:            z-50   (قد يحجب الأزرار)
 
 | الملف | السطر | التغيير | الأثر |
 |-------|-------|---------|-------|
-| `ProjectBOQTab.tsx` | 164 | إضافة `project-actions-section` class | يحمي جميع أزرار BOQ من z-index conflicts |
-
----
-
-## الأزرار المحمية بعد الإصلاح
-
-1. ✅ **Auto Price** - سيعمل بشكل صحيح
-2. ✅ **Add Item** - سيعمل بشكل صحيح
-3. ✅ **Delete Zero Qty** - سيعمل بشكل صحيح
-4. ✅ **File Order dropdown** - سيعمل بشكل صحيح
-5. ✅ **Filter button** - سيعمل بشكل صحيح
-6. ✅ **Refresh button** - سيعمل بشكل صحيح
-7. ✅ **Download button** - سيعمل بشكل صحيح
+| `TenderSummaryPage.tsx` | 650 | إضافة `tabs-navigation-safe` class | يحمي جميع tabs من z-index conflicts |
+| `dialog-custom.css` | جديد | CSS rules للـ tabs triggers | يضمن pointer-events للتبويبات |
 
 ---
 
@@ -65,22 +69,26 @@ Dialog Overlay:            z-50   (قد يحجب الأزرار)
 ترتيب الطبقات الجديد:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Select Dropdowns:          z-[70] ✅
-ProjectHeader Actions:     z-[60] ✅
-BOQ Card Header Buttons:   z-[60] ✅ (سيُضاف)
-Tabs Navigation:           z-55   ✅
+Project Actions:           z-[60] ✅
+Tabs Navigation:           z-55   ✅ (مع class صريح)
 Dialog Overlay:            z-50
+Header:                    z-40
 Normal Content:            z-auto
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ---
 
-## ملاحظة مهمة
+## التبويبات المحمية بعد الإصلاح
 
-**سلوك زر Auto Price الطبيعي:**
-- الزر يكون **معطلاً (disabled)** عندما جميع البنود مسعرة بالفعل
-- من البيانات الحالية، يبدو أن جميع الـ 485 بند لها أسعار
-- بعد الإصلاح، إذا كانت هناك بنود غير مسعرة، سيعمل الزر
+1. ✅ **Tender Summary** - سيعمل بشكل صحيح
+2. ✅ **Site Staff** - سيعمل بشكل صحيح
+3. ✅ **Facilities** - سيعمل بشكل صحيح
+4. ✅ **Insurance** - سيعمل بشكل صحيح
+5. ✅ **Guarantees** - سيعمل بشكل صحيح
+6. ✅ **Indirect Costs** - سيعمل بشكل صحيح
+7. ✅ **Subcontractors** - سيعمل بشكل صحيح
+8. ✅ **Settings** - سيعمل بشكل صحيح
 
 ---
 
@@ -88,16 +96,16 @@ Normal Content:            z-auto
 
 بعد تطبيق التغييرات:
 
-1. **اختبار Auto Price:**
-   - إذا كانت هناك بنود غير مسعرة → النقر على الزر → يبدأ التسعير التلقائي
-   - إذا كانت جميع البنود مسعرة → الزر يكون معطلاً (وهذا سلوك صحيح)
+1. **اختبار Site Staff tab:**
+   - النقر على "Site Staff" → يجب أن يظهر جدول طاقم الموقع
+   - التأكد من ظهور جميع الموظفين في الجدول
 
-2. **اختبار بعد إغلاق Dialog:**
-   - فتح Quick Price أو Edit Item Dialog → إغلاقه → النقر على Auto Price → يجب أن يستجيب
+2. **اختبار باقي التبويبات:**
+   - النقر على كل تبويب → يجب أن يتغير المحتوى
+   - التأكد من عدم وجود "تجميد" عند النقر
 
-3. **اختبار Add Item:**
-   - النقر على "Add Item" → يجب أن يفتح dialog الإضافة
+3. **اختبار بعد إغلاق Dialog:**
+   - فتح dialog "Add Staff" → إغلاقه → النقر على تبويب آخر → يجب أن يعمل فوراً
 
-4. **اختبار File Order dropdown:**
-   - النقر على "File Order" → يجب أن تظهر القائمة المنسدلة
-
+4. **اختبار Console:**
+   - لا أخطاء جديدة متعلقة بالتبويبات
