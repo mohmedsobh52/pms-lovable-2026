@@ -555,7 +555,7 @@ export function BOQAnalyzerPanel({ onProjectSaved, embedded = false }: BOQAnalyz
                 : 'Upload a PDF or Excel file containing the Bill of Quantities for analysis'}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="relative z-[55]">
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
