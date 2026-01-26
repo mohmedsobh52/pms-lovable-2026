@@ -639,6 +639,20 @@ export default function ProjectDetailsPage() {
     }
   };
 
+  // Handle tab change - close any open dialogs first to prevent ref conflicts
+  const handleTabChange = useCallback((newTab: string) => {
+    // Close any open dialogs before changing tabs
+    if (showDetailedPriceDialog) {
+      setShowDetailedPriceDialog(false);
+      setSelectedItemForPricing(null);
+    }
+    if (showEditItemDialog) {
+      setShowEditItemDialog(false);
+      setSelectedItemForEdit(null);
+    }
+    setActiveTab(newTab);
+  }, [showDetailedPriceDialog, showEditItemDialog]);
+
   // Use useCallback for stable handlers to prevent re-render issues with Radix UI
   const handleStartPricing = useCallback(() => {
     if (!project) return;
@@ -646,6 +660,12 @@ export default function ProjectDetailsPage() {
   }, [project, projectId, navigate]);
 
   const handleEditProject = useCallback(() => {
+    // Close any open dialogs first
+    setShowDetailedPriceDialog(false);
+    setShowEditItemDialog(false);
+    setSelectedItemForPricing(null);
+    setSelectedItemForEdit(null);
+    
     setActiveTab("settings");
     const analysisData = project?.analysis_data as any;
     setEditForm({
@@ -745,7 +765,7 @@ export default function ProjectDetailsPage() {
       />
 
       <main className="container mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="overview">
               {isArabic ? "نظرة عامة" : "Overview"}
@@ -966,76 +986,80 @@ export default function ProjectDetailsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Detailed Price Dialog */}
-      <DetailedPriceDialog
-        isOpen={showDetailedPriceDialog}
-        onClose={() => {
-          setShowDetailedPriceDialog(false);
-          setSelectedItemForPricing(null);
-        }}
-        item={selectedItemForPricing}
-        currency={project?.currency || "SAR"}
-        onSave={async () => {
-          const { data } = await supabase
-            .from("project_items")
-            .select("*")
-            .eq("project_id", projectId)
-            .order("sort_order", { ascending: true, nullsFirst: false })
-            .order("created_at", { ascending: true });
-          if (data) setItems(data);
-        }}
-      />
+      {/* Detailed Price Dialog - Conditional rendering to prevent ref conflicts */}
+      {showDetailedPriceDialog && selectedItemForPricing && (
+        <DetailedPriceDialog
+          isOpen={true}
+          onClose={() => {
+            setShowDetailedPriceDialog(false);
+            setSelectedItemForPricing(null);
+          }}
+          item={selectedItemForPricing}
+          currency={project?.currency || "SAR"}
+          onSave={async () => {
+            const { data } = await supabase
+              .from("project_items")
+              .select("*")
+              .eq("project_id", projectId)
+              .order("sort_order", { ascending: true, nullsFirst: false })
+              .order("created_at", { ascending: true });
+            if (data) setItems(data);
+          }}
+        />
+      )}
 
-      {/* Edit Item Dialog */}
-      <EditItemDialog
-        isOpen={showEditItemDialog}
-        onClose={() => {
-          setShowEditItemDialog(false);
-          setSelectedItemForEdit(null);
-        }}
-        item={selectedItemForEdit}
-        onSave={async (updatedData) => {
-          if (!selectedItemForEdit) return;
-          
-          const { error } = await supabase
-            .from("project_items")
-            .update({
-              item_number: updatedData.item_number,
-              description: updatedData.description,
-              description_ar: updatedData.description_ar,
-              unit: updatedData.unit,
-              quantity: updatedData.quantity,
-              category: updatedData.category === "none" ? null : updatedData.category,
-              subcategory: updatedData.subcategory,
-              specifications: updatedData.specifications,
-              is_section: updatedData.is_section,
-              total_price: updatedData.is_section 
-                ? null 
-                : (updatedData.quantity || 0) * (selectedItemForEdit.unit_price || 0)
-            })
-            .eq("id", selectedItemForEdit.id);
+      {/* Edit Item Dialog - Conditional rendering to prevent ref conflicts */}
+      {showEditItemDialog && selectedItemForEdit && (
+        <EditItemDialog
+          isOpen={true}
+          onClose={() => {
+            setShowEditItemDialog(false);
+            setSelectedItemForEdit(null);
+          }}
+          item={selectedItemForEdit}
+          onSave={async (updatedData) => {
+            if (!selectedItemForEdit) return;
             
-          if (error) {
+            const { error } = await supabase
+              .from("project_items")
+              .update({
+                item_number: updatedData.item_number,
+                description: updatedData.description,
+                description_ar: updatedData.description_ar,
+                unit: updatedData.unit,
+                quantity: updatedData.quantity,
+                category: updatedData.category === "none" ? null : updatedData.category,
+                subcategory: updatedData.subcategory,
+                specifications: updatedData.specifications,
+                is_section: updatedData.is_section,
+                total_price: updatedData.is_section 
+                  ? null 
+                  : (updatedData.quantity || 0) * (selectedItemForEdit.unit_price || 0)
+              })
+              .eq("id", selectedItemForEdit.id);
+              
+            if (error) {
+              toast({
+                title: isArabic ? "خطأ في الحفظ" : "Error saving",
+                variant: "destructive",
+              });
+              throw error;
+            }
+            
             toast({
-              title: isArabic ? "خطأ في الحفظ" : "Error saving",
-              variant: "destructive",
+              title: isArabic ? "تم حفظ التغييرات" : "Changes saved",
             });
-            throw error;
-          }
-          
-          toast({
-            title: isArabic ? "تم حفظ التغييرات" : "Changes saved",
-          });
-          
-          const { data } = await supabase
-            .from("project_items")
-            .select("*")
-            .eq("project_id", projectId)
-            .order("sort_order", { ascending: true, nullsFirst: false })
-            .order("created_at", { ascending: true });
-          if (data) setItems(data);
-        }}
-      />
+            
+            const { data } = await supabase
+              .from("project_items")
+              .select("*")
+              .eq("project_id", projectId)
+              .order("sort_order", { ascending: true, nullsFirst: false })
+              .order("created_at", { ascending: true });
+            if (data) setItems(data);
+          }}
+        />
+      )}
     </div>
   );
 }

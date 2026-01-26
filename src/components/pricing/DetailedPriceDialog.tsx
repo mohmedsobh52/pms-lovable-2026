@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-// Detailed pricing dialog for BOQ items - No forwardRef needed for Radix Dialog
+import { useState, useEffect, useMemo, memo } from "react";
+// Detailed pricing dialog for BOQ items - Memoized to prevent ref conflicts
 import { Package, Users, Truck, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,8 +41,8 @@ interface DetailedPriceDialogProps {
   onSave: () => void;
 }
 
-// Default export - prevents React ref warnings with Radix UI Dialog
-export default function DetailedPriceDialog({ isOpen, onClose, item, currency, onSave }: DetailedPriceDialogProps) {
+// Memoized component to prevent React ref warnings with Radix UI Dialog
+function DetailedPriceDialogComponent({ isOpen, onClose, item, currency, onSave }: DetailedPriceDialogProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("materials");
   const [overheadPercentage, setOverheadPercentage] = useState(10);
@@ -314,4 +314,10 @@ export default function DetailedPriceDialog({ isOpen, onClose, item, currency, o
     </Dialog>
   );
 }
+
+// Wrap with memo and set displayName to prevent ref warnings
+const DetailedPriceDialog = memo(DetailedPriceDialogComponent);
+DetailedPriceDialog.displayName = "DetailedPriceDialog";
+
+export default DetailedPriceDialog;
 
