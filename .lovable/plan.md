@@ -1,63 +1,56 @@
 
-# خطة إصلاح قائمة النقاط الثلاث (⋮) في جدول BOQ
+
+# خطة إصلاح مشكلة القائمة الجانبية (⋮) - الخيارات لا تعمل عند النقر
 
 ## تشخيص المشكلة
 
-### السبب الجذري
-القائمة المنسدلة (DropdownMenu) في عمود الإجراءات بكل صف تستخدم `z-50` فقط، مما يجعلها تُحجب بواسطة:
+بعد فحص الكود، وجدت أن القائمة **تظهر بشكل صحيح** (كما في الصورة) لكن **الخيارات لا تعمل عند النقر عليها**.
 
-```text
-ترتيب الطبقات الحالي:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Select Dropdowns:          z-70   ✅ (محمي)
-Project Actions:           z-60   ✅ (محمي)
-Tabs Navigation:           z-55   ✅ (محمي)
-Dialog Overlay:            z-50   ⚠️
-DropdownMenu (row actions): z-50   ❌ (غير محمي - نفس مستوى Dialog!)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-**المشكلة**: بعد إغلاق Dialog، يظل overlay يحتفظ بـ `pointer-events` لفترة قصيرة مما يحجب DropdownMenu.
+### السبب المحتمل:
+Radix UI `DropdownMenuItem` يستخدم `onSelect` كـ handler رئيسي بدلاً من `onClick`. بينما `onClick` قد يعمل أحياناً، لكنه قد يتعارض مع الـ internal event handling في Radix.
 
 ---
 
 ## الحل المقترح
 
-### 1. رفع z-index لـ DropdownMenuContent في dropdown-menu.tsx
+### تغيير `onClick` إلى `onSelect` في جميع DropdownMenuItem
 
-تغيير `z-50` إلى `z-[70]` لضمان ظهور القائمة فوق كل شيء.
+في ملف `src/components/project-details/ProjectBOQTab.tsx`:
 
-**الملف:** `src/components/ui/dropdown-menu.tsx`
+| السطر | قبل | بعد |
+|-------|-----|-----|
+| 329 | `onClick={() => onQuickPrice(item.id)}` | `onSelect={() => onQuickPrice(item.id)}` |
+| 336 | `onClick={() => onDetailedPrice(item)}` | `onSelect={() => onDetailedPrice(item)}` |
+| 344 | `onClick={() => onEditItem(item)}` | `onSelect={() => onEditItem(item)}` |
+| 351 | `onClick={() => onUnconfirmItem(item.id)}` | `onSelect={() => onUnconfirmItem(item.id)}` |
+| 360 | `onClick={() => onDeleteItem(item.id)}` | `onSelect={() => onDeleteItem(item.id)}` |
 
-**السطر 64 - تغيير:**
-```typescript
-// قبل
-"z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover..."
+### إضافة حماية إضافية في CSS
 
-// بعد
-"z-[70] min-w-[8rem] overflow-hidden rounded-md border bg-popover..."
-```
-
-### 2. إضافة CSS لحماية DropdownMenu في dialog-custom.css
+في `dialog-custom.css`، سنضيف:
 
 ```css
-/* DropdownMenu - ensure it appears above everything */
-[data-radix-dropdown-menu-content] {
-  z-index: 70 !important;
-  pointer-events: auto !important;
-}
-
-/* Ensure dropdown items are clickable */
-[data-radix-dropdown-menu-item] {
-  pointer-events: auto !important;
+/* Additional protection for dropdown item interaction */
+[data-radix-dropdown-menu-item]:hover {
+  background-color: hsl(var(--accent));
   cursor: pointer !important;
 }
 
-/* DropdownMenu trigger in table rows */
-[data-radix-dropdown-menu-trigger] {
+[data-radix-dropdown-menu-content] * {
   pointer-events: auto !important;
-  cursor: pointer !important;
 }
+```
+
+### تحديث `cursor-default` إلى `cursor-pointer`
+
+في `dropdown-menu.tsx` سطر 82:
+
+```typescript
+// قبل
+"relative flex cursor-default select-none items-center..."
+
+// بعد  
+"relative flex cursor-pointer select-none items-center..."
 ```
 
 ---
@@ -66,38 +59,18 @@ DropdownMenu (row actions): z-50   ❌ (غير محمي - نفس مستوى Dial
 
 | الملف | السطر | التغيير |
 |-------|-------|---------|
-| `dropdown-menu.tsx` | 64 | تغيير `z-50` إلى `z-[70]` |
-| `dropdown-menu.tsx` | 47 | تغيير `z-50` إلى `z-[70]` (للـ SubContent) |
-| `dialog-custom.css` | جديد | إضافة CSS لحماية DropdownMenu |
+| `ProjectBOQTab.tsx` | 329, 336, 344, 351, 360 | تغيير `onClick` إلى `onSelect` |
+| `dialog-custom.css` | جديد | إضافة حماية hover والـ content children |
+| `dropdown-menu.tsx` | 82 | تغيير `cursor-default` إلى `cursor-pointer` |
 
 ---
 
-## ترتيب الطبقات بعد الإصلاح
+## الاختبار المطلوب بعد التنفيذ
 
-```text
-ترتيب الطبقات الجديد:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Select Dropdowns:          z-[70]  ✅
-DropdownMenu (row actions): z-[70]  ✅ (سيُضاف)
-Project Actions:           z-[60]  ✅
-Tabs Navigation:           z-55    ✅
-Dialog Overlay:            z-50
-Normal Content:            z-auto
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+1. **النقر على زر النقاط الثلاث (⋮)** → القائمة تظهر ✓
+2. **النقر على "Quick Price"** → يفتح dialog التسعير السريع
+3. **النقر على "Detailed Price"** → يفتح dialog التسعير المفصل
+4. **النقر على "Edit"** → يفتح dialog التعديل
+5. **النقر على "Clear Price"** → يمسح السعر (للبنود المسعرة فقط)
+6. **النقر على "Delete"** → يحذف البند
 
----
-
-## الاختبار المطلوب
-
-1. **النقر على النقاط الثلاث (⋮):**
-   - النقر على الزر → يجب أن تظهر القائمة مع الخيارات
-   
-2. **اختيار خيار من القائمة:**
-   - تسعير سريع → يجب أن يعمل
-   - تسعير مفصل → يجب أن يعمل
-   - تعديل → يجب أن يعمل
-   - حذف → يجب أن يعمل
-
-3. **اختبار بعد إغلاق Dialog:**
-   - فتح dialog أي → إغلاقه → النقر على ⋮ → يجب أن تظهر القائمة فوراً
