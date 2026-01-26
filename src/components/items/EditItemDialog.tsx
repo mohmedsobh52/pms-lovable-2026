@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-// Dialog component for editing BOQ items - No forwardRef needed for Radix Dialog
+import { useState, useEffect, memo } from "react";
+// Dialog component for editing BOQ items - Memoized to prevent ref conflicts
 import { Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,8 +79,8 @@ const categories = [
   { value: "MISCELLANEOUS", label: { en: "Miscellaneous", ar: "أعمال متنوعة" } },
 ];
 
-// Default export - prevents React ref warnings with Radix UI Dialog
-export default function EditItemDialog({ isOpen, onClose, item, onSave }: EditItemDialogProps) {
+// Memoized component to prevent React ref warnings with Radix UI Dialog
+function EditItemDialogComponent({ isOpen, onClose, item, onSave }: EditItemDialogProps) {
   const { isArabic } = useLanguage();
   const [isSaving, setIsSaving] = useState(false);
   
@@ -340,4 +340,10 @@ export default function EditItemDialog({ isOpen, onClose, item, onSave }: EditIt
     </Dialog>
   );
 }
+
+// Wrap with memo and set displayName to prevent ref warnings
+const EditItemDialog = memo(EditItemDialogComponent);
+EditItemDialog.displayName = "EditItemDialog";
+
+export default EditItemDialog;
 
