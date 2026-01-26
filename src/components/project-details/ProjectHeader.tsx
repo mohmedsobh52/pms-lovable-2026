@@ -94,7 +94,7 @@ export function ProjectHeader({
       </header>
 
       {/* Project Title Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 relative z-[60]">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
             <FolderOpen className="w-6 h-6 text-primary-foreground" />
@@ -115,7 +115,7 @@ export function ProjectHeader({
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 project-actions-section">
           <Button onClick={onStartPricing} className="gap-2">
             <Play className="w-4 h-4" />
             {isArabic ? "بدء التسعير" : "Start Pricing"}
