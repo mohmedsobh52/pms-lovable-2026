@@ -551,29 +551,46 @@ export default function TenderSummaryPage() {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             {/* Right side - Logo and Navigation */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              {/* زر الرجوع */}
               <Button
                 variant="ghost"
-                size="icon"
-                onClick={() => navigate(`/projects/${projectId}`)}
+                size="sm"
+                onClick={() => {
+                  if (window.history.length > 2) {
+                    navigate(-1);
+                  } else {
+                    navigate(`/projects/${projectId}`);
+                  }
+                }}
+                className="gap-1.5"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">
+                  {isArabic ? "رجوع" : "Back"}
+                </span>
+              </Button>
+              
+              {/* زر الرئيسية */}
+              <Button variant="outline" size="sm" asChild className="gap-1.5">
+                <Link to="/">
+                  <Home className="w-4 h-4" />
+                  <span className="hidden sm:inline">
+                    {isArabic ? "الرئيسية" : "Home"}
+                  </span>
+                </Link>
               </Button>
               
               {/* Breadcrumbs */}
-              <nav className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
-                <Link to="/" className="hover:text-foreground transition-colors">
-                  <Home className="w-4 h-4" />
-                </Link>
-                <ChevronRight className="w-4 h-4" />
-                <Link to="/projects" className="hover:text-foreground transition-colors">
+              <nav className="hidden md:flex items-center gap-2 text-sm ms-2">
+                <Link to="/projects" className="text-muted-foreground hover:text-foreground transition-colors">
                   {isArabic ? "المشاريع" : "Projects"}
                 </Link>
-                <ChevronRight className="w-4 h-4" />
-                <Link to={`/projects/${projectId}`} className="hover:text-foreground transition-colors">
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                <Link to={`/projects/${projectId}`} className="text-muted-foreground hover:text-foreground transition-colors">
                   {project?.name || projectId}
                 </Link>
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 <span className="text-foreground font-medium">
                   {isArabic ? "التسعير" : "Pricing"}
                 </span>

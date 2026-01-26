@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Home, Upload, History, Lightbulb, FolderOpen } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Home, Upload, History, Lightbulb, FolderOpen, ArrowLeft, ChevronLeft } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { ProjectFilesViewer } from "@/components/ProjectFilesViewer";
 export default function FastExtractionPage() {
   const { language } = useLanguage();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isArabic = language === "ar";
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -51,6 +52,14 @@ export default function FastExtractionPage() {
         "Create a new project or link to existing one",
       ];
 
+  const handleBack = () => {
+    if (window.history.length > 2) {
+      navigate(-1);
+    } else {
+      navigate("/");
+    }
+  };
+
   return (
     <div
       className="min-h-screen bg-cover bg-center bg-no-repeat"
@@ -62,12 +71,35 @@ export default function FastExtractionPage() {
         <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Link to="/" className="flex items-center gap-2 text-primary font-bold">
-                  <Home className="h-5 w-5" />
-                  <span className="hidden sm:inline">fast-extraction</span>
-                </Link>
+              <div className="flex items-center gap-2">
+                {/* زر الرجوع */}
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleBack}
+                  className="gap-1.5"
+                >
+                  {isArabic ? (
+                    <ChevronLeft className="h-4 w-4 rotate-180" />
+                  ) : (
+                    <ArrowLeft className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isArabic ? "رجوع" : "Back"}
+                  </span>
+                </Button>
+                
+                {/* زر الرئيسية */}
+                <Button variant="outline" size="sm" asChild className="gap-1.5">
+                  <Link to="/">
+                    <Home className="h-4 w-4" />
+                    <span className="hidden sm:inline">
+                      {isArabic ? "الرئيسية" : "Home"}
+                    </span>
+                  </Link>
+                </Button>
               </div>
+              
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -155,7 +187,7 @@ export default function FastExtractionPage() {
               <Card className="bg-card/80 backdrop-blur-sm">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <Lightbulb className="h-4 w-4 text-yellow-500" />
+                    <Lightbulb className="h-4 w-4 text-amber-500" />
                     <span className="text-sm font-medium">
                       {isArabic ? "نصائح" : "Tips"}
                     </span>
