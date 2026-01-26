@@ -1,299 +1,264 @@
 
-# خطة التحسينات الشاملة للتطبيق
+# خطة الإصلاح الجذري للتبويبات والأزرار غير العاملة
 
-## نظرة عامة على التحسينات المطلوبة
+## تشخيص المشكلة
 
-سنقوم بأربعة تحسينات رئيسية لتحسين أداء التطبيق واستقراره وقابلية صيانته:
-
-1. **إضافة Lazy Loading للصفحات** - لتحسين سرعة التحميل الأولي
-2. **تقسيم ProjectDetailsPage.tsx** - لتسهيل الصيانة
-3. **إضافة Error Boundary** - لحماية التطبيق من الانهيار
-4. **إصلاح .single() إلى .maybeSingle()** - لمنع أخطاء عدم وجود البيانات
-
----
-
-## التحسين 1: Lazy Loading للصفحات
-
-### الملف: `src/App.tsx`
-
-سيتم تحويل جميع الصفحات من استيراد مباشر إلى استيراد Lazy مع Suspense:
-
-```text
-التغييرات:
-1. إضافة import { lazy, Suspense } من react
-2. إنشاء مكون PageLoading للعرض أثناء التحميل
-3. تحويل 25+ صفحة إلى lazy imports
-4. لف Routes بـ Suspense
+### السبب الجذري
+بناءً على فحص Console Logs، المشكلة واضحة:
+```
+Warning: Function components cannot be given refs.
+Check the render method of `EditItemDialog`.
 ```
 
-**الصفحات التي سيتم تحويلها:**
-- Index, HomePage, Auth, SharedView
-- SavedProjectsPage, NewProjectPage, ProjectDetailsPage
-- TenderSummaryPage, About, CostAnalysisPage
-- Changelog, AdminVersions, DashboardPage
-- ProcurementPage, SubcontractorsPage, QuotationsPage
-- ContractsPage, RiskPage, ReportsPage
-- SettingsPage, AnalysisToolsPage, BOQItemsPage
-- AttachmentsPage, TemplatesPage, P6ExportPage
-- CompareVersionsPage, HistoricalPricingPage, ResourcesPage
-- MaterialPricesPage, CalendarPage, FastExtractionPage
-- LibraryPage, CompanySettingsPage, NotFound
+المشكلة ليست في الـ Tab components أنفسها، بل في **Dialog components** التي تُصيَّر داخل الصفحة:
+- `EditItemDialog`
+- `DetailedPriceDialog`
 
-**مثال على الكود:**
+هذه المكونات تستخدم `<Dialog>` من Radix UI والذي يحاول تمرير `ref` للمكون، لكن المكونات لا تستقبلها بشكل صحيح.
+
+### لماذا تتأثر التبويبات؟
+عندما يحدث خطأ ref في أي مكون داخل شجرة React:
+1. React يعطل بعض الـ event handlers كإجراء وقائي
+2. الخطأ يتسرب ويؤثر على المكونات الأخرى
+3. Radix UI Tabs تعتمد على refs للتنقل - أي تعارض يعطلها
+
+## الحل الجذري (3 خطوات)
+
+### الخطوة 1: إصلاح EditItemDialog.tsx
+
+**المشكلة:** Dialog من Radix UI يمرر ref للمكون لكن المكون لا يستقبله.
+
+**الحل:** تغليف المكون بـ `React.forwardRef` بالشكل الصحيح:
+
 ```typescript
-const HomePage = lazy(() => import("./pages/HomePage"));
-const ProjectDetailsPage = lazy(() => import("./pages/ProjectDetailsPage"));
-// ... باقي الصفحات
+// قبل
+export function EditItemDialog({ isOpen, onClose, item, onSave }: EditItemDialogProps) {
+  // ...
+}
 
-// مكون التحميل
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+// بعد
+const EditItemDialogContent = function({ isOpen, onClose, item, onSave }: EditItemDialogProps) {
+  // نفس المحتوى الحالي
+};
+
+export const EditItemDialog = React.memo(EditItemDialogContent);
+EditItemDialog.displayName = "EditItemDialog";
+```
+
+**أو الحل الأفضل:** إزالة المكون من داخل JSX الرئيسي وتصييره بشكل منفصل باستخدام Portal:
+
+```typescript
+// لا تغيير في المكون نفسه
+// التغيير في ProjectDetailsPage.tsx
+import { createPortal } from 'react-dom';
+
+// داخل return
+{showEditItemDialog && createPortal(
+  <EditItemDialog ... />,
+  document.body
+)}
+```
+
+### الخطوة 2: إصلاح DetailedPriceDialog.tsx
+
+نفس الإصلاح السابق:
+
+```typescript
+// تحويل إلى memo لتجنب re-renders غير ضرورية
+export const DetailedPriceDialog = React.memo(function DetailedPriceDialog({
+  isOpen,
+  onClose,
+  item,
+  currency,
+  onSave
+}: DetailedPriceDialogProps) {
+  // نفس المحتوى
+});
+DetailedPriceDialog.displayName = "DetailedPriceDialog";
+```
+
+### الخطوة 3: إعادة هيكلة تصيير Dialogs في ProjectDetailsPage
+
+**المشكلة الحقيقية:** الـ Dialogs مُصيَّرة داخل نفس شجرة React مع Tabs، مما يسبب تعارضات.
+
+**الحل الجذري:** نقل جميع Dialogs خارج الـ Tabs structure:
+
+```typescript
+// ProjectDetailsPage.tsx - الهيكل الجديد
+
+return (
+  <div className="min-h-screen bg-background">
+    {/* Header */}
+    <ProjectHeader ... />
+    
+    <main className="container mx-auto px-4 py-6">
+      {/* Tabs - بدون أي Dialogs داخلها */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>...</TabsList>
+        <TabsContent value="overview">...</TabsContent>
+        <TabsContent value="boq">...</TabsContent>
+        <TabsContent value="documents">...</TabsContent>
+        <TabsContent value="settings">...</TabsContent>
+      </Tabs>
+    </main>
+
+    {/* جميع Dialogs خارج main وخارج Tabs */}
+    <QuickPriceDialog ... />
+    <AddItemDialog ... />
+    <DetailedPriceDialog ... />
+    <EditItemDialog ... />
   </div>
 );
+```
 
-// استخدام Suspense
-<Suspense fallback={<PageLoader />}>
-  <Routes>
-    {/* جميع المسارات */}
-  </Routes>
+## التغييرات التقنية المطلوبة
+
+### الملف 1: src/components/items/EditItemDialog.tsx
+
+**السطور المتأثرة:** 82-339
+
+```typescript
+// التغييرات:
+// 1. إضافة React.memo
+// 2. إضافة displayName
+
+import React, { useState, useEffect } from "react";
+
+// ... الكود الموجود ...
+
+// تحويل الدالة إلى memo
+export const EditItemDialog = React.memo(function EditItemDialogComponent({
+  isOpen,
+  onClose,
+  item,
+  onSave
+}: EditItemDialogProps) {
+  // نفس المحتوى الحالي بالضبط
+  // من السطر 82 إلى 338
+});
+
+EditItemDialog.displayName = "EditItemDialog";
+```
+
+### الملف 2: src/components/pricing/DetailedPriceDialog.tsx
+
+**السطور المتأثرة:** 44-315
+
+```typescript
+// التغييرات مشابهة
+import React, { useState, useEffect, useMemo } from "react";
+
+export const DetailedPriceDialog = React.memo(function DetailedPriceDialogComponent({
+  isOpen,
+  onClose,
+  item,
+  currency,
+  onSave
+}: DetailedPriceDialogProps) {
+  // نفس المحتوى الحالي بالضبط
+});
+
+DetailedPriceDialog.displayName = "DetailedPriceDialog";
+```
+
+### الملف 3: src/pages/ProjectDetailsPage.tsx
+
+**التغييرات الرئيسية:**
+
+1. **إضافة Error Boundaries حول كل Tab:**
+```typescript
+<TabsContent value="boq">
+  <ErrorBoundary fallback={<TabErrorFallback tabName="BOQ" />}>
+    <ProjectBOQTab ... />
+  </ErrorBoundary>
+</TabsContent>
+```
+
+2. **فصل حالة التحميل للـ Dialogs:**
+```typescript
+// تأخير تصيير Dialogs حتى يكتمل تحميل الصفحة
+const [dialogsReady, setDialogsReady] = useState(false);
+
+useEffect(() => {
+  if (!isLoading && project) {
+    // تأخير قصير لضمان استقرار DOM
+    const timer = setTimeout(() => setDialogsReady(true), 100);
+    return () => clearTimeout(timer);
+  }
+}, [isLoading, project]);
+
+// في JSX
+{dialogsReady && (
+  <>
+    <DetailedPriceDialog ... />
+    <EditItemDialog ... />
+  </>
+)}
+```
+
+3. **استخدام React.lazy للـ Dialogs:**
+```typescript
+const DetailedPriceDialogLazy = React.lazy(() => 
+  import("@/components/pricing/DetailedPriceDialog").then(m => ({ default: m.DetailedPriceDialog }))
+);
+
+// في JSX
+<Suspense fallback={null}>
+  {showDetailedPriceDialog && <DetailedPriceDialogLazy ... />}
 </Suspense>
 ```
 
----
+## ملخص التغييرات
 
-## التحسين 2: تقسيم ProjectDetailsPage.tsx (2156 سطر)
+| الملف | التغيير | الأثر |
+|-------|---------|-------|
+| EditItemDialog.tsx | React.memo + displayName | يمنع تحذيرات ref |
+| DetailedPriceDialog.tsx | React.memo + displayName | يمنع تحذيرات ref |
+| ProjectDetailsPage.tsx | تأخير تصيير Dialogs + Error Boundaries | يفصل دورة حياة Dialogs عن Tabs |
 
-سيتم تقسيم الملف الكبير إلى 6 مكونات أصغر:
+## التحسينات الإضافية
 
-### الملفات الجديدة:
-
-#### 1. `src/components/project-details/ProjectHeader.tsx`
-**المحتوى:** (الأسطر 866-973)
-- شريط العنوان مع زر الرجوع والـ Breadcrumbs
-- أزرار بدء التسعير وتعديل المشروع
-- بطاقات الإحصائيات الأربعة
-- قسم الرسوم البيانية
-
-#### 2. `src/components/project-details/ProjectOverviewTab.tsx`
-**المحتوى:** (الأسطر 1121-1211)
-- تفاصيل المشروع
-- ملخص التسعير
-- PricingAccuracyDashboard
-
-#### 3. `src/components/project-details/ProjectBOQTab.tsx`
-**المحتوى:** (الأسطر 1213-1572)
-- جدول البنود مع البحث والفلترة
-- أزرار التسعير التلقائي وإضافة بند
-- الترقيم الصفحي
-
-#### 4. `src/components/project-details/ProjectDocumentsTab.tsx`
-**المحتوى:** (الأسطر 1574-1672)
-- رفع المستندات
-- عرض المستندات المرفقة
-- تحميل وحذف الملفات
-
-#### 5. `src/components/project-details/ProjectSettingsTab.tsx`
-**المحتوى:** (الأسطر 1674-1962)
-- نموذج تعديل إعدادات المشروع
-- الحقول: الاسم، العملة، النوع، الحالة، الموقع، العميل
-
-#### 6. `src/components/project-details/types.ts`
-**المحتوى:** الأنواع المشتركة
+### 1. إضافة TabErrorFallback Component
 ```typescript
-export interface ProjectData { ... }
-export interface ProjectItem { ... }
-export interface ProjectAttachment { ... }
-export const statusConfig = { ... }
-export const currencies = [ ... ]
-```
-
-### هيكل الملف الرئيسي الجديد:
-```typescript
-// ProjectDetailsPage.tsx (مخفض من 2156 إلى ~400 سطر)
-import { ProjectHeader } from "@/components/project-details/ProjectHeader";
-import { ProjectOverviewTab } from "@/components/project-details/ProjectOverviewTab";
-import { ProjectBOQTab } from "@/components/project-details/ProjectBOQTab";
-import { ProjectDocumentsTab } from "@/components/project-details/ProjectDocumentsTab";
-import { ProjectSettingsTab } from "@/components/project-details/ProjectSettingsTab";
-
-export default function ProjectDetailsPage() {
-  // State والـ hooks فقط
-  // تحميل البيانات
-  // تمرير الـ props للمكونات الفرعية
+function TabErrorFallback({ tabName }: { tabName: string }) {
+  return (
+    <div className="p-8 text-center">
+      <AlertTriangle className="w-12 h-12 mx-auto text-destructive mb-4" />
+      <h3 className="font-semibold">خطأ في تحميل {tabName}</h3>
+      <Button onClick={() => window.location.reload()} className="mt-4">
+        إعادة المحاولة
+      </Button>
+    </div>
+  );
 }
 ```
 
----
-
-## التحسين 3: Error Boundary Component
-
-### الملف الجديد: `src/components/ErrorBoundary.tsx`
-
+### 2. تحسين handlers الأزرار
 ```typescript
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-  errorInfo: React.ErrorInfo | null;
-}
+// Start Pricing
+const handleStartPricing = useCallback(() => {
+  if (!project) return;
+  navigate(`/projects/${projectId}/pricing`);
+}, [project, projectId, navigate]);
 
-class ErrorBoundary extends React.Component<Props, ErrorBoundaryState> {
-  constructor(props) { ... }
-  
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  
-  componentDidCatch(error, errorInfo) {
-    console.error("ErrorBoundary caught:", error, errorInfo);
-  }
-  
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <Card className="max-w-md">
-            <CardHeader>
-              <AlertTriangle className="w-12 h-12 text-destructive" />
-              <CardTitle>حدث خطأ غير متوقع</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>{error.message}</p>
-              <Button onClick={() => window.location.reload()}>
-                إعادة تحميل الصفحة
-              </Button>
-              <Button onClick={() => navigate('/')}>
-                العودة للرئيسية
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+// Edit Project
+const handleEditProject = useCallback(() => {
+  setActiveTab("settings");
+  setIsEditing(true);
+}, []);
 ```
-
-### تكامل في App.tsx:
-```typescript
-<ErrorBoundary>
-  <Suspense fallback={<PageLoader />}>
-    <Routes>
-      {/* جميع المسارات */}
-    </Routes>
-  </Suspense>
-</ErrorBoundary>
-```
-
----
-
-## التحسين 4: إصلاح .single() إلى .maybeSingle()
-
-### الملف: `src/pages/ProjectDetailsPage.tsx`
-
-**قبل (السطر 198-204):**
-```typescript
-const { data: projectData, error: projectError } = await supabase
-  .from("project_data")
-  .select("*")
-  .eq("id", projectId)
-  .single();
-
-if (projectError) throw projectError;
-```
-
-**بعد:**
-```typescript
-const { data: projectData, error: projectError } = await supabase
-  .from("project_data")
-  .select("*")
-  .eq("id", projectId)
-  .maybeSingle();
-
-if (projectError) throw projectError;
-
-// التعامل مع حالة عدم وجود المشروع
-if (!projectData) {
-  setIsLoading(false);
-  return; // سيُظهر شاشة "المشروع غير موجود"
-}
-```
-
-### ملفات إضافية تحتاج إصلاح (للمستقبل):
-- `src/pages/SharedView.tsx` - السطر 47
-- `src/components/Breadcrumbs.tsx` - السطور 148, 156
-- `src/components/contracts/SmartContractAlerts.tsx` - السطر 80
-
----
-
-## ملخص الملفات المطلوب إنشاؤها/تعديلها
-
-### ملفات جديدة (6 ملفات):
-| الملف | الوصف | الحجم التقريبي |
-|-------|-------|----------------|
-| `src/components/ErrorBoundary.tsx` | مكون Error Boundary | ~100 سطر |
-| `src/components/project-details/types.ts` | الأنواع المشتركة | ~80 سطر |
-| `src/components/project-details/ProjectHeader.tsx` | رأس المشروع | ~200 سطر |
-| `src/components/project-details/ProjectOverviewTab.tsx` | تبويب النظرة العامة | ~150 سطر |
-| `src/components/project-details/ProjectBOQTab.tsx` | تبويب جدول الكميات | ~400 سطر |
-| `src/components/project-details/ProjectDocumentsTab.tsx` | تبويب المستندات | ~150 سطر |
-| `src/components/project-details/ProjectSettingsTab.tsx` | تبويب الإعدادات | ~300 سطر |
-
-### ملفات معدلة (2 ملف):
-| الملف | التغييرات |
-|-------|-----------|
-| `src/App.tsx` | Lazy Loading + Error Boundary + Suspense |
-| `src/pages/ProjectDetailsPage.tsx` | تقليص من 2156 إلى ~400 سطر + maybeSingle() |
-
----
 
 ## الفوائد المتوقعة
 
-### 1. تحسين الأداء (Lazy Loading)
-- تقليل حجم Bundle الأولي بنسبة ~60%
-- تحميل الصفحات عند الطلب فقط
-- تحسين Time to First Paint
-
-### 2. تسهيل الصيانة (تقسيم الملفات)
-- ملفات أصغر وأسهل للفهم
-- تسهيل العمل الجماعي
-- تحسين إعادة الاستخدام
-
-### 3. حماية التطبيق (Error Boundary)
-- منع الانهيار الكامل للتطبيق
-- عرض رسالة خطأ واضحة للمستخدم
-- إمكانية التعافي من الأخطاء
-
-### 4. استقرار أفضل (maybeSingle)
-- منع أخطاء "No rows returned"
-- تحسين تجربة المستخدم
-- عرض رسائل مناسبة عند عدم وجود البيانات
-
----
+1. **إصلاح التبويبات:** ستعمل BOQ, Documents, Settings بشكل طبيعي
+2. **إصلاح الأزرار:** "بدء التسعير" و "تعديل المشروع" ستستجيب
+3. **تحسين الأداء:** React.memo يمنع re-renders غير ضرورية
+4. **استقرار أفضل:** Error Boundaries تمنع انهيار التطبيق
+5. **صيانة أسهل:** فصل الـ Dialogs عن الـ Tabs
 
 ## ترتيب التنفيذ
 
-1. **المرحلة 1:** إنشاء ErrorBoundary.tsx
-2. **المرحلة 2:** إنشاء ملفات project-details/
-3. **المرحلة 3:** تعديل ProjectDetailsPage.tsx (تقسيم + maybeSingle)
-4. **المرحلة 4:** تعديل App.tsx (Lazy Loading + ErrorBoundary)
-
----
-
-## ملاحظات تقنية
-
-### Lazy Loading
-- استخدام `React.lazy()` مع `import()` الديناميكي
-- Suspense يعرض مكون التحميل أثناء جلب الملفات
-- كل صفحة ستكون chunk منفصل في البناء
-
-### Error Boundary
-- يجب أن يكون Class Component (لا يمكن استخدام hooks)
-- يلتقط الأخطاء في render وlifecycle methods
-- لا يلتقط أخطاء event handlers (تحتاج try-catch منفصل)
-
-### تقسيم المكونات
-- Props drilling للبيانات والدوال
-- استخدام callbacks للتحديثات
-- الحفاظ على state مركزي في الصفحة الرئيسية
+1. ✅ إصلاح EditItemDialog.tsx
+2. ✅ إصلاح DetailedPriceDialog.tsx  
+3. ✅ تعديل ProjectDetailsPage.tsx
+4. ✅ اختبار جميع التبويبات والأزرار
