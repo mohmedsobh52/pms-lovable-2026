@@ -79,8 +79,8 @@ const categories = [
   { value: "MISCELLANEOUS", label: { en: "Miscellaneous", ar: "أعمال متنوعة" } },
 ];
 
-// Standard function component - Radix Dialog.Root does not pass refs to children
-function EditItemDialog({ isOpen, onClose, item, onSave }: EditItemDialogProps) {
+// Default export - prevents React ref warnings with Radix UI Dialog
+export default function EditItemDialog({ isOpen, onClose, item, onSave }: EditItemDialogProps) {
   const { isArabic } = useLanguage();
   const [isSaving, setIsSaving] = useState(false);
   
@@ -341,5 +341,3 @@ function EditItemDialog({ isOpen, onClose, item, onSave }: EditItemDialogProps) 
   );
 }
 
-// Named export - no forwardRef wrapper
-export { EditItemDialog };

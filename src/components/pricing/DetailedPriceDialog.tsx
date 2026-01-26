@@ -41,8 +41,8 @@ interface DetailedPriceDialogProps {
   onSave: () => void;
 }
 
-// Standard function component - Radix Dialog.Root does not pass refs to children
-function DetailedPriceDialog({ isOpen, onClose, item, currency, onSave }: DetailedPriceDialogProps) {
+// Default export - prevents React ref warnings with Radix UI Dialog
+export default function DetailedPriceDialog({ isOpen, onClose, item, currency, onSave }: DetailedPriceDialogProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("materials");
   const [overheadPercentage, setOverheadPercentage] = useState(10);
@@ -315,5 +315,3 @@ function DetailedPriceDialog({ isOpen, onClose, item, currency, onSave }: Detail
   );
 }
 
-// Named export - no forwardRef wrapper
-export { DetailedPriceDialog };
