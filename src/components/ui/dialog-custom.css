@@ -31,3 +31,15 @@
   z-index: 56;
   cursor: pointer;
 }
+
+/* Project actions section - ensure buttons are always clickable */
+.project-actions-section {
+  position: relative;
+  z-index: 60;
+  pointer-events: auto;
+}
+
+.project-actions-section button {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
