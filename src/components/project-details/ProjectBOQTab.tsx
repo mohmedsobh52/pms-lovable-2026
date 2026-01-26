@@ -326,14 +326,14 @@ export function ProjectBOQTab({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align={isArabic ? "start" : "end"}>
                             <DropdownMenuItem 
-                              onClick={() => onQuickPrice(item.id)}
+                              onSelect={() => onQuickPrice(item.id)}
                               className="gap-2"
                             >
                               <DollarSign className="w-4 h-4" />
                               {isArabic ? "تسعير سريع" : "Quick Price"}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              onClick={() => onDetailedPrice(item)}
+                              onSelect={() => onDetailedPrice(item)}
                               className="gap-2"
                             >
                               <FileText className="w-4 h-4" />
@@ -341,14 +341,14 @@ export function ProjectBOQTab({
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
-                              onClick={() => onEditItem(item)}
+                              onSelect={() => onEditItem(item)}
                               className="gap-2"
                             >
                               <Edit className="w-4 h-4" />
                               {isArabic ? "تعديل" : "Edit"}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              onClick={() => onUnconfirmItem(item.id)}
+                              onSelect={() => onUnconfirmItem(item.id)}
                               className="gap-2"
                               disabled={!item.unit_price || item.unit_price === 0}
                             >
@@ -357,7 +357,7 @@ export function ProjectBOQTab({
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
-                              onClick={() => onDeleteItem(item.id)}
+                              onSelect={() => onDeleteItem(item.id)}
                               className="gap-2 text-destructive"
                             >
                               <Trash2 className="w-4 h-4" />
