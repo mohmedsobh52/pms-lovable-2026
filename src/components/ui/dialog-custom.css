@@ -102,3 +102,13 @@
   pointer-events: auto !important;
   cursor: pointer !important;
 }
+
+/* Additional protection for dropdown item interaction */
+[data-radix-dropdown-menu-item]:hover {
+  background-color: hsl(var(--accent));
+  cursor: pointer !important;
+}
+
+[data-radix-dropdown-menu-content] * {
+  pointer-events: auto !important;
+}
