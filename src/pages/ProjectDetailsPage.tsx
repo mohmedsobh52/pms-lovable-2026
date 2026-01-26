@@ -18,8 +18,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
-import { DetailedPriceDialog } from "@/components/pricing/DetailedPriceDialog";
-import { EditItemDialog } from "@/components/items/EditItemDialog";
+import DetailedPriceDialog from "@/components/pricing/DetailedPriceDialog";
+import EditItemDialog from "@/components/items/EditItemDialog";
 
 // Import refactored components
 import { ProjectHeader } from "@/components/project-details/ProjectHeader";
