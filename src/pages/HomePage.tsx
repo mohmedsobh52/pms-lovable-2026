@@ -1,36 +1,26 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { 
-  FileUp, 
-  Zap, 
-  Library, 
-  Plus, 
-  Receipt, 
-  FileText, 
   FolderOpen, 
-  BarChart3, 
-  Shield, 
-  TrendingUp, 
-  Calendar, 
   Building2, 
-  Users, 
   DollarSign,
-  Activity,
   Target,
-  Briefcase,
   Clock,
   AlertTriangle,
   Layers,
-  Settings,
+  Settings2,
   ChevronRight,
   Package,
-  LayoutDashboard,
-  ClipboardList,
   Loader2,
   PieChart as PieChartIcon,
   ArrowUpRight,
   ArrowDownRight,
-  Settings2
+  Activity,
+  TrendingUp,
+  Receipt,
+  Briefcase,
+  FileUp,
+  Zap
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +34,10 @@ import { UserMenu } from "@/components/UserMenu";
 import { PMSLogo } from "@/components/PMSLogo";
 import { RealtimeNotifications } from "@/components/RealtimeNotifications";
 import { useAuth } from "@/hooks/useAuth";
+import BackgroundImage from "@/components/BackgroundImage";
+import { HeroSection } from "@/components/home/HeroSection";
+import { LifecycleFlow } from "@/components/home/LifecycleFlow";
+import { PhaseActionsGrid } from "@/components/home/PhaseActionsGrid";
 import {
   PieChart,
   Pie,
@@ -80,93 +74,13 @@ interface DashboardStats {
   pendingProcurement: number;
 }
 
-const quickActions = [
-  { 
-    icon: FileUp, 
-    label: { ar: "تحليل ملف BOQ", en: "Analyze BOQ File" }, 
-    href: "/projects?tab=analyze", 
-    bgClass: "bg-blue-500",
-    description: { ar: "رفع وتحليل ملفات BOQ", en: "Upload and analyze BOQ files" }
-  },
-  { 
-    icon: Zap, 
-    label: { ar: "الاستخراج السريع", en: "Fast Extraction" }, 
-    href: "/fast-extraction", 
-    bgClass: "bg-orange-500",
-    description: { ar: "رفع وتصنيف ملفات متعددة بسرعة", en: "Quickly upload and classify multiple files" }
-  },
-  { 
-    icon: Library, 
-    label: { ar: "المكتبة", en: "Library" }, 
-    href: "/library", 
-    bgClass: "bg-teal-500",
-    description: { ar: "إدارة المواد والعمالة والمعدات", en: "Manage materials, labor & equipment" }
-  },
-  { 
-    icon: Plus, 
-    label: { ar: "مشروع جديد", en: "New Project" }, 
-    href: "/projects/new", 
-    bgClass: "bg-green-500",
-    description: { ar: "إنشاء مشروع جديد فارغ", en: "Create a new empty project" }
-  },
-  { 
-    icon: Receipt, 
-    label: { ar: "عروض الأسعار", en: "Quotations" }, 
-    href: "/quotations", 
-    bgClass: "bg-purple-500",
-    description: { ar: "إدارة عروض الأسعار", en: "Manage price quotations" }
-  },
-  { 
-    icon: FileText, 
-    label: { ar: "العقود", en: "Contracts" }, 
-    href: "/contracts", 
-    bgClass: "bg-amber-500",
-    description: { ar: "إدارة العقود والاتفاقيات", en: "Manage contracts" }
-  },
-  { 
-    icon: Users, 
-    label: { ar: "مقاولي الباطن", en: "Subcontractors" }, 
-    href: "/subcontractors", 
-    bgClass: "bg-purple-500",
-    description: { ar: "إدارة مقاولي الباطن والمهام", en: "Manage subcontractors and tasks" }
-  },
-  { 
-    icon: Briefcase, 
-    label: { ar: "المشاريع", en: "Projects" }, 
-    href: "/projects", 
-    bgClass: "bg-indigo-500",
-    description: { ar: "عرض وإدارة جميع المشاريع", en: "View and manage all projects" }
-  },
-  { 
-    icon: BarChart3, 
-    label: { ar: "التقارير", en: "Reports" }, 
-    href: "/reports", 
-    bgClass: "bg-rose-500",
-    description: { ar: "عرض وتصدير تقارير المشاريع", en: "View and export project reports" }
-  },
-  { 
-    icon: Shield, 
-    label: { ar: "إدارة المخاطر", en: "Risk Management" }, 
-    href: "/risk", 
-    bgClass: "bg-red-500",
-    description: { ar: "تتبع وإدارة مخاطر المشروع", en: "Track and manage project risks" }
-  },
-];
-
 const mainModules = [
   { icon: FolderOpen, label: { ar: "المشاريع المحفوظة", en: "Saved Projects" }, href: "/projects", count: "totalProjects" },
-  { icon: LayoutDashboard, label: { ar: "لوحة المعلومات", en: "Dashboard" }, href: "/dashboard", count: null },
-  { icon: Calendar, label: { ar: "التقويم", en: "Calendar" }, href: "/calendar", count: null },
-  { icon: ClipboardList, label: { ar: "بنود BOQ", en: "BOQ Items" }, href: "/items", count: "totalItems" },
-  { icon: Package, label: { ar: "المشتريات", en: "Procurement" }, href: "/procurement", count: "pendingProcurement" },
-  { icon: FileText, label: { ar: "العقود", en: "Contracts" }, href: "/contracts", count: "totalContracts" },
-  { icon: Users, label: { ar: "مقاولي الباطن", en: "Subcontractors" }, href: "/subcontractors", count: "totalSubcontractors" },
   { icon: Receipt, label: { ar: "عروض الأسعار", en: "Quotations" }, href: "/quotations", count: "totalQuotations" },
-  { icon: Shield, label: { ar: "إدارة المخاطر", en: "Risk Management" }, href: "/risk", count: "activeRisks" },
-  { icon: BarChart3, label: { ar: "التقارير", en: "Reports" }, href: "/reports", count: null },
-  { icon: DollarSign, label: { ar: "تحليل التكاليف", en: "Cost Analysis" }, href: "/cost-analysis", count: null },
-  { icon: Layers, label: { ar: "القوالب", en: "Templates" }, href: "/templates", count: null },
-  { icon: Settings, label: { ar: "الإعدادات", en: "Settings" }, href: "/settings", count: null },
+  { icon: Briefcase, label: { ar: "العقود", en: "Contracts" }, href: "/contracts", count: "totalContracts" },
+  { icon: Package, label: { ar: "المشتريات", en: "Procurement" }, href: "/procurement", count: "pendingProcurement" },
+  { icon: AlertTriangle, label: { ar: "المخاطر", en: "Risks" }, href: "/risk", count: "activeRisks" },
+  { icon: Settings2, label: { ar: "الإعدادات", en: "Settings" }, href: "/settings", count: null },
 ];
 
 export default function HomePage() {
@@ -175,6 +89,7 @@ export default function HomePage() {
   const [recentProjects, setRecentProjects] = useState<ProjectSummary[]>([]);
   const [projectTrends, setProjectTrends] = useState<any[]>([]);
   const [categoryDistribution, setCategoryDistribution] = useState<any[]>([]);
+  const [activePhase, setActivePhase] = useState(1);
 
   const { user, loading: authLoading } = useAuth();
   const { isArabic } = useLanguage();
@@ -384,7 +299,8 @@ export default function HomePage() {
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
+        <BackgroundImage />
+        <div className="text-center space-y-4 relative z-10">
           <PMSLogo size="xl" className="mx-auto" />
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
           <p className="text-muted-foreground">{isArabic ? "جاري التحميل..." : "Loading..."}</p>
@@ -397,9 +313,11 @@ export default function HomePage() {
   const spiStatus = getPerformanceStatus(stats?.avgSPI || 1);
 
   return (
-    <div className="min-h-screen bg-background" dir={isArabic ? 'rtl' : 'ltr'}>
+    <div className="min-h-screen bg-transparent relative" dir={isArabic ? 'rtl' : 'ltr'}>
+      <BackgroundImage />
+      
       {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
+      <header className="border-b border-border/50 bg-card/60 backdrop-blur-xl sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             {/* Logo & Title */}
@@ -443,47 +361,43 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Welcome Section */}
-        <section className="text-center space-y-4 py-8">
-          <div className="flex items-center justify-center gap-4 mb-6">
-            <PMSLogo size="xl" />
-          </div>
-          <h2 className="text-4xl font-bold gradient-text">
-            {isArabic ? "نظام إدارة المشاريع PMS" : "PMS Project Management System"}
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            {isArabic 
-              ? "نظام متكامل لإدارة المشاريع الإنشائية، تحليل جداول الكميات، إدارة العقود والمخاطر والتكاليف باستخدام الذكاء الاصطناعي"
-              : "Comprehensive construction project management system with AI-powered BOQ analysis, contract, risk, and cost management"
-            }
-          </p>
+      <main className="container mx-auto px-4 py-6 space-y-8 relative z-10">
+        {/* Hero Section */}
+        <HeroSection 
+          stats={stats ? {
+            totalProjects: stats.totalProjects,
+            totalItems: stats.totalItems,
+            totalValue: stats.totalValue
+          } : undefined}
+        />
+
+        {/* Lifecycle Flow */}
+        <section className="py-4">
+          <Card className="bg-card/60 backdrop-blur-sm border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-center text-lg">
+                {isArabic ? "🏗️ دورة حياة المشروع" : "🏗️ Project Lifecycle"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LifecycleFlow 
+                activePhase={activePhase} 
+                onPhaseChange={setActivePhase} 
+              />
+            </CardContent>
+          </Card>
         </section>
 
-        {/* Quick Actions */}
-        <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {quickActions.map((action, index) => (
-            <Link key={index} to={action.href}>
-              <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer border-2 hover:border-primary/50 h-full">
-                <CardContent className="p-6 text-center space-y-3">
-                  <div 
-                    className={`w-14 h-14 mx-auto rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform ${action.bgClass}`}
-                  >
-                    <action.icon className="w-7 h-7 text-white" />
-                  </div>
-                  <h3 className="font-semibold text-sm">{isArabic ? action.label.ar : action.label.en}</h3>
-                  <p className="text-xs text-muted-foreground line-clamp-2">{isArabic ? action.description.ar : action.description.en}</p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+        {/* Phase Actions Grid */}
+        <section>
+          <PhaseActionsGrid activePhase={activePhase} />
         </section>
 
         {user && stats && (
           <>
             {/* KPI Summary Cards */}
             <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+              <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 backdrop-blur-sm">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <FolderOpen className="h-4 w-4 text-primary" />
@@ -495,7 +409,7 @@ export default function HomePage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
+              <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20 backdrop-blur-sm">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -508,7 +422,7 @@ export default function HomePage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
+              <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20 backdrop-blur-sm">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -520,7 +434,7 @@ export default function HomePage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20">
+              <Card className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20 backdrop-blur-sm">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Receipt className="h-4 w-4 text-purple-600 dark:text-purple-400" />
@@ -532,7 +446,7 @@ export default function HomePage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/20">
+              <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/20 backdrop-blur-sm">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -544,7 +458,7 @@ export default function HomePage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-red-500/10 to-red-500/5 border-red-500/20">
+              <Card className="bg-gradient-to-br from-red-500/10 to-red-500/5 border-red-500/20 backdrop-blur-sm">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
@@ -563,7 +477,7 @@ export default function HomePage() {
             {/* Performance & Charts */}
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Performance Indicators */}
-              <Card>
+              <Card className="bg-card/70 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Target className="h-5 w-5" />
@@ -594,7 +508,7 @@ export default function HomePage() {
               </Card>
 
               {/* Project Trends Chart */}
-              <Card>
+              <Card className="bg-card/70 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5" />
@@ -636,7 +550,7 @@ export default function HomePage() {
               </Card>
 
               {/* Category Distribution */}
-              <Card>
+              <Card className="bg-card/70 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <PieChartIcon className="h-5 w-5" />
@@ -674,9 +588,9 @@ export default function HomePage() {
               </Card>
             </section>
 
-            {/* Recent Projects */}
+            {/* Recent Projects & Modules */}
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
+              <Card className="bg-card/70 backdrop-blur-sm">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <Clock className="h-5 w-5" />
@@ -731,31 +645,29 @@ export default function HomePage() {
               </Card>
 
               {/* All Modules Grid */}
-              <Card>
+              <Card className="bg-card/70 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Layers className="h-5 w-5" />
-                    {isArabic ? "جميع الوحدات" : "All Modules"}
+                    {isArabic ? "الوصول السريع" : "Quick Access"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ScrollArea className="h-[280px]">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {mainModules.map((module, index) => (
-                        <Link key={index} to={module.href}>
-                          <div className="p-3 rounded-lg border bg-card hover:bg-muted/50 hover:border-primary/50 transition-all cursor-pointer text-center space-y-2">
-                            <module.icon className="h-6 w-6 mx-auto text-primary" />
-                            <p className="text-xs font-medium">{isArabic ? module.label.ar : module.label.en}</p>
-                            {module.count && stats && (
-                              <Badge variant="secondary" className="text-xs">
-                                {stats[module.count as keyof DashboardStats] || 0}
-                              </Badge>
-                            )}
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  </ScrollArea>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {mainModules.map((module, index) => (
+                      <Link key={index} to={module.href}>
+                        <div className="p-4 rounded-lg border bg-card/50 hover:bg-muted/50 hover:border-primary/50 transition-all cursor-pointer text-center space-y-2 group">
+                          <module.icon className="h-6 w-6 mx-auto text-primary group-hover:scale-110 transition-transform" />
+                          <p className="text-xs font-medium">{isArabic ? module.label.ar : module.label.en}</p>
+                          {module.count && stats && (
+                            <Badge variant="secondary" className="text-xs">
+                              {stats[module.count as keyof DashboardStats] || 0}
+                            </Badge>
+                          )}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             </section>
@@ -764,7 +676,7 @@ export default function HomePage() {
 
         {!user && (
           <section className="text-center py-12">
-            <Card className="max-w-md mx-auto border-dashed">
+            <Card className="max-w-md mx-auto border-dashed bg-card/70 backdrop-blur-sm">
               <CardContent className="p-8 space-y-4">
                 <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
                   <Zap className="h-8 w-8 text-primary" />
@@ -790,7 +702,7 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-card/50 mt-12">
+      <footer className="border-t border-border/50 bg-card/50 backdrop-blur-sm mt-12 relative z-10">
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
