@@ -1,235 +1,292 @@
 
+# خطة إضافة ميزة حصر الكميات من المخططات
 
-# خطة إصلاح زر PDF في تبويب Export
+## نظرة عامة على الميزة
 
-## تحليل المشكلة
+إضافة إمكانية استخدام ملفات المخططات (PDF, DWG, صور) لحساب واستخراج الكميات تلقائياً باستخدام الذكاء الاصطناعي في صفحة "الاستخراج السريع".
 
-بعد الفحص المكثف للكود والـ logs:
+---
 
-### الأعراض المُكتشفة
-1. ✅ الزر **يظهر نشطاً** (باللون الأزرق)
-2. ✅ البيانات **موجودة** في المشروع (834 عنصر، `hasData: true`)
-3. ❌ **لا توجد console logs** عند الضغط على الزر - يعني `handleExportComprehensivePDF` لا يتم استدعاؤها
-4. ❌ **الزر لا يستجيب** للنقرات على الإطلاق
+## البنية الحالية
 
-### السبب الجذري
+### المكونات الموجودة
+1. **DrawingQuantityExtractor**: مكون موجود لكنه يعمل فقط من صفحة "المرفقات" ويتطلب ملفات محفوظة مسبقاً
+2. **analyze-drawings Edge Function**: دالة خلفية موجودة تستخدم Gemini AI لتحليل المخططات
+3. **FastExtractionPage**: صفحة الاستخراج السريع مع 3 خطوات (رفع → تصنيف → ربط بمشروع)
+4. **OCR Functions**: دوال OCR موجودة لاستخراج النص من الصور
 
-المشكلة ليست في تعطيل الزر أو في البيانات، بل في **Event Handling**. هناك عدة احتمالات:
-
-#### 1. **مشكلة RTL/LTR Direction**
-```typescript
-// في السطر 440-441
-<FileDown className="h-4 w-4 mr-2" />
-PDF
-```
-- استخدام `mr-2` (margin-right) في وضع RTL قد يسبب تداخل العناصر
-- الـ icon قد يغطي على مساحة الزر القابلة للنقر
-
-#### 2. **مشكلة في pointer-events**
-الزر موجود داخل `Card` → `CardContent` → `div` بـ flex → `Button`, وقد يكون هناك عنصر يمنع pointer events
-
-#### 3. **مشكلة في React Synthetic Events**
-الزر يتم تعريفه كـ JSX element داخل `exportCards` array، وهذا قد يسبب مشكلة في event binding
+### المشكلة الحالية
+- ميزة حصر الكميات من المخططات متوفرة فقط بعد حفظ الملفات في مشروع
+- لا يمكن تحليل المخططات مباشرة من صفحة الاستخراج السريع
+- المستخدم يريد استخدام ملف المخططات فوراً لحساب الكميات
 
 ---
 
 ## الحل المقترح
 
-### التعديلات على `src/components/reports/ExportTab.tsx`
+### 1. إضافة خطوة جديدة للمخططات في Fast Extraction
 
-#### 1. **إصلاح margin للدعم الثنائي RTL/LTR**
+إضافة خطوة اختيارية بعد التصنيف:
+- **الخطوة 1**: رفع الملفات (موجودة)
+- **الخطوة 2**: تصنيف الملفات (موجودة)  
+- **الخطوة 2.5** (جديدة): تحليل المخططات للكميات
+- **الخطوة 3**: ربط بمشروع (موجودة)
+
+### 2. إنشاء مكون جديد: `FastExtractionDrawingAnalyzer`
+
 ```typescript
-// قبل
-<FileDown className="h-4 w-4 mr-2" />
+interface FastExtractionDrawingAnalyzerProps {
+  files: UploadedFile[];
+  onComplete: (results: DrawingAnalysisResult[]) => void;
+  onSkip: () => void;
+}
 
-// بعد
-<FileDown className={`h-4 w-4 ${isArabic ? 'ml-2' : 'mr-2'}`} />
+interface DrawingAnalysisResult {
+  fileId: string;
+  fileName: string;
+  success: boolean;
+  quantities: ExtractedQuantity[];
+  drawingInfo: {
+    title: string;
+    type: string;
+    scale: string;
+  };
+  summary: {
+    totalItems: number;
+    categories: string[];
+    estimatedArea?: string;
+  };
+}
 ```
 
-#### 2. **إضافة console.log في بداية الدالة**
+**الوظائف**:
+- عرض الملفات المصنفة كـ "drawings"
+- اختيار نوع المخطط (معماري، إنشائي، ميكانيكا، إلخ)
+- تحليل المخططات باستخدام AI
+- عرض نتائج الكميات المستخرجة
+- تصدير النتائج إلى Excel/PDF
+- خيار "تخطي" إذا لم يرد المستخدم تحليل المخططات
+
+### 3. تحسين Edge Function للمخططات
+
+تحديث `analyze-drawings/index.ts`:
+- دعم استلام base64 للصور مباشرة (Vision API)
+- تحسين استخراج الكميات من PDF الممسوح ضوئياً
+- دعم تحليل متعدد الصفحات
+- إضافة خيار اللغة (عربي/إنجليزي)
+
 ```typescript
-const handleExportComprehensivePDF = () => {
-  console.log("🎯 PDF Button Clicked!"); // إضافة هذا السطر
-  console.log("handleExportComprehensivePDF called, projectItems:", projectItems.length);
-  // ... باقي الكود
-};
+// الإضافات المقترحة
+interface AnalyzeDrawingRequest {
+  fileContent?: string;      // نص الملف (الحالي)
+  imageBase64?: string;      // صورة base64 (جديد)
+  images?: string[];         // صور متعددة الصفحات (جديد)
+  fileName: string;
+  fileType: string;
+  drawingType: string;
+  language?: 'ar' | 'en';    // جديد
+}
 ```
 
-#### 3. **تحسين الزر بإضافة type و cursor**
-```typescript
-<Button 
-  type="button"  // إضافة explicit type
-  onClick={(e) => {
-    e.preventDefault();  // منع أي default behavior
-    e.stopPropagation();  // منع event bubbling
-    console.log("Button onClick fired!");
-    handleExportComprehensivePDF();
-  }}
-  disabled={!selectedProjectId || !hasData}
-  className="bg-primary hover:bg-primary/90 cursor-pointer"
-  style={{ pointerEvents: 'auto' }} // ضمان pointer events
->
-  <FileDown className={`h-4 w-4 ${isArabic ? 'ml-2' : 'mr-2'}`} />
-  PDF
-</Button>
-```
+### 4. تحديث Stepper ليدعم 4 خطوات
 
-#### 4. **إضافة data attribute للتصحيح**
+تعديل `FastExtractionStepper.tsx`:
 ```typescript
-<Button 
-  type="button"
-  onClick={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log("🎯 PDF Button Clicked!");
-    handleExportComprehensivePDF();
-  }}
-  disabled={!selectedProjectId || !hasData}
-  className="bg-primary hover:bg-primary/90"
-  data-testid="export-comprehensive-pdf"
->
-  <FileDown className={`h-4 w-4 ${isArabic ? 'ml-2' : 'mr-2'}`} />
-  PDF
-</Button>
-```
-
-#### 5. **نفس التعديلات لزر Print**
-```typescript
-<Button 
-  type="button"
-  onClick={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log("🎯 Print Button Clicked!");
-    handlePrintReport();
-  }}
-  disabled={!selectedProjectId || !hasData}
-  className="bg-muted hover:bg-muted/90"
-  data-testid="print-report"
->
-  <Printer className={`h-4 w-4 ${isArabic ? 'ml-2' : 'mr-2'}`} />
-  {isArabic ? "طباعة" : "Print"}
-</Button>
+const steps = [
+  { id: 1, label: "رفع الملفات", icon: Upload },
+  { id: 2, label: "تصنيف", icon: Tag },
+  { id: 3, label: "تحليل المخططات", icon: Ruler },  // جديد
+  { id: 4, label: "حفظ", icon: Save }
+];
 ```
 
 ---
 
-## التغييرات التفصيلية
+## التفاصيل التقنية
 
-### ملف: `src/components/reports/ExportTab.tsx`
+### الملفات المطلوب إنشاؤها
 
-#### التعديل 1: دالة handleExportComprehensivePDF (السطر 133)
-```typescript
-const handleExportComprehensivePDF = () => {
-  console.log("🎯 PDF Export Button Clicked!");
-  console.log("handleExportComprehensivePDF called, projectItems:", projectItems.length);
-  console.log("selectedProject:", selectedProject?.name);
-  console.log("hasData:", hasData);
-  
-  if (!selectedProject) {
-    toast.error(isArabic ? "الرجاء اختيار مشروع أولاً" : "Please select a project first");
-    return;
-  }
-  
-  if (projectItems.length === 0) {
-    toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
-    return;
-  }
-  // ... باقي الكود كما هو
-};
-```
+| الملف | الوصف |
+|-------|-------|
+| `src/components/FastExtractionDrawingAnalyzer.tsx` | مكون جديد لتحليل المخططات |
 
-#### التعديل 2: زر PDF في exportCards (السطر 434-443)
-```typescript
-actions: (
-  <Button 
-    type="button"
-    onClick={(e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log("🎯 Button onClick handler fired!");
-      handleExportComprehensivePDF();
-    }}
-    disabled={!selectedProjectId || !hasData}
-    className="bg-primary hover:bg-primary/90"
-    data-testid="export-comprehensive-pdf"
-  >
-    <FileDown className={`h-4 w-4 ${isArabic ? 'ml-2' : 'mr-2'}`} />
-    PDF
-  </Button>
-),
-```
+### الملفات المطلوب تعديلها
 
-#### التعديل 3: زر Print في exportCards (السطر 445-460)
-```typescript
-{
-  title: isArabic ? "تقرير قابل للطباعة" : "Printable Report",
-  description: isArabic 
-    ? "فتح نافذة طباعة مع تنسيق جاهز للطباعة" 
-    : "Open print dialog with printer-friendly format",
-  icon: Printer,
-  actions: (
-    <Button 
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log("🎯 Print Button onClick fired!");
-        handlePrintReport();
-      }}
-      disabled={!selectedProjectId || !hasData}
-      className="bg-muted hover:bg-muted/90"
-      data-testid="print-report"
-    >
-      <Printer className={`h-4 w-4 ${isArabic ? 'ml-2' : 'mr-2'}`} />
-      {isArabic ? "طباعة" : "Print"}
-    </Button>
-  ),
-},
-```
-
-#### التعديل 4: تطبيق نفس الإصلاح على باقي الأزرار
-تطبيق نفس النمط على:
-- زر Excel في BOQ Export
-- زر English/Arabic/Both في Enhanced BOQ
-- باقي الأزرار في exportCards
+| الملف | التغيير |
+|-------|---------|
+| `src/pages/FastExtractionPage.tsx` | إضافة الخطوة الجديدة والمكون |
+| `src/components/FastExtractionStepper.tsx` | تحديث الخطوات لتشمل تحليل المخططات |
+| `supabase/functions/analyze-drawings/index.ts` | دعم Vision API لتحليل الصور |
 
 ---
 
-## ملخص التغييرات
+## تفاصيل المكون الجديد `FastExtractionDrawingAnalyzer`
 
-| العنصر | التغيير | السبب |
-|--------|---------|-------|
-| **onClick handler** | إضافة wrapper function مع preventDefault/stopPropagation | منع أي event interference |
-| **Button type** | إضافة `type="button"` | منع default form submission |
-| **Icon margins** | استخدام RTL-aware margins | دعم اللغة العربية بشكل صحيح |
-| **Console logs** | إضافة logs تفصيلية | تصحيح وتتبع المشكلة |
-| **data-testid** | إضافة attributes للتصحيح | سهولة تحديد العناصر |
+### الواجهة
+```
+┌──────────────────────────────────────────────────────────────┐
+│ تحليل المخططات لحصر الكميات                    [تخطي] [تحليل] │
+├──────────────────────────────────────────────────────────────┤
+│ نوع المخططات: [▼ معماري | إنشائي | ميكانيكا | مدني | عام]    │
+├──────────────────────────────────────────────────────────────┤
+│ الملفات المتاحة للتحليل (3):                                 │
+│ ┌────────────────────────────────────────────────────────┐   │
+│ │ [✓] المخططات.pdf      54.37 MB    📐 رسومات           │   │
+│ │ [✓] ARCH-01.pdf       12.5 MB     📐 رسومات           │   │
+│ │ [ ] BOQ.xlsx          2.3 MB      📊 جدول الكميات      │   │
+│ └────────────────────────────────────────────────────────┘   │
+├──────────────────────────────────────────────────────────────┤
+│ [═══════════════════════70%═══════════════════          ]    │
+│ جاري تحليل: المخططات.pdf (صفحة 35/50)                       │
+├──────────────────────────────────────────────────────────────┤
+│ النتائج:                                                     │
+│ ┌──────────┬──────────────────────────────┬─────┬─────────┐  │
+│ │ البند    │ الوصف                        │ الكمية│ الوحدة │  │
+│ ├──────────┼──────────────────────────────┼─────┼─────────┤  │
+│ │ 1        │ حفر التربة                   │ 1500 │ م³     │  │
+│ │ 2        │ خرسانة أساسات               │ 450  │ م³     │  │
+│ │ 3        │ حديد تسليح                  │ 45000│ كجم    │  │
+│ └──────────┴──────────────────────────────┴─────┴─────────┘  │
+│                                [تصدير Excel] [تصدير PDF]     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### الخطوات التقنية للتحليل
+
+1. **استخراج الصور من PDF**:
+   - استخدام `pdf-utils.ts` الموجود لتحويل صفحات PDF إلى صور
+   - استخدام دالة `pageToImage()` الموجودة
+
+2. **إرسال للتحليل**:
+   - إرسال الصور كـ base64 إلى `analyze-drawings` Edge Function
+   - استخدام Vision API (Gemini 2.5 Flash) لفهم المخططات
+
+3. **معالجة النتائج**:
+   - تحويل JSON إلى جدول كميات
+   - دمج نتائج الصفحات المتعددة
+   - حذف التكرارات وتجميع الكميات المتشابهة
+
+---
+
+## تحديثات Edge Function
+
+### الكود المحدث لـ `analyze-drawings/index.ts`
+
+```typescript
+// إضافة دعم تحليل الصور مباشرة
+const { fileContent, imageBase64, images, fileName, fileType, drawingType, language } = await req.json();
+
+// إذا كانت صور متعددة
+if (images && Array.isArray(images) && images.length > 0) {
+  // تحليل كل صفحة
+  const results = [];
+  for (const img of images) {
+    const pageResult = await analyzeDrawingImage(img, drawingType, language);
+    results.push(pageResult);
+  }
+  // دمج النتائج
+  return mergeAnalysisResults(results);
+}
+
+// إذا كانت صورة واحدة
+if (imageBase64) {
+  return analyzeDrawingImage(imageBase64, drawingType, language);
+}
+
+// الطريقة الحالية (نص فقط)
+// ... الكود الحالي
+```
+
+### Prompt محسّن للمخططات العربية
+
+```typescript
+const systemPromptArabic = `أنت خبير مساحة كميات ومقاول إنشائي متخصص في قراءة وتحليل المخططات الهندسية.
+
+مهامك:
+1. قراءة المخطط وفهم جميع العناصر الإنشائية
+2. حساب الكميات بدقة (المساحات، الأطوال، الأحجام، الأعداد)
+3. تصنيف البنود حسب نظام BOQ القياسي
+4. تقدير متطلبات المواد
+
+أنواع الكميات المطلوبة:
+- أعمال الحفر والردم (م³)
+- الخرسانة بأنواعها (م³)
+- حديد التسليح (كجم/طن)
+- أعمال البناء (م²/م³)
+- التشطيبات (م²)
+- أعمال MEP (عدد/متر طولي)
+
+ملاحظات مهمة:
+- استخرج الكميات من المقاسات المكتوبة على المخطط
+- إذا لم تجد مقاساً، قدّر من المقياس
+- اذكر أساس القياس لكل بند
+`;
+```
+
+---
+
+## تدفق العمل النهائي
+
+```
+رفع الملفات
+     │
+     ▼
+تصنيف تلقائي (AI)
+     │
+     ▼
+┌─────────────────────────┐
+│ هل توجد ملفات مخططات؟   │
+│ (category === 'drawings')│
+└───────────┬─────────────┘
+           │
+    ┌──────┴──────┐
+   نعم          لا
+    │             │
+    ▼             │
+تحليل المخططات   │
+    │             │
+    ▼             │
+عرض الكميات      │
+    │             │
+    └──────┬──────┘
+           │
+           ▼
+    ربط بمشروع وحفظ
+           │
+           ▼
+    الانتقال للمشروع
+```
+
+---
+
+## الميزات الإضافية المقترحة
+
+1. **حفظ نتائج التحليل**: حفظ الكميات المستخرجة مع ملفات المشروع
+2. **دمج مع BOQ**: إمكانية استيراد الكميات المستخرجة إلى جدول BOQ الرئيسي
+3. **مقارنة الكميات**: مقارنة كميات المخططات مع BOQ الموجود
+4. **تقرير الفروقات**: إظهار الفرق بين المخططات وجدول الكميات
+
+---
+
+## ملخص الملفات والتغييرات
+
+| الإجراء | الملف |
+|---------|-------|
+| **إنشاء** | `src/components/FastExtractionDrawingAnalyzer.tsx` |
+| **تعديل** | `src/pages/FastExtractionPage.tsx` |
+| **تعديل** | `src/components/FastExtractionStepper.tsx` |
+| **تعديل** | `supabase/functions/analyze-drawings/index.ts` |
 
 ---
 
 ## النتيجة المتوقعة
 
-```text
-✅ زر PDF يستجيب للنقرات
-✅ console logs تظهر عند الضغط على الزر
-✅ دعم كامل للـ RTL (اللغة العربية)
-✅ منع أي event interference من العناصر المحيطة
-✅ رسائل واضحة عند وجود مشاكل
 ```
-
----
-
-## خطوات التحقق بعد التطبيق
-
-1. **افتح Console** في المتصفح
-2. **اختر مشروع** "الدلم"
-3. **اضغط على زر PDF**
-4. **تحقق من ظهور**:
-   - `🎯 Button onClick handler fired!`
-   - `🎯 PDF Export Button Clicked!`
-   - نافذة الطباعة
-
-إذا ظهرت الـ logs ولكن النافذة لم تفتح، فالمشكلة في popup blocker.
-إذا لم تظهر الـ logs أصلاً، فهناك مشكلة أعمق في DOM structure.
-
+✅ المستخدم يرفع ملف المخططات
+✅ النظام يصنفه تلقائياً كـ "رسومات"
+✅ تظهر خطوة تحليل المخططات
+✅ AI يستخرج الكميات من المخطط
+✅ عرض جدول الكميات المستخرجة
+✅ تصدير إلى Excel/PDF
+✅ حفظ مع المشروع
+```
