@@ -220,10 +220,11 @@ const phaseConfigs: PhaseConfig[] = [
       },
       { 
         icon: BarChart3, 
-        label: { ar: "التقارير", en: "Reports" }, 
-        description: { ar: "تقارير مفصلة", en: "Detailed reports" },
-        href: "/reports",
-        previewText: { ar: "تقارير وإحصائيات متقدمة", en: "Advanced reports and statistics" }
+        label: { ar: "تقرير مراقبة التكاليف", en: "Cost Control Report" }, 
+        description: { ar: "EVM وتحليل الأداء", en: "EVM & performance" },
+        href: "/cost-control-report",
+        isNew: true,
+        previewText: { ar: "تحليل شامل للقيمة المكتسبة والأداء", en: "Comprehensive earned value and performance analysis" }
       },
       { 
         icon: Shield, 
