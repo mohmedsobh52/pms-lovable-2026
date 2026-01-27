@@ -131,7 +131,10 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handleExportComprehensivePDF = () => {
+    console.log("🎯 PDF Export Button Clicked!");
     console.log("handleExportComprehensivePDF called, projectItems:", projectItems.length);
+    console.log("selectedProject:", selectedProject?.name);
+    console.log("hasData:", hasData);
     
     if (!selectedProject) {
       toast.error(isArabic ? "الرجاء اختيار مشروع أولاً" : "Please select a project first");
@@ -300,7 +303,9 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
   };
 
   const handlePrintReport = () => {
+    console.log("🎯 Print Button Clicked!");
     console.log("handlePrintReport called, projectItems:", projectItems.length);
+    console.log("selectedProject:", selectedProject?.name);
     
     if (!selectedProject) {
       toast.error(isArabic ? "الرجاء اختيار مشروع أولاً" : "Please select a project first");
@@ -433,11 +438,18 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       icon: FileDown,
       actions: (
         <Button 
-          onClick={handleExportComprehensivePDF}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("🎯 PDF Button onClick handler fired!");
+            handleExportComprehensivePDF();
+          }}
           disabled={!selectedProjectId || !hasData}
           className="bg-primary hover:bg-primary/90"
+          data-testid="export-comprehensive-pdf"
         >
-          <FileDown className="h-4 w-4 mr-2" />
+          <FileDown className={`h-4 w-4 ${isArabic ? 'ml-2' : 'mr-2'}`} />
           PDF
         </Button>
       ),
@@ -450,11 +462,18 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       icon: Printer,
       actions: (
         <Button 
-          onClick={handlePrintReport}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("🎯 Print Button onClick handler fired!");
+            handlePrintReport();
+          }}
           disabled={!selectedProjectId || !hasData}
           variant="outline"
+          data-testid="print-report"
         >
-          <Printer className="h-4 w-4 mr-2" />
+          <Printer className={`h-4 w-4 ${isArabic ? 'ml-2' : 'mr-2'}`} />
           {isArabic ? "طباعة" : "Print"}
         </Button>
       ),
@@ -467,11 +486,16 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       icon: FileSpreadsheet,
       actions: (
         <Button 
-          onClick={handleExportBOQ}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleExportBOQ();
+          }}
           disabled={!selectedProjectId || !hasData}
           className="bg-success hover:bg-success/90"
         >
-          <Download className="h-4 w-4 mr-2" />
+          <Download className={`h-4 w-4 ${isArabic ? 'ml-2' : 'mr-2'}`} />
           Excel
         </Button>
       ),
@@ -485,7 +509,12 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       actions: (
         <div className="flex gap-2">
           <Button 
-            onClick={() => handleExportEnhancedBOQ('en')}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleExportEnhancedBOQ('en');
+            }}
             disabled={!selectedProjectId || !hasData}
             variant="outline"
             size="sm"
@@ -493,7 +522,12 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
             EN
           </Button>
           <Button 
-            onClick={() => handleExportEnhancedBOQ('ar')}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleExportEnhancedBOQ('ar');
+            }}
             disabled={!selectedProjectId || !hasData}
             variant="outline"
             size="sm"
@@ -501,7 +535,12 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
             AR
           </Button>
           <Button 
-            onClick={() => handleExportEnhancedBOQ('both')}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleExportEnhancedBOQ('both');
+            }}
             disabled={!selectedProjectId || !hasData}
             className="bg-success hover:bg-success/90"
             size="sm"
@@ -520,7 +559,12 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       actions: (
         <div className="flex gap-2">
           <Button 
-            onClick={() => handleExportTenderSummary('pdf')}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleExportTenderSummary('pdf');
+            }}
             disabled={!selectedProjectId || !hasData}
             className="bg-primary hover:bg-primary/90"
             size="sm"
@@ -528,7 +572,12 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
             PDF
           </Button>
           <Button 
-            onClick={() => handleExportTenderSummary('excel')}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleExportTenderSummary('excel');
+            }}
             disabled={!selectedProjectId || !hasData}
             variant="outline"
             size="sm"
@@ -547,16 +596,26 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
       actions: (
         <div className="flex gap-2">
           <Button 
-            onClick={handleViewPriceAnalysis}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleViewPriceAnalysis();
+            }}
             disabled={!selectedProjectId || !hasData}
             variant="outline"
             size="sm"
           >
-            <Eye className="h-4 w-4 mr-1" />
+            <Eye className={`h-4 w-4 ${isArabic ? 'ml-1' : 'mr-1'}`} />
             {isArabic ? "عرض" : "View"}
           </Button>
           <Button 
-            onClick={handleExportPriceAnalysis}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleExportPriceAnalysis();
+            }}
             disabled={!selectedProjectId || !hasData}
             className="bg-success hover:bg-success/90"
             size="sm"
