@@ -1,159 +1,406 @@
 
-# خطة إضافة ميزات تتبع دقة التسعير
+
+# خطة إضافة البحث الشامل الديناميكي (Global Search)
 
 ## نظرة عامة
 
-إضافة ثلاث ميزات جديدة لتتبع وتحسين دقة التسعير:
-1. شاشة مقارنة الأسعار المقترحة vs النهائية
-2. استيراد الأسعار المرجعية من Excel
-3. تقرير PDF لإحصائيات دقة التسعير
+إنشاء مكون بحث شامل (Command Palette) يظهر في كل الشاشات ويمكنه البحث عن:
+- الصفحات والمسارات
+- المشاريع المحفوظة
+- الميزات والأدوات
+- الإعدادات
+- الملفات والمرفقات
+- الاختصارات السريعة
 
 ---
 
-## الميزة 1: شاشة مقارنة الأسعار
+## التجربة المتوقعة
 
-### الملف الجديد: `src/components/PriceComparisonTracker.tsx`
+```text
+┌────────────────────────────────────────────────────────┐
+│  🔍 Search anything...  (Ctrl/⌘ + K)                   │
+├────────────────────────────────────────────────────────┤
+│                                                        │
+│  📁 Pages                                              │
+│  ├── Dashboard                              LayoutDashboard │
+│  ├── Projects                               FolderOpen      │
+│  └── Cost Analysis                          BarChart3       │
+│                                                        │
+│  📋 Recent Projects                                    │
+│  ├── مشروع الرياض السكني                    FolderOpen │
+│  └── NEOM Infrastructure                    FolderOpen │
+│                                                        │
+│  ⚡ Quick Actions                                       │
+│  ├── New Project                            Plus       │
+│  ├── Fast Extraction                        Zap        │
+│  └── Export Report                          Download   │
+│                                                        │
+│  ⚙️ Settings                                           │
+│  ├── Company Settings                       Building2  │
+│  └── AI Model                               Brain      │
+│                                                        │
+└────────────────────────────────────────────────────────┘
+```
 
-#### الوظائف:
-- جلب البيانات من `pricing_history` مع `suggested_price` و `final_price`
-- حساب نسبة الانحراف لكل بند
-- عرض جدول مقارنة مع:
-  - رقم البند، الوصف
-  - السعر المقترح، السعر النهائي المعتمد
-  - الفرق (%)، المصدر، الثقة
-- رسم بياني خطي لتتبع الدقة عبر الزمن
-- فلترة حسب المشروع/الفترة الزمنية
+---
+
+## المكونات الجديدة
+
+### 1. GlobalSearch Component
+
+**الملف:** `src/components/GlobalSearch.tsx`
 
 ```typescript
-interface PriceComparison {
+interface SearchItem {
   id: string;
-  item_number: string;
-  description: string;
-  suggested_price: number;
-  final_price: number | null;
-  deviation_percent: number;
-  source: string;
-  confidence: string;
-  created_at: string;
-  is_approved: boolean;
+  type: 'page' | 'project' | 'action' | 'setting' | 'file';
+  label: string;
+  labelAr: string;
+  description?: string;
+  descriptionAr?: string;
+  icon: string;
+  href?: string;
+  action?: () => void;
+  keywords: string[];
 }
 ```
 
-#### المكونات الفرعية:
-- جدول المقارنة مع Sorting و Pagination
-- رسم بياني (Line Chart) للدقة عبر الوقت
-- بطاقات KPI: متوسط الانحراف، أعلى/أقل انحراف
-- فلتر حسب: المصدر، الثقة، الفترة
+#### الوظائف:
+- استخدام `cmdk` (Command Menu) الموجود بالفعل
+- دعم اختصار لوحة المفاتيح `Ctrl/⌘ + K`
+- بحث ديناميكي في الوقت الحقيقي
+- تجميع النتائج حسب النوع
+- دعم ثنائي اللغة (عربي/إنجليزي)
 
 ---
 
-## الميزة 2: استيراد الأسعار المرجعية من Excel
+### 2. useGlobalSearch Hook
 
-### الملف الجديد: `src/components/ReferencepriceImporter.tsx`
+**الملف:** `src/hooks/useGlobalSearch.tsx`
 
 #### الوظائف:
-- رفع ملف Excel بتنسيق محدد
-- معاينة البيانات قبل الاستيراد
-- تحديث جدول `reference_prices` (جديد) أو `pricing_history`
-- التحقق من صحة البيانات
+- جمع جميع عناصر البحث من مصادر متعددة
+- جلب المشاريع من قاعدة البيانات
+- دمج الصفحات الثابتة
+- البحث في الكلمات المفتاحية (EN + AR)
 
-#### تنسيق Excel المطلوب:
-| Category | Item | Unit | Min Price | Max Price | Keywords |
-|----------|------|------|-----------|-----------|----------|
-| CIVIL | Excavation | M3 | 25 | 45 | حفر,excavation |
-
-#### خطوات العمل:
-1. رفع الملف باستخدام `readExcelFile`
-2. تحويل البيانات باستخدام `worksheetToJson`
-3. عرض معاينة للتحقق
-4. حفظ في قاعدة البيانات (جدول جديد `reference_prices`)
-
----
-
-## الميزة 3: تقرير PDF لإحصائيات الدقة
-
-### الملف الجديد: `src/components/PricingAccuracyPDFReport.tsx`
-
-#### المحتويات:
-1. **الغلاف**: عنوان، تاريخ، شعار الشركة
-2. **ملخص تنفيذي**: KPIs الرئيسية
-3. **توزيع المصادر**: Pie Chart (Library/Reference/AI)
-4. **مستويات الثقة**: Bar Chart (High/Medium/Low)
-5. **تحليل الدقة**: مقارنة الأسعار المقترحة vs النهائية
-6. **جدول تفصيلي**: أعلى 20 بند انحرافاً
-
-#### باستخدام jsPDF:
 ```typescript
-const generatePDFReport = async (stats: PricingStats) => {
-  const doc = new jsPDF();
-  
-  // Header with logo
-  doc.addImage(companyLogo, 'PNG', 15, 10, 30, 15);
-  doc.setFontSize(20);
-  doc.text('تقرير دقة التسعير', 105, 35, { align: 'center' });
-  
-  // KPI Summary
-  doc.autoTable({
-    head: [['المؤشر', 'القيمة']],
-    body: [
-      ['الدقة المتوقعة', `${stats.estimatedAccuracy}%`],
-      ['إجمالي البنود', stats.total],
-      ['البنود المعتمدة', stats.approved],
-    ],
-  });
-  
-  // Charts as images
-  const sourceChartImage = await chartToImage(sourceChartRef);
-  doc.addImage(sourceChartImage, 'PNG', 15, 80, 80, 60);
-  
-  doc.save('Pricing_Accuracy_Report.pdf');
+// مصادر البيانات
+const searchSources = {
+  pages: staticPagesData,      // من routeMap الموجود
+  projects: supabaseQuery,     // من project_data
+  actions: quickActionsData,   // إجراءات سريعة
+  settings: settingsData,      // إعدادات
+  files: attachmentsQuery,     // مرفقات (اختياري)
 };
 ```
 
 ---
 
-## قاعدة البيانات
+## التغييرات على الملفات الموجودة
 
-### جدول جديد: `reference_prices`
-```sql
-CREATE TABLE reference_prices (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  category TEXT NOT NULL,
-  item_name TEXT NOT NULL,
-  item_name_ar TEXT,
-  unit TEXT,
-  min_price NUMERIC,
-  max_price NUMERIC,
-  keywords TEXT[],
-  location TEXT,
-  year INTEGER DEFAULT EXTRACT(YEAR FROM NOW()),
-  user_id UUID REFERENCES auth.users(id),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+### 1. UnifiedHeader.tsx
+
+إضافة زر البحث:
+
+```tsx
+// في منطقة الـ Actions (يمين الـ header)
+<Button
+  variant="ghost"
+  size="sm"
+  onClick={() => setSearchOpen(true)}
+  className="gap-2 hidden sm:flex"
+>
+  <Search className="h-4 w-4" />
+  <span className="text-xs text-muted-foreground">⌘K</span>
+</Button>
+```
+
+### 2. App.tsx
+
+إضافة GlobalSearch على المستوى الأعلى:
+
+```tsx
+<BrowserRouter>
+  <GlobalSearch /> {/* جديد - يظهر فوق كل الصفحات */}
+  <UpdateBanner />
+  {/* ... */}
+</BrowserRouter>
+```
+
+---
+
+## بيانات البحث
+
+### الصفحات الثابتة (Static Pages)
+
+```typescript
+const staticPages: SearchItem[] = [
+  {
+    id: 'dashboard',
+    type: 'page',
+    label: 'Dashboard',
+    labelAr: 'لوحة التحكم',
+    icon: 'LayoutDashboard',
+    href: '/dashboard',
+    keywords: ['dashboard', 'لوحة', 'التحكم', 'home'],
+  },
+  {
+    id: 'projects',
+    type: 'page',
+    label: 'Saved Projects',
+    labelAr: 'المشاريع المحفوظة',
+    icon: 'FolderOpen',
+    href: '/projects',
+    keywords: ['projects', 'مشاريع', 'saved', 'محفوظة'],
+  },
+  // ... جميع الصفحات الموجودة في routeMap
+];
+```
+
+### المشاريع من قاعدة البيانات
+
+```typescript
+// جلب من Supabase
+const { data: projects } = await supabase
+  .from('project_data')
+  .select('id, name, created_at')
+  .order('created_at', { ascending: false })
+  .limit(10);
+
+// تحويل إلى SearchItem
+const projectItems: SearchItem[] = projects?.map(p => ({
+  id: p.id,
+  type: 'project',
+  label: p.name,
+  labelAr: p.name,
+  icon: 'FolderOpen',
+  href: `/projects/${p.id}`,
+  keywords: [p.name.toLowerCase()],
+})) || [];
+```
+
+### الإجراءات السريعة
+
+```typescript
+const quickActions: SearchItem[] = [
+  {
+    id: 'new-project',
+    type: 'action',
+    label: 'Create New Project',
+    labelAr: 'إنشاء مشروع جديد',
+    icon: 'Plus',
+    href: '/projects/new',
+    keywords: ['new', 'create', 'جديد', 'إنشاء'],
+  },
+  {
+    id: 'fast-extract',
+    type: 'action',
+    label: 'Fast Extraction',
+    labelAr: 'استخراج سريع',
+    icon: 'Zap',
+    href: '/fast-extraction',
+    keywords: ['fast', 'extract', 'سريع', 'استخراج'],
+  },
+];
+```
+
+---
+
+## خوارزمية البحث
+
+```typescript
+const searchItems = (query: string, items: SearchItem[]): SearchItem[] => {
+  const normalizedQuery = query.toLowerCase().trim();
+  
+  if (!normalizedQuery) return items.slice(0, 8); // عرض أحدث 8 عناصر
+  
+  return items
+    .filter(item => {
+      // البحث في العنوان
+      if (item.label.toLowerCase().includes(normalizedQuery)) return true;
+      if (item.labelAr.includes(normalizedQuery)) return true;
+      
+      // البحث في الكلمات المفتاحية
+      if (item.keywords.some(k => k.includes(normalizedQuery))) return true;
+      
+      // البحث في الوصف
+      if (item.description?.toLowerCase().includes(normalizedQuery)) return true;
+      if (item.descriptionAr?.includes(normalizedQuery)) return true;
+      
+      return false;
+    })
+    .sort((a, b) => {
+      // ترتيب حسب مطابقة العنوان أولاً
+      const aExact = a.label.toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
+      const bExact = b.label.toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
+      return aExact - bExact;
+    })
+    .slice(0, 10);
+};
+```
+
+---
+
+## اختصارات لوحة المفاتيح
+
+```typescript
+// في GlobalSearch.tsx
+useEffect(() => {
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // Ctrl/⌘ + K لفتح البحث
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      setOpen(true);
+    }
+    
+    // Escape للإغلاق
+    if (e.key === 'Escape') {
+      setOpen(false);
+    }
+  };
+
+  document.addEventListener('keydown', handleKeyDown);
+  return () => document.removeEventListener('keydown', handleKeyDown);
+}, []);
 ```
 
 ---
 
 ## ملخص الملفات
 
-| الملف | الوصف |
-|-------|-------|
-| `src/components/PriceComparisonTracker.tsx` | شاشة مقارنة الأسعار |
-| `src/components/ReferencePriceImporter.tsx` | استيراد Excel |
-| `src/components/PricingAccuracyPDFReport.tsx` | تقرير PDF |
-| `src/pages/PricingAccuracyPage.tsx` | صفحة جديدة تجمع الميزات |
-| Migration: `reference_prices` table | جدول الأسعار المرجعية |
+| الملف | التغيير |
+|-------|---------|
+| `src/components/GlobalSearch.tsx` | **جديد** - مكون البحث الشامل |
+| `src/hooks/useGlobalSearch.tsx` | **جديد** - hook لإدارة بيانات البحث |
+| `src/components/UnifiedHeader.tsx` | إضافة زر البحث (🔍) |
+| `src/App.tsx` | إضافة GlobalSearch على المستوى الأعلى |
+| `src/hooks/useNavigationHistory.tsx` | استخدام routeMap الموجود |
+
+---
+
+## تدفق العمل
+
+```text
+المستخدم                    GlobalSearch                    البيانات
+   │                              │                              │
+   │ (1) Ctrl+K أو نقر 🔍         │                              │
+   ├─────────────────────────────►│                              │
+   │                              │ (2) جلب المشاريع             │
+   │                              ├─────────────────────────────►│
+   │                              │◄────────────────────────────┤
+   │                              │                              │
+   │ (3) كتابة نص البحث           │                              │
+   ├─────────────────────────────►│                              │
+   │                              │ (4) تصفية + ترتيب            │
+   │                              │                              │
+   │◄─────────────────────────────┤ (5) عرض النتائج              │
+   │                              │                              │
+   │ (6) اختيار عنصر              │                              │
+   ├─────────────────────────────►│                              │
+   │                              │ (7) navigate() أو action()   │
+   │                              │                              │
+```
 
 ---
 
 ## النتيجة المتوقعة
 
-```
-✅ مقارنة مرئية بين الأسعار المقترحة والنهائية
-✅ رسوم بيانية لتتبع الدقة عبر الوقت
-✅ استيراد أسعار مرجعية من Excel
-✅ تقرير PDF احترافي مع رسوم بيانية
+```text
+✅ بحث شامل يظهر في كل الشاشات
+✅ اختصار Ctrl/⌘ + K للوصول السريع
+✅ بحث في الصفحات والمسارات
+✅ بحث في المشاريع المحفوظة من قاعدة البيانات
+✅ إجراءات سريعة (New Project, Fast Extract, etc.)
 ✅ دعم ثنائي اللغة (AR/EN)
-✅ ربط مع pricing_history الحالي
+✅ تجميع النتائج حسب النوع
+✅ أيقونات لكل عنصر
+✅ أداء سريع مع debounce
 ```
+
+---
+
+## القسم التقني
+
+### واجهات TypeScript
+
+```typescript
+// أنواع العناصر
+type SearchItemType = 'page' | 'project' | 'action' | 'setting' | 'file';
+
+// عنصر البحث
+interface SearchItem {
+  id: string;
+  type: SearchItemType;
+  label: string;
+  labelAr: string;
+  description?: string;
+  descriptionAr?: string;
+  icon: string;
+  href?: string;
+  action?: () => void;
+  keywords: string[];
+  projectId?: string; // للمشاريع
+}
+
+// تجميعات النتائج
+interface SearchResults {
+  pages: SearchItem[];
+  projects: SearchItem[];
+  actions: SearchItem[];
+  settings: SearchItem[];
+  files: SearchItem[];
+}
+
+// Hook return type
+interface UseGlobalSearchReturn {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  query: string;
+  setQuery: (query: string) => void;
+  results: SearchResults;
+  isLoading: boolean;
+  navigate: (item: SearchItem) => void;
+}
+```
+
+### استخدام cmdk
+
+```tsx
+import {
+  CommandDialog,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandSeparator,
+} from "@/components/ui/command";
+
+<CommandDialog open={open} onOpenChange={setOpen}>
+  <CommandInput 
+    placeholder={isArabic ? "ابحث عن أي شيء..." : "Search anything..."} 
+    value={query}
+    onValueChange={setQuery}
+  />
+  <CommandList>
+    <CommandEmpty>
+      {isArabic ? "لا توجد نتائج" : "No results found."}
+    </CommandEmpty>
+    
+    {results.pages.length > 0 && (
+      <CommandGroup heading={isArabic ? "الصفحات" : "Pages"}>
+        {results.pages.map(item => (
+          <CommandItem key={item.id} onSelect={() => navigate(item)}>
+            <IconComponent name={item.icon} className="mr-2 h-4 w-4" />
+            <span>{isArabic ? item.labelAr : item.label}</span>
+          </CommandItem>
+        ))}
+      </CommandGroup>
+    )}
+    
+    {/* ... باقي المجموعات */}
+  </CommandList>
+</CommandDialog>
+```
+
