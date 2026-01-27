@@ -11,6 +11,7 @@ import { UserMenu } from "@/components/UserMenu";
 import FastExtractionStepper from "@/components/FastExtractionStepper";
 import FastExtractionUploader, { UploadedFile } from "@/components/FastExtractionUploader";
 import FastExtractionClassifier from "@/components/FastExtractionClassifier";
+import FastExtractionDrawingAnalyzer from "@/components/FastExtractionDrawingAnalyzer";
 import FastExtractionProjectSelector from "@/components/FastExtractionProjectSelector";
 import { ProjectFilesViewer } from "@/components/ProjectFilesViewer";
 
@@ -23,15 +24,31 @@ export default function FastExtractionPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [showProjectFiles, setShowProjectFiles] = useState(false);
+  const [drawingResults, setDrawingResults] = useState<any[]>([]);
 
   const readyFilesCount = files.filter((f) => f.status === "success").length;
+  const hasDrawingFiles = files.some((f) => f.category === "drawings" && f.status === "success");
 
   const handleUploadComplete = () => {
     // Auto-advance to classify when files are uploaded
   };
 
   const handleClassifyComplete = () => {
-    setCurrentStep(3);
+    // Check if there are drawing files to analyze
+    if (hasDrawingFiles) {
+      setCurrentStep(3); // Go to drawing analysis
+    } else {
+      setCurrentStep(4); // Skip to project selection
+    }
+  };
+
+  const handleDrawingAnalysisComplete = (results: any[]) => {
+    setDrawingResults(results);
+    setCurrentStep(4);
+  };
+
+  const handleDrawingAnalysisSkip = () => {
+    setCurrentStep(4);
   };
 
   const goToClassify = () => {
@@ -44,11 +61,13 @@ export default function FastExtractionPage() {
     ? [
         "ارفع مستندات BOQ، رسومات، عقود",
         "سيقوم الذكاء الاصطناعي بتصنيف الملفات تلقائياً",
+        "يمكن استخراج الكميات من المخططات",
         "يمكنك إنشاء مشروع جديد أو الربط بمشروع موجود",
       ]
     : [
         "Upload BOQ documents, drawings, contracts",
         "AI will automatically classify the files",
+        "Quantities can be extracted from drawings",
         "Create a new project or link to existing one",
       ];
 
@@ -222,6 +241,13 @@ export default function FastExtractionPage() {
                   />
                 )}
                 {currentStep === 3 && (
+                  <FastExtractionDrawingAnalyzer
+                    files={files}
+                    onComplete={handleDrawingAnalysisComplete}
+                    onSkip={handleDrawingAnalysisSkip}
+                  />
+                )}
+                {currentStep === 4 && (
                   <FastExtractionProjectSelector files={files} />
                 )}
               </CardContent>
