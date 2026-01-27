@@ -158,6 +158,18 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
                 <span className="hidden lg:inline">{isArabic ? "استخراج سريع" : "Fast Extract"}</span>
               </Button>
             </Link>
+
+            {/* Reports - Highlighted */}
+            <Link to="/reports">
+              <Button 
+                variant={isActive("/reports") ? "secondary" : "ghost"} 
+                size="sm" 
+                className="gap-1.5 h-9 px-3 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/20"
+              >
+                <FileBarChart className="w-4 h-4" />
+                <span className="hidden lg:inline">{isArabic ? "التقارير" : "Reports"}</span>
+              </Button>
+            </Link>
           </nav>
         )}
 
