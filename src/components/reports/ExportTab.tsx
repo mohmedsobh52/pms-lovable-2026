@@ -8,6 +8,8 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { toast } from "sonner";
 import { exportBOQToExcel, exportEnhancedBOQToExcel, exportTenderSummaryToExcel, exportPriceAnalysisToExcel, exportTenderSummaryToPDF } from "@/lib/reports-export-utils";
 import { supabase } from "@/integrations/supabase/client";
+import { getStoredLogo } from "@/components/CompanyLogoUpload";
+import { getCompanySettings } from "@/hooks/useCompanySettings";
 
 interface Project {
   id: string;
@@ -183,6 +185,63 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
     toast.success(isArabic ? "تم تصدير تحليل الأسعار بنجاح" : "Price analysis exported successfully");
   };
 
+  // Generate company header HTML
+  const getCompanyHeaderHTML = () => {
+    const companyLogo = getStoredLogo();
+    const companySettings = getCompanySettings();
+    const companyNameEn = companySettings.companyNameEn || '';
+    const companyNameAr = companySettings.companyNameAr || '';
+    
+    return `
+      <div class="company-header">
+        <div class="company-name-en">${companyNameEn}</div>
+        <div class="company-logo">
+          ${companyLogo ? `<img src="${companyLogo}" alt="Company Logo" />` : ''}
+        </div>
+        <div class="company-name-ar">${companyNameAr}</div>
+      </div>
+    `;
+  };
+
+  // Generate company header CSS
+  const getCompanyHeaderCSS = () => `
+    .company-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 25px;
+      background: #fff;
+      border-bottom: 3px solid #1e40af;
+      margin-bottom: 20px;
+    }
+    .company-name-en {
+      font-size: 14px;
+      font-weight: 600;
+      font-style: italic;
+      color: #1e293b;
+      font-family: 'Times New Roman', serif;
+      flex: 1;
+      text-align: left;
+    }
+    .company-name-ar {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      font-family: 'Cairo', sans-serif;
+      flex: 1;
+      text-align: right;
+    }
+    .company-logo {
+      flex-shrink: 0;
+      padding: 0 20px;
+    }
+    .company-logo img {
+      max-height: 50px;
+      max-width: 80px;
+      object-fit: contain;
+    }
+  `;
+
   const handleViewPriceAnalysis = () => {
     console.log("🎯 handleViewPriceAnalysis called");
     if (projectItems.length === 0) {
@@ -222,6 +281,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
             padding: 30px;
             color: #1e293b;
           }
+          ${getCompanyHeaderCSS()}
           .header {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
@@ -265,6 +325,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
         </style>
       </head>
       <body>
+        ${getCompanyHeaderHTML()}
         <div class="header">
           <h1>${selectedProject?.name || 'Project'}</h1>
           <p>${isArabic ? "تقرير تحليل الأسعار التفصيلي" : "Detailed Price Analysis Report"}</p>
@@ -381,6 +442,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
             color: #1e293b;
             line-height: 1.6;
           }
+          ${getCompanyHeaderCSS()}
           .header {
             background: linear-gradient(135deg, #3b82f6 0%, #7c3aed 100%);
             color: white;
@@ -443,6 +505,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
         </style>
       </head>
       <body>
+        ${getCompanyHeaderHTML()}
         <div class="header">
           <h1>${selectedProject?.name || 'Project'}</h1>
           <p>${isArabic ? "التقرير الشامل - تحليل جدول الكميات" : "Comprehensive Report - BOQ Analysis"}</p>
@@ -553,6 +616,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
             padding: 20px;
             color: #1e293b;
           }
+          ${getCompanyHeaderCSS()}
           h1 { color: #3b82f6; margin-bottom: 5px; font-size: 22px; }
           .subtitle { color: #64748b; margin-bottom: 20px; font-size: 13px; }
           .summary { 
@@ -579,6 +643,7 @@ export const ExportTab = ({ projects, isLoading }: ExportTabProps) => {
         </style>
       </head>
       <body>
+        ${getCompanyHeaderHTML()}
         <h1>${selectedProject?.name || 'Project'}</h1>
         <p class="subtitle">${isArabic ? "تقرير جدول الكميات" : "Bill of Quantities Report"}</p>
         
