@@ -706,6 +706,17 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             Excel
           </Button>
 
+          {/* Reports Quick Access */}
+          <Button 
+            size="sm" 
+            onClick={() => navigate("/reports")}
+            className="gap-2 bg-gradient-to-r from-primary to-accent hover:opacity-90"
+          >
+            <BarChart3 className="w-4 h-4" />
+            {isArabic ? "التقارير" : "Reports"}
+            <ArrowRight className="w-3 h-3" />
+          </Button>
+
           {/* Budget Settings */}
           <Popover open={showBudgetSettings} onOpenChange={setShowBudgetSettings}>
             <PopoverTrigger asChild>
