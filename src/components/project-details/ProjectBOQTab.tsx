@@ -318,7 +318,7 @@ export function ProjectBOQTab({
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <DropdownMenu>
+                        <DropdownMenu modal={false}>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
                               <MoreVertical className="w-4 h-4" />
@@ -326,20 +326,14 @@ export function ProjectBOQTab({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align={isArabic ? "start" : "end"}>
                             <DropdownMenuItem 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                onQuickPrice(item.id);
-                              }}
+                              onClick={() => onQuickPrice(item.id)}
                               className="gap-2"
                             >
                               <DollarSign className="w-4 h-4" />
                               {isArabic ? "تسعير سريع" : "Quick Price"}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                onDetailedPrice(item);
-                              }}
+                              onClick={() => onDetailedPrice(item)}
                               className="gap-2"
                             >
                               <FileText className="w-4 h-4" />
@@ -347,20 +341,14 @@ export function ProjectBOQTab({
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                onEditItem(item);
-                              }}
+                              onClick={() => onEditItem(item)}
                               className="gap-2"
                             >
                               <Edit className="w-4 h-4" />
                               {isArabic ? "تعديل" : "Edit"}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                onUnconfirmItem(item.id);
-                              }}
+                              onClick={() => onUnconfirmItem(item.id)}
                               className="gap-2"
                               disabled={!item.unit_price || item.unit_price === 0}
                             >
@@ -369,10 +357,7 @@ export function ProjectBOQTab({
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                onDeleteItem(item.id);
-                              }}
+                              onClick={() => onDeleteItem(item.id)}
                               className="gap-2 text-destructive"
                             >
                               <Trash2 className="w-4 h-4" />
