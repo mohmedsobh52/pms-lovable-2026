@@ -15,20 +15,18 @@ serve(async (req) => {
   console.log(`Authenticated user: ${userId}`);
 
   try {
-    const { fileContent, fileName, fileType, drawingType } = await req.json();
+    const { fileContent, fileUrl, imageBase64, images, fileName, fileType, drawingType, language } = await req.json();
     
-    if (!fileContent) {
-      throw new Error('File content is required');
-    }
-
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log(`Analyzing drawing: ${fileName}, type: ${drawingType}`);
+    console.log(`Analyzing drawing: ${fileName}, type: ${drawingType}, language: ${language || 'en'}`);
 
-    const systemPrompt = `You are an expert quantity surveyor and construction estimator. You specialize in analyzing architectural and engineering drawings (PDF, DWG) to extract quantities for Bill of Quantities (BOQ).
+    const isArabic = language === 'ar';
+
+    const systemPromptEnglish = `You are an expert quantity surveyor and construction estimator. You specialize in analyzing architectural and engineering drawings (PDF, DWG) to extract quantities for Bill of Quantities (BOQ).
 
 Your expertise includes:
 - Reading and interpreting construction drawings
@@ -39,12 +37,36 @@ Your expertise includes:
 
 Always respond in JSON format with structured quantity data.`;
 
-    const userPrompt = `Analyze this construction drawing and extract all quantities for BOQ:
+    const systemPromptArabic = `أنت خبير مساحة كميات ومقاول إنشائي متخصص في قراءة وتحليل المخططات الهندسية.
+
+مهامك:
+1. قراءة المخطط وفهم جميع العناصر الإنشائية
+2. حساب الكميات بدقة (المساحات، الأطوال، الأحجام، الأعداد)
+3. تصنيف البنود حسب نظام BOQ القياسي
+4. تقدير متطلبات المواد
+
+أنواع الكميات المطلوبة:
+- أعمال الحفر والردم (م³)
+- الخرسانة بأنواعها (م³)
+- حديد التسليح (كجم/طن)
+- أعمال البناء (م²/م³)
+- التشطيبات (م²)
+- أعمال MEP (عدد/متر طولي)
+
+ملاحظات مهمة:
+- استخرج الكميات من المقاسات المكتوبة على المخطط
+- إذا لم تجد مقاساً، قدّر من المقياس
+- اذكر أساس القياس لكل بند
+
+يجب الرد بصيغة JSON مع بيانات الكميات المهيكلة.`;
+
+    const systemPrompt = isArabic ? systemPromptArabic : systemPromptEnglish;
+
+    const userPromptEnglish = `Analyze this construction drawing and extract all quantities for BOQ:
 
 File Name: ${fileName}
 Drawing Type: ${drawingType || 'General'}
-File Content/Description:
-${fileContent}
+${fileContent ? `File Content/Description:\n${fileContent}` : ''}
 
 Extract and return JSON with:
 {
@@ -76,6 +98,80 @@ Extract and return JSON with:
   "assumptions": ["List of assumptions made during quantity takeoff"]
 }`;
 
+    const userPromptArabic = `قم بتحليل هذا المخطط الإنشائي واستخراج جميع الكميات لجدول الكميات (BOQ):
+
+اسم الملف: ${fileName}
+نوع المخطط: ${drawingType || 'عام'}
+${fileContent ? `محتوى الملف/الوصف:\n${fileContent}` : ''}
+
+استخرج وأرجع JSON بالتنسيق التالي:
+{
+  "drawing_info": {
+    "title": "عنوان المخطط",
+    "type": "${drawingType || 'عام'}",
+    "scale": "مقياس الرسم إن وجد",
+    "date": "التاريخ إن وجد"
+  },
+  "quantities": [
+    {
+      "item_number": "رقم تسلسلي",
+      "category": "الفئة (خرسانة، حديد، بناء، تشطيبات، أعمال كهروميكانيكية، إلخ)",
+      "description": "وصف تفصيلي للبند",
+      "quantity": رقم,
+      "unit": "م²، م³، م.ط، عدد، كجم، إلخ",
+      "measurement_basis": "أساس حساب الكمية",
+      "notes": "أي ملاحظات ذات صلة"
+    }
+  ],
+  "summary": {
+    "total_items": رقم,
+    "categories": ["قائمة الفئات الموجودة"],
+    "main_materials": ["قائمة المواد الرئيسية"],
+    "estimated_area": "إن وجد",
+    "estimated_volume": "إن وجد"
+  },
+  "recommendations": ["قائمة التوصيات للتقدير الدقيق"],
+  "assumptions": ["قائمة الافتراضات المستخدمة في حصر الكميات"]
+}`;
+
+    const userPrompt = isArabic ? userPromptArabic : userPromptEnglish;
+
+    // Build message content based on what's provided
+    let messageContent: any;
+
+    // If we have an image (base64 or URL), use vision capabilities
+    if (imageBase64 || (fileUrl && (fileType?.includes('image') || fileType?.includes('pdf')))) {
+      const imageUrl = imageBase64 
+        ? (imageBase64.startsWith('data:') ? imageBase64 : `data:image/png;base64,${imageBase64}`)
+        : fileUrl;
+
+      messageContent = [
+        { type: 'text', text: userPrompt },
+        { 
+          type: 'image_url', 
+          image_url: { 
+            url: imageUrl,
+            detail: 'high'
+          } 
+        }
+      ];
+    } else if (images && Array.isArray(images) && images.length > 0) {
+      // Multiple images (multi-page PDF)
+      messageContent = [
+        { type: 'text', text: userPrompt },
+        ...images.map((img: string) => ({
+          type: 'image_url',
+          image_url: {
+            url: img.startsWith('data:') ? img : `data:image/png;base64,${img}`,
+            detail: 'high'
+          }
+        }))
+      ];
+    } else {
+      // Text only
+      messageContent = userPrompt;
+    }
+
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -86,7 +182,7 @@ Extract and return JSON with:
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+          { role: 'user', content: messageContent }
         ],
         response_format: { type: 'json_object' }
       }),
@@ -99,7 +195,7 @@ Extract and return JSON with:
       if (response.status === 429) {
         return new Response(JSON.stringify({ 
           error: 'Rate limit exceeded',
-          suggestion: 'Please try again in a few moments'
+          suggestion: isArabic ? 'يرجى المحاولة مرة أخرى بعد لحظات' : 'Please try again in a few moments'
         }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -109,7 +205,7 @@ Extract and return JSON with:
       if (response.status === 402) {
         return new Response(JSON.stringify({ 
           error: 'AI credits exhausted',
-          suggestion: 'Please add credits to continue using AI features'
+          suggestion: isArabic ? 'يرجى إضافة رصيد للاستمرار في استخدام ميزات الذكاء الاصطناعي' : 'Please add credits to continue using AI features'
         }), {
           status: 402,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
