@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/useLanguage";
 import { generateWordDocument, downloadWordDocument } from "@/lib/docx-utils";
+import { getStoredLogo } from "@/components/CompanyLogoUpload";
+import { getCompanySettings } from "@/hooks/useCompanySettings";
 
 interface BOQItem {
   item_number: string;
@@ -92,6 +94,9 @@ export function WordExportDialog({
   const handleExport = async () => {
     setIsGenerating(true);
     try {
+      const companyLogo = getStoredLogo();
+      const companySettings = getCompanySettings();
+      
       const blob = await generateWordDocument({
         projectName,
         boqItems,
@@ -99,7 +104,8 @@ export function WordExportDialog({
         resourceItems,
         procurementItems,
         currency,
-        companyName,
+        companyName: companySettings.companyNameEn || companyName,
+        companyLogo: companyLogo || undefined,
         includeSections: sections,
       });
 
