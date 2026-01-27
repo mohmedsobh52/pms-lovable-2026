@@ -1,426 +1,159 @@
 
-# خطة ربط تقرير مراقبة التكاليف (Cost Control Report) مع البرنامج وجدول الكميات
+# خطة إضافة ميزات تتبع دقة التسعير
 
 ## نظرة عامة
 
-ربط شاشة Cost Control Report بقاعدة البيانات لجلب البيانات الحقيقية من المشاريع المحفوظة وبنود الكميات (project_items)، مع إمكانية تحديث بيانات التقدم وحساب مؤشرات EVM تلقائياً.
+إضافة ثلاث ميزات جديدة لتتبع وتحسين دقة التسعير:
+1. شاشة مقارنة الأسعار المقترحة vs النهائية
+2. استيراد الأسعار المرجعية من Excel
+3. تقرير PDF لإحصائيات دقة التسعير
 
 ---
 
-## التغييرات المطلوبة
+## الميزة 1: شاشة مقارنة الأسعار
 
-### 1. إضافة Project Selector ودمج Supabase
+### الملف الجديد: `src/components/PriceComparisonTracker.tsx`
 
-**الملف:** `src/pages/CostControlReportPage.tsx`
-
-سيتم إضافة:
-- Dropdown لاختيار المشروع من `project_data`
-- جلب بنود المشروع من `project_items` 
-- تحويل البنود إلى Activities بناءً على الـ `category` و `subcategory`
-- حساب EVM metrics من البيانات الحقيقية
+#### الوظائف:
+- جلب البيانات من `pricing_history` مع `suggested_price` و `final_price`
+- حساب نسبة الانحراف لكل بند
+- عرض جدول مقارنة مع:
+  - رقم البند، الوصف
+  - السعر المقترح، السعر النهائي المعتمد
+  - الفرق (%)، المصدر، الثقة
+- رسم بياني خطي لتتبع الدقة عبر الزمن
+- فلترة حسب المشروع/الفترة الزمنية
 
 ```typescript
-// State جديد
-const [projects, setProjects] = useState<ProjectData[]>([]);
-const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
-const [isLoadingProjects, setIsLoadingProjects] = useState(true);
-const [isLoadingItems, setIsLoadingItems] = useState(false);
-const [useRealData, setUseRealData] = useState(false);
-
-// جلب المشاريع
-useEffect(() => {
-  const fetchProjects = async () => {
-    const { data } = await supabase
-      .from('project_data')
-      .select('id, name, currency, total_value, items_count, created_at')
-      .order('created_at', { ascending: false });
-    setProjects(data || []);
-  };
-  fetchProjects();
-}, []);
-
-// جلب بنود المشروع المختار
-useEffect(() => {
-  if (!selectedProjectId) return;
-  const fetchItems = async () => {
-    const { data } = await supabase
-      .from('project_items')
-      .select('*')
-      .eq('project_id', selectedProjectId)
-      .order('sort_order');
-    setProjectItems(data || []);
-  };
-  fetchItems();
-}, [selectedProjectId]);
+interface PriceComparison {
+  id: string;
+  item_number: string;
+  description: string;
+  suggested_price: number;
+  final_price: number | null;
+  deviation_percent: number;
+  source: string;
+  confidence: string;
+  created_at: string;
+  is_approved: boolean;
+}
 ```
+
+#### المكونات الفرعية:
+- جدول المقارنة مع Sorting و Pagination
+- رسم بياني (Line Chart) للدقة عبر الوقت
+- بطاقات KPI: متوسط الانحراف، أعلى/أقل انحراف
+- فلتر حسب: المصدر، الثقة، الفترة
 
 ---
 
-### 2. تحويل BOQ Items إلى EVM Activities
+## الميزة 2: استيراد الأسعار المرجعية من Excel
 
-سيتم إنشاء دالة `convertItemsToActivities` لتحويل بنود الكميات:
+### الملف الجديد: `src/components/ReferencepriceImporter.tsx`
 
+#### الوظائف:
+- رفع ملف Excel بتنسيق محدد
+- معاينة البيانات قبل الاستيراد
+- تحديث جدول `reference_prices` (جديد) أو `pricing_history`
+- التحقق من صحة البيانات
+
+#### تنسيق Excel المطلوب:
+| Category | Item | Unit | Min Price | Max Price | Keywords |
+|----------|------|------|-----------|-----------|----------|
+| CIVIL | Excavation | M3 | 25 | 45 | حفر,excavation |
+
+#### خطوات العمل:
+1. رفع الملف باستخدام `readExcelFile`
+2. تحويل البيانات باستخدام `worksheetToJson`
+3. عرض معاينة للتحقق
+4. حفظ في قاعدة البيانات (جدول جديد `reference_prices`)
+
+---
+
+## الميزة 3: تقرير PDF لإحصائيات الدقة
+
+### الملف الجديد: `src/components/PricingAccuracyPDFReport.tsx`
+
+#### المحتويات:
+1. **الغلاف**: عنوان، تاريخ، شعار الشركة
+2. **ملخص تنفيذي**: KPIs الرئيسية
+3. **توزيع المصادر**: Pie Chart (Library/Reference/AI)
+4. **مستويات الثقة**: Bar Chart (High/Medium/Low)
+5. **تحليل الدقة**: مقارنة الأسعار المقترحة vs النهائية
+6. **جدول تفصيلي**: أعلى 20 بند انحرافاً
+
+#### باستخدام jsPDF:
 ```typescript
-const convertItemsToActivities = (items: ProjectItem[]): EVMActivity[] => {
-  // تجميع البنود حسب category
-  const groupedByCategory = items.reduce((acc, item) => {
-    const category = mapCategoryToDiscipline(item.category);
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(item);
-    return acc;
-  }, {} as Record<string, ProjectItem[]>);
-
-  // تحويل كل مجموعة إلى activity
-  return Object.entries(groupedByCategory).flatMap(([discipline, categoryItems], index) => {
-    const pv = categoryItems.reduce((sum, i) => sum + (i.total_price || 0), 0);
-    const progress = calculateProgress(categoryItems); // من progress_history أو افتراضي
-    const ev = pv * (progress / 100);
-    const ac = calculateActualCost(categoryItems);
-    
-    return {
-      sn: index + 1,
-      activity: getCategoryLabel(categoryItems[0].category),
-      activityAr: getCategoryLabelAr(categoryItems[0].category),
-      discipline,
-      pv, ev, ac,
-      // ... باقي حسابات EVM
-    };
-  });
-};
-```
-
----
-
-### 3. Mapping Categories إلى Disciplines
-
-```typescript
-const CATEGORY_TO_DISCIPLINE: Record<string, string> = {
-  // CIVIL
-  'excavation': 'CIVIL',
-  'concrete': 'CIVIL',
-  'reinforcement': 'CIVIL',
-  'foundations': 'CIVIL',
-  'structural': 'CIVIL',
+const generatePDFReport = async (stats: PricingStats) => {
+  const doc = new jsPDF();
   
-  // MECHANICAL
-  'plumbing': 'MECHANICAL',
-  'hvac': 'MECHANICAL',
-  'firefighting': 'MECHANICAL',
-  'drainage': 'MECHANICAL',
+  // Header with logo
+  doc.addImage(companyLogo, 'PNG', 15, 10, 30, 15);
+  doc.setFontSize(20);
+  doc.text('تقرير دقة التسعير', 105, 35, { align: 'center' });
   
-  // ELECTRICAL
-  'electrical': 'ELECTRICAL',
-  'lighting': 'ELECTRICAL',
-  'low_current': 'ELECTRICAL',
-  
-  // ARCHITECTURAL
-  'finishing': 'ARCHITECTURAL',
-  'doors': 'ARCHITECTURAL',
-  'windows': 'ARCHITECTURAL',
-  'cladding': 'ARCHITECTURAL',
-  
-  // GENERAL
-  'general': 'GENERAL',
-  'preliminaries': 'GENERAL',
-};
-
-const mapCategoryToDiscipline = (category: string | null): string => {
-  if (!category) return 'GENERAL';
-  const normalized = category.toLowerCase().replace(/[\s-_]/g, '');
-  for (const [key, discipline] of Object.entries(CATEGORY_TO_DISCIPLINE)) {
-    if (normalized.includes(key)) return discipline;
-  }
-  return 'GENERAL';
-};
-```
-
----
-
-### 4. إضافة Progress Tracking
-
-سيتم ربط بيانات التقدم من `project_progress_history`:
-
-```typescript
-// جلب تاريخ التقدم
-const fetchProgressHistory = async (projectId: string) => {
-  const { data } = await supabase
-    .from('project_progress_history')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('record_date', { ascending: false })
-    .limit(1);
-  
-  return data?.[0] || null;
-};
-
-// حساب التقدم
-const calculateProgress = (items: ProjectItem[], progressData?: any) => {
-  if (progressData?.actual_progress) return progressData.actual_progress;
-  
-  // حساب افتراضي من البنود المسعرة
-  const pricedItems = items.filter(i => i.unit_price && i.unit_price > 0);
-  return (pricedItems.length / items.length) * 100 * 0.6; // افتراضي 60% من نسبة التسعير
-};
-```
-
----
-
-### 5. تحديث واجهة المستخدم
-
-#### أ. إضافة Project Selector في الـ Header:
-
-```tsx
-<div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600...">
-  {/* ... existing header content ... */}
-  
-  {/* Project Selector - NEW */}
-  <div className="mt-4 flex items-center gap-4">
-    <Select value={selectedProjectId || ''} onValueChange={setSelectedProjectId}>
-      <SelectTrigger className="w-[300px] bg-white/10 border-white/20 text-white">
-        <SelectValue placeholder={isArabic ? "اختر مشروع..." : "Select Project..."} />
-      </SelectTrigger>
-      <SelectContent>
-        {projects.map(p => (
-          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-    
-    {/* Toggle للتبديل بين البيانات النموذجية والحقيقية */}
-    <div className="flex items-center gap-2">
-      <Switch checked={useRealData} onCheckedChange={setUseRealData} />
-      <span className="text-white/80 text-sm">
-        {isArabic ? "بيانات حقيقية" : "Real Data"}
-      </span>
-    </div>
-  </div>
-</div>
-```
-
-#### ب. تحديث الجدول لعرض بيانات BOQ:
-
-```tsx
-// عمود إضافي لعدد البنود
-<TableHead>{isArabic ? "عدد البنود" : "Items Count"}</TableHead>
-
-// في الصف
-<TableCell className="text-center">
-  <Badge variant="outline">{activity.itemsCount || '-'}</Badge>
-</TableCell>
-```
-
----
-
-### 6. إضافة Edit Progress Dialog
-
-لتحديث نسبة التقدم:
-
-```tsx
-const [editProgressDialog, setEditProgressDialog] = useState<{
-  open: boolean;
-  activity: EVMActivity | null;
-}>({ open: false, activity: null });
-
-const handleUpdateProgress = async (activityCode: string, newProgress: number) => {
-  // تحديث في project_progress_history
-  await supabase.from('project_progress_history').upsert({
-    project_id: selectedProjectId,
-    actual_progress: newProgress,
-    record_date: new Date().toISOString(),
-    user_id: user.id,
+  // KPI Summary
+  doc.autoTable({
+    head: [['المؤشر', 'القيمة']],
+    body: [
+      ['الدقة المتوقعة', `${stats.estimatedAccuracy}%`],
+      ['إجمالي البنود', stats.total],
+      ['البنود المعتمدة', stats.approved],
+    ],
   });
   
-  // إعادة جلب البيانات
-  refetchItems();
-};
-```
-
----
-
-### 7. حفظ التقرير وتصديره
-
-إضافة زر لحفظ التقرير:
-
-```typescript
-const handleSaveReport = async () => {
-  if (!selectedProjectId) return;
+  // Charts as images
+  const sourceChartImage = await chartToImage(sourceChartRef);
+  doc.addImage(sourceChartImage, 'PNG', 15, 80, 80, 60);
   
-  // حفظ في جدول جديد أو تحديث project_data.analysis_data
-  await supabase
-    .from('project_data')
-    .update({
-      analysis_data: {
-        ...existingData,
-        evm_report: {
-          generated_at: new Date().toISOString(),
-          totals,
-          activities: filteredActivities,
-        }
-      }
-    })
-    .eq('id', selectedProjectId);
-    
-  toast.success(isArabic ? 'تم حفظ التقرير' : 'Report saved');
+  doc.save('Pricing_Accuracy_Report.pdf');
 };
 ```
 
 ---
 
-## ملخص الملفات المتأثرة
+## قاعدة البيانات
 
-| الملف | التغيير |
-|-------|---------|
-| `src/pages/CostControlReportPage.tsx` | إضافة Supabase integration, project selector, real data conversion |
-| `src/hooks/useAuth.tsx` | استخدام (موجود) |
-| `src/integrations/supabase/client.ts` | استخدام (موجود) |
-
----
-
-## البنية الجديدة للصفحة
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                     Header Banner                               │
-│   Cost Control Report          [Project Selector ▼] [⚡ Real]  │
-├──────────────┬──────────────────────────────────────────────────┤
-│              │                                                  │
-│  Discipline  │   🔹 Loading from project_items...              │
-│  ☑ GENERAL   │   OR                                            │
-│  ☑ CIVIL     │   🔹 82 Activities (Sample Data)                │
-│  ☐ MECH      │                                                  │
-│              │    ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐  │
-│  Activity    │    │  PV  │ │  EV  │ │  AC  │ │ EAC  │ │ ETC  │  │
-│  (from BOQ)  │    │ Real │ │ Data │ │ From │ │  DB  │ │      │  │
-│              │    └──────┘ └──────┘ └──────┘ └──────┘ └──────┘  │
-│              │                                                  │
-│              │    ┌───────────────────────────────────────────┐ │
-│              │    │        CHART (Real Project Data)          │ │
-│              │    └───────────────────────────────────────────┘ │
-│              │                                                  │
-│              │    ┌───────────────────────────────────────────┐ │
-│              │    │   TABLE (Linked to project_items)         │ │
-│              │    │   + Edit Progress ✏️ button                │ │
-│              │    │   + Items Count column                     │ │
-│              │    └───────────────────────────────────────────┘ │
-└──────────────┴──────────────────────────────────────────────────┘
+### جدول جديد: `reference_prices`
+```sql
+CREATE TABLE reference_prices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  item_name_ar TEXT,
+  unit TEXT,
+  min_price NUMERIC,
+  max_price NUMERIC,
+  keywords TEXT[],
+  location TEXT,
+  year INTEGER DEFAULT EXTRACT(YEAR FROM NOW()),
+  user_id UUID REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
 ---
 
-## تدفق البيانات
+## ملخص الملفات
 
-```text
-project_data                  project_items               project_progress_history
-    │                              │                              │
-    │ (1) Select Project          │                              │
-    ▼                              │                              │
-┌───────────┐                      │                              │
-│  Project  │◄─────────────────────┤ (2) Fetch Items             │
-│  Selector │                      │                              │
-└─────┬─────┘                      ▼                              │
-      │                    ┌──────────────┐                       │
-      │                    │  BOQ Items   │◄──────────────────────┤
-      │                    │ (category,   │  (3) Get Progress %   │
-      │                    │  unit_price, │                       │
-      │                    │  quantity)   │                       │
-      │                    └──────┬───────┘                       │
-      │                           │                               │
-      │                           ▼                               │
-      │                    ┌──────────────┐                       │
-      │                    │   Convert    │                       │
-      │                    │  to EVM      │                       │
-      │                    │  Activities  │                       │
-      │                    └──────┬───────┘                       │
-      │                           │                               │
-      │                           ▼                               │
-      │                    ┌──────────────┐                       │
-      └───────────────────►│  Calculate   │                       │
-                           │  EVM Metrics │                       │
-                           │  (PV,EV,AC)  │                       │
-                           └──────┬───────┘                       │
-                                  │                               │
-                                  ▼                               │
-                           ┌──────────────┐                       │
-                           │   Display    │──────────────────────►│
-                           │   Report     │  (4) Save Progress    │
-                           └──────────────┘                       │
-```
+| الملف | الوصف |
+|-------|-------|
+| `src/components/PriceComparisonTracker.tsx` | شاشة مقارنة الأسعار |
+| `src/components/ReferencePriceImporter.tsx` | استيراد Excel |
+| `src/components/PricingAccuracyPDFReport.tsx` | تقرير PDF |
+| `src/pages/PricingAccuracyPage.tsx` | صفحة جديدة تجمع الميزات |
+| Migration: `reference_prices` table | جدول الأسعار المرجعية |
 
 ---
 
 ## النتيجة المتوقعة
 
-```text
-✅ اختيار أي مشروع محفوظ من الـ Dropdown
-✅ تحميل بنود BOQ تلقائياً وتجميعها حسب Category
-✅ حساب مؤشرات EVM من البيانات الحقيقية
-✅ إمكانية التبديل بين البيانات النموذجية والحقيقية
-✅ تحديث نسبة التقدم وحفظها في قاعدة البيانات
-✅ ربط الجدول مباشرة ببنود الكميات
-✅ تصدير Excel مع البيانات الحقيقية
-✅ دعم ثنائي اللغة
 ```
-
----
-
-## القسم التقني
-
-### Interface Updates:
-
-```typescript
-interface ProjectData {
-  id: string;
-  name: string;
-  currency: string | null;
-  total_value: number | null;
-  items_count: number | null;
-  created_at: string;
-}
-
-interface ProjectItem {
-  id: string;
-  project_id: string;
-  item_number: string;
-  description: string | null;
-  category: string | null;
-  subcategory: string | null;
-  unit: string | null;
-  quantity: number | null;
-  unit_price: number | null;
-  total_price: number | null;
-}
-
-// Extended EVMActivity for real data
-interface EVMActivityExtended extends EVMActivity {
-  itemsCount?: number;
-  items?: ProjectItem[];
-  isEditable?: boolean;
-}
-```
-
-### EVM Calculations:
-
-```typescript
-const calculateEVMFromItems = (items: ProjectItem[], progressPercent: number) => {
-  const pv = items.reduce((sum, i) => sum + (i.total_price || 0), 0);
-  const ev = pv * (progressPercent / 100);
-  const costVarianceFactor = 1.015; // افتراضي 1.5% تجاوز
-  const ac = ev * costVarianceFactor;
-  
-  const cv = ev - ac;
-  const sv = ev - pv;
-  const cpi = ac > 0 ? ev / ac : 1;
-  const spi = pv > 0 ? ev / pv : 0;
-  
-  const bac = pv;
-  const eac1 = cpi > 0 ? bac / cpi : bac;
-  const eac2 = ac + (bac - ev);
-  const eac3 = cpi > 0 && spi > 0 ? ac + ((bac - ev) / (cpi * spi)) : bac;
-  const eacByPert = (eac1 + 4 * eac2 + eac3) / 6;
-  const etc = eacByPert - ac;
-  const tcpi = (bac - ev) > 0 ? (bac - ev) / (bac - ac) : 0;
-  
-  return { pv, ev, ac, cv, sv, cpi, spi, eacByPert, etc, tcpi };
-};
+✅ مقارنة مرئية بين الأسعار المقترحة والنهائية
+✅ رسوم بيانية لتتبع الدقة عبر الوقت
+✅ استيراد أسعار مرجعية من Excel
+✅ تقرير PDF احترافي مع رسوم بيانية
+✅ دعم ثنائي اللغة (AR/EN)
+✅ ربط مع pricing_history الحالي
 ```
