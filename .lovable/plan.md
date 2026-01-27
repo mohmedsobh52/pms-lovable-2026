@@ -1,103 +1,67 @@
 
-# خطة تحديث الشعار والصورة الشخصية
 
-## نظرة عامة
+# خطة حل مشكلة تفعيل الأزرار والتبويبات في صفحة الإعدادات
 
-سيتم تحديث ملفات الأصول (assets) في المشروع لاستبدال:
-1. **شعار شركة الإمتياز** - الشعار الجديد للهيدر
-2. **الصورة الشخصية** - صورة محسنة ذات جودة أعلى
+## المشكلة
 
----
-
-## الصور المرفقة
-
-| الصورة | الاستخدام |
-|--------|----------|
-| `New_logo_Alimtyaz.jpg-2.jpeg` | شعار الإمتياز الجديد |
-| `Mohamed_Sobh_Picture_1-2.jpg` | الصورة الشخصية المحسنة |
+صفحة الإعدادات (`SettingsPage.tsx`) لا تحتوي على class `tabs-navigation-safe` في عنصر `TabsList`، مما يسبب عدم استجابة التبويبات للنقر بشكل صحيح.
 
 ---
 
-## التعديلات المطلوبة
+## الحل
 
-### 1. نسخ الصور الجديدة إلى المشروع
+إضافة class `tabs-navigation-safe` إلى `TabsList` في صفحة الإعدادات - نفس الحل المُطبق في الصفحات الأخرى.
 
-```text
-user-uploads://New_logo_Alimtyaz.jpg-2.jpeg → src/assets/company/alimtyaz-logo.jpg
-user-uploads://Mohamed_Sobh_Picture_1-2.jpg → src/assets/developer/mohamed-sobh.jpg (استبدال)
-```
+---
 
-### 2. تحديث `src/pages/HomePage.tsx`
+## التعديل المطلوب
 
-**إضافة استيراد الشعار الجديد:**
+### ملف: `src/pages/SettingsPage.tsx`
 
-```typescript
-import alimtyazLogo from "@/assets/company/alimtyaz-logo.jpg";
-```
-
-**تحديث عرض الشعار في الهيدر:**
+**التغيير:**
 
 ```tsx
-{/* Left: Company Logo - Always show Alimtyaz logo */}
-<div className="flex items-center gap-3 flex-shrink-0">
-  <Link to="/" className="flex items-center gap-3">
-    <div className="w-12 h-12 rounded-lg overflow-hidden border border-border/50 bg-white p-1 shadow-sm">
-      <img 
-        src={alimtyazLogo} 
-        alt="Alimtyaz" 
-        className="w-full h-full object-contain"
-      />
-    </div>
-    <div className="hidden md:block">
-      <h1 className="font-display text-lg font-bold gradient-text">PMS</h1>
-      <p className="text-xs text-muted-foreground">
-        {isArabic ? "نظام إدارة المشاريع" : "Project Management"}
-      </p>
-    </div>
-  </Link>
-</div>
+// من:
+<TabsList className="grid w-full grid-cols-5">
+
+// إلى:
+<TabsList className="grid w-full grid-cols-5 tabs-navigation-safe">
 ```
-
-### 3. تحديث الملفات الأخرى تلقائياً
-
-الصورة الشخصية الجديدة ستُستخدم تلقائياً في:
-- `src/components/DeveloperInfo.tsx`
-- `src/pages/About.tsx`
-
-(لأنها تستورد نفس المسار `@/assets/developer/mohamed-sobh.jpg`)
 
 ---
 
-## ملخص الملفات المتأثرة
+## شرح تقني
+
+| الخاصية | الوظيفة |
+|---------|---------|
+| `tabs-navigation-safe` | يُعيّن `z-index: 55` للتبويبات |
+| `pointer-events: auto` | يضمن استجابة التبويبات للنقر |
+| `position: relative` | يُفعّل z-index |
+
+---
+
+## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/assets/company/alimtyaz-logo.jpg` | إضافة (جديد) |
-| `src/assets/developer/mohamed-sobh.jpg` | استبدال |
-| `src/pages/HomePage.tsx` | تحديث استيراد واستخدام الشعار |
+| `src/pages/SettingsPage.tsx` | إضافة class للـ TabsList |
+
+---
+
+## المقارنة مع الصفحات الأخرى المُصلحة
+
+| الصفحة | الحالة |
+|--------|--------|
+| `ContractsPage.tsx` | ✅ مُصلح |
+| `SubcontractorsPage.tsx` | ✅ مُصلح |
+| `AnalysisToolsPage.tsx` | ✅ مُصلح |
+| `TenderSummaryPage.tsx` | ✅ مُصلح |
+| `ReportsPage.tsx` | ✅ مُصلح |
+| `SettingsPage.tsx` | ❌ يحتاج إصلاح |
 
 ---
 
 ## النتيجة المتوقعة
 
-### الهيدر الجديد:
+بعد التعديل ستعمل جميع التبويبات (Company, AI Model, Tracking, Notifications, About) بشكل طبيعي وتستجيب للنقر فوراً.
 
-```text
-┌──────────────────────────────────────────────────────────────────┐
-│                                                                  │
-│  [شعار الإمتياز]  [🔍 بحث في البرنامج... ⌘K]  [صورتك المحسنة]   │
-│    الجديد             PMS                      بجودة عالية       │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## مميزات التحديث
-
-| الميزة | الوصف |
-|--------|-------|
-| **شعار ثابت** | شعار الإمتياز يظهر دائماً (غير مرتبط بـ localStorage) |
-| **صورة محسنة** | صورة شخصية بجودة أعلى وخلفية واضحة |
-| **تحديث شامل** | الصورة الجديدة تظهر في جميع الصفحات |
-| **حفظ الذاكرة** | لا حاجة للخطوة السابقة (رفع الشعار في الإعدادات) |
