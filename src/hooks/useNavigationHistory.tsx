@@ -52,6 +52,7 @@ const routeMap: Record<string, RouteInfo> = {
   "/resources": { labelEn: "Resources", labelAr: "الموارد", icon: "Users" },
   "/p6-export": { labelEn: "P6 Export", labelAr: "تصدير P6", icon: "FileBarChart" },
   "/analysis-tools": { labelEn: "Analysis Tools", labelAr: "أدوات التحليل", icon: "BarChart3" },
+  "/cost-control-report": { labelEn: "Cost Control Report", labelAr: "تقرير مراقبة التكاليف", icon: "BarChart3" },
   "/about": { labelEn: "About", labelAr: "حول", icon: "FileText" },
   "/changelog": { labelEn: "Changelog", labelAr: "سجل التغييرات", icon: "Clock" },
 };
