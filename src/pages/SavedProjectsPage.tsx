@@ -103,13 +103,66 @@ export default function SavedProjectsPage() {
     
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("project_data")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // Fetch from both tables in parallel
+      const [savedProjectsRes, projectDataRes] = await Promise.all([
+        supabase
+          .from("saved_projects")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false }),
+        supabase
+          .from("project_data")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+      ]);
 
-      if (error) throw error;
-      setProjects(data || []);
+      const savedProjects = savedProjectsRes.data || [];
+      const projectDataList = projectDataRes.data || [];
+
+      // Merge projects - use Map to avoid duplicates
+      const projectMap = new Map<string, ProjectData>();
+
+      // Add saved_projects first (prioritize)
+      savedProjects.forEach((p: any) => {
+        const analysisData = p.analysis_data as any;
+        projectMap.set(p.id, {
+          id: p.id,
+          name: p.name,
+          file_name: p.file_name,
+          analysis_data: p.analysis_data,
+          wbs_data: p.wbs_data,
+          items_count: analysisData?.items?.length || analysisData?.summary?.total_items || 0,
+          total_value: analysisData?.summary?.total_value || 0,
+          currency: analysisData?.summary?.currency || 'SAR',
+          created_at: p.created_at,
+          updated_at: p.updated_at,
+        });
+      });
+
+      // Add project_data if not already in map
+      projectDataList.forEach((p: any) => {
+        if (!projectMap.has(p.id)) {
+          projectMap.set(p.id, {
+            id: p.id,
+            name: p.name,
+            file_name: p.file_name,
+            analysis_data: p.analysis_data,
+            wbs_data: p.wbs_data,
+            items_count: p.items_count || 0,
+            total_value: p.total_value || 0,
+            currency: p.currency || 'SAR',
+            created_at: p.created_at,
+            updated_at: p.updated_at,
+          });
+        }
+      });
+
+      // Convert map to array and sort by created_at
+      const allProjects = Array.from(projectMap.values())
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setProjects(allProjects);
     } catch (error: any) {
       console.error("Error fetching projects:", error);
       toast({
@@ -130,13 +183,14 @@ export default function SavedProjectsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      // Delete project items first (cascading should handle costs)
+      // Delete project items first (if any)
       await supabase.from("project_items").delete().eq("project_id", id);
       
-      // Then delete the project
-      const { error } = await supabase.from("project_data").delete().eq("id", id);
-
-      if (error) throw error;
+      // Delete from project_data
+      await supabase.from("project_data").delete().eq("id", id);
+      
+      // Delete from saved_projects
+      await supabase.from("saved_projects").delete().eq("id", id);
       
       toast({
         title: isArabic ? "تم حذف المشروع" : "Project deleted",
