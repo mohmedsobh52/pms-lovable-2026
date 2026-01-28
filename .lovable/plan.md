@@ -1,111 +1,92 @@
 
-# خطة إصلاح أزرار تبويب "Price Analysis"
+# خطة إصلاح حفظ المشروع بنفس الاسم (الاستبدال التلقائي)
 
 ## المشكلة
 
-أزرار PDF و Excel و View في تبويب "تحليل الأسعار" لا تستجيب للنقر بسبب تعارض `z-index` و `pointer-events` مع عناصر Radix UI.
+عند محاولة حفظ مشروع باستخدام زر "Save Project" الأخضر، إذا كان اسم المشروع موجوداً بالفعل، يفشل الحفظ بدون إعطاء خيار للاستبدال.
 
-## تحليل السبب
+## تحليل الوضع الحالي
 
-1. الأزرار موجودة داخل `Card > CardContent` بدون حماية `z-index`
-2. لا تستخدم الـ Cards الحالية classes الحماية مثل `tender-card-safe`
-3. Dialog overlay قد يحجب التفاعل مع الأزرار
+| المكون | الحالة | السلوك |
+|--------|--------|--------|
+| `SaveProjectDialog.tsx` | ✅ يعمل | يتحقق من الاسم المكرر ويعرض حوار للاستبدال أو الحفظ باسم جديد |
+| `SaveProjectButton.tsx` | ❌ يحتاج إصلاح | يحاول الإدراج مباشرة بدون التحقق من الاسم المكرر |
 
 ## الحل المقترح
 
-### 1. إضافة CSS classes جديدة للحماية
+تحديث `SaveProjectButton.tsx` لإضافة نفس آلية الاستبدال الموجودة في `SaveProjectDialog.tsx`:
 
-**ملف:** `src/components/ui/dialog-custom.css`
+### 1. إضافة حالة لحوار التأكيد
 
-إضافة قواعد جديدة لحماية أزرار التقارير:
+```tsx
+const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+const [duplicateProject, setDuplicateProject] = useState<{id: string, name: string} | null>(null);
+```
 
-```css
-/* ============================================
-   REPORTS CARD PROTECTION
-   Ensure report action buttons are always clickable
-   ============================================ */
+### 2. التحقق من وجود مشروع بنفس الاسم قبل الحفظ
 
-.reports-card-safe {
-  position: relative;
-  z-index: 10;
-}
+في دالة `handleSave`:
+```tsx
+// Check for duplicate project name in both tables
+const { data: existingProjects } = await supabase
+  .from("project_data")
+  .select("id, name")
+  .eq("user_id", user.id)
+  .ilike("name", projectName.trim());
 
-.reports-card-safe button,
-.reports-card-safe .report-action-btn {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* Card actions container */
-.card-actions-safe {
-  position: relative;
-  z-index: 60;
-  pointer-events: auto !important;
-}
-
-.card-actions-safe button {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-  cursor: pointer !important;
+if (existingProjects && existingProjects.length > 0) {
+  // Show duplicate confirmation dialog
+  setDuplicateProject(existingProjects[0]);
+  setDuplicateDialogOpen(true);
+  setIsSaving(false);
+  return;
 }
 ```
 
-### 2. تحديث `PriceAnalysisTab.tsx`
+### 3. إضافة دالة الاستبدال
 
-**التغييرات:**
-
-1. إضافة class `reports-card-safe` للـ Cards الخاصة بالتقارير (سطر 615)
-2. إضافة class `card-actions-safe` للـ div الذي يحتوي على الأزرار (سطر 630)
-3. إضافة classes الحماية للأزرار نفسها
-
-**من:**
 ```tsx
-<Card key={card.id} className="border-border hover:shadow-md transition-shadow">
-  ...
-  <CardContent className="pt-2">
-    <div className="flex justify-end">
-      {card.actions}
-    </div>
-  </CardContent>
-</Card>
+const handleOverwrite = async () => {
+  if (!duplicateProject || !user) return;
+  
+  setIsSaving(true);
+  
+  try {
+    // Delete existing project and its items
+    await supabase.from('project_items').delete().eq('project_id', duplicateProject.id);
+    await supabase.from('project_data').delete().eq('id', duplicateProject.id);
+    await supabase.from('saved_projects').delete().eq('user_id', user.id).ilike('name', duplicateProject.name);
+    
+    // Save new project with same name
+    await saveNewProject();
+  } catch (error) {
+    // Handle error
+  }
+};
 ```
 
-**إلى:**
-```tsx
-<Card key={card.id} className="border-border hover:shadow-md transition-shadow reports-card-safe">
-  ...
-  <CardContent className="pt-2">
-    <div className="flex justify-end card-actions-safe">
-      {card.actions}
-    </div>
-  </CardContent>
-</Card>
-```
+### 4. إضافة AlertDialog للتأكيد
 
-3. تحديث الأزرار في `reportCards` لإضافة classes الحماية:
-
-**من:**
 ```tsx
-<Button 
-  variant="outline" 
-  size="sm" 
-  disabled={!hasData || isLoadingItems}
-  onClick={() => handleExportPriceComparison('pdf')}
->
-```
-
-**إلى:**
-```tsx
-<Button 
-  variant="outline" 
-  size="sm" 
-  disabled={!hasData || isLoadingItems}
-  onClick={() => handleExportPriceComparison('pdf')}
-  className="relative z-[65] pointer-events-auto"
->
+<AlertDialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
+  <AlertDialogContent dir="rtl">
+    <AlertDialogHeader>
+      <AlertDialogTitle className="flex items-center gap-2">
+        <AlertTriangle className="w-5 h-5 text-yellow-500" />
+        يوجد مشروع بنفس الاسم
+      </AlertDialogTitle>
+      <AlertDialogDescription>
+        يوجد مشروع محفوظ باسم "{duplicateProject?.name}". هل تريد استبداله بالمشروع الجديد؟
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogFooter className="flex-row-reverse gap-2">
+      <AlertDialogCancel>إلغاء</AlertDialogCancel>
+      <AlertDialogAction onClick={handleOverwrite} className="bg-destructive">
+        استبدال القديم
+      </AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
 ```
 
 ---
@@ -114,95 +95,59 @@
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/ui/dialog-custom.css` | إضافة CSS classes جديدة للحماية |
-| `src/components/reports/PriceAnalysisTab.tsx` | إضافة classes للـ Cards والأزرار |
+| `src/components/SaveProjectButton.tsx` | إضافة التحقق من الاسم المكرر وحوار الاستبدال |
 
 ---
 
 ## التغييرات التفصيلية
 
-### `dialog-custom.css`
+### `SaveProjectButton.tsx`
 
-إضافة قواعد جديدة في نهاية الملف:
+1. **الاستيرادات الجديدة:**
+   - إضافة `AlertTriangle` من lucide-react
+   - إضافة `AlertDialog`, `AlertDialogAction`, `AlertDialogCancel`, `AlertDialogContent`, `AlertDialogDescription`, `AlertDialogFooter`, `AlertDialogHeader`, `AlertDialogTitle`
 
-```css
-/* REPORTS CARD PROTECTION */
-.reports-card-safe {
-  position: relative;
-  z-index: 10;
-}
+2. **الحالات الجديدة:**
+   - `duplicateDialogOpen: boolean`
+   - `duplicateProject: {id: string, name: string} | null`
 
-.reports-card-safe button,
-.reports-card-safe .report-action-btn {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
+3. **دالة `handleSave` المُحدثة:**
+   - إضافة التحقق من وجود مشروع بنفس الاسم في `project_data`
+   - إظهار حوار التأكيد إذا وُجد مشروع مكرر
 
-.card-actions-safe {
-  position: relative;
-  z-index: 60;
-  pointer-events: auto !important;
-}
+4. **دالة `handleOverwrite` الجديدة:**
+   - حذف المشروع القديم وعناصره
+   - حفظ المشروع الجديد بنفس الاسم
 
-.card-actions-safe button {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-```
-
-### `PriceAnalysisTab.tsx`
-
-**تغيير 1:** تحديث الأزرار في مصفوفة `reportCards` (سطر 375-455):
-
-- زر PDF في "Price Comparison": إضافة `className="relative z-[65] pointer-events-auto"`
-- زر Excel في "Price Comparison": إضافة `className="relative z-[65] pointer-events-auto"`
-- زر PDF في "Balance Report": إضافة `className="gap-2 relative z-[65] pointer-events-auto"`
-- زر View في "Variance Analysis": إضافة `className="relative z-[65] pointer-events-auto"`
-
-**تغيير 2:** تحديث الـ Card الرئيسي (سطر 615):
-
-```tsx
-<Card key={card.id} className="border-border hover:shadow-md transition-shadow reports-card-safe">
-```
-
-**تغيير 3:** تحديث div الأزرار (سطر 630):
-
-```tsx
-<div className="flex justify-end card-actions-safe">
-```
+5. **AlertDialog للتأكيد:**
+   - يعرض خيارات: إلغاء أو استبدال القديم
 
 ---
 
 ## النتيجة المتوقعة
 
 ### قبل الإصلاح:
-- أزرار PDF و Excel و View لا تستجيب للنقر
-- المستخدم لا يستطيع تصدير التقارير
+- عند محاولة حفظ مشروع باسم موجود، يفشل الحفظ بدون رسالة واضحة
 
 ### بعد الإصلاح:
-- جميع أزرار التصدير تعمل فوراً
-- تقارير PDF و Excel يتم تحميلها بنجاح
-- حوار "Variance Analysis" يفتح بدون مشاكل
+- عند إدخال اسم مشروع موجود، يظهر حوار تأكيد
+- المستخدم يمكنه اختيار:
+  - **إلغاء**: العودة لتغيير الاسم
+  - **استبدال القديم**: حذف المشروع القديم وحفظ الجديد بنفس الاسم
 
 ---
 
 ## ملاحظات تقنية
 
-1. **z-index hierarchy:**
-   - Dialog Overlay: z-99
-   - Dialog Content: z-100
-   - Report Buttons: z-65
-   - Card Actions: z-60
-   - Card Safe: z-10
+1. **الاستبدال الكامل:**
+   - يتم حذف المشروع القديم من `project_data`
+   - يتم حذف عناصر المشروع من `project_items`
+   - يتم حذف المشروع من `saved_projects` أيضاً
+   - ثم يتم إنشاء مشروع جديد بنفس الاسم
 
-2. **pointer-events:**
-   - جميع الأزرار تستخدم `pointer-events: auto !important`
-   - هذا يضمن أن الأزرار تستجيب للنقر حتى لو كان هناك overlay شفاف
+2. **التحقق من الاسم:**
+   - يستخدم `ilike` للمقارنة بدون حساسية لحالة الأحرف
+   - يتحقق فقط من مشاريع المستخدم الحالي
 
 3. **التوافق:**
-   - التغييرات متوافقة مع معايير المشروع الحالية
-   - تستخدم نفس الأنماط المُستخدمة في تبويبات Tender
+   - نفس آلية `SaveProjectDialog.tsx` المُثبتة والعاملة
