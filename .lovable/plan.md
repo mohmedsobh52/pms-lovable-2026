@@ -1,318 +1,191 @@
 
+# خطة إصلاح عرض جميع المشاريع المحفوظة
 
-# خطة العلاج الجذري لمشكلة صندوق البحث
+## تشخيص المشكلة
 
-## تشخيص المشكلة الجذرية
+### السبب الجذري
+هناك جدولان للمشاريع في قاعدة البيانات:
+- **`saved_projects`**: يحتوي على **13 مشروع** (الجدول الأساسي المستخدم في معظم الأماكن)
+- **`project_data`**: يحتوي على **3 مشاريع** (جدول ثانوي)
 
-### المشكلة الحقيقية
-
-المشكلة **ليست** في CSS أو z-index أو pointer-events. المشكلة **معمارية** في طريقة إدارة حالة البحث.
-
-### تحليل الكود الحالي
-
-```tsx
-// في useGlobalSearch.tsx (سطر 332-333)
-export function useGlobalSearch() {
-  const [isOpen, setIsOpen] = useState(false);  // ← useState محلي لكل hook instance
-  ...
-}
-```
+### المشكلة
+صفحة `SavedProjectsPage.tsx` تستعلم فقط من جدول `project_data`:
 
 ```tsx
-// في App.tsx (سطر 77) - GlobalSearch يستخدم hook
-<GlobalSearch />  // ← لديه isOpen = A
-
-// في HomePage.tsx (سطر 101) - hook آخر
-const { setIsOpen: setSearchOpen } = useGlobalSearch();  // ← لديه isOpen = B
-
-// في UnifiedHeader.tsx (سطر 85) - hook ثالث
-const { setIsOpen: setSearchOpen } = useGlobalSearch();  // ← لديه isOpen = C
+// السطور 106-109 - تستعلم فقط من project_data
+const { data, error } = await supabase
+  .from("project_data")
+  .select("*")
+  .order("created_at", { ascending: false });
 ```
 
-**النتيجة**: عند النقر على صندوق البحث في HomePage:
-- `setSearchOpen(true)` يغير **B** إلى `true`
-- لكن GlobalSearch يعتمد على **A** الذي لا يزال `false`
-- **Dialog لا يفتح!**
+بينما صفحات أخرى مثل `HomePage` و `ReportsTab` تستعلم من `saved_projects` أو كليهما.
 
 ---
 
-## الحل الجذري: React Context
+## الحل
 
-### الخطوات التنفيذية
+تحديث دالة `fetchProjects` في `SavedProjectsPage.tsx` لجلب المشاريع من **كلا الجدولين** ودمجها، بنفس المنهج المستخدم في `ReportsTab.tsx`.
 
-### 1. إنشاء GlobalSearchProvider
+### التغييرات المطلوبة
 
-إنشاء ملف جديد: `src/contexts/GlobalSearchContext.tsx`
+#### ملف: `src/pages/SavedProjectsPage.tsx`
+
+**تحديث دالة `fetchProjects` (السطور 101-123):**
 
 ```tsx
-import { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+const fetchProjects = async () => {
+  if (!user) return;
+  
+  setIsLoading(true);
+  try {
+    // Fetch from both tables in parallel
+    const [savedProjectsRes, projectDataRes] = await Promise.all([
+      supabase
+        .from("saved_projects")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("project_data")
+        .select("*")
+        .order("created_at", { ascending: false })
+    ]);
 
-// Types
-export type SearchItemType = 'page' | 'project' | 'action' | 'setting' | 'file';
+    const savedProjects = savedProjectsRes.data || [];
+    const projectDataList = projectDataRes.data || [];
 
-export interface SearchItem {
-  id: string;
-  type: SearchItemType;
-  label: string;
-  labelAr: string;
-  description?: string;
-  descriptionAr?: string;
-  icon: string;
-  href?: string;
-  action?: () => void;
-  keywords: string[];
-}
+    // Merge projects - use Map to avoid duplicates
+    const projectMap = new Map<string, ProjectData>();
 
-export interface SearchResults {
-  pages: SearchItem[];
-  projects: SearchItem[];
-  actions: SearchItem[];
-  settings: SearchItem[];
-}
+    // Add saved_projects first (prioritize)
+    savedProjects.forEach(p => {
+      const analysisData = p.analysis_data as any;
+      projectMap.set(p.id, {
+        id: p.id,
+        name: p.name,
+        file_name: p.file_name,
+        analysis_data: p.analysis_data,
+        wbs_data: p.wbs_data,
+        items_count: analysisData?.items?.length || analysisData?.summary?.total_items || 0,
+        total_value: analysisData?.summary?.total_value || 0,
+        currency: analysisData?.summary?.currency || 'SAR',
+        created_at: p.created_at,
+        updated_at: p.updated_at,
+      });
+    });
 
-interface GlobalSearchContextType {
-  isOpen: boolean;
-  setIsOpen: (open: boolean) => void;
-  query: string;
-  setQuery: (query: string) => void;
-  results: SearchResults;
-  isLoading: boolean;
-  navigateToItem: (item: SearchItem) => void;
-}
-
-const GlobalSearchContext = createContext<GlobalSearchContextType | null>(null);
-
-// Static pages, actions, and settings data (moved here)
-// ... (نفس البيانات الثابتة من useGlobalSearch.tsx)
-
-export function GlobalSearchProvider({ children }: { children: ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [projects, setProjects] = useState<SearchItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
-
-  // نفس المنطق من useGlobalSearch.tsx لكن في Context
-  // ...
-
-  // Keyboard shortcut (⌘K / Ctrl+K)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsOpen((prev) => !prev);
+    // Add project_data if not already in map
+    projectDataList.forEach(p => {
+      if (!projectMap.has(p.id)) {
+        projectMap.set(p.id, {
+          id: p.id,
+          name: p.name,
+          file_name: p.file_name,
+          analysis_data: p.analysis_data,
+          wbs_data: p.wbs_data,
+          items_count: p.items_count || 0,
+          total_value: p.total_value || 0,
+          currency: p.currency || 'SAR',
+          created_at: p.created_at,
+          updated_at: p.updated_at,
+        });
       }
-    };
+    });
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+    // Convert map to array and sort by created_at
+    const allProjects = Array.from(projectMap.values())
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  const value = useMemo(() => ({
-    isOpen,
-    setIsOpen,
-    query,
-    setQuery,
-    results,
-    isLoading,
-    navigateToItem,
-  }), [isOpen, query, results, isLoading, navigateToItem]);
-
-  return (
-    <GlobalSearchContext.Provider value={value}>
-      {children}
-    </GlobalSearchContext.Provider>
-  );
-}
-
-// Custom hook للوصول للـ Context
-export function useGlobalSearch() {
-  const context = useContext(GlobalSearchContext);
-  if (!context) {
-    throw new Error('useGlobalSearch must be used within GlobalSearchProvider');
+    setProjects(allProjects);
+  } catch (error: any) {
+    console.error("Error fetching projects:", error);
+    toast({
+      title: isArabic ? "خطأ في تحميل المشاريع" : "Error loading projects",
+      description: error.message,
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
   }
-  return context;
-}
+};
 ```
 
----
-
-### 2. تحديث App.tsx
+**تحديث دالة `handleDelete` (السطور 131-152):**
 
 ```tsx
-import { GlobalSearchProvider } from '@/contexts/GlobalSearchContext';
-
-const App = () => (
-  <LanguageProvider>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AnalysisProvider>
-          <AnalysisTrackingProvider>
-            <TooltipProvider>
-              <BrowserRouter>
-                <GlobalSearchProvider>  {/* ← إضافة Provider هنا */}
-                  <BackgroundImage />
-                  <Toaster />
-                  <Sonner />
-                  <GlobalSearch />
-                  <UpdateBanner />
-                  <FloatingBackButton />
-                  <ErrorBoundary>
-                    <Suspense fallback={<PageLoader />}>
-                      <Routes>
-                        {/* ... routes ... */}
-                      </Routes>
-                    </Suspense>
-                  </ErrorBoundary>
-                </GlobalSearchProvider>
-              </BrowserRouter>
-            </TooltipProvider>
-          </AnalysisTrackingProvider>
-        </AnalysisProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  </LanguageProvider>
-);
+const handleDelete = async (id: string) => {
+  try {
+    // Try to delete from both tables
+    // Delete project items first (if any)
+    await supabase.from("project_items").delete().eq("project_id", id);
+    
+    // Delete from project_data
+    await supabase.from("project_data").delete().eq("id", id);
+    
+    // Delete from saved_projects
+    await supabase.from("saved_projects").delete().eq("id", id);
+    
+    toast({
+      title: isArabic ? "تم حذف المشروع" : "Project deleted",
+    });
+    fetchProjects();
+  } catch (error: any) {
+    toast({
+      title: isArabic ? "خطأ في حذف المشروع" : "Error deleting project",
+      description: error.message,
+      variant: "destructive",
+    });
+  }
+};
 ```
 
 ---
 
-### 3. تحديث GlobalSearch.tsx
-
-```tsx
-import { useGlobalSearch } from '@/contexts/GlobalSearchContext';  // ← تغيير المسار
-
-export function GlobalSearch() {
-  const { isOpen, setIsOpen, query, setQuery, results, isLoading, navigateToItem } =
-    useGlobalSearch();
-  // ... باقي الكود كما هو
-}
-```
-
----
-
-### 4. تحديث HomePage.tsx
-
-```tsx
-import { useGlobalSearch } from '@/contexts/GlobalSearchContext';  // ← تغيير المسار
-
-// في المكون
-const { setIsOpen: setSearchOpen } = useGlobalSearch();
-```
-
----
-
-### 5. تحديث UnifiedHeader.tsx
-
-```tsx
-import { useGlobalSearch } from '@/contexts/GlobalSearchContext';  // ← تغيير المسار
-
-// في المكون
-const { setIsOpen: setSearchOpen } = useGlobalSearch();
-```
-
----
-
-### 6. حذف أو تعديل useGlobalSearch.tsx القديم
-
-يمكن إما:
-- **حذف** الملف `src/hooks/useGlobalSearch.tsx` بالكامل
-- أو **تعديله** ليقوم بـ re-export من Context:
-
-```tsx
-// src/hooks/useGlobalSearch.tsx
-export { useGlobalSearch, type SearchItem, type SearchResults } from '@/contexts/GlobalSearchContext';
-```
-
----
-
-## هيكل الملفات النهائي
+## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/contexts/GlobalSearchContext.tsx` | **ملف جديد** - Context Provider |
-| `src/App.tsx` | إضافة `GlobalSearchProvider` |
-| `src/components/GlobalSearch.tsx` | تغيير import path |
-| `src/pages/HomePage.tsx` | تغيير import path |
-| `src/components/UnifiedHeader.tsx` | تغيير import path |
-| `src/hooks/useGlobalSearch.tsx` | تحويل إلى re-export فقط |
+| `src/pages/SavedProjectsPage.tsx` | تحديث `fetchProjects` لجلب من كلا الجدولين + تحديث `handleDelete` |
 
 ---
 
-## مخطط تدفق البيانات بعد الإصلاح
+## النتيجة المتوقعة
 
-```
-GlobalSearchProvider (في App.tsx)
-    ↓
-    isOpen = shared state
-    ↓
-    ├── GlobalSearch (Dialog)
-    │   └── يقرأ isOpen → يفتح/يغلق Dialog
-    │
-    ├── HomePage
-    │   └── يستدعي setIsOpen(true) → يغير shared state
-    │
-    └── UnifiedHeader
-        └── يستدعي setIsOpen(true) → يغير shared state
-```
-
-**النتيجة**: أي مكان يستدعي `setIsOpen(true)` سيؤثر على **نفس** الـ state الذي يقرأه `GlobalSearch`.
-
----
-
-## لماذا هذا الحل جذري؟
-
-| الجانب | قبل | بعد |
-|--------|-----|-----|
-| State Management | useState محلي (3 نسخ منفصلة) | Context مشترك (نسخة واحدة) |
-| تزامن State | ❌ لا يوجد | ✅ تلقائي |
-| صندوق البحث في HomePage | ❌ لا يعمل | ✅ يعمل |
-| صندوق البحث في UnifiedHeader | ❌ قد لا يعمل | ✅ يعمل |
-| اختصار ⌘K | ✅ يعمل (لأنه في GlobalSearch) | ✅ يعمل |
-| Performance | ⚠️ 3 hooks منفصلة | ✅ Context واحد محسّن |
+| قبل الإصلاح | بعد الإصلاح |
+|-------------|-------------|
+| 3 مشاريع ظاهرة | 13 مشروع (أو أكثر) ظاهرة |
+| استعلام من `project_data` فقط | استعلام من كلا الجدولين |
+| ❌ مشاريع مفقودة | ✅ جميع المشاريع مرئية |
 
 ---
 
 ## ملاحظات تقنية
 
-### لماذا Context بدلاً من Zustand أو Redux؟
+### لماذا يوجد جدولان؟
 
-1. **بسيط**: لا حاجة لمكتبات إضافية
-2. **كافي**: State بسيط (boolean + string) لا يحتاج state manager معقد
-3. **متوافق**: يعمل مع React Router الموجود
+- **`saved_projects`**: الجدول الأصلي القديم للمشاريع المحفوظة (يحتوي على `analysis_data` JSON)
+- **`project_data`**: جدول أحدث مع بنية مختلفة (يستخدم `project_items` منفصل)
 
-### لماذا GlobalSearchProvider داخل BrowserRouter؟
+### استراتيجية الدمج
 
-لأن `navigateToItem` يستخدم `useNavigate()` من React Router، والذي يحتاج أن يكون **داخل** BrowserRouter.
+1. **الأولوية لـ `saved_projects`**: إذا وُجد مشروع في كلا الجدولين، نستخدم بيانات `saved_projects`
+2. **استخدام Map**: لتجنب التكرار عند وجود نفس الـ ID في كلا الجدولين
+3. **توحيد الـ Schema**: تحويل البيانات لتتوافق مع interface `ProjectData`
 
-### هل سيؤثر على الأداء؟
+### التوافق مع الصفحات الأخرى
 
-لا، لأن:
-- Context محسّن باستخدام `useMemo` للقيمة
-- Re-render يحدث فقط عند تغير `isOpen` أو `query`
-- البحث لا يحدث كثيراً (فقط عند فتح Dialog)
-
----
-
-## الاختبارات المطلوبة بعد التنفيذ
-
-1. ✅ **Desktop**: النقر على صندوق البحث في HomePage
-2. ✅ **Mobile**: النقر على زر البحث
-3. ✅ **Keyboard**: الضغط على ⌘K أو Ctrl+K من أي صفحة
-4. ✅ **UnifiedHeader**: النقر على زر البحث في أي صفحة أخرى
-5. ✅ **Navigation**: البحث ثم الانتقال لصفحة أخرى
-6. ✅ **Close**: إغلاق Dialog بـ ESC أو النقر خارجه
+هذا الحل يتبع نفس المنهج المستخدم في:
+- `ReportsTab.tsx` (سطور 75-117)
+- `HomePage.tsx` (dashboard statistics)
 
 ---
 
-## الخلاصة
+## التحسينات المستقبلية (اختيارية)
 
-**المشكلة الجذرية**: `useGlobalSearch` hook يستخدم `useState` محلي، مما يعني أن كل مكان يستدعي الـ hook لديه نسخة **منفصلة** من `isOpen` state.
+للتخلص من ازدواجية الجداول، يمكن لاحقاً:
+1. ترحيل جميع البيانات من `saved_projects` إلى `project_data`
+2. تحديث جميع الاستعلامات لاستخدام جدول واحد
+3. حذف الجدول القديم
 
-**الحل الجذري**: استخدام React Context لمشاركة الـ state بين جميع المكونات التي تحتاجه.
-
-هذا الحل **سيحل المشكلة نهائياً 100%** لأنه يعالج السبب الجذري وليس الأعراض.
-
+لكن هذا يتطلب خطة ترحيل بيانات كاملة وليس جزءاً من هذا الإصلاح.
