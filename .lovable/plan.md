@@ -1,152 +1,92 @@
 
 
-# خطة إصلاح التبويبات (الأزرار) غير العاملة في صفحة المرفقات
+# خطة تعديل أعمدة الجدول
 
-## تشخيص المشكلة
+## طلب المستخدم
+- **إزالة** عمودين: `Unit Price` و `Total`
+- **استبدال** عمود `Calc. Price` بـ `Total` (إعادة تسمية العمود المحسوب ليكون هو الإجمالي الرئيسي)
 
-### المشكلة الجذرية
-من تحليل Console logs، وجدت الخطأ التالي:
-```
-Warning: Function components cannot be given refs. 
-Check the render method of `MergedAnalysisReport`.
-```
+## الوضع الحالي للأعمدة
 
-### سبب المشكلة
-1. **`MergedAnalysisReport`** هو Function Component يستخدم `Dialog` من Radix UI
-2. Radix Dialog يحاول تمرير `ref` للمكون، لكن المكون لا يستخدم `forwardRef`
-3. هذا التحذير يمكن أن يعطل React event handlers في بعض الحالات
-4. الأزرار في header المرفقات (`ProjectAttachments`) لا تحتوي على class حماية z-index
-
-### الملفات المتأثرة
-| الملف | المشكلة |
-|-------|---------|
-| `src/components/MergedAnalysisReport.tsx` | يحتاج `forwardRef` |
-| `src/components/ProjectAttachments.tsx` | الأزرار تحتاج class حماية |
-
----
-
-## الحل المقترح
-
-### 1. إصلاح `MergedAnalysisReport.tsx`
-
-**المشكلة**: المكون لا يستخدم `forwardRef` بينما Radix Dialog يتوقعه.
-
-**الحل**: تحويل المكون لاستخدام `forwardRef`:
-
-```tsx
-// قبل
-export function MergedAnalysisReport({ isOpen, onClose, analyzedFiles }: MergedAnalysisReportProps) {
-  // ...
-}
-
-// بعد
-import React, { forwardRef } from "react";
-
-export const MergedAnalysisReport = forwardRef<HTMLDivElement, MergedAnalysisReportProps>(
-  function MergedAnalysisReport({ isOpen, onClose, analyzedFiles }, ref) {
-    // ... نفس المحتوى
-  }
-);
-```
-
-### 2. إصلاح `ProjectAttachments.tsx`
-
-**المشكلة**: الأزرار في header لا تحتوي على class حماية z-index.
-
-**الحل**: إضافة class `card-actions-safe` لحاوية الأزرار:
-
-```tsx
-// سطر 625 - إضافة class للحاوية
-<div className="flex items-center gap-2 flex-wrap card-actions-safe">
-  {/* Quantity Takeoff */}
-  <DrawingQuantityExtractor ... />
-  
-  {/* Files Report */}
-  <ProjectFilesReport ... />
-  
-  {/* باقي الأزرار */}
-</div>
-```
-
-### 3. إضافة حماية إضافية للأزرار (اختياري)
-
-إذا استمرت المشكلة، يمكن إضافة class `analysis-action-btn` للأزرار الفردية:
-
-```css
-/* موجود بالفعل في dialog-custom.css */
-.analysis-action-btn {
-  position: relative;
-  z-index: 60;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-```
-
----
+| العمود | الحالة الحالية |
+|--------|---------------|
+| Unit Price | موجود ✓ |
+| Total | موجود ✓ |
+| AI Rate | موجود ✓ |
+| Calc. Price | موجود ✓ |
 
 ## التغييرات المطلوبة
 
-### ملف 1: `src/components/MergedAnalysisReport.tsx`
+### 1. ملف `src/components/TableControls.tsx`
+تحديث `BOQ_TABLE_COLUMNS` لإزالة العمودين وإعادة تسمية `calc_price`:
 
-```tsx
-// سطر 1 - تحديث imports
-import React, { useState, useMemo, forwardRef } from "react";
+```typescript
+// قبل
+{ id: "unit_price", label: "Unit Price", labelAr: "سعر الوحدة" },
+{ id: "total", label: "Total", labelAr: "الإجمالي" },
+{ id: "ai_rate", label: "AI Rate", labelAr: "سعر AI" },
+{ id: "calc_price", label: "Calc. Price", labelAr: "السعر المحسوب" },
 
-// سطر 51 - تحويل لـ forwardRef
-export const MergedAnalysisReport = forwardRef<HTMLDivElement, MergedAnalysisReportProps>(
-  function MergedAnalysisReport({ isOpen, onClose, analyzedFiles }, ref) {
-    // ... باقي الكود كما هو (لا تغيير)
-    
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        {/* إضافة ref للـ DialogContent */}
-        <DialogContent ref={ref} className="sm:max-w-3xl max-h-[90vh]">
-          {/* ... */}
-        </DialogContent>
-      </Dialog>
-    );
-  }
-);
+// بعد - إزالة unit_price و total، وتغيير calc_price إلى Total
+{ id: "ai_rate", label: "AI Rate", labelAr: "سعر AI" },
+{ id: "calc_price", label: "Total", labelAr: "الإجمالي" },
 ```
 
-### ملف 2: `src/components/ProjectAttachments.tsx`
+### 2. ملف `src/components/AnalysisResults.tsx`
 
-```tsx
-// سطر 625 - إضافة class card-actions-safe
-<div className="flex items-center gap-2 flex-wrap card-actions-safe">
-```
+#### تحديث Header الجدول (السطور 2111-2129):
+- **إزالة** header لـ `unit_price` (السطور 2111-2115)
+- **إزالة** header لـ `total` (السطور 2116-2120)
+- **تغيير نص** `calc_price` من "Calc. Price" إلى "Total"
+
+#### تحديث Body الجدول (السطور 2236-2279):
+- **إزالة** خلايا `unit_price` (السطور 2236-2247)
+- **إزالة** خلايا `total` (السطور 2248-2259)
+- **تحويل** `calc_price` لعرض الإجمالي = `calculatedUnitPrice × quantity`
+
+#### تحديث Footer الجدول (السطور 2325-2360):
+- تحديث colspan وإزالة الأعمدة المحذوفة
+- الإبقاء على العمود الأخير كإجمالي كلي
+
+---
+
+## الملفات المتأثرة
+
+| الملف | التغيير |
+|-------|---------|
+| `src/components/TableControls.tsx` | إزالة عمودين من `BOQ_TABLE_COLUMNS` + إعادة تسمية |
+| `src/components/AnalysisResults.tsx` | تحديث header/body/footer للجدول |
 
 ---
 
 ## النتيجة المتوقعة
 
-| الحالة | قبل | بعد |
-|--------|-----|-----|
-| تحذير forwardRef | ❌ يظهر | ✅ لا يظهر |
-| زر Quantity Takeoff | ❌ لا يعمل | ✅ يعمل |
-| زر Files Report | ❌ لا يعمل | ✅ يعمل |
-| زر Analysis Settings | ❌ لا يعمل | ✅ يعمل |
-| زر Scheduled Reports | ❌ لا يعمل | ✅ يعمل |
-| زر Cloud Storage | ❌ لا يعمل | ✅ يعمل |
-| زر Upload Files | ❌ لا يعمل | ✅ يعمل |
+### قبل التعديل
+```
+| # | Item No. | Description | Unit | Qty | Unit Price | Total | AI Rate | Calc. Price | Balance | Actions |
+```
+
+### بعد التعديل
+```
+| # | Item No. | Description | Unit | Qty | AI Rate | Total | Balance | Actions |
+```
 
 ---
 
 ## ملاحظات تقنية
 
-### لماذا `forwardRef`؟
-- Radix UI Dialog يستخدم refs داخلياً لإدارة focus و accessibility
-- عندما يكون المكون الأب لا يدعم refs، Radix يصدر تحذيراً
-- هذا التحذير قد يعطل event handlers في بعض الحالات
+### منطق العمود الجديد `Total`
+سيعرض العمود الجديد القيمة المحسوبة:
+```typescript
+// Total = calculatedUnitPrice × quantity
+const total = calculatedPrice * item.quantity;
+// أو إذا لم يوجد سعر محسوب:
+const total = (item.unit_price || 0) * item.quantity;
+```
 
-### لماذا `card-actions-safe`؟
-- الـ CSS class موجود بالفعل في `dialog-custom.css`
-- يضمن z-index عالي (65) للأزرار
-- يفرض `pointer-events: auto !important`
-- يضمن أن الأزرار قابلة للنقر حتى مع وجود overlays
+### التوافق مع الصادرات
+لن يؤثر هذا التغيير على صادرات Excel/PDF لأنها تستخدم البيانات الأصلية وليس أعمدة الجدول المرئية.
 
-### هل ستؤثر على الأداء؟
-لا، لأن:
-- `forwardRef` لا يضيف overhead ملحوظ
-- CSS classes موجودة بالفعل ومُحسّنة
+### التوافق مع localStorage
+سيتم تحديث الأعمدة المرئية تلقائياً - المستخدمون الذين لديهم إعدادات محفوظة قد يحتاجون لإعادة تعيين إعدادات الأعمدة.
 
