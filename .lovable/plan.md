@@ -1,175 +1,96 @@
 
 
-# خطة إضافة تحرير البيانات الناقصة مباشرة في جدول التحليل
+# خطة إصلاح زر "Add Staff" وأزرار الإضافة في جميع تبويبات التسعير
 
-## المشكلة الحالية
+## المشكلة
 
-من الصورة المرفقة، يظهر أن بعض البنود الناتجة من التحليل تحتوي على بيانات ناقصة:
-- **الكمية (Qty)**: تظهر `0`
-- **الوحدة (Unit)**: تظهر `الوحدة` (افتراضي/خطأ)
-- **السعر (Price)**: تظهر `0`
-- **الإجمالي (Total)**: تظهر `0`
+زر "+ Add Staff" في تبويب Site Staff لا يستجيب للنقر بسبب تعارض `z-index` و `pointer-events` مع عناصر Radix UI Dialog.
 
-حالياً:
-- ✅ **Unit Price** و **Total** قابلة للتحرير مباشرة (عبر `EditableUnitPrice`)
-- ❌ **Quantity** غير قابلة للتحرير مباشرة
-- ❌ **Unit** غير قابلة للتحرير مباشرة
+## تحليل السبب
 
----
+1. Dialog overlay لديه `z-index: 99` ويمكن أن يحجب التفاعل مع الأزرار
+2. الأزرار داخل `CardHeader` ليس لديها حماية `z-index` و `pointer-events`
+3. نفس المشكلة موجودة في تبويبات أخرى (Facilities, Insurance, Guarantees, Indirect Costs)
 
 ## الحل المقترح
 
-### 1. إنشاء مكون `EditableQuantity`
+### 1. إضافة CSS class جديد للحماية
 
-مكون جديد مشابه لـ `EditableUnitPrice` للكمية:
+**ملف:** `src/components/ui/dialog-custom.css`
 
-```typescript
-// src/components/EditableQuantity.tsx
-interface EditableQuantityProps {
-  value: number;
-  onSave: (newValue: number) => void;
-  className?: string;
-  disabled?: boolean;
+```css
+/* Tender Tabs Card Header Protection */
+.tender-card-header {
+  position: relative;
+  z-index: 60;
+  pointer-events: auto !important;
+}
+
+.tender-card-header button {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Tender Card overall protection */
+.tender-card-safe {
+  position: relative;
+  z-index: 10;
+}
+
+.tender-card-safe [data-radix-dialog-trigger],
+.tender-card-safe button:not([data-radix-dialog-content] button) {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto !important;
+  cursor: pointer !important;
 }
 ```
 
-### 2. إنشاء مكون `EditableUnit`
-
-مكون جديد لتحرير الوحدة باستخدام قائمة منسدلة:
-
-```typescript
-// src/components/EditableUnit.tsx
-interface EditableUnitProps {
-  value: string;
-  onSave: (newValue: string) => void;
-  className?: string;
-  disabled?: boolean;
-}
-```
-
-**الوحدات المتاحة:**
-- م³ / m3 (متر مكعب)
-- م² / m2 (متر مربع)
-- م.ط / m (متر طولي)
-- كجم / kg (كيلوجرام)
-- طن / ton
-- قطعة / pcs
-- مقطوعية / ls
-- عدد / nr
-
-### 3. تحديث `AnalysisResults.tsx`
-
-**أ. إضافة handlers للكمية والوحدة:**
-
-```typescript
-// Handler لتحديث الكمية
-const handleEditQuantity = useCallback((itemNumber: string, newQty: number) => {
-  // تحديث الكمية في analysisData
-  // إعادة حساب Total = Qty × Unit Price
-}, []);
-
-// Handler لتحديث الوحدة
-const handleEditUnit = useCallback((itemNumber: string, newUnit: string) => {
-  // تحديث الوحدة في analysisData
-}, []);
-```
-
-**ب. تحديث خلايا الجدول:**
+### 2. تحديث `SiteStaffTab.tsx`
 
 ```tsx
-// من (عرض فقط):
-<td className="px-3 py-3 text-center">
-  <span>{item.quantity.toLocaleString()}</span>
-</td>
+// من:
+<Card>
+  <CardHeader className="flex flex-row items-center justify-between">
 
-// إلى (قابل للتحرير):
-<td className="px-3 py-3 text-center">
-  <EditableQuantity
-    value={item.quantity}
-    onSave={(newQty) => handleEditQuantity(item.item_number, newQty)}
-    className={item.quantity === 0 ? "text-destructive" : undefined}
-  />
-</td>
+// إلى:
+<Card className="tender-card-safe">
+  <CardHeader className="flex flex-row items-center justify-between tender-card-header">
 ```
 
 ```tsx
-// من (عرض فقط):
-<td className="px-3 py-3 text-center">
-  <span>{item.unit}</span>
-</td>
-
-// إلى (قابل للتحرير):
-<td className="px-3 py-3 text-center">
-  <EditableUnit
-    value={item.unit}
-    onSave={(newUnit) => handleEditUnit(item.item_number, newUnit)}
-    className={!item.unit || item.unit === "الوحدة" ? "text-destructive" : undefined}
-  />
-</td>
+// إضافة class للزر
+<Button onClick={handleAdd} className="gap-2 relative z-[65] pointer-events-auto">
 ```
 
-### 4. تمييز البنود الناقصة بصرياً
+### 3. تحديث باقي التبويبات بنفس الأسلوب
 
-إضافة تمييز للبنود التي تحتاج إلى إدخال بيانات:
-
-```tsx
-// إضافة صف مميز للبنود الناقصة
-const hasIncompletedData = !item.quantity || item.quantity === 0 || 
-                            !item.unit || item.unit === "الوحدة";
-
-<tr className={cn(
-  hasIncompletedData && "bg-warning/10 border-l-4 border-l-warning"
-)}>
-```
-
----
+| الملف | التغيير |
+|-------|---------|
+| `src/components/tender/FacilitiesTab.tsx` | إضافة `tender-card-safe` و `tender-card-header` |
+| `src/components/tender/InsuranceTab.tsx` | إضافة `tender-card-safe` و `tender-card-header` |
+| `src/components/tender/GuaranteesTab.tsx` | إضافة `tender-card-safe` و `tender-card-header` |
+| `src/components/tender/IndirectCostsTab.tsx` | إضافة `tender-card-safe` و `tender-card-header` |
+| `src/components/tender/PricingSettingsTab.tsx` | إضافة `tender-card-safe` و `tender-card-header` |
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/EditableQuantity.tsx` | ملف جديد |
-| `src/components/EditableUnit.tsx` | ملف جديد |
-| `src/components/AnalysisResults.tsx` | تحديث خلايا الجدول + handlers |
-
----
-
-## تفاصيل تقنية
-
-### مكون EditableQuantity
-
-```tsx
-// تحرير رقمي مع:
-// - حد أدنى 0
-// - دعم الأرقام العشرية
-// - تلوين أحمر للقيم الصفرية
-// - أيقونة تحرير تظهر عند hover
-```
-
-### مكون EditableUnit
-
-```tsx
-// قائمة منسدلة مع:
-// - وحدات قياسية مسبقة التعريف
-// - خيار إدخال وحدة مخصصة
-// - دعم ثنائي اللغة (عربي/إنجليزي)
-```
-
----
+| `src/components/ui/dialog-custom.css` | إضافة CSS classes للحماية |
+| `src/components/tender/SiteStaffTab.tsx` | إضافة classes للـ Card و CardHeader و Button |
+| `src/components/tender/FacilitiesTab.tsx` | إضافة classes للحماية |
+| `src/components/tender/InsuranceTab.tsx` | إضافة classes للحماية |
+| `src/components/tender/GuaranteesTab.tsx` | إضافة classes للحماية |
+| `src/components/tender/IndirectCostsTab.tsx` | إضافة classes للحماية |
+| `src/components/tender/PricingSettingsTab.tsx` | إضافة classes للحماية |
 
 ## النتيجة المتوقعة
 
-| قبل | بعد |
-|-----|-----|
-| الكمية تظهر `0` ولا يمكن تعديلها | نقرة واحدة لإدخال الكمية |
-| الوحدة تظهر خاطئة ولا يمكن تعديلها | قائمة منسدلة لاختيار الوحدة الصحيحة |
-| البنود الناقصة غير مميزة | خلفية صفراء للبنود التي تحتاج استكمال |
-
----
-
-## ميزات إضافية
-
-1. **تنبيه البنود الناقصة**: شريط تحذير في أعلى الجدول يعرض عدد البنود الناقصة
-2. **فلتر سريع**: زر لعرض البنود الناقصة فقط (مشابه لـ "Zero Qty Only" الموجود)
-3. **حساب تلقائي**: عند إدخال الكمية، يتم حساب الإجمالي تلقائياً (Qty × Unit Price)
+- زر "+ Add Staff" يستجيب للنقر فوراً
+- جميع أزرار الإضافة في تبويبات التسعير تعمل بشكل صحيح
+- حوارات الإضافة والتعديل تفتح بدون مشاكل
+- التوافق مع معايير الـ z-index المُعتمدة في المشروع
 
