@@ -1,101 +1,192 @@
 
-# خطة إصلاح عرض قيم التحليل في التقرير
+# خطة إصلاح مشكلة عرض قيم التحليل في التقرير
 
-## تحليل المشكلة
+## تحليل عميق للمشكلة
 
-### الوضع الحالي:
-من خلال الصورة المرفقة، نلاحظ أن أعمدة **Unit Price** و **AI Rate** و **Total** تظهر بقيم "-" بدلاً من الأرقام الفعلية.
+### السبب الجذري:
+من فحص البيانات في network requests، اكتشفت أن:
 
-### السبب:
-عند تمرير البيانات إلى `PrintableReport`، الكود الحالي يستخدم:
-```typescript
-const aiRate = calcCosts.aiSuggestedRate || 0;
+1. **المشروع المحفوظ "المنح" يحتوي على بيانات بـ `unit_price = 0`:**
+```json
+{
+  "unit_price": 0,
+  "quantity": 279250,
+  "description": "تسوية ترابية..."
+}
 ```
-هذا يعني أنه إذا لم يكن هناك `aiSuggestedRate` محفوظ في localStorage، سيكون AI Rate = 0، ولا يستخدم سعر الوحدة الأصلي كـ fallback.
 
-### المشكلة في التقرير:
+2. **الكود الحالي يحاول استخدام fallback logic:**
 ```typescript
-// formatCurrency(0) ← يظهر كـ "-" في التقرير
-<td>${formatCurrency(item.ai_rate || item.unit_price || 0)}</td>
+const aiRate = calcCosts.aiSuggestedRate || item.unit_price || 0;
 ```
-لكن لأن `ai_rate` تم تعيينها إلى `0` بشكل صريح، الـ fallback إلى `unit_price` لا يعمل!
+
+3. **المشكلة:**
+   - `calcCosts.aiSuggestedRate` = `undefined` (لم يتم تطبيق AI rates من localStorage)
+   - `item.unit_price` = `0` (البيانات المحفوظة)
+   - النتيجة النهائية = `0`
+   - `formatCurrency(0)` = `"-"` في التقرير
+
+### الجذر الأساسي:
+المستخدم **لم يقم بتطبيق AI rates** على البنود قبل الطباعة، لذلك لا توجد بيانات محفوظة في localStorage (`boq_item_costs`).
 
 ---
 
-## الحل المقترح
+## الحل الشامل
 
-### التغيير في `AnalysisResults.tsx`:
+### الخيار 1: إضافة تحذير عند الطباعة بدون أسعار ✅ (الأفضل)
 
-**الكود الحالي (السطر 1532-1537):**
+**الفكرة:**
+قبل فتح نافذة الطباعة، نتحقق من وجود أسعار حقيقية:
+- إذا كانت جميع البنود بسعر 0 أو undefined
+- نعرض رسالة تنبيه تطلب من المستخدم تطبيق AI rates أولاً
+
+**الكود المقترح في `PrintableReport.tsx`:**
+
 ```typescript
-.map(item => {
-  const calcCosts = getItemCalculatedCosts(item.item_number);
-  const aiRate = calcCosts.aiSuggestedRate || 0;  // ← المشكلة هنا
-  return {
-    ...item,
-    ai_rate: aiRate,
-    calculated_total: aiRate * (item.quantity || 0)
-  };
-})
+const handlePrint = () => {
+  // التحقق من وجود أسعار حقيقية
+  const hasValidPrices = boqItems.some(item => 
+    (item.ai_rate && item.ai_rate > 0) || 
+    (item.unit_price && item.unit_price > 0)
+  );
+  
+  if (!hasValidPrices) {
+    toast.error(
+      isArabic 
+        ? "⚠️ لا توجد أسعار للبنود. يرجى تطبيق أسعار AI أولاً من خلال زر 'اقتراحات أسعار السوق'"
+        : "⚠️ No prices found for items. Please apply AI rates first using 'Market Rate Suggestions'"
+    );
+    return; // إيقاف الطباعة
+  }
+  
+  // متابعة الطباعة العادية...
+  const printWindow = window.open('', '_blank');
+  // ... باقي الكود
+};
 ```
 
-**الكود المصحح:**
+### الخيار 2: زر "Auto-Apply AI Rates" في تقرير الطباعة
+
+**الفكرة:**
+إضافة زر في dialog الطباعة يقوم بتطبيق AI rates تلقائياً قبل الطباعة.
+
+**الكود المقترح:**
+
 ```typescript
-.map(item => {
-  const calcCosts = getItemCalculatedCosts(item.item_number);
-  // استخدام AI Rate أو السعر الأصلي كـ fallback
-  const aiRate = calcCosts.aiSuggestedRate || item.unit_price || 0;
-  return {
+// في PrintableReport.tsx
+const [autoApplyRates, setAutoApplyRates] = useState(false);
+
+// داخل Dialog
+<div className="flex items-center space-x-2">
+  <Checkbox 
+    checked={autoApplyRates}
+    onCheckedChange={setAutoApplyRates}
+  />
+  <Label>
+    {isArabic 
+      ? "تطبيق أسعار AI تلقائياً قبل الطباعة"
+      : "Auto-apply AI rates before printing"}
+  </Label>
+</div>
+
+// في handlePrint
+if (autoApplyRates) {
+  // استدعاء Edge Function للحصول على AI rates
+  const aiRates = await fetchAIRates(boqItems);
+  // تطبيق الأسعار على البيانات
+  boqItems = boqItems.map(item => ({
     ...item,
-    ai_rate: aiRate,
-    calculated_total: aiRate * (item.quantity || 0)
-  };
-})
+    ai_rate: aiRates[item.item_number] || item.unit_price
+  }));
+}
 ```
+
+---
+
+## الحل الموصى به (هجين)
+
+**الجمع بين الخيارين:**
+
+1. **إضافة تحذير ذكي** يظهر عندما لا توجد أسعار
+2. **توفير زر سريع** لتطبيق AI rates من داخل dialog الطباعة
 
 ---
 
 ## التغييرات التفصيلية
 
-### ملف: `src/components/AnalysisResults.tsx`
+### ملف 1: `src/components/PrintableReport.tsx`
 
-| السطر | التغيير |
-|-------|---------|
-| ~1533 | تعديل حساب `aiRate` ليشمل `item.unit_price` كـ fallback |
-
-### الكود النهائي:
+#### التغيير 1 - إضافة دالة التحقق من الأسعار (بعد السطر 112):
 
 ```typescript
-// في PrintableReport mapping (السطر 1529-1539)
-boqItems={(data.items || [])
-  .filter(item => !deletedItemNumbers.has(item.item_number))
-  .map(item => {
-    const calcCosts = getItemCalculatedCosts(item.item_number);
-    // Use AI Rate, or fallback to original unit_price, or 0
-    const aiRate = calcCosts.aiSuggestedRate || item.unit_price || 0;
-    return {
-      ...item,
-      ai_rate: aiRate,
-      calculated_total: aiRate * (item.quantity || 0)
-    };
-  })}
+// Check if items have valid prices
+const hasValidPrices = useMemo(() => {
+  return boqItems.some(item => 
+    (item.ai_rate && item.ai_rate > 0) || 
+    (item.unit_price && item.unit_price > 0) ||
+    (item.calculated_total && item.calculated_total > 0)
+  );
+}, [boqItems]);
+
+const getItemsWithoutPrices = useMemo(() => {
+  return boqItems.filter(item => 
+    (!item.ai_rate || item.ai_rate === 0) && 
+    (!item.unit_price || item.unit_price === 0)
+  ).length;
+}, [boqItems]);
 ```
 
----
+#### التغيير 2 - تحديث دالة handlePrint (السطر 122):
 
-## النتيجة المتوقعة
+```typescript
+const handlePrint = () => {
+  // التحقق من وجود أسعار
+  if (!hasValidPrices) {
+    toast.error(
+      isArabic 
+        ? `⚠️ لا توجد أسعار لـ ${getItemsWithoutPrices} بند. يرجى تطبيق أسعار AI أولاً من خلال زر "اقتراحات أسعار السوق" 📊`
+        : `⚠️ ${getItemsWithoutPrices} items have no prices. Please apply AI rates first using "Market Rate Suggestions" 📊`,
+      {
+        duration: 8000,
+      }
+    );
+    return;
+  }
+  
+  const printWindow = window.open('', '_blank');
+  // ... باقي الكود الحالي
+};
+```
 
-### قبل الإصلاح:
-| # | الوصف | الكمية | AI Rate | الإجمالي |
-|---|-------|--------|---------|----------|
-| 1 | تسوية ترابية... | 279,250 | - | - |
-| 2 | تسوية ترابية... | 70,000 | - | - |
+#### التغيير 3 - إضافة رسالة تحذير في Dialog (السطر 700 تقريباً):
 
-### بعد الإصلاح:
-| # | الوصف | الكمية | AI Rate | الإجمالي |
-|---|-------|--------|---------|----------|
-| 1 | تسوية ترابية... | 279,250 | 62.00 | 17,313,500 |
-| 2 | تسوية ترابية... | 70,000 | 47.00 | 3,290,000 |
+```tsx
+{/* Warning if no prices */}
+{!hasValidPrices && (
+  <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4 mb-4">
+    <div className="flex items-start gap-3">
+      <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
+      <div className="flex-1">
+        <h4 className="font-semibold text-yellow-800 mb-1">
+          {isArabic ? "⚠️ تحذير: لا توجد أسعار" : "⚠️ Warning: No Prices Found"}
+        </h4>
+        <p className="text-sm text-yellow-700 mb-2">
+          {isArabic 
+            ? `${getItemsWithoutPrices} بند ليس لديه أسعار. التقرير سيظهر "-" في أعمدة السعر والإجمالي.`
+            : `${getItemsWithoutPrices} items have no prices. The report will show "-" in price and total columns.`
+          }
+        </p>
+        <p className="text-xs text-yellow-600">
+          {isArabic 
+            ? "💡 للحصول على أسعار، استخدم زر 'اقتراحات أسعار السوق' في صفحة التحليل."
+            : "💡 To get prices, use 'Market Rate Suggestions' button on the analysis page."
+          }
+        </p>
+      </div>
+    </div>
+  </div>
+)}
+```
 
 ---
 
@@ -103,15 +194,70 @@ boqItems={(data.items || [])
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/AnalysisResults.tsx` | تعديل fallback logic لـ AI Rate في PrintableReport mapping |
+| `src/components/PrintableReport.tsx` | 1. إضافة دالة `hasValidPrices`<br>2. تحديث `handlePrint` مع تحذير<br>3. إضافة تحذير بصري في Dialog |
 
 ---
 
-## اختبارات التحقق
+## النتيجة المتوقعة
 
-| الاختبار | النتيجة المتوقعة |
-|---------|----------------|
-| فتح تقرير بدون AI rates محفوظة | يعرض الأسعار الأصلية من `unit_price` |
-| فتح تقرير مع AI rates محفوظة | يعرض AI rates |
-| الإجمالي في التقرير | Qty × (AI Rate أو Unit Price) |
-| ملخص التقرير (Total Value) | مجموع كل الإجماليات صحيح |
+### السيناريو 1: المستخدم يحاول الطباعة بدون أسعار
+
+**قبل:**
+- التقرير يطبع مع "-" في جميع الأعمدة
+- المستخدم لا يعرف لماذا
+
+**بعد:**
+- toast رسالة خطأ: "⚠️ لا توجد أسعار لـ 13 بند. يرجى تطبيق أسعار AI أولاً..."
+- تحذير بصري في dialog الطباعة
+- الطباعة لا تبدأ حتى يتم تطبيق الأسعار
+
+### السيناريو 2: المستخدم طبق AI rates
+
+**قبل وبعد:**
+- التقرير يطبع بشكل صحيح مع الأسعار ✓
+
+---
+
+## خطوات الاختبار
+
+| الخطوة | النتيجة المتوقعة |
+|-------|----------------|
+| 1. فتح مشروع بدون أسعار | - |
+| 2. النقر على زر الطباعة | toast رسالة خطأ + تحذير في dialog |
+| 3. إغلاق dialog الطباعة | - |
+| 4. فتح "اقتراحات أسعار السوق" | - |
+| 5. تطبيق AI rates على جميع البنود | تحديث localStorage |
+| 6. النقر على زر الطباعة مرة أخرى | التقرير يطبع بنجاح مع الأسعار ✓ |
+
+---
+
+## ملاحظات إضافية
+
+### لماذا لا يعمل التعديل السابق؟
+
+التعديل السابق كان:
+```typescript
+const aiRate = calcCosts.aiSuggestedRate || item.unit_price || 0;
+```
+
+المشكلة:
+- `calcCosts.aiSuggestedRate` = `undefined` (لم يتم تطبيق AI rates)
+- `item.unit_price` = `0` (البيانات المحفوظة)
+- النتيجة = `0` → يعرض كـ `"-"` في التقرير
+
+### الحل الحقيقي:
+
+**يجب على المستخدم تطبيق AI rates أولاً** من خلال:
+1. فتح زر "اقتراحات أسعار السوق" (Market Rate Suggestions)
+2. النقر على "Get AI Suggestions"
+3. النقر على "Apply All AI Rates"
+
+هذا سيحفظ البيانات في localStorage ويمكن بعدها الطباعة بنجاح.
+
+---
+
+## التحسينات المستقبلية
+
+1. **إضافة زر "Quick Apply AI Rates"** في dialog الطباعة
+2. **حفظ AI rates في database** بدلاً من localStorage فقط
+3. **Auto-fetch AI rates** عند فتح dialog الطباعة للمرة الأولى
