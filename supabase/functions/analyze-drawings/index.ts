@@ -139,18 +139,54 @@ ${fileContent ? `محتوى الملف/الوصف:\n${fileContent}` : ''}
     // Build message content based on what's provided
     let messageContent: any;
 
-    // If we have an image (base64 or URL), use vision capabilities
-    if (imageBase64 || (fileUrl && (fileType?.includes('image') || fileType?.includes('pdf')))) {
-      const imageUrl = imageBase64 
-        ? (imageBase64.startsWith('data:') ? imageBase64 : `data:image/png;base64,${imageBase64}`)
-        : fileUrl;
+    // Check if PDF URL was provided without base64 conversion - this won't work
+    if (fileUrl && fileType?.includes('pdf') && !imageBase64 && (!images || images.length === 0)) {
+      console.error('PDF URL provided without base64 images - PDFs must be converted to images first');
+      return new Response(JSON.stringify({ 
+        error: isArabic 
+          ? 'يجب تحويل ملفات PDF إلى صور قبل التحليل. يرجى المحاولة مرة أخرى.'
+          : 'PDF files must be converted to images before analysis. Please try again.',
+        success: false,
+        requiresImageConversion: true
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
+    // If we have multiple images (multi-page PDF converted to images)
+    if (images && Array.isArray(images) && images.length > 0) {
+      messageContent = [
+        { type: 'text', text: userPrompt },
+        ...images.map((img: string) => ({
+          type: 'image_url',
+          image_url: {
+            url: img.startsWith('data:') ? img : `data:image/png;base64,${img}`,
+            detail: 'high'
+          }
+        }))
+      ];
+    } else if (imageBase64) {
+      // Single image (base64)
+      const imageUrl = imageBase64.startsWith('data:') ? imageBase64 : `data:image/png;base64,${imageBase64}`;
       messageContent = [
         { type: 'text', text: userPrompt },
         { 
           type: 'image_url', 
           image_url: { 
             url: imageUrl,
+            detail: 'high'
+          } 
+        }
+      ];
+    } else if (fileUrl && fileType?.includes('image')) {
+      // Direct image URL (not PDF) - can be used directly
+      messageContent = [
+        { type: 'text', text: userPrompt },
+        { 
+          type: 'image_url', 
+          image_url: { 
+            url: fileUrl,
             detail: 'high'
           } 
         }
@@ -168,7 +204,7 @@ ${fileContent ? `محتوى الملف/الوصف:\n${fileContent}` : ''}
         }))
       ];
     } else {
-      // Text only
+      // Text only - no images provided
       messageContent = userPrompt;
     }
 
