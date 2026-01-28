@@ -2138,16 +2138,16 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                     
                     const costData = getItemCostData(item.item_number);
                     const calcCosts = getItemCalculatedCosts(item.item_number);
-                    const calculatedPrice = calcCosts.calculatedUnitPrice;
-                    const effectivePrice = calculatedPrice > 0 ? calculatedPrice : (item.unit_price || 0);
-                    const totalPrice = effectivePrice * item.quantity;
+                    // Total = Qty × AI Rate (simple and direct calculation)
+                    const aiRate = calcCosts.aiSuggestedRate || 0;
+                    const totalPrice = aiRate * (item.quantity || 0);
                     
                     // Debug logging for first 3 items
                     if (idx < 3) {
                       console.log(`✅ Item #${idx + 1}:`, {
                         itemNumber: item.item_number,
                         aiSuggestedRate: calcCosts.aiSuggestedRate,
-                        calculatedPrice: calculatedPrice,
+                        totalPrice: totalPrice,
                         costDataExists: !!itemCosts[item.item_number]
                       });
                     }
@@ -2248,7 +2248,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                             <BalanceStatusColumn
                               originalPrice={item.unit_price || 0}
                               aiSuggestedPrice={calcCosts.aiSuggestedRate || 0}
-                              calculatedPrice={calculatedPrice}
+                              calculatedPrice={aiRate}
                             />
                           </td>
                         )}
@@ -2301,10 +2301,10 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                     </td>
                     <td className="px-4 py-4 text-right font-bold text-primary bg-primary/20">
                       {(() => {
+                        // Grand Total = Sum of (Qty × AI Rate) for all items
                         const calculatedTotal = filteredItems.reduce((sum, item) => {
-                          const calcPrice = getItemCalculatedCosts(item.item_number).calculatedUnitPrice;
-                          const effectivePrice = calcPrice > 0 ? calcPrice : (item.unit_price || 0);
-                          return sum + (effectivePrice * item.quantity);
+                          const aiRate = getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0;
+                          return sum + (aiRate * (item.quantity || 0));
                         }, 0);
                         return calculatedTotal > 0 ? calculatedTotal.toLocaleString() : '-';
                       })()} {data.summary?.currency || 'SAR'}
@@ -2319,11 +2319,10 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
             {/* Category Summary */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
               {Object.entries(groupedItems).map(([category, categoryItems]) => {
-                // Calculate total with calculated prices
+                // Category Total = Sum of (Qty × AI Rate)
                 const categoryTotal = categoryItems.reduce((sum, item) => {
-                  const calcPrice = getItemCalculatedCosts(item.item_number).calculatedUnitPrice;
-                  const effectivePrice = calcPrice > 0 ? calcPrice : (item.unit_price || 0);
-                  return sum + (effectivePrice * item.quantity);
+                  const aiRate = getItemCalculatedCosts(item.item_number).aiSuggestedRate || 0;
+                  return sum + (aiRate * (item.quantity || 0));
                 }, 0);
                 
                 return (
