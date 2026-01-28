@@ -16,6 +16,10 @@ import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
 
 interface ExtractedQuantity {
   item_number: string;
@@ -89,6 +93,27 @@ export default function FastExtractionDrawingAnalyzer({
     );
   };
 
+  // Convert PDF page to base64 image
+  const pageToImage = async (page: any, scale: number = 2): Promise<string> => {
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    
+    if (!context) {
+      throw new Error('Cannot create canvas context');
+    }
+    
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    
+    await page.render({
+      canvasContext: context,
+      viewport: viewport,
+    }).promise;
+    
+    return canvas.toDataURL('image/png');
+  };
+
   const handleAnalyze = async () => {
     if (selectedFiles.length === 0) {
       toast.error(isArabic ? "اختر ملفاً واحداً على الأقل" : "Select at least one file");
@@ -109,17 +134,46 @@ export default function FastExtractionDrawingAnalyzer({
       setProgress(((i) / filesToAnalyze.length) * 100);
 
       try {
-        // Get the file content/URL from storage
+        // Get the file URL from storage
         const { data: signedUrlData, error: urlError } = await supabase.storage
           .from("project-files")
           .createSignedUrl(file.storagePath || "", 3600);
 
         if (urlError) throw urlError;
 
+        let images: string[] = [];
+        
+        // Check if it's a PDF - need to convert to images
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          setCurrentFile(`${file.name} (${isArabic ? 'تحويل الصفحات...' : 'Converting pages...'})`);
+          
+          // Fetch the PDF and convert pages to images
+          const pdfResponse = await fetch(signedUrlData.signedUrl);
+          const pdfArrayBuffer = await pdfResponse.arrayBuffer();
+          
+          const pdf = await pdfjsLib.getDocument({
+            data: pdfArrayBuffer,
+            cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/cmaps/',
+            cMapPacked: true,
+          }).promise;
+          
+          const numPages = pdf.numPages;
+          const maxPages = Math.min(numPages, 10); // Limit to 10 pages for analysis
+          
+          for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const imageBase64 = await pageToImage(page, 1.5); // Lower scale for faster processing
+            images.push(imageBase64);
+          }
+          
+          console.log(`Converted ${images.length} pages from PDF to images`);
+        }
+
         // Call the analyze-drawings edge function
         const { data, error } = await supabase.functions.invoke("analyze-drawings", {
           body: {
-            fileUrl: signedUrlData.signedUrl,
+            images: images.length > 0 ? images : undefined,
+            fileUrl: images.length === 0 ? signedUrlData.signedUrl : undefined,
             fileName: file.name,
             fileType: file.type,
             drawingType,
