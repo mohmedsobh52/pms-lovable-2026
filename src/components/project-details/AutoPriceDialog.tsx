@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import { Sparkles, Info, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -44,7 +44,7 @@ interface PricingResult {
   sourceName: string;
 }
 
-export function AutoPriceDialog({
+function AutoPriceDialogComponent({
   isOpen,
   onClose,
   items,
@@ -215,7 +215,11 @@ export function AutoPriceDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden">
+      <DialogContent 
+        className="max-w-3xl max-h-[80vh] overflow-hidden"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
@@ -390,3 +394,9 @@ export function AutoPriceDialog({
     </Dialog>
   );
 }
+
+// Wrap with memo to prevent React ref warnings with Radix UI Dialog
+const AutoPriceDialog = memo(AutoPriceDialogComponent);
+AutoPriceDialog.displayName = "AutoPriceDialog";
+
+export { AutoPriceDialog };

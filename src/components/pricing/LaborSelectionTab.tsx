@@ -200,7 +200,11 @@ export function LaborSelectionTab({
 
       {/* Add Labor Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent 
+          className="max-w-2xl"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>اختيار عمالة من المكتبة</DialogTitle>
           </DialogHeader>

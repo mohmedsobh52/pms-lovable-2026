@@ -136,7 +136,11 @@ function DetailedPriceDialogComponent({ isOpen, onClose, item, currency, onSave 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent 
+        className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-xl">تحليل السعر التفصيلي</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">

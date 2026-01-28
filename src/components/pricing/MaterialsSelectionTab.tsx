@@ -183,7 +183,11 @@ export function MaterialsSelectionTab({
 
       {/* Add Material Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent 
+          className="max-w-2xl"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>اختيار مادة من المكتبة</DialogTitle>
           </DialogHeader>

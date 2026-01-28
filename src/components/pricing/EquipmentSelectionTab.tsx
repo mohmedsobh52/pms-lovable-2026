@@ -201,7 +201,11 @@ export function EquipmentSelectionTab({
 
       {/* Add Equipment Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent 
+          className="max-w-2xl"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>اختيار معدة من المكتبة</DialogTitle>
           </DialogHeader>
