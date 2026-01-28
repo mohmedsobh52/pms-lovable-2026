@@ -1,95 +1,85 @@
 
-# خطة إصلاح خانات التعبئة في صفحة إنشاء مشروع جديد
 
-## المشكلة
+# خطة إصلاح صندوق البحث غير المستجيب
 
-حقول الإدخال (Input و Textarea) في صفحة `/projects/new` لا تستجيب للنقر أو الكتابة، رغم أن القوائم المنسدلة (Select) تعمل.
+## المشكلة المكتشفة
 
-## تحليل السبب الجذري
+صندوق البحث في الـ Header بالصفحة الرئيسية لا يستجيب للنقر. بناءً على تحليل الكود:
 
-في ملف `dialog-custom.css`، الـ CSS class `.form-card-safe` يحتوي على:
-
-```css
-.form-card-safe input,
-.form-card-safe textarea,
-.form-card-safe button:not([data-radix-select-trigger]) {
-  position: relative;
-  z-index: 20;  /* ❌ منخفض جداً */
-  pointer-events: auto !important;
-}
-```
-
-**المشاكل:**
-1. `z-index: 20` منخفض جداً مقارنة بـ `z-index: 55` للـ Select triggers
-2. لا يوجد `cursor: text` للـ inputs مما قد يؤثر على UX
-3. قد تكون هناك طبقات أخرى تتداخل مع الحقول
+1. **صندوق البحث** (HomePage.tsx سطر 356-374) هو `div` بسيط يستدعي `setSearchOpen(true)` عند النقر
+2. **مشكلة z-index**: رغم أن الـ Header لديه `z-50`، صندوق البحث نفسه لا يملك حماية `pointer-events` صريحة
+3. **تداخل محتمل**: قد تتداخل طبقة `BackgroundImage` أو عناصر أخرى مع صندوق البحث
 
 ---
 
-## الحل
+## الحل المقترح
 
-### ملف: `src/components/ui/dialog-custom.css`
+### 1. ملف: `src/components/ui/dialog-custom.css`
 
-**تحديث قواعد `.form-card-safe`:**
-
-| العنصر | z-index الحالي | z-index المقترح |
-|--------|----------------|-----------------|
-| `.form-card-safe` | 10 | 10 (بدون تغيير) |
-| `input, textarea` | 20 | **45** |
-| `button` | 20 | 45 |
-| `SelectTrigger` | 55 | 55 (بدون تغيير) |
-
-**الكود المحدث:**
+إضافة CSS class لحماية صندوق البحث في الـ Header:
 
 ```css
-.form-card-safe {
-  position: relative;
-  z-index: 10;
-}
+/* ============================================
+   HEADER SEARCH BOX PROTECTION
+   Ensure header search box is always clickable
+   ============================================ */
 
-.form-card-safe [data-radix-select-trigger] {
+.header-search-box {
   position: relative;
   z-index: 55;
   pointer-events: auto !important;
   cursor: pointer !important;
 }
 
-.form-card-safe input,
-.form-card-safe textarea {
-  position: relative;
-  z-index: 45;  /* ← رفع من 20 إلى 45 */
+.header-search-box * {
   pointer-events: auto !important;
-  cursor: text !important;  /* ← إضافة جديدة */
-}
-
-.form-card-safe button:not([data-radix-select-trigger]) {
-  position: relative;
-  z-index: 45;  /* ← رفع من 20 إلى 45 */
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-.form-card-safe label {
-  pointer-events: auto !important;
-  cursor: pointer !important;
 }
 ```
 
----
+### 2. ملف: `src/pages/HomePage.tsx`
 
-### ملف: `src/pages/NewProjectPage.tsx` (اختياري)
+تحديث div صندوق البحث (سطر 356):
 
-إضافة classes صريحة للـ Input fields للتأكد من عملها:
-
+**من:**
 ```tsx
-<Input
-  id="name"
-  value={formData.name}
-  onChange={(e) => handleInputChange("name", e.target.value)}
-  placeholder={...}
-  required
-  className="h-11 text-base relative z-[45] pointer-events-auto"  /* ← إضافة */
-/>
+<div 
+  onClick={() => setSearchOpen(true)}
+  className="flex-1 max-w-xl mx-4 cursor-pointer group hidden sm:block"
+>
+```
+
+**إلى:**
+```tsx
+<div 
+  onClick={() => setSearchOpen(true)}
+  className="flex-1 max-w-xl mx-4 cursor-pointer group hidden sm:block header-search-box"
+>
+```
+
+### 3. ملف: `src/components/UnifiedHeader.tsx`
+
+تحديث زر البحث بإضافة حماية إضافية:
+
+**من:** (سطر 179)
+```tsx
+<Button
+  variant="ghost"
+  size="sm"
+  onClick={() => setSearchOpen(true)}
+  className="gap-1.5 h-9 px-2 sm:px-3"
+  title={isArabic ? "بحث (⌘K)" : "Search (⌘K)"}
+>
+```
+
+**إلى:**
+```tsx
+<Button
+  variant="ghost"
+  size="sm"
+  onClick={() => setSearchOpen(true)}
+  className="gap-1.5 h-9 px-2 sm:px-3 relative z-[55] pointer-events-auto"
+  title={isArabic ? "بحث (⌘K)" : "Search (⌘K)"}
+>
 ```
 
 ---
@@ -98,49 +88,9 @@
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/ui/dialog-custom.css` | تحديث z-index للـ inputs و textareas من 20 إلى 45، إضافة `cursor: text` |
-| `src/pages/NewProjectPage.tsx` | (اختياري) إضافة classes صريحة للحقول |
-
----
-
-## التغييرات التفصيلية
-
-### `dialog-custom.css` - تحديث قسم FORM CARD PROTECTION
-
-**من:**
-```css
-.form-card-safe input,
-.form-card-safe textarea,
-.form-card-safe button:not([data-radix-select-trigger]) {
-  position: relative;
-  z-index: 20;
-  pointer-events: auto !important;
-}
-```
-
-**إلى:**
-```css
-.form-card-safe input,
-.form-card-safe textarea {
-  position: relative;
-  z-index: 45;
-  pointer-events: auto !important;
-  cursor: text !important;
-}
-
-.form-card-safe input:focus,
-.form-card-safe textarea:focus {
-  z-index: 50;
-  outline: none;
-}
-
-.form-card-safe button:not([data-radix-select-trigger]):not([data-radix-popover-trigger]) {
-  position: relative;
-  z-index: 45;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-```
+| `src/components/ui/dialog-custom.css` | إضافة `.header-search-box` CSS class |
+| `src/pages/HomePage.tsx` | إضافة class `header-search-box` لـ div البحث |
+| `src/components/UnifiedHeader.tsx` | إضافة `z-[55] pointer-events-auto` لزر البحث |
 
 ---
 
@@ -150,41 +100,37 @@
 |--------|---------|
 | Dialog Content | 100 |
 | Dialog Overlay | 99 |
-| Select Content | 70 |
+| Select/Dropdown Content | 70 |
 | Form Actions Buttons | 65 |
 | Form Actions Container | 60 |
-| Select Trigger | 55 |
-| Navigation Buttons | 51 |
-| Input/Textarea (focused) | 50 |
+| **Header Search Box** | **55** (جديد) |
+| Navigation Tabs | 55 |
+| Header | 50 |
 | Input/Textarea | 45 |
-| Breadcrumb Links | 46 |
-| Breadcrumb | 45 |
-| Form Card | 10 |
+| BackgroundImage | 10 |
 
 ---
 
 ## النتيجة المتوقعة
 
-| الحقل | قبل | بعد |
-|-------|-----|-----|
-| Project Name | ❌ لا يعمل | ✅ يعمل |
-| Project Description | ❌ لا يعمل | ✅ يعمل |
-| Project Location | ❌ لا يعمل | ✅ يعمل |
-| Client Name | ❌ لا يعمل | ✅ يعمل |
-| Estimated Value | ❌ لا يعمل | ✅ يعمل |
-| Currency Select | ✅ يعمل | ✅ يعمل |
-| Project Type Select | ✅ يعمل | ✅ يعمل |
-| Date Pickers | ✅ يعمل | ✅ يعمل |
+| العنصر | قبل | بعد |
+|--------|-----|-----|
+| صندوق البحث (HomePage) | ❌ لا يستجيب | ✅ يعمل |
+| زر البحث (UnifiedHeader) | ❓ قد لا يعمل | ✅ يعمل |
+| اختصار لوحة المفاتيح (⌘K) | ✅ يعمل | ✅ يعمل |
+| فتح نافذة البحث | ❌ لا يفتح | ✅ يفتح |
 
 ---
 
 ## ملاحظات تقنية
 
-1. **سبب اختيار z-index: 45**: 
-   - أعلى من Breadcrumbs (45-46)
-   - أقل من Select Triggers (55)
-   - لا يتعارض مع Dialog Overlays (99)
+1. **سبب اختيار z-index: 55**: 
+   - أعلى من Header (50)
+   - أعلى من Input/Textarea (45)
+   - أقل من Form Actions (60)
+   - لا يتعارض مع Dialog (99-100)
 
-2. **cursor: text**: يُحسن تجربة المستخدم بإظهار مؤشر الكتابة عند التمرير فوق الحقول
+2. **pointer-events: auto !important**: يضمن أن النقر يصل للعنصر حتى مع وجود طبقات أخرى
 
-3. **:focus z-index: 50**: يضمن أن الحقل النشط يظهر فوق العناصر الأخرى
+3. **cursor: pointer !important**: يُحسن UX بإظهار مؤشر الإصبع عند التمرير
+
