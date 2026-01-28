@@ -1,111 +1,116 @@
 
-# خطة إصلاح مشكلة القوائم المنسدلة داخل Dialog
+
+# خطة إصلاح مشكلة رفع الملفات بأسماء عربية
 
 ## تحليل المشكلة
 
-من فحص الكود والصورة المرفقة، يتضح أن:
+### الخطأ الظاهر
+```
+Error uploading file
+Invalid key: f269ae08-bcee-4935-a740-d236c26578bc/84eadb52-5ab6-491c-9afc-aa8dca200ee7/1769596624630_جدول الكميات_بفاتة المنح بالجبيل_اكسيا.xlsx
+```
 
-### المشكلة الجذرية
-عند فتح dropdown (Unit أو Category) داخل "Edit Item" dialog:
-- **Dialog Content** له `z-index: 100`
-- **Select Dropdown** له `z-index: 70`
-- **النتيجة**: القائمة المنسدلة تظهر **خلف** الـ Dialog!
+### السبب الجذري
+Supabase Storage يرفض مفاتيح الملفات (file keys) التي تحتوي على:
+- أحرف عربية
+- مسافات
+- أحرف خاصة غير مسموح بها
 
-### الملفات المتأثرة
+### الكود الحالي المُسبب للمشكلة
+في ملف `src/pages/ProjectDetailsPage.tsx` السطر 305:
+```typescript
+const filePath = `${user.id}/${projectId}/${Date.now()}_${file.name}`;
+```
 
-| الملف | المشكلة |
-|-------|---------|
-| `src/components/ui/select.tsx` | `z-[70]` أقل من Dialog (`z-[100]`) |
-| `src/components/ui/dialog-custom.css` | `z-index: 70` في السطر 93 |
+`file.name` يحتوي على الاسم الأصلي للملف (بما فيه الأحرف العربية).
+
+### كيف يتم التعامل في الملفات الأخرى (الحل الصحيح)
+في `ProjectAttachments.tsx` و `FastExtractionUploader.tsx`:
+```typescript
+const fileExt = file.name.split(".").pop();
+const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+```
 
 ---
 
 ## الحل المطلوب
 
-### التغيير 1: تحديث `src/components/ui/select.tsx`
+### التغيير: تحديث `src/pages/ProjectDetailsPage.tsx`
 
-رفع z-index للـ SelectContent ليكون أعلى من Dialog:
+استبدال الكود الحالي في دالة `handleFileUpload`:
 
 ```typescript
-// السطر 68-69 - قبل:
-className={cn(
-  "relative z-[70] max-h-96 min-w-[8rem] ..."
+// قبل (السطر 304-305):
+for (const file of Array.from(files)) {
+  const filePath = `${user.id}/${projectId}/${Date.now()}_${file.name}`;
 
 // بعد:
-className={cn(
-  "relative z-[150] max-h-96 min-w-[8rem] ..."
+for (const file of Array.from(files)) {
+  const fileExt = file.name.split(".").pop() || "file";
+  const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+  const filePath = `${user.id}/${projectId}/${safeFileName}`;
 ```
 
-**لماذا `z-[150]`؟**
-- Dialog Overlay = `z-[99]`
-- Dialog Content = `z-[100]`
-- Select Dropdown = **`z-[150]`** (أعلى من الكل!)
+### توضيح التغييرات
 
-### التغيير 2: تحديث `src/components/ui/dialog-custom.css`
+| العنصر | قبل | بعد |
+|--------|-----|-----|
+| اسم الملف في Storage | `1769596624630_جدول الكميات.xlsx` | `1769596624630_x7k2m9.xlsx` |
+| اسم الملف المحفوظ | `file.name` مباشرة | `safeFileName` (آمن) |
+| الاسم المعروض للمستخدم | يُحفظ في DB في عمود `file_name` | لا تغيير - يبقى الاسم الأصلي |
 
-تحديث CSS override للـ Select داخل Dialogs:
+### آلية العمل بعد التغيير
 
-```css
-/* السطر 92-94 - قبل: */
-[data-radix-select-content] {
-  z-index: 70 !important;
-}
+```text
+1. المستخدم يرفع ملف: "جدول الكميات_المنح.xlsx"
 
-/* بعد: */
-[data-radix-select-content] {
-  z-index: 150 !important;
-}
+2. التحويل:
+   - file.name = "جدول الكميات_المنح.xlsx"
+   - fileExt = "xlsx"
+   - safeFileName = "1769596624630_x7k2m9.xlsx"
+   - filePath = "user-id/project-id/1769596624630_x7k2m9.xlsx"
+
+3. الحفظ:
+   - Storage: يُرفع الملف بالمسار الآمن ✅
+   - Database: يُحفظ الاسم الأصلي "جدول الكميات_المنح.xlsx" ✅
+
+4. العرض للمستخدم:
+   - يرى المستخدم الاسم الأصلي "جدول الكميات_المنح.xlsx" ✅
+   - التحميل يعمل باستخدام file_path من DB ✅
 ```
 
 ---
 
-## التسلسل الهرمي الجديد لـ z-index
-
-| العنصر | z-index القديم | z-index الجديد |
-|--------|----------------|----------------|
-| Base UI Elements | 10-50 | 10-50 |
-| Navigation Tabs | 55-56 | 55-56 |
-| Action Buttons | 60-65 | 60-65 |
-| **Select/Dropdown Content** | **70** | **150** |
-| Dialog Overlay | 99 | 99 |
-| Dialog Content | 100 | 100 |
-
-**الآن Select Dropdown سيظهر دائماً فوق Dialog!**
-
----
-
-## ملخص الملفات المتأثرة
+## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/ui/select.tsx` | تغيير `z-[70]` إلى `z-[150]` |
-| `src/components/ui/dialog-custom.css` | تغيير `z-index: 70` إلى `z-index: 150` |
+| `src/pages/ProjectDetailsPage.tsx` | تحديث بناء `filePath` ليستخدم اسم ملف آمن بدلاً من الاسم الأصلي |
 
 ---
 
 ## النتيجة المتوقعة
 
 ### قبل الإصلاح
-- القوائم المنسدلة للوحدة (Unit) لا تعمل داخل Edit Item
-- القوائم المنسدلة للفئة (Category) لا تعمل داخل Edit Item
-- القوائم المنسدلة في جميع الـ dialogs لا تعمل
+- ❌ رفع ملفات بأسماء عربية يفشل بخطأ "Invalid key"
+- ❌ رفع ملفات بأسماء تحتوي مسافات يفشل
+- ❌ رفع ملفات بأحرف خاصة يفشل
 
 ### بعد الإصلاح
-- جميع القوائم المنسدلة تظهر بشكل صحيح فوق الـ Dialog
-- يمكن اختيار القيم من القوائم بسهولة
-- لا تعارض في z-index
+- ✅ رفع ملفات بأسماء عربية يعمل بنجاح
+- ✅ رفع ملفات بأي اسم يعمل بنجاح
+- ✅ المستخدم يرى الاسم الأصلي للملف في الواجهة
+- ✅ التحميل يعمل بشكل صحيح
 
 ---
 
 ## خطوات الاختبار
 
-1. فتح صفحة تفاصيل المشروع
-2. الذهاب لتبويب BOQ
-3. النقر على ⋮ لأي بند → Edit
-4. **في Edit Item dialog:**
-   - النقر على dropdown الوحدة (Unit) → يجب أن تظهر القائمة
-   - النقر على dropdown الفئة (Category) → يجب أن تظهر القائمة
-   - اختيار قيمة من كل قائمة
-5. اختبار Auto Price dialog → التحقق من أن dropdowns تعمل
-6. اختبار Quick Price dialog → التحقق من أن dropdowns تعمل
-7. اختبار Detailed Price dialog → التحقق من أن dropdowns تعمل
+1. الذهاب لصفحة تفاصيل المشروع
+2. النقر على تبويب Documents
+3. النقر على "Upload File"
+4. اختيار ملف بأسم عربي (مثل: جدول الكميات.xlsx)
+5. التحقق من أن الملف يُرفع بنجاح
+6. التحقق من ظهور الملف في القائمة بالاسم الأصلي
+7. التحقق من أن التحميل يعمل بشكل صحيح
+
