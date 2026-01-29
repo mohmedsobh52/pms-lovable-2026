@@ -353,7 +353,7 @@ export default function NewProjectPage() {
                           {formData.startDate ? (
                             format(formData.startDate, "yyyy-MM-dd")
                           ) : (
-                            <span>{isArabic ? "اختر تاريخ البدء" : "Pick start date"}</span>
+                            <span className="text-muted-foreground">yyyy-mm-dd</span>
                           )}
                         </Button>
                       </PopoverTrigger>
@@ -389,7 +389,7 @@ export default function NewProjectPage() {
                           {formData.endDate ? (
                             format(formData.endDate, "yyyy-MM-dd")
                           ) : (
-                            <span>{isArabic ? "اختر تاريخ الانتهاء" : "Pick end date"}</span>
+                            <span className="text-muted-foreground">yyyy-mm-dd</span>
                           )}
                         </Button>
                       </PopoverTrigger>
