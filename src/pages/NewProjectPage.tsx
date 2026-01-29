@@ -351,7 +351,7 @@ export default function NewProjectPage() {
                         >
                           <CalendarIcon className="me-2 h-4 w-4" />
                           {formData.startDate ? (
-                            format(formData.startDate, "PPP", { locale: isArabic ? ar : enUS })
+                            format(formData.startDate, "yyyy-MM-dd")
                           ) : (
                             <span>{isArabic ? "اختر تاريخ البدء" : "Pick start date"}</span>
                           )}
@@ -387,7 +387,7 @@ export default function NewProjectPage() {
                         >
                           <CalendarIcon className="me-2 h-4 w-4" />
                           {formData.endDate ? (
-                            format(formData.endDate, "PPP", { locale: isArabic ? ar : enUS })
+                            format(formData.endDate, "yyyy-MM-dd")
                           ) : (
                             <span>{isArabic ? "اختر تاريخ الانتهاء" : "Pick end date"}</span>
                           )}
