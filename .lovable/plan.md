@@ -1,178 +1,118 @@
 
-# تحسين تحليل المخططات لاستخراج كميات الحفر والردم والمواسير بالتفصيل
+# خطة إصلاح مشكلة حفظ الملفات
 
-## المشكلة الحالية
+## تشخيص المشكلة
 
-التحليل الحالي يستخرج كميات عامة مثل "Water Profiles" و "Water Network" لكنه لا يُفصّل:
-- **كميات الحفر** بأنواعها (حفر عادي، حفر صخري، إلخ)
-- **كميات الردم** بأنواعها (ردم عادي، ردم محسن، إلخ)
-- **أنواع المواسير** وقطر كل نوع وكميته (PVC 6"، HDPE 4"، إلخ)
+### السبب الجذري
+الكود يقرأ المشاريع من جدول `saved_projects` لكن الـ foreign key في جدول `project_attachments` يشير إلى جدول `project_data`.
+
+```text
+الكود الحالي:
+┌─────────────────────────┐      ┌───────────────────────┐
+│   saved_projects        │  ←   │ FastExtractionProject │
+│   (يقرأ المشاريع منه)   │      │ Selector.tsx          │
+└─────────────────────────┘      └───────────────────────┘
+                                           │
+                                           ▼
+                                 ┌───────────────────────┐
+                                 │ project_attachments   │
+                                 │ (يحاول الحفظ هنا)     │
+                                 └───────────────────────┘
+                                           │
+                                           ▼ Foreign Key
+                                 ┌───────────────────────┐
+                                 │   project_data ❌     │
+                                 │ (لا يجد المشروع!)     │
+                                 └─────────────────────── 
+```
+
+### مثال عملي
+- مشروع "الدلم" في `saved_projects`: `921a8167-cd66-4cec-b196-0c35eadac7a9`
+- نفس المشروع في `project_data`: `706395e9-7ec9-4da9-aed5-36ff68e952c2`
+- عند الحفظ بـ ID من `saved_projects`، يفشل لأن الـ FK يتوقع ID من `project_data`
 
 ## الحل المقترح
 
-### 1. إضافة نوع مخطط جديد "أعمال شبكات" (Infrastructure/Networks)
+تغيير الكود ليقرأ المشاريع من جدول `project_data` بدلاً من `saved_projects`.
 
-إضافة خيار متخصص في أنواع المخططات يركز على أعمال البنية التحتية والشبكات.
+### التغييرات المطلوبة
 
-### 2. تحسين الـ System Prompt للاستخراج التفصيلي
+#### الملف: `src/components/FastExtractionProjectSelector.tsx`
 
-تعديل الـ Edge Function لتتضمن prompt متخصص يطلب:
-- تفصيل أعمال الحفر حسب العمق والنوع
-- تفصيل أعمال الردم حسب طبقات التأسيس
-- جدول أنواع المواسير مع القطر والطول
-
-### 3. إضافة تصنيفات (Categories) متخصصة
-
-```text
-Excavation Categories:
-- Trench Excavation (حفر خنادق)
-- Rock Excavation (حفر صخري)
-- Normal Soil Excavation (حفر تربة عادية)
-
-Backfilling Categories:
-- Sand Bedding (فرشة رملية)
-- Selected Backfill (ردم محسن)
-- Normal Backfill (ردم عادي)
-
-Pipe Categories:
-- uPVC Pipes (by diameter)
-- HDPE Pipes (by diameter)
-- GRP Pipes (by diameter)
-- Steel Pipes (by diameter)
-- Fittings & Accessories
-```
-
-## التغييرات التقنية
-
-### الملف 1: `src/components/FastExtractionDrawingAnalyzer.tsx`
-
-**إضافة نوع مخطط جديد:**
+**التغيير 1: تعديل دالة `fetchProjects`**
 ```typescript
-const drawingTypes = [
-  // ... existing types
-  { id: "infrastructure", labelEn: "Infrastructure/Networks", labelAr: "شبكات وبنية تحتية" },
-];
+// قبل (السطر 64-68)
+const { data: projectsData, error } = await supabase
+  .from("saved_projects")
+  .select("id, name, file_name, created_at")
+  ...
+
+// بعد
+const { data: projectsData, error } = await supabase
+  .from("project_data")
+  .select("id, name, created_at")
+  ...
 ```
 
-### الملف 2: `supabase/functions/analyze-drawings/index.ts`
-
-**إضافة Prompt متخصص لأعمال الشبكات:**
-
+**التغيير 2: تعديل إنشاء مشروع جديد**
 ```typescript
-const infrastructurePromptArabic = `أنت خبير حصر كميات متخصص في أعمال شبكات المياه والصرف والبنية التحتية.
+// قبل (السطر 129-136)
+const { data: newProject, error: projectError } = await supabase
+  .from("saved_projects")
+  .insert({
+    name: newProjectName.trim(),
+    user_id: user.id,
+    file_name: successFiles[0]?.name || null,
+  })
+  ...
 
-المطلوب استخراجه بالتفصيل:
-
-### 1. أعمال الحفر (Excavation):
-- حفر الخنادق: الطول × العرض × العمق = الحجم (م³)
-- حفر غرف التفتيش: العدد والأبعاد
-- التفريق بين: حفر عادي / حفر صخري / حفر في مياه جوفية
-
-### 2. أعمال الردم (Backfilling):
-- فرشة رملية تحت المواسير (سمك 10-15 سم)
-- ردم جوانب المواسير (رمل أو تربة محسنة)
-- ردم نهائي فوق المواسير (تربة عادية)
-- حساب كل طبقة بشكل منفصل
-
-### 3. المواسير (Pipes):
-لكل نوع من المواسير أذكر:
-| النوع | القطر | الطول (م.ط) | العدد/الكمية |
-مثال: 
-- uPVC 6" (150mm) - 245 م.ط
-- HDPE 4" (100mm) - 180 م.ط
-
-### 4. القطع والتركيبات (Fittings):
-- المحابس (Valves) - العدد لكل قطر
-- الكيعان (Elbows) - العدد لكل قطر  
-- النقاط T و Y
-- وصلات الفلنج
-
-### 5. غرف التفتيش (Manholes):
-- عدد الغرف
-- الأبعاد والعمق لكل غرفة
-
-أعد النتائج بتنسيق JSON مع category واضح لكل بند.`;
+// بعد
+const { data: newProject, error: projectError } = await supabase
+  .from("project_data")
+  .insert({
+    name: newProjectName.trim(),
+    user_id: user.id,
+  })
+  ...
 ```
 
-**تحديث JSON Schema المتوقع:**
-
-```json
-{
-  "quantities": [
-    {
-      "item_number": "1",
-      "category": "Excavation",
-      "subcategory": "Trench Excavation",
-      "description": "حفر خنادق لمواسير المياه عمق 1.5م",
-      "quantity": 850,
-      "unit": "m³",
-      "measurement_basis": "Length 450m × Width 1.2m × Depth 1.5m",
-      "pipe_diameter": null,
-      "pipe_material": null
-    },
-    {
-      "item_number": "2", 
-      "category": "Pipes",
-      "subcategory": "uPVC Water Pipes",
-      "description": "مواسير uPVC قطر 6 بوصة (150مم)",
-      "quantity": 450,
-      "unit": "m",
-      "pipe_diameter": "150mm / 6 inch",
-      "pipe_material": "uPVC"
-    },
-    {
-      "item_number": "3",
-      "category": "Backfilling",
-      "subcategory": "Sand Bedding",
-      "description": "فرشة رملية تحت المواسير سمك 10سم",
-      "quantity": 54,
-      "unit": "m³"
-    }
-  ]
+**التغيير 3: تحديث الـ Interface**
+```typescript
+// تعديل Interface ليتوافق مع project_data
+interface Project {
+  id: string;
+  name: string;
+  created_at: string;
+  files_count: number;
+  categories: string[];
 }
-```
-
-### الملف 3: تحسين عرض النتائج
-
-إضافة تجميع حسب الفئة (Grouping by Category) لتسهيل القراءة:
-
-```text
-┌─────────────────────────────────────┐
-│ 📊 Excavation Works (أعمال الحفر)  │
-├─────────────────────────────────────┤
-│ 1. Trench Excavation    850 m³      │
-│ 2. Rock Excavation      120 m³      │
-│                   Total: 970 m³     │
-├─────────────────────────────────────┤
-│ 🔧 Pipes (المواسير)                 │
-├─────────────────────────────────────┤
-│ uPVC 6" (150mm)         450 m       │
-│ uPVC 4" (100mm)         280 m       │
-│ HDPE 8" (200mm)         150 m       │
-├─────────────────────────────────────┤
-│ 🏗️ Backfilling (الردم)             │
-├─────────────────────────────────────┤
-│ Sand Bedding            54 m³       │
-│ Selected Fill           180 m³      │
-│ Normal Backfill         650 m³      │
-└─────────────────────────────────────┘
 ```
 
 ## ملخص التغييرات
 
 | الملف | التغيير |
 |-------|---------|
-| `FastExtractionDrawingAnalyzer.tsx` | إضافة نوع "شبكات وبنية تحتية" + تحسين عرض النتائج بتجميع الفئات |
-| `analyze-drawings/index.ts` | إضافة prompt متخصص للحفر/الردم/المواسير + تحديث JSON Schema |
+| `FastExtractionProjectSelector.tsx` | تغيير من `saved_projects` إلى `project_data` |
 
 ## النتيجة المتوقعة
 
-بعد التحديث، عند تحليل ملف "المخططات.pdf" مع اختيار نوع "شبكات وبنية تحتية":
-
 ```text
-✅ استخراج كميات الحفر منفصلة عن بعضها
-✅ استخراج كميات الردم بطبقاتها المختلفة
-✅ جدول تفصيلي بأنواع المواسير وأقطارها وأطوالها
-✅ حساب كميات القطع والتركيبات (Fittings)
-✅ عرض النتائج مجمعة حسب الفئة
+بعد التغيير:
+┌─────────────────────────┐      ┌───────────────────────┐
+│   project_data          │  ←   │ FastExtractionProject │
+│   (يقرأ المشاريع منه)   │      │ Selector.tsx          │
+└─────────────────────────┘      └───────────────────────┘
+           │                               │
+           │                               ▼
+           │                     ┌───────────────────────┐
+           │                     │ project_attachments   │
+           │                     │ (يحاول الحفظ هنا)     │
+           │                     └───────────────────────┘
+           │                               │
+           └───────────────────────────────┘
+                    Foreign Key ✅
 ```
+
+- ✅ الملفات ستُحفظ بنجاح
+- ✅ المشاريع ستظهر مع عدد الملفات الصحيح
+- ✅ الكميات المستخرجة ستُحفظ مع الملفات
