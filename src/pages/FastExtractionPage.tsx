@@ -248,7 +248,10 @@ export default function FastExtractionPage() {
                   />
                 )}
                 {currentStep === 4 && (
-                  <FastExtractionProjectSelector files={files} />
+                  <FastExtractionProjectSelector 
+                    files={files} 
+                    drawingResults={drawingResults}
+                  />
                 )}
               </CardContent>
             </Card>

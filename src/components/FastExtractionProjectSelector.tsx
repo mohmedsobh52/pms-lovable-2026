@@ -21,12 +21,23 @@ interface Project {
   categories: string[];
 }
 
+interface DrawingAnalysisResult {
+  fileName: string;
+  fileId?: string;
+  success: boolean;
+  quantities?: any[];
+  drawingInfo?: any;
+  summary?: any;
+}
+
 interface FastExtractionProjectSelectorProps {
   files: UploadedFile[];
+  drawingResults?: DrawingAnalysisResult[];
 }
 
 export default function FastExtractionProjectSelector({
   files,
+  drawingResults = [],
 }: FastExtractionProjectSelectorProps) {
   const { language } = useLanguage();
   const isArabic = language === "ar";
@@ -129,16 +140,32 @@ export default function FastExtractionProjectSelector({
         projectId = newProject.id;
       }
 
-      // Save attachments
-      const attachments = successFiles.map((file) => ({
-        project_id: projectId,
-        user_id: user.id,
-        file_name: file.name,
-        file_path: file.storagePath!,
-        file_type: file.type,
-        file_size: file.size,
-        category: file.category || "general",
-      }));
+      // Save attachments with analysis results
+      const attachments = successFiles.map((file) => {
+        // Find analysis result for this file
+        const analysisResult = drawingResults.find(
+          (r) => r.fileName === file.name || r.fileId === file.id
+        );
+
+        return {
+          project_id: projectId,
+          user_id: user.id,
+          file_name: file.name,
+          file_path: file.storagePath!,
+          file_type: file.type,
+          file_size: file.size,
+          category: file.category || "general",
+          is_analyzed: analysisResult?.success ?? false,
+          analysis_result: analysisResult
+            ? {
+                success: analysisResult.success,
+                quantities: analysisResult.quantities || [],
+                drawing_info: analysisResult.drawingInfo || null,
+                summary: analysisResult.summary || null,
+              }
+            : null,
+        };
+      });
 
       const { error: attachError } = await supabase
         .from("project_attachments")
