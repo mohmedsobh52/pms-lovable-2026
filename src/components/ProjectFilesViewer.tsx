@@ -40,6 +40,7 @@ interface ProjectAttachment {
   file_size: number | null;
   category: string | null;
   is_analyzed: boolean | null;
+  analysis_result: unknown;
   uploaded_at: string | null;
 }
 
@@ -161,7 +162,7 @@ export function ProjectFilesViewer({ isOpen, onClose }: ProjectFilesViewerProps)
       try {
         const { data, error } = await supabase
           .from("project_attachments")
-          .select("id, project_id, file_name, file_type, file_size, category, is_analyzed, uploaded_at")
+          .select("id, project_id, file_name, file_type, file_size, category, is_analyzed, analysis_result, uploaded_at")
           .eq("project_id", selectedProjectId)
           .order("category", { ascending: true });
 
@@ -300,27 +301,40 @@ export function ProjectFilesViewer({ isOpen, onClose }: ProjectFilesViewerProps)
                           {category}
                         </h4>
                         <div className="space-y-2">
-                          {categoryFiles.map((file) => (
-                            <div
-                              key={file.id}
-                              className="flex items-center gap-3 p-2 rounded-lg bg-background border hover:bg-muted/50 transition-colors"
-                            >
-                              {getFileIcon(file.file_type)}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">
-                                  {file.file_name}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {formatFileSize(file.file_size)}
-                                </p>
+                          {categoryFiles.map((file) => {
+                            const result = file.analysis_result as { quantities?: any[]; summary?: { totalItems?: number } } | null;
+                            const quantitiesCount = 
+                              result?.quantities?.length || 
+                              result?.summary?.totalItems || 
+                              0;
+                            
+                            return (
+                              <div
+                                key={file.id}
+                                className="flex items-center gap-3 p-2 rounded-lg bg-background border hover:bg-muted/50 transition-colors"
+                              >
+                                {getFileIcon(file.file_type)}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">
+                                    {file.file_name}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <span>{formatFileSize(file.file_size)}</span>
+                                    {quantitiesCount > 0 && (
+                                      <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                                        {quantitiesCount} {isArabic ? "بند" : "items"}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                {file.is_analyzed ? (
+                                  <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                                ) : (
+                                  <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                                )}
                               </div>
-                              {file.is_analyzed ? (
-                                <CheckCircle className="h-4 w-4 text-green-500" />
-                              ) : (
-                                <Clock className="h-4 w-4 text-muted-foreground" />
-                              )}
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     ))}
