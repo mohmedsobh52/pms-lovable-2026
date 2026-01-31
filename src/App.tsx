@@ -45,7 +45,7 @@ const HistoricalPricingPage = lazy(() => import("./pages/HistoricalPricingPage")
 const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
 const MaterialPricesPage = lazy(() => import("./pages/MaterialPricesPage"));
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
-const FastExtractionPage = lazy(() => import("./pages/FastExtractionPage"));
+// FastExtractionPage removed - now integrated in AttachmentsTab
 const LibraryPage = lazy(() => import("./pages/LibraryPage"));
 const ProjectDetailsPage = lazy(() => import("./pages/ProjectDetailsPage"));
 const NewProjectPage = lazy(() => import("./pages/NewProjectPage"));
@@ -116,7 +116,7 @@ const App = () => (
                         <Route path="/resources" element={<ResourcesPage />} />
                         <Route path="/material-prices" element={<MaterialPricesPage />} />
                         <Route path="/calendar" element={<CalendarPage />} />
-                        <Route path="/fast-extraction" element={<FastExtractionPage />} />
+                        <Route path="/fast-extraction" element={<Navigate to="/projects?tab=attachments&mode=extraction" replace />} />
                         <Route path="/library" element={<LibraryPage />} />
                         <Route path="/cost-control-report" element={<CostControlReportPage />} />
                         <Route path="/pricing-accuracy" element={<PricingAccuracyPage />} />

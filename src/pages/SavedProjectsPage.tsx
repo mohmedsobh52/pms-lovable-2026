@@ -84,22 +84,28 @@ export default function SavedProjectsPage() {
   const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   
-  // Tab state - check URL for initial tab
+  // Tab state - check URL for initial tab and mode
   const urlTab = searchParams.get("tab");
+  const urlMode = searchParams.get("mode");
   const initialTab = urlTab === "analyze" ? "analyze" : 
                      urlTab === "reports" ? "reports" : 
                      urlTab === "attachments" ? "attachments" : "projects";
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [extractionMode, setExtractionMode] = useState(urlMode === "extraction");
   
   // Update tab when URL changes
   useEffect(() => {
     const tab = searchParams.get("tab");
+    const mode = searchParams.get("mode");
     if (tab === "analyze") {
       setActiveTab("analyze");
     } else if (tab === "reports") {
       setActiveTab("reports");
     } else if (tab === "attachments") {
       setActiveTab("attachments");
+      if (mode === "extraction") {
+        setExtractionMode(true);
+      }
     }
   }, [searchParams]);
 
@@ -606,7 +612,7 @@ export default function SavedProjectsPage() {
 
           {/* Attachments Tab */}
           <TabsContent value="attachments">
-            <AttachmentsTab />
+            <AttachmentsTab initialExtractionMode={extractionMode} />
           </TabsContent>
         </Tabs>
       </main>
