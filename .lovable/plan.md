@@ -1,231 +1,143 @@
 
-# نقل Fast Extraction إلى تبويب المرفقات (Attachments)
+# إصلاح مشكلة عدم عمل Fast Extraction
 
-## الهدف
+## المشاكل المكتشفة
 
-دمج جميع وظائف صفحة "الاستخراج السريع" (`FastExtractionPage`) داخل تبويب المرفقات في صفحة المشاريع `/projects?tab=attachments`، مع الاحتفاظ بجميع الوظائف والربط مع المشاريع.
-
-## التحليل الحالي
-
+### 1. مشكلة تمرير الـ Props
 ```text
-الهيكل الحالي:
-┌─────────────────────────────────────────────────────┐
-│ صفحة مستقلة: /fast-extraction                        │
-├─────────────────────────────────────────────────────┤
-│ FastExtractionStepper (خطوات العملية)                │
-│ ├─ خطوة 1: FastExtractionUploader (رفع الملفات)     │
-│ ├─ خطوة 2: FastExtractionClassifier (تصنيف)         │
-│ ├─ خطوة 3: FastExtractionDrawingAnalyzer (تحليل)   │
-│ └─ خطوة 4: FastExtractionProjectSelector (ربط)      │
-└─────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────┐
-│ تبويب المرفقات: /projects?tab=attachments            │
-├─────────────────────────────────────────────────────┤
-│ AttachmentsTab                                       │
-│ └─ ProjectAttachments (إدارة الملفات فقط)           │
-└─────────────────────────────────────────────────────┘
+SavedProjectsPage.tsx:
+  extractionMode = true (من URL parameter)
+  ↓
+  <AttachmentsTab initialExtractionMode={extractionMode} />
+  ↓
+AttachmentsTab.tsx:
+  showFastExtraction = useState(initialExtractionMode)  
+  ← يعمل مرة واحدة فقط عند التهيئة ❌
 ```
 
-## الهيكل الجديد المقترح
+### 2. مشكلة عدم ظهور اللوحة عند الضغط على الزر
+من الصورة المرفقة، يظهر أن:
+- زر "Fast Extraction" موجود ومفعّل
+- لكن عند الضغط عليه لا تظهر لوحة الاستخراج
+- المشكلة قد تكون في شرط العرض أو في تحديث الـ state
 
+### 3. مشكلة Warning في Console
 ```text
-┌──────────────────────────────────────────────────────────────────┐
-│ تبويب المرفقات المحسّن: /projects?tab=attachments                 │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │ شريط الأدوات العلوي                                          │ │
-│  │ [⚡ استخراج سريع] [📂 Project Filter] [+ Upload Files]       │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-│                                                                   │
-│  ◄ عند الضغط على "استخراج سريع":                                │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │ FastExtractionPanel (مكون جديد مدمج)                        │ │
-│  │ ├─ FastExtractionStepper                                     │ │
-│  │ ├─ FastExtractionUploader                                    │ │
-│  │ ├─ FastExtractionClassifier                                  │ │
-│  │ ├─ FastExtractionDrawingAnalyzer                             │ │
-│  │ └─ FastExtractionProjectSelector                             │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-│                                                                   │
-│  ◄ أو عرض الملفات الحالية:                                      │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │ ProjectAttachments (القائمة الحالية)                         │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
+Warning: Function components cannot be given refs.
+Check the render method of `DialogContent`.
 ```
+هذا يشير لمشكلة في `ProjectFilesViewer` الذي يستخدم Sheet/Dialog
 
-## التغييرات المطلوبة
+## الإصلاحات المطلوبة
 
-### 1. إنشاء مكون جديد `FastExtractionPanel.tsx`
+### 1. إصلاح `AttachmentsTab.tsx`
 
-مكون يجمع كل وظائف الاستخراج السريع في لوحة قابلة للتضمين:
+**المشكلة**: `initialExtractionMode` لا يُحدّث الـ state بعد التهيئة
 
 ```typescript
-// src/components/fast-extraction/FastExtractionPanel.tsx
-interface FastExtractionPanelProps {
-  onComplete?: (projectId: string) => void;
-  onCancel?: () => void;
-  defaultProjectId?: string;
-}
-
-export function FastExtractionPanel({ 
-  onComplete, 
-  onCancel,
-  defaultProjectId 
-}: FastExtractionPanelProps) {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [files, setFiles] = useState<UploadedFile[]>([]);
-  const [drawingResults, setDrawingResults] = useState<any[]>([]);
-  
-  return (
-    <Card className="border-primary/20">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-primary" />
-            {isArabic ? "الاستخراج السريع" : "Fast Extraction"}
-          </CardTitle>
-          <Button variant="ghost" size="sm" onClick={onCancel}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <FastExtractionStepper currentStep={currentStep} onStepClick={setCurrentStep} />
-        {/* Step content... */}
-      </CardContent>
-    </Card>
-  );
-}
+// الحل: إضافة useEffect لمراقبة التغييرات
+useEffect(() => {
+  if (initialExtractionMode) {
+    setShowFastExtraction(true);
+  }
+}, [initialExtractionMode]);
 ```
 
-### 2. تحديث `AttachmentsTab.tsx`
+### 2. إصلاح عرض FastExtractionPanel
 
-إضافة زر الاستخراج السريع وحالة لعرض اللوحة:
-
+**تحسين الشرط**:
 ```typescript
-// src/components/projects/AttachmentsTab.tsx
+{showFastExtraction ? (
+  <FastExtractionPanel
+    defaultProjectId={selectedProjectId}
+    onComplete={handleExtractionComplete}
+    onCancel={() => setShowFastExtraction(false)}
+  />
+) : (
+  <ProjectAttachments projectId={selectedProjectId} />
+)}
+```
+
+### 3. إضافة console.log للتشخيص
+```typescript
+console.log("showFastExtraction:", showFastExtraction);
+console.log("initialExtractionMode:", initialExtractionMode);
+```
+
+### 4. التحقق من استيراد FastExtractionPanel
+التأكد من أن المكون يتم استيراده بشكل صحيح:
+```typescript
 import { FastExtractionPanel } from "@/components/fast-extraction/FastExtractionPanel";
-
-export function AttachmentsTab({ initialProjectId }: AttachmentsTabProps) {
-  const [showFastExtraction, setShowFastExtraction] = useState(false);
-  
-  return (
-    <div className="space-y-6">
-      {/* Quick Actions Bar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Button 
-          onClick={() => setShowFastExtraction(true)}
-          className="gap-2"
-          variant={showFastExtraction ? "secondary" : "default"}
-        >
-          <Zap className="w-4 h-4" />
-          {isArabic ? "استخراج سريع" : "Fast Extraction"}
-        </Button>
-        {/* Project filter... */}
-      </div>
-      
-      {/* Fast Extraction Panel */}
-      {showFastExtraction && (
-        <FastExtractionPanel
-          defaultProjectId={selectedProjectId}
-          onComplete={(projectId) => {
-            setShowFastExtraction(false);
-            setSelectedProjectId(projectId);
-            // Refresh attachments
-          }}
-          onCancel={() => setShowFastExtraction(false)}
-        />
-      )}
-      
-      {/* Existing Project Attachments */}
-      {!showFastExtraction && (
-        <ProjectAttachments projectId={selectedProjectId} />
-      )}
-    </div>
-  );
-}
 ```
 
-### 3. تحديث التوجيهات في `App.tsx`
-
-إضافة إعادة توجيه من `/fast-extraction` إلى التبويب الجديد:
-
-```typescript
-// إعادة توجيه من الصفحة المستقلة إلى التبويب
-<Route 
-  path="/fast-extraction" 
-  element={<Navigate to="/projects?tab=attachments&mode=extraction" replace />} 
-/>
-```
-
-### 4. تحديث `SavedProjectsPage.tsx`
-
-قراءة معلمة `mode=extraction` لفتح لوحة الاستخراج تلقائياً:
-
-```typescript
-const urlMode = searchParams.get("mode");
-const [extractionMode, setExtractionMode] = useState(urlMode === "extraction");
-```
-
-### 5. إنشاء مجلد المكونات الجديد
-
-```text
-src/components/fast-extraction/
-├── FastExtractionPanel.tsx       ← المكون الرئيسي المدمج
-├── index.ts                       ← تصدير المكونات
-└── (المكونات الأصلية تبقى في مكانها)
-```
-
-## ملخص الملفات
+## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/fast-extraction/FastExtractionPanel.tsx` | **ملف جديد** - المكون المدمج |
-| `src/components/projects/AttachmentsTab.tsx` | إضافة زر وحالة الاستخراج السريع |
-| `src/App.tsx` | إعادة توجيه `/fast-extraction` |
-| `src/pages/SavedProjectsPage.tsx` | دعم معلمة `mode=extraction` |
+| `AttachmentsTab.tsx` | إضافة useEffect لمزامنة initialExtractionMode |
+| `FastExtractionPanel.tsx` | التأكد من عدم وجود أخطاء في العرض |
 
-## مميزات التكامل
+## التفاصيل التقنية
 
-1. **ربط مباشر بالمشروع**: عند اختيار مشروع في فلتر المرفقات، يُمرر تلقائياً للاستخراج السريع
-2. **تحديث فوري**: بعد إكمال الاستخراج، تُحدث قائمة المرفقات تلقائياً
-3. **توافق عكسي**: الروابط القديمة `/fast-extraction` تعمل (إعادة توجيه)
-4. **تجربة سلسة**: لا حاجة للانتقال بين صفحات مختلفة
-5. **الاحتفاظ بالوظائف**: جميع خطوات الاستخراج (رفع، تصنيف، تحليل، ربط) متاحة
+### إصلاح AttachmentsTab.tsx
 
-## مخطط التدفق
+```typescript
+// إضافة هذا الـ useEffect بعد تعريف الـ state
+useEffect(() => {
+  // تفعيل الاستخراج السريع إذا كان الـ prop يطلب ذلك
+  if (initialExtractionMode && !showFastExtraction) {
+    setShowFastExtraction(true);
+  }
+}, [initialExtractionMode]);
+
+// إضافة log للتشخيص (يمكن إزالته لاحقاً)
+useEffect(() => {
+  console.log("AttachmentsTab state:", {
+    showFastExtraction,
+    initialExtractionMode,
+    selectedProjectId
+  });
+}, [showFastExtraction, initialExtractionMode, selectedProjectId]);
+```
+
+### التحقق من FastExtractionPanel
+
+1. التأكد من أن المكون لا يُرجع `null` في أي حالة
+2. التحقق من imports المكونات الفرعية
+3. التأكد من عدم وجود errors تمنع الـ render
+
+### إضافة Error Boundary (اختياري)
+
+```typescript
+// في AttachmentsTab.tsx
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+{showFastExtraction && (
+  <ErrorBoundary fallback={<div>Error loading Fast Extraction</div>}>
+    <FastExtractionPanel {...props} />
+  </ErrorBoundary>
+)}
+```
+
+## تسلسل الإصلاح
 
 ```text
-المستخدم يفتح /projects?tab=attachments
-           │
-           ▼
-    ┌──────────────────┐
-    │ شريط الأدوات     │
-    │ [⚡ استخراج سريع] │
-    └────────┬─────────┘
-             │ (ضغط)
-             ▼
-    ┌──────────────────────────────────────┐
-    │ FastExtractionPanel                   │
-    │ ┌────────────────────────────────┐   │
-    │ │ Stepper: [1]-[2]-[3]-[4]       │   │
-    │ └────────────────────────────────┘   │
-    │                                       │
-    │ خطوة 1: رفع الملفات                   │
-    │ خطوة 2: تصنيف بالذكاء الاصطناعي       │
-    │ خطوة 3: تحليل الرسومات               │
-    │ خطوة 4: ربط بالمشروع                 │
-    │                                       │
-    │ [إكمال] ─────────────────────────────│
-    └──────────────────────────────────────┘
-             │
-             ▼
-    ┌──────────────────────────────────────┐
-    │ تحديث قائمة ProjectAttachments       │
-    │ مع الملفات الجديدة المضافة            │
-    └──────────────────────────────────────┘
+1. تحديث AttachmentsTab.tsx
+   └─ إضافة useEffect لمزامنة الـ prop مع الـ state
+   
+2. إضافة logging مؤقت للتشخيص
+   └─ console.log لقيم الـ state
+   
+3. اختبار الزر
+   └─ التأكد من أن الضغط يُغيّر showFastExtraction
+   
+4. التحقق من ظهور اللوحة
+   └─ التأكد من render الـ FastExtractionPanel
 ```
+
+## النتائج المتوقعة
+
+- ✅ ظهور لوحة الاستخراج السريع عند الضغط على الزر
+- ✅ العمل مع URL parameter `?mode=extraction`
+- ✅ إغلاق اللوحة عند الضغط على X أو "Close Extraction"
+- ✅ الانتقال بين الخطوات (رفع، تصنيف، تحليل، ربط)
