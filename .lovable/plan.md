@@ -1,210 +1,185 @@
 
-# خطة إصلاح مشكلة عدم ظهور سعر البند في التقارير
+
+# خطة إزالة عمود AI Rate وتثبيت هيدر الجدول في التقارير
 
 ## المشكلة
 
-في تقرير "Bill of Quantities Report - Comprehensive Pricing"، جميع الأسعار تظهر "-" رغم أن:
-- Total Items: 485
-- **Total Value: 0** ← المشكلة الرئيسية
-- Excluded Items: 349
+1. **عمود AI Rate موجود في التقارير** - المستخدم يريد إزالته
+2. **هيدر الجدول لا يتكرر في كل صفحة** - يجب تثبيته عند الطباعة
 
 ## التحليل الفني
 
-### السبب الجذري
+### المواقع التي تحتاج تعديل في `ExportTab.tsx`:
 
-البيانات في `analysis_data` تحتوي على أسعار **صفر** من التحليل الأولي:
-
-```json
-{
-  "unit_price": 0,
-  "total_price": 0,
-  "rate": 0
-}
-```
-
-بينما الأسعار المُحدّثة (بعد التسعير بـ AI أو يدوياً) مُخزنة في جدول `project_items` منفصل.
-
-### المشكلة في الكود
-
+#### 1. دالة `handlePrintReport` (سطر 681-895)
+تحتوي على عمود AI Rate:
 ```typescript
-// سطر 86-94 في ExportTab.tsx
-const items = getProjectItems(selectedProject);  // يجلب من analysis_data أولاً
+// سطر 847
+<th>${isArabic ? "سعر AI" : "AI Rate"}</th>
 
-if (items.length > 0) {
-  setDynamicItems(items);  // ← يستخدم البيانات القديمة مع أسعار صفر
-  return;
-}
-
-// فقط إذا لم يجد بنود، يجلب من project_items
+// سطر 865
+<td class="ai-price">${aiRate > 0 ? aiRate.toLocaleString(...) : '-'}</td>
 ```
 
-**النتيجة:** التقرير يستخدم `analysis_data` (أسعار قديمة = 0) بدلاً من `project_items` (أسعار محدّثة).
-
-### تحقق من البيانات
-
-| المصدر | unit_price | total_price |
-|--------|------------|-------------|
-| `analysis_data` | 0 | 0 |
-| `project_items` | ✓ قيم صحيحة | ✓ قيم صحيحة |
+#### 2. CSS للطباعة
+الكود الحالي يحاول تكرار الهيدر لكن ينقصه بعض الخصائص:
+```css
+thead {
+  display: table-header-group;
+}
+```
 
 ## الحل المقترح
 
-### الاستراتيجية: جلب `project_items` أولاً
+### 1. إزالة عمود AI Rate
 
-تغيير ترتيب الأولوية ليجلب من `project_items` (الأسعار المحدّثة) قبل `analysis_data`:
+**قبل:**
+| # | Description | Qty | Unit | Unit Price | AI Rate | Total |
+|---|-------------|-----|------|------------|---------|-------|
 
-```typescript
-// الترتيب الجديد:
-// 1. جلب من project_items (الأسعار الأحدث)
-// 2. إذا لم يوجد، استخدم analysis_data
-```
+**بعد:**
+| # | Description | Qty | Unit | Unit Price | Total |
+|---|-------------|-----|------|------------|-------|
 
-### التغييرات المطلوبة
+### 2. تحسين CSS لتكرار هيدر الجدول
 
-#### 1. تحديث منطق جلب البيانات
-
-```typescript
-// ExportTab.tsx - useEffect
-useEffect(() => {
-  const fetchItems = async () => {
-    if (!selectedProject) {
-      setDynamicItems([]);
-      return;
-    }
-    
-    setIsLoadingItems(true);
-    
-    // الأولوية 1: جلب من project_items (الأسعار المحدّثة)
-    try {
-      const { data: dbItems, error } = await supabase
-        .from("project_items")
-        .select("*")
-        .eq("project_id", selectedProject.id)
-        .order("item_number");
-      
-      if (!error && dbItems && dbItems.length > 0) {
-        console.log("✅ Using project_items (updated prices):", dbItems.length);
-        setDynamicItems(dbItems);
-        setIsLoadingItems(false);
-        return;
-      }
-    } catch (err) {
-      console.error("Error fetching project_items:", err);
-    }
-    
-    // الأولوية 2: استخدام analysis_data كـ fallback
-    const items = getProjectItems(selectedProject);
-    if (items.length > 0) {
-      console.log("⚠️ Using analysis_data (may have outdated prices):", items.length);
-      setDynamicItems(items);
-    } else {
-      setDynamicItems([]);
-    }
-    
-    setIsLoadingItems(false);
-  };
+إضافة خصائص CSS متقدمة لضمان تكرار الهيدر:
+```css
+@media print {
+  thead {
+    display: table-header-group !important;
+  }
   
-  fetchItems();
-}, [selectedProjectId, selectedProject?.analysis_data]);
-```
-
-#### 2. إضافة تطبيع الأسعار للتأكد من أنها أرقام
-
-```typescript
-// دالة مساعدة لتطبيع الأسعار
-const normalizeItemPrices = (items: any[]): any[] => {
-  return items.map(item => {
-    // استخراج السعر من حقول متعددة محتملة
-    const unitPrice = parseFloat(
-      item.unit_price || item.rate || item.price || item.ai_rate || 0
-    ) || 0;
-    
-    const quantity = parseFloat(item.quantity || item.qty || 0) || 0;
-    const totalPrice = parseFloat(
-      item.total_price || item.amount || item.total || (unitPrice * quantity)
-    ) || 0;
-    
-    return {
-      ...item,
-      unit_price: unitPrice,
-      total_price: totalPrice,
-      quantity: quantity
-    };
-  });
-};
-```
-
-#### 3. تحديث حساب القيمة الإجمالية
-
-```typescript
-// عند حساب totalValue
-const totalValue = filteredItems.reduce((sum: number, item: any) => {
-  const price = parseFloat(item.total_price) || 
-                parseFloat(item.amount) || 
-                (parseFloat(item.unit_price || 0) * parseFloat(item.quantity || 0)) || 
-                0;
-  return sum + price;
-}, 0);
-```
-
-#### 4. تحديث عرض الجدول
-
-```typescript
-// تحديث منطق عرض الأسعار
-${filteredItems.map((item: any, idx: number) => {
-  // تطبيع القيم
-  const unitPrice = parseFloat(item.unit_price) || parseFloat(item.rate) || 0;
-  const aiRate = parseFloat(item.ai_rate) || parseFloat(item.ai_suggested_rate) || 0;
-  const displayPrice = unitPrice > 0 ? unitPrice : aiRate;
-  const quantity = parseFloat(item.quantity) || 0;
-  const displayTotal = parseFloat(item.total_price) || (displayPrice * quantity) || 0;
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
   
-  return `
-    <tr>
-      <td>${idx + 1}</td>
-      <td>${item.description || '-'}</td>
-      <td>${quantity > 0 ? quantity.toLocaleString('en-US') : '-'}</td>
-      <td>${item.unit || '-'}</td>
-      <td>${displayPrice > 0 ? displayPrice.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</td>
-      <td class="ai-price">${aiRate > 0 ? aiRate.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</td>
-      <td>${displayTotal > 0 ? displayTotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</td>
-    </tr>
-  `;
-}).join('')}
+  tr {
+    page-break-inside: avoid;
+  }
+  
+  /* تأكيد تكرار الهيدر */
+  thead tr {
+    break-inside: avoid;
+    break-after: auto;
+  }
+  
+  @page {
+    margin: 15mm 10mm;
+  }
+}
 ```
 
-## الملفات المتأثرة
+## التغييرات المطلوبة
 
-| الملف | التغيير |
-|-------|---------|
-| `src/components/reports/ExportTab.tsx` | تغيير ترتيب جلب البيانات + تطبيع الأسعار |
+### ملف: `src/components/reports/ExportTab.tsx`
 
-## مخطط التدفق
+#### التغيير 1: إزالة عمود AI Rate من `handlePrintReport`
+
+```typescript
+// إزالة من thead (سطر ~847)
+<th>${isArabic ? "سعر AI" : "AI Rate"}</th>  // ← حذف
+
+// إزالة من tbody (سطر ~865)
+<td class="ai-price">${aiRate > 0 ? ... : '-'}</td>  // ← حذف
+
+// تحديث colspan في صف الإجمالي (سطر ~871)
+<td colspan="6">  // ← تغيير إلى colspan="5"
+```
+
+#### التغيير 2: تحسين CSS للطباعة
+
+```css
+/* تكرار هيدر الجدول في كل صفحة */
+@media print {
+  thead {
+    display: table-header-group !important;
+    break-inside: avoid;
+  }
+  
+  tbody {
+    display: table-row-group;
+  }
+  
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  
+  table {
+    border-collapse: collapse;
+    page-break-inside: auto;
+  }
+  
+  th {
+    background: #3b82f6 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color: white !important;
+  }
+}
+```
+
+#### التغيير 3: إزالة CSS والمتغيرات المتعلقة بـ AI Rate
+
+```typescript
+// إزالة class
+.ai-price { color: #7c3aed; font-weight: 600; }  // ← حذف
+.auto-priced { background: #f5f3ff; }  // ← حذف
+
+// إزالة المتغيرات
+const hasAIPrice = ...  // ← حذف
+const aiRate = ...  // ← يمكن الاحتفاظ به للحساب الداخلي فقط
+```
+
+#### التغيير 4: تحديث ملاحظة أسفل التقرير
+
+```typescript
+// إزالة ذكر AI من الملاحظة
+${isArabic 
+  ? "تم استثناء البنود ذات الكمية صفر من هذا التقرير."
+  : "Items with zero quantity are excluded from this report."}
+```
+
+## الدوال الأخرى التي قد تحتاج تعديل
+
+### `handleViewPriceAnalysis` (سطر 332-489)
+- هذه الدالة لا تحتوي على عمود AI Rate منفصل ✓
+
+### `handleExportComprehensivePDF` (سطر 491-679)
+- هذه الدالة لا تحتوي على عمود AI Rate منفصل ✓
+
+## مخطط التغييرات
 
 ```text
-قبل الإصلاح:
-┌─────────────────┐     ┌─────────────────┐
-│ analysis_data   │ ──► │ أسعار = 0       │
-│ (أولوية 1)      │     │ التقرير فارغ    │
-└─────────────────┘     └─────────────────┘
-
-بعد الإصلاح:
-┌─────────────────┐     ┌─────────────────┐
-│ project_items   │ ──► │ أسعار صحيحة     │
-│ (أولوية 1)      │     │ التقرير مكتمل   │
-└─────────────────┘     └─────────────────┘
-         │
-         ▼ (إذا فارغ)
-┌─────────────────┐
-│ analysis_data   │
-│ (احتياطي)       │
-└─────────────────┘
+handlePrintReport()
+│
+├── thead
+│   ├── # ✓
+│   ├── Description ✓
+│   ├── Qty ✓
+│   ├── Unit ✓
+│   ├── Unit Price ✓
+│   ├── AI Rate ← حذف
+│   └── Total ✓
+│
+├── tbody rows
+│   ├── ... (بدون عمود AI Rate)
+│   └── Total row: colspan 6→5
+│
+├── CSS
+│   ├── .ai-price ← حذف
+│   ├── .auto-priced ← حذف
+│   └── @media print { thead: table-header-group !important }
+│
+└── Note ← تحديث النص
 ```
 
-## اختبار الحل
+## ملاحظات للاختبار
 
-1. ✅ فتح صفحة التقارير واختيار مشروع مُسعّر
-2. ✅ الضغط على "Print" أو "PDF"
-3. ✅ التأكد من ظهور الأسعار في الأعمدة
-4. ✅ التأكد من أن Total Value ليس صفراً
-5. ✅ تصدير Excel والتحقق من القيم
+1. ✅ فتح تقرير Print والتأكد من عدم وجود عمود AI Rate
+2. ✅ طباعة تقرير متعدد الصفحات والتأكد من تكرار الهيدر
+3. ✅ التأكد من أن الأسعار تظهر في عمود Unit Price
+4. ✅ التأكد من صحة حساب Total
+
