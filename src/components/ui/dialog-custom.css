@@ -499,6 +499,36 @@ button.header-search-box > * {
   cursor: pointer !important;
 }
 
+/* ============================================
+   GLOBAL TABS PROTECTION (FALLBACK)
+   Ensure all tabs are always clickable regardless of overlays
+   ============================================ */
+
+[role="tablist"] {
+  position: relative;
+  z-index: 55 !important;
+  pointer-events: auto !important;
+}
+
+[role="tab"] {
+  position: relative;
+  z-index: 56 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+[role="tab"]:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Ensure tabpanel content is interactive */
+[role="tabpanel"] {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto !important;
+}
+
 .quick-shortcuts-safe a:active,
 .quick-shortcuts-safe button:active {
   transform: scale(0.98);
