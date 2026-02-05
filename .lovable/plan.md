@@ -1,192 +1,101 @@
 
+## الهدف
+إصلاح مشكلة “التبويبات لا تعمل” بشكل جذري (سواء كانت تبويبات الصفحات داخل المحتوى، أو “تبويبات” شريط التنقل العلوي)، عبر منع أي طبقات/Overlays مخفية من حجب النقرات، وتطبيق حماية تفاعلية (z-index + pointer-events) للتبويبات بشكل موحد في كل التطبيق.
 
-# خطة إصلاح مشكلة عدم عمل التبويبات والاختصارات
+---
 
-## المشكلة
+## ما توصلتُ له من الفحص الحالي
+- تبويبات صفحة **/quotations** لديها `tabs-navigation-safe` بالفعل، وفي بيئة الاختبار ظهرت قابلة للنقر.
+- غالباً سبب “التبويبات لا تعمل” في هذا المشروع يكون من:
+  1) **Overlay غير مرئي** (Dialog/Sheet/AlertDialog/CommandDialog) يبقى موجوداً أثناء الإغلاق (data-state=closed) لكنه ما زال يلتقط النقرات.
+  2) صفحة في حالة **تحميل** مع طبقة تغطي الواجهة (loader) فتبدو التبويبات “لا تستجيب”.
 
-المستخدم يواجه مشكلتين:
-1. **التبويبات (Tabs) لا تعمل** - خاصة في صفحة Index.tsx
-2. **الاختصارات السريعة (Quick Shortcuts) لا تستجيب** - في الصفحة الرئيسية
+الحل الأكثر ثباتاً: معالجة الـOverlays من المصدر داخل مكونات UI نفسها بدل الاعتماد فقط على CSS عام قد لا يطابق عناصر Radix دائماً.
 
-## التحليل الفني
+---
 
-### السبب الجذري
+## خطوة توضيح سريعة (بدون تعقيد)
+قبل التنفيذ، سأحتاج منك تحديد واحد فقط:
+- أين لا تعمل التبويبات بالضبط؟
+  - A) تبويبات داخل الصفحة (مثل Upload/Compare في Quotations أو Projects/Reports في Projects)
+  - B) عناصر الشريط العلوي (Dashboard / Projects / Analysis / Library / Reports)
+  - C) الاثنين
 
-من خلال فحص الكود والـ session replay، وجدت أن:
+(سأبني التحقق النهائي والاختبارات بناءً على إجابتك، لكن الخطة أدناه ستعالج أغلب السيناريوهات حتى لو لم نحدد بدقة.)
 
-#### 1. التبويبات في Index.tsx تفتقر لـ `tabs-navigation-safe`
+---
 
-```typescript
-// سطر 1843 - Index.tsx
-<TabsList className="w-full flex flex-wrap justify-start gap-1 h-auto p-1 bg-muted/50 mb-4">
-```
+## التغييرات المقترحة (تنفيذ)
+### 1) إصلاح جذري لمشكلة حجب النقرات بسبب Overlays
+سنعدل مكونات الـUI التي تنشئ Overlays لتصبح “غير قابلة لالتقاط النقرات” تلقائياً عند الإغلاق:
 
-**المشكلة:** لا يوجد `tabs-navigation-safe` class الذي يضمن أن التبويبات قابلة للنقر فوق أي طبقات أخرى.
+**الملفات المستهدفة:**
+- `src/components/ui/dialog.tsx`
+- `src/components/ui/alert-dialog.tsx`
+- `src/components/ui/sheet.tsx`
 
-#### 2. التبويبات المتداخلة أيضاً تفتقر للحماية
+**التعديل:**
+- إضافة Tailwind state-variants مباشرة داخل `className` للـOverlay:
+  - `data-[state=closed]:pointer-events-none`
+  - `data-[state=closed]:opacity-0`
+  - (اختياري) `data-[state=open]:pointer-events-auto`
 
-```typescript
-// سطر 1923 - Subcontractors nested tabs
-<TabsList>
-  <TabsTrigger value="management">...
-  
-// سطر 1950 - Settings nested tabs  
-<TabsList>
-  <TabsTrigger value="notifications">...
-```
+النتيجة: حتى لو بَقِي عنصر Overlay جزء من الثانية في الـDOM أثناء الإغلاق، لن يمنع أي نقرات على التبويبات أو الأزرار.
 
-#### 3. TooltipProvider في PhaseActionsGrid قد يتداخل مع الـ events
+---
 
-الـ Tooltips التي تظهر على بطاقات الإجراءات قد تحجب الـ click events عند ظهورها.
+### 2) توحيد حماية التبويبات داخل مكوّن Tabs نفسه (بدلاً من تكرار class في كل صفحة)
+**الملف المستهدف:**
+- `src/components/ui/tabs.tsx`
 
-#### 4. Quick Shortcuts في HomePage.tsx
+**التعديل:**
+- جعل `TabsList` يضيف `tabs-navigation-safe` افتراضياً ضمن `className` (مع الحفاظ على أي className يمرره المطور).
+- (اختياري) تعزيز `TabsTrigger` ليكون `relative` + `pointer-events-auto` دائماً.
 
-```typescript
-// سطر 468-475
-{recentActions.map((action) => (
-  <Link key={action.href} to={action.href}>
-    <Button variant="outline" size="sm">...
-```
+النتيجة: أي تبويبات جديدة أو قديمة في أي صفحة ستصبح محمية تلقائياً من مشاكل الـz-index وpointer-events.
 
-هذه تعمل بشكل صحيح من ناحية الكود، لكن قد تتأثر بـ z-index conflicts.
+---
 
-## الحل المقترح
+### 3) تحسين CSS كشبكة أمان (Fallback) للتبويبات
+**الملف المستهدف:**
+- `src/components/ui/dialog-custom.css`
 
-### التغيير 1: إضافة `tabs-navigation-safe` لجميع TabsList في Index.tsx
+**إضافات بسيطة وآمنة:**
+- قواعد عامة على مستوى الأدوار لتقليل احتمالية “توقف النقر” حتى لو كانت هناك طبقة قريبة:
+  - `[role="tablist"] { position: relative; z-index: 55; }`
+  - `[role="tab"] { position: relative; z-index: 56; pointer-events: auto !important; }`
 
-```typescript
-// سطر 1843
-<TabsList className="w-full flex flex-wrap justify-start gap-1 h-auto p-1 bg-muted/50 mb-4 tabs-navigation-safe">
+(هذه لن تكسر التخطيط لأنها تعمل داخل سياق العنصر نفسه ولا تتجاوز فوق Dialog محتواه.)
 
-// سطر 1923
-<TabsList className="tabs-navigation-safe">
+---
 
-// سطر 1950
-<TabsList className="tabs-navigation-safe">
-```
+## خطة اختبار سريعة بعد التنفيذ (مهم)
+1) الانتقال إلى `/quotations` وتجربة الضغط على:
+   - Upload Quotations
+   - Compare Quotations
+2) الانتقال إلى `/projects` وتجربة الضغط على:
+   - Projects / Analyze / Reports / Attachments
+3) فتح وإغلاق أي نافذة حوار (مثل OCR أو البحث العام ⌘K) ثم إعادة تجربة التبويبات للتأكد أن الإغلاق لا يترك Overlay “خفي”.
+4) اختبار نفس السيناريو على شاشة صغيرة (Mobile width) لأن التراكب يحصل كثيراً هناك.
 
-### التغيير 2: إضافة حماية للـ Quick Shortcuts في HomePage.tsx
+---
 
-```typescript
-// سطر 464 - إضافة class للـ section
-<section className="flex items-center justify-center gap-2 flex-wrap animate-fade-in quick-shortcuts-safe">
-```
+## المخاطر المتوقعة وكيف سنمنعها
+- **خطر:** تعطيل pointer-events على عناصر مغلقة بشكل عام قد يكسر أزرار أخرى.
+  - **الحل:** لن نطبق قاعدة عامة على كل `[data-state=closed]`؛ سنطبقها فقط على Overlays المحددة (Dialog/AlertDialog/Sheet) من داخل مكوناتها.
 
-### التغيير 3: تحسين CSS للحماية
+---
 
-إضافة CSS جديد في `dialog-custom.css`:
+## مخرجات التنفيذ
+- التبويبات تعمل دائماً حتى بعد فتح/إغلاق أي Dialog/Sheet.
+- اختفاء حالات “واجهة لا تستجيب” الناتجة عن overlay غير مرئي.
+- تقليل الحاجة لإضافة `tabs-navigation-safe` يدوياً في كل صفحة.
 
-```css
-/* Quick Shortcuts Protection */
-.quick-shortcuts-safe {
-  position: relative;
-  z-index: 55;
-  pointer-events: auto !important;
-}
+---
 
-.quick-shortcuts-safe a,
-.quick-shortcuts-safe button {
-  position: relative;
-  z-index: 56;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-```
-
-### التغيير 4: إضافة `pointer-events: auto` للـ TooltipTrigger في PhaseActionsGrid
-
-```typescript
-<TooltipTrigger asChild>
-  <Link 
-    to={action.href}
-    className="animate-scale-in block pointer-events-auto"
-```
-
-## الملفات المتأثرة
-
-| الملف | التغيير |
-|-------|---------|
-| `src/pages/Index.tsx` | إضافة `tabs-navigation-safe` لجميع TabsList |
-| `src/pages/HomePage.tsx` | إضافة `quick-shortcuts-safe` للـ section |
-| `src/components/ui/dialog-custom.css` | إضافة CSS للحماية الجديدة |
-| `src/components/home/PhaseActionsGrid.tsx` | إضافة `pointer-events-auto` للروابط |
-
-## تفاصيل التغييرات
-
-### Index.tsx
-
-```typescript
-// سطر 1843 - التبويبات الرئيسية
-<TabsList className="w-full flex flex-wrap justify-start gap-1 h-auto p-1 bg-muted/50 mb-4 tabs-navigation-safe">
-
-// سطر 1923 - تبويبات المقاولين المتداخلة
-<Tabs defaultValue="management" className="space-y-4">
-  <TabsList className="tabs-navigation-safe">
-
-// سطر 1950 - تبويبات الإعدادات المتداخلة
-<Tabs defaultValue="notifications" className="space-y-4">
-  <TabsList className="tabs-navigation-safe">
-```
-
-### HomePage.tsx
-
-```typescript
-// سطر 464
-<section className="flex items-center justify-center gap-2 flex-wrap animate-fade-in quick-shortcuts-safe">
-  <span className="text-xs text-muted-foreground px-2">
-    {isArabic ? "اختصارات سريعة:" : "Quick shortcuts:"}
-  </span>
-  {recentActions.map((action) => (
-    <Link key={action.href} to={action.href} className="pointer-events-auto">
-      <Button variant="outline" size="sm" className="gap-2 bg-card/60 backdrop-blur-sm hover:bg-primary/10 transition-all pointer-events-auto">
-```
-
-### dialog-custom.css
-
-```css
-/* ============================================
-   QUICK SHORTCUTS PROTECTION
-   Ensure quick shortcut buttons are always clickable
-   ============================================ */
-
-.quick-shortcuts-safe {
-  position: relative;
-  z-index: 55;
-  pointer-events: auto !important;
-}
-
-.quick-shortcuts-safe a,
-.quick-shortcuts-safe button {
-  position: relative;
-  z-index: 56;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-.quick-shortcuts-safe a:active,
-.quick-shortcuts-safe button:active {
-  transform: scale(0.98);
-  transition: transform 50ms ease-out;
-}
-```
-
-### PhaseActionsGrid.tsx
-
-```typescript
-// سطر 285-289
-<TooltipTrigger asChild>
-  <Link 
-    to={action.href}
-    className="animate-scale-in block pointer-events-auto relative z-10"
-    style={{ animationDelay: `${index * 0.1}s` }}
-  >
-```
-
-## اختبار الحل
-
-1. ✅ فتح الصفحة الرئيسية والتأكد من عمل Quick Shortcuts
-2. ✅ الضغط على التبويبات في صفحة Index والتأكد من التبديل
-3. ✅ اختبار ⌘K / Ctrl+K للبحث العام
-4. ✅ التأكد من عمل التبويبات المتداخلة (Subcontractors, Settings)
-5. ✅ اختبار الـ Tooltips في PhaseActionsGrid بدون حجب الـ clicks
-
+## قائمة الملفات التي سيتم تعديلها
+- `src/components/ui/dialog.tsx`
+- `src/components/ui/alert-dialog.tsx`
+- `src/components/ui/sheet.tsx`
+- `src/components/ui/tabs.tsx`
+- `src/components/ui/dialog-custom.css`
