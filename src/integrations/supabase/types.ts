@@ -981,6 +981,69 @@ export type Database = {
         }
         Relationships: []
       }
+      external_partners: {
+        Row: {
+          address: string | null
+          contract_end_date: string | null
+          contract_start_date: string | null
+          created_at: string | null
+          description: string | null
+          email: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          notes: string | null
+          partner_type: string | null
+          phone: string | null
+          rating: number | null
+          status: string | null
+          tags: string[] | null
+          updated_at: string | null
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          contract_end_date?: string | null
+          contract_start_date?: string | null
+          created_at?: string | null
+          description?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          notes?: string | null
+          partner_type?: string | null
+          phone?: string | null
+          rating?: number | null
+          status?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          contract_end_date?: string | null
+          contract_start_date?: string | null
+          created_at?: string | null
+          description?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          notes?: string | null
+          partner_type?: string | null
+          phone?: string | null
+          rating?: number | null
+          status?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       historical_pricing_files: {
         Row: {
           created_at: string
