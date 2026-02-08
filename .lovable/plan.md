@@ -1,143 +1,105 @@
 
 
-# خطة تنفيذ شاشة المعالجة مع البحث الذكي (Request Offer AI Search)
+# خطة تنفيذ شاشة النتائج المفصلة مع حفظ البحث في قاعدة البيانات
 
 ## نظرة عامة
 
-عند الضغط على **Submit Request** أو اختيار اقتراح جاهز، ستظهر شاشة معالجة أنيقة (كما في الصورة المرفقة) بينما يقوم النظام بالبحث عن عروض الأسعار من قواعد البيانات والإنترنت باستخدام الذكاء الاصطناعي.
+بدلاً من إغلاق نافذة طلب عرض السعر مباشرة بعد اكتمال البحث، سيتم:
+1. **عرض شاشة نتائج مفصلة** تتضمن جدول الموردين والأسعار والتوصيات
+2. **حفظ نتائج البحث** تلقائياً في قاعدة البيانات
+3. **عرض البيانات في جدول منظم** مع إمكانية التصدير
 
 ---
 
-## المكونات الجديدة
-
-### 1. شاشة المعالجة (Processing View)
+## هيكل شاشة النتائج
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│  ✨ Request Offer                                          ✕    │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│     ┌──────────────────┐                                        │
-│     │    [Animated     │      Processing...                     │
-│     │     AI Icon]     │                                        │
-│     │    ✨ ✨ ✨      │      AI analyzes partner offers from   │
-│     └──────────────────┘      databases and web sources,        │
-│                               creating a concise summary.        │
-│                                                                 │
-│     ┌───────────────────────────────────────────────────────┐  │
-│     │  Loading...                                      16%  │  │
-│     │  ━━━━━░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │  │
-│     └───────────────────────────────────────────────────────┘  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│  ✨ Request Offer                                              ✕    │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ ✓ تم تحليل الطلب بنجاح                                      │   │
+│  │   ملخص: 10 أجهزة لابتوب لفريق التطوير                        │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌─ قائمة الموردين والأسعار ─────────────────────────────────────┐ │
+│  │ المادة          │ السعر (ر.س)      │ الموردين المقترحين       │ │
+│  │─────────────────┼──────────────────┼─────────────────────────│ │
+│  │ MacBook Pro     │ 8,000 - 12,000   │ جرير، الكمبيوتر شوب     │ │
+│  │ Dell XPS 15     │ 6,500 - 9,000    │ إكسترا، نون             │ │
+│  │ HP EliteBook    │ 5,000 - 7,500    │ جرير، أمازون السعودية   │ │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌─ التوصيات ─────────────────────────────────────────────────────┐│
+│  │ • طلب عروض من 3 موردين على الأقل للمقارنة                     ││
+│  │ • التفاوض على خصومات الكميات                                  ││
+│  └─────────────────────────────────────────────────────────────────┘│
+│                                                                     │
+│  ┌─ ملاحظات السوق ──────────────────────────────────────────────┐  │
+│  │ توفر جيد في السوق السعودي مع فترات توريد 3-7 أيام           │  │
+│  └─────────────────────────────────────────────────────────────────┘│
+│                                                                     │
+│                              [طلب جديد]  [إغلاق]                   │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## التدفق الوظيفي
+## التدفق الجديد
 
 ```text
-┌────────────────────┐     ┌──────────────────────┐     ┌────────────────────┐
-│  Submit Request    │ ──► │  Processing View     │ ──► │   Results View     │
-│  (or Suggestion)   │     │  + AI Search         │     │   (Future Phase)   │
-└────────────────────┘     └──────────────────────┘     └────────────────────┘
-                                    │
-                                    ▼
-                           ┌──────────────────────┐
-                           │  Edge Function:      │
-                           │  search-offers       │
-                           │  (Lovable AI)        │
-                           └──────────────────────┘
+┌───────────────┐     ┌────────────────┐     ┌─────────────────┐
+│  Input View   │ ──► │ Processing     │ ──► │  Results View   │
+│               │     │    View        │     │ (جدول + ملخص)   │
+└───────────────┘     └────────────────┘     └─────────────────┘
+                              │                       │
+                              ▼                       ▼
+                     ┌────────────────┐      ┌────────────────┐
+                     │ Edge Function  │      │    Database    │
+                     │ search-offers  │      │ offer_requests │
+                     └────────────────┘      └────────────────┘
 ```
 
 ---
 
-## الملفات المتأثرة
+## التغييرات المطلوبة
 
-| الملف | التغيير |
-|-------|---------|
-| `src/components/procurement/RequestOfferDialog.tsx` | إضافة شاشة المعالجة + استدعاء Edge Function |
-| `supabase/functions/search-offers/index.ts` | **جديد** - Edge Function للبحث باستخدام Lovable AI |
-| `supabase/config.toml` | إضافة الدالة الجديدة |
+### 1. إنشاء جدول قاعدة البيانات: `offer_requests`
 
----
+```sql
+CREATE TABLE offer_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  request_text TEXT NOT NULL,
+  language VARCHAR(5) DEFAULT 'en',
+  summary TEXT,
+  estimated_items JSONB DEFAULT '[]',
+  recommendations TEXT[],
+  market_notes TEXT,
+  search_sources TEXT[],
+  status VARCHAR(20) DEFAULT 'completed',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
-## التفاصيل التقنية
+-- فهرس للمستخدم
+CREATE INDEX idx_offer_requests_user_id ON offer_requests(user_id);
 
-### 1. تحديث `RequestOfferDialog.tsx`
+-- RLS
+ALTER TABLE offer_requests ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own offer requests"
+  ON offer_requests FOR ALL
+  USING (auth.uid() = user_id);
+```
+
+### 2. تحديث `RequestOfferDialog.tsx`
 
 **State جديدة:**
 ```tsx
-const [step, setStep] = useState<'input' | 'processing' | 'results'>('input');
-const [progress, setProgress] = useState(0);
-const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-```
-
-**شاشة المعالجة:**
-- أيقونة متحركة (Sparkles animation)
-- نص "Processing..." / "جاري المعالجة..."
-- وصف: "AI analyzes partner offers from databases and web sources..."
-- شريط تقدم متحرك (0% → 100%)
-
-**منطق البحث:**
-```tsx
-const handleSubmit = async () => {
-  setStep('processing');
-  
-  // Simulate progress animation
-  const progressInterval = setInterval(() => {
-    setProgress(p => Math.min(p + 3, 90));
-  }, 150);
-  
-  try {
-    const { data } = await supabase.functions.invoke('search-offers', {
-      body: { query: request, language: isArabic ? 'ar' : 'en' }
-    });
-    
-    clearInterval(progressInterval);
-    setProgress(100);
-    
-    // Show success toast
-    toast.success(isArabic 
-      ? "تم البحث بنجاح! تم إرسال الطلب للموردين"
-      : "Search complete! Request sent to suppliers");
-    
-    // Close dialog after success
-    setTimeout(() => {
-      onOpenChange(false);
-      setStep('input');
-      setProgress(0);
-    }, 1000);
-    
-  } catch (error) {
-    toast.error(isArabic 
-      ? "حدث خطأ أثناء البحث"
-      : "Error during search");
-    setStep('input');
-  }
-};
-```
-
-### 2. Edge Function: `search-offers/index.ts`
-
-**الوظيفة:**
-- استقبال نص الطلب (query) واللغة
-- استخدام Lovable AI (gemini-3-flash-preview) لتحليل الطلب
-- توليد ملخص للموردين المقترحين والأسعار التقديرية
-
-**المدخلات:**
-```typescript
-interface SearchOffersRequest {
-  query: string;      // نص الطلب
-  language: 'ar' | 'en';
-}
-```
-
-**المخرجات:**
-```typescript
-interface SearchOffersResponse {
-  success: boolean;
-  summary: string;           // ملخص AI
+interface SearchResult {
+  summary: string;
   estimated_items: Array<{
     name: string;
     estimated_price_min: number;
@@ -145,121 +107,173 @@ interface SearchOffersResponse {
     currency: string;
     suppliers: string[];
   }>;
-  search_sources: string[];  // المصادر المستخدمة
+  recommendations: string[];
+  market_notes: string;
+  search_sources: string[];
 }
+
+const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
 ```
 
-**Prompt للذكاء الاصطناعي:**
-```
-You are a procurement specialist for construction projects in Saudi Arabia.
-Analyze this request and provide:
-1. A breakdown of items needed
-2. Estimated price ranges (SAR)
-3. Suggested supplier types
-4. Market availability notes
-```
+**شاشة النتائج الجديدة (Results View):**
+- بطاقة ملخص بأيقونة ✓ خضراء
+- جدول مفصل للمواد والأسعار والموردين
+- قسم التوصيات
+- قسم ملاحظات السوق
+- زرين: "طلب جديد" و "إغلاق"
 
-### 3. تحديث `supabase/config.toml`
-
-```toml
-[functions.search-offers]
-verify_jwt = false
-```
-
----
-
-## واجهة المستخدم - التفاصيل
-
-### شاشة المعالجة (Processing View)
-
+**تعديل منطق البحث:**
 ```tsx
-{step === 'processing' && (
-  <div className="flex flex-col items-center justify-center py-12 space-y-6">
-    {/* Animated Icon Area */}
-    <div className="relative w-32 h-32 flex items-center justify-center">
-      <div className="absolute inset-0 border-2 border-dashed border-muted-foreground/30 rounded-lg" />
-      <div className="flex flex-col items-center gap-2">
-        <Sparkles className="w-10 h-10 text-primary animate-pulse" />
-        <div className="flex gap-1">
-          <Sparkles className="w-4 h-4 text-primary/60 animate-bounce" />
-          <Sparkles className="w-4 h-4 text-primary/80 animate-bounce delay-100" />
-          <Sparkles className="w-4 h-4 text-primary animate-bounce delay-200" />
-        </div>
-      </div>
-    </div>
+const handleSubmitWithQuery = async (query: string) => {
+  // ... existing processing logic ...
+  
+  if (data) {
+    setSearchResults(data);
+    setStep('results');
+    
+    // Save to database
+    await supabase.from('offer_requests').insert([{
+      user_id: user?.id,
+      request_text: query,
+      language: isArabic ? 'ar' : 'en',
+      summary: data.summary,
+      estimated_items: data.estimated_items,
+      recommendations: data.recommendations,
+      market_notes: data.market_notes,
+      search_sources: data.search_sources,
+    }]);
+  }
+};
+```
 
-    {/* Status Text */}
-    <div className="text-center space-y-2">
-      <h3 className="text-lg font-semibold text-primary">
-        {isArabic ? "جاري المعالجة..." : "Processing..."}
-      </h3>
-      <p className="text-sm text-muted-foreground max-w-xs">
-        {isArabic 
-          ? "يقوم الذكاء الاصطناعي بتحليل عروض الشركاء من قواعد البيانات ومصادر الويب، ويُنشئ ملخصًا موجزًا"
-          : "AI analyzes partner offers from databases and web sources, creating a concise summary."}
-      </p>
-    </div>
+### 3. تحديث `search-offers/index.ts`
 
-    {/* Progress Bar */}
-    <div className="w-full max-w-sm space-y-2">
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>{isArabic ? "جاري التحميل..." : "Loading..."}</span>
-        <span className="text-primary font-medium">{progress}%</span>
-      </div>
-      <Progress value={progress} className="h-2" />
-    </div>
-  </div>
-)}
+إضافة حقل `total_estimated_cost` للملخص:
+```typescript
+return {
+  success: true,
+  summary: "...",
+  estimated_items: [...],
+  recommendations: [...],
+  market_notes: "...",
+  search_sources: [...],
+  total_estimated_min: sumOfMins,
+  total_estimated_max: sumOfMaxs,
+};
 ```
 
 ---
 
-## السلوك المتوقع
+## تصميم الجدول
 
-1. **المستخدم يكتب طلبًا** أو **يضغط على اقتراح جاهز**
-2. **يضغط Submit Request**
-3. **تتحول الشاشة** إلى وضع المعالجة:
-   - تظهر الأيقونة المتحركة
-   - يتحرك شريط التقدم تدريجيًا
-   - النص التوضيحي يشرح ما يحدث
-4. **بعد اكتمال البحث (2-5 ثوان)**:
-   - يظهر toast نجاح
-   - تُغلق النافذة تلقائيًا
-5. **(مستقبلًا)** يمكن إضافة شاشة نتائج تعرض تفاصيل البحث
+| العمود | النوع AR | النوع EN |
+|--------|----------|----------|
+| المادة/المعدة | Item/Material |
+| السعر التقديري | Estimated Price |
+| الموردين المقترحين | Suggested Suppliers |
 
----
+**تنسيق السعر:**
+```
+SAR 8,000 - 12,000
+```
 
-## معالجة الأخطاء
-
-| الحالة | الرسالة | الإجراء |
-|--------|---------|---------|
-| 429 Rate Limit | "تجاوز الحد المسموح، حاول لاحقًا" | العودة لشاشة الإدخال |
-| 402 Credits | "يرجى شحن الرصيد" | إظهار رسالة خطأ |
-| Network Error | "خطأ في الاتصال" | العودة لشاشة الإدخال + زر إعادة المحاولة |
+**تنسيق الموردين:**
+```
+جرير، الكمبيوتر شوب
+```
 
 ---
 
-## الخطوات التنفيذية
+## ملفات سيتم تعديلها
 
-1. **إنشاء Edge Function** `supabase/functions/search-offers/index.ts`
-2. **تحديث config.toml** لإضافة الدالة الجديدة
-3. **تعديل RequestOfferDialog.tsx**:
-   - إضافة states للتحكم بالخطوات
-   - إضافة شاشة المعالجة (Processing View)
-   - ربط Submit بـ Edge Function
-   - معالجة الأخطاء والنجاح
+| الملف | التغيير |
+|-------|---------|
+| `src/components/procurement/RequestOfferDialog.tsx` | إضافة Results View + جدول + حفظ DB |
+| `supabase/functions/search-offers/index.ts` | إضافة حساب المجموع التقديري |
+| **Migration** | إنشاء جدول `offer_requests` |
+
+---
+
+## تفاصيل واجهة المستخدم
+
+### بطاقة الملخص (Success Header)
+```tsx
+<div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+  <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+    <CheckCircle className="w-5 h-5" />
+    <span className="font-semibold">
+      {isArabic ? "تم تحليل الطلب بنجاح" : "Request analyzed successfully"}
+    </span>
+  </div>
+  <p className="text-sm text-muted-foreground mt-1">{results.summary}</p>
+</div>
+```
+
+### جدول الأسعار
+```tsx
+<Table>
+  <TableHeader>
+    <TableRow>
+      <TableHead>{isArabic ? "المادة" : "Item"}</TableHead>
+      <TableHead>{isArabic ? "السعر (ر.س)" : "Price (SAR)"}</TableHead>
+      <TableHead>{isArabic ? "الموردين" : "Suppliers"}</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    {results.estimated_items.map((item, index) => (
+      <TableRow key={index}>
+        <TableCell className="font-medium">{item.name}</TableCell>
+        <TableCell>
+          {item.estimated_price_min.toLocaleString()} - {item.estimated_price_max.toLocaleString()}
+        </TableCell>
+        <TableCell>{item.suppliers.join("، ")}</TableCell>
+      </TableRow>
+    ))}
+  </TableBody>
+</Table>
+```
+
+### التوصيات
+```tsx
+<div className="space-y-2">
+  <h4 className="font-medium flex items-center gap-2">
+    <Lightbulb className="w-4 h-4" />
+    {isArabic ? "التوصيات" : "Recommendations"}
+  </h4>
+  <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+    {results.recommendations.map((rec, i) => (
+      <li key={i}>{rec}</li>
+    ))}
+  </ul>
+</div>
+```
+
+---
+
+## السلوك المتوقع بعد التنفيذ
+
+1. المستخدم يكتب طلبًا ويضغط "إرسال الطلب"
+2. تظهر شاشة المعالجة مع شريط التقدم
+3. بعد اكتمال البحث:
+   - تظهر **شاشة النتائج** بدلاً من الإغلاق
+   - يُعرض **جدول الموردين والأسعار**
+   - تظهر **التوصيات وملاحظات السوق**
+   - يتم **حفظ النتائج** في قاعدة البيانات تلقائياً
+4. المستخدم يختار:
+   - "طلب جديد" → العودة لشاشة الإدخال
+   - "إغلاق" → إغلاق النافذة
 
 ---
 
 ## اختبار بعد التنفيذ
 
 1. اذهب لصفحة `/procurement`
-2. اضغط على زر **Request Offer**
-3. اكتب طلبًا أو اضغط على اقتراح جاهز
-4. اضغط **Submit Request**
-5. **تحقق من**:
-   - ظهور شاشة المعالجة مع الأيقونة المتحركة
-   - تحرك شريط التقدم بسلاسة
-   - ظهور رسالة النجاح
-   - إغلاق النافذة تلقائيًا
+2. افتح "Request Offer"
+3. أرسل طلبًا
+4. تحقق من:
+   - ظهور شاشة النتائج مع الجدول
+   - عرض الموردين والأسعار بشكل صحيح
+   - ظهور التوصيات
+   - عمل زر "طلب جديد"
+5. تحقق من حفظ البيانات في جدول `offer_requests`
 
