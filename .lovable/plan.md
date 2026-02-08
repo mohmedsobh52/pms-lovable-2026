@@ -1,97 +1,265 @@
 
-## الهدف
-إصلاح مشكلة أن زر **Request Offer / طلب عرض سعر** في صفحة **/procurement** لا يستجيب عند الضغط (لا يفتح نافذة الطلب)، مع تطبيق تحسينات صغيرة لضمان عدم تكرار مشكلة “زر لا يفتح Dialog” مستقبلًا.
+
+# خطة تنفيذ شاشة المعالجة مع البحث الذكي (Request Offer AI Search)
+
+## نظرة عامة
+
+عند الضغط على **Submit Request** أو اختيار اقتراح جاهز، ستظهر شاشة معالجة أنيقة (كما في الصورة المرفقة) بينما يقوم النظام بالبحث عن عروض الأسعار من قواعد البيانات والإنترنت باستخدام الذكاء الاصطناعي.
 
 ---
 
-## ما الذي وجدته من الفحص (مختصر)
-- الزر موجود في `src/pages/ProcurementPage.tsx` ويستدعي `setRequestOfferOpen(true)`.
-- مكوّن `RequestOfferDialog` صحيح ويعتمد على `Dialog open={open}`.
-- عند المحاكاة في المتصفح: الضغط على الزر يتم “تنفيذه” لكن **لا يظهر أي Dialog** (لا يوجد Overlay ولا aria-modal ولا محتوى Dialog)، ما يرجّح:
-  1) حدث الضغط لا يصل/لا يُلتقط فعليًا في بيئة المستخدم (Overlay خفي/طبقة فوق الزر/Pointer-events)، أو  
-  2) حالة `requestOfferOpen` لا تتغير كما نتوقع، أو  
-  3) تعارض/تحذيرات Radix (refs / focus management) تؤثر على ظهور الحوارات في هذه الصفحة.
+## المكونات الجديدة
+
+### 1. شاشة المعالجة (Processing View)
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  ✨ Request Offer                                          ✕    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│     ┌──────────────────┐                                        │
+│     │    [Animated     │      Processing...                     │
+│     │     AI Icon]     │                                        │
+│     │    ✨ ✨ ✨      │      AI analyzes partner offers from   │
+│     └──────────────────┘      databases and web sources,        │
+│                               creating a concise summary.        │
+│                                                                 │
+│     ┌───────────────────────────────────────────────────────┐  │
+│     │  Loading...                                      16%  │  │
+│     │  ━━━━━░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │  │
+│     └───────────────────────────────────────────────────────┘  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## خطة الإصلاح (تنفيذ مباشر)
-### 1) تأكيد سبب المشكلة بإضافة “تشخيص بسيط” سريع
-سنضيف في `ProcurementPage.tsx`:
-- `type="button"` على زر Request Offer (احترازًا لأي تداخل داخل form).
-- `console.log` أو `toast` عند الضغط للتأكد 100% أن `onClick` يُستدعى في جهازك.
-- عرض Debug مؤقت (اختياري) مثل `requestOfferOpen: true/false` داخل الصفحة أثناء التطوير ثم إزالته بعد التأكد.
+## التدفق الوظيفي
 
-**النتيجة المتوقعة:** نعرف هل المشكلة “الضغط لا يصل” أم “الضغط يصل لكن Dialog لا يظهر”.
+```text
+┌────────────────────┐     ┌──────────────────────┐     ┌────────────────────┐
+│  Submit Request    │ ──► │  Processing View     │ ──► │   Results View     │
+│  (or Suggestion)   │     │  + AI Search         │     │   (Future Phase)   │
+└────────────────────┘     └──────────────────────┘     └────────────────────┘
+                                    │
+                                    ▼
+                           ┌──────────────────────┐
+                           │  Edge Function:      │
+                           │  search-offers       │
+                           │  (Lovable AI)        │
+                           └──────────────────────┘
+```
 
 ---
 
-### 2) حماية الزر من مشاكل الطبقات (Z-index / pointer-events)
-بما أن المشروع عنده معايير لحماية التفاعل من طبقات Radix:
-- نضيف للزر (ولحاويته) كلاسات أمان مثل:
-  - `relative z-[60] pointer-events-auto`
-  - أو استخدام كلاس قياسي موجود بالمشروع مثل `project-actions-section` إن كان مستخدمًا في أماكن أخرى.
+## الملفات المتأثرة
+
+| الملف | التغيير |
+|-------|---------|
+| `src/components/procurement/RequestOfferDialog.tsx` | إضافة شاشة المعالجة + استدعاء Edge Function |
+| `supabase/functions/search-offers/index.ts` | **جديد** - Edge Function للبحث باستخدام Lovable AI |
+| `supabase/config.toml` | إضافة الدالة الجديدة |
+
+---
+
+## التفاصيل التقنية
+
+### 1. تحديث `RequestOfferDialog.tsx`
+
+**State جديدة:**
+```tsx
+const [step, setStep] = useState<'input' | 'processing' | 'results'>('input');
+const [progress, setProgress] = useState(0);
+const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+```
+
+**شاشة المعالجة:**
+- أيقونة متحركة (Sparkles animation)
+- نص "Processing..." / "جاري المعالجة..."
+- وصف: "AI analyzes partner offers from databases and web sources..."
+- شريط تقدم متحرك (0% → 100%)
+
+**منطق البحث:**
+```tsx
+const handleSubmit = async () => {
+  setStep('processing');
   
-**النتيجة المتوقعة:** حتى لو يوجد Overlay/طبقة شفافة فوق المنطقة، الزر يبقى قابل للنقر.
+  // Simulate progress animation
+  const progressInterval = setInterval(() => {
+    setProgress(p => Math.min(p + 3, 90));
+  }, 150);
+  
+  try {
+    const { data } = await supabase.functions.invoke('search-offers', {
+      body: { query: request, language: isArabic ? 'ar' : 'en' }
+    });
+    
+    clearInterval(progressInterval);
+    setProgress(100);
+    
+    // Show success toast
+    toast.success(isArabic 
+      ? "تم البحث بنجاح! تم إرسال الطلب للموردين"
+      : "Search complete! Request sent to suppliers");
+    
+    // Close dialog after success
+    setTimeout(() => {
+      onOpenChange(false);
+      setStep('input');
+      setProgress(0);
+    }, 1000);
+    
+  } catch (error) {
+    toast.error(isArabic 
+      ? "حدث خطأ أثناء البحث"
+      : "Error during search");
+    setStep('input');
+  }
+};
+```
+
+### 2. Edge Function: `search-offers/index.ts`
+
+**الوظيفة:**
+- استقبال نص الطلب (query) واللغة
+- استخدام Lovable AI (gemini-3-flash-preview) لتحليل الطلب
+- توليد ملخص للموردين المقترحين والأسعار التقديرية
+
+**المدخلات:**
+```typescript
+interface SearchOffersRequest {
+  query: string;      // نص الطلب
+  language: 'ar' | 'en';
+}
+```
+
+**المخرجات:**
+```typescript
+interface SearchOffersResponse {
+  success: boolean;
+  summary: string;           // ملخص AI
+  estimated_items: Array<{
+    name: string;
+    estimated_price_min: number;
+    estimated_price_max: number;
+    currency: string;
+    suppliers: string[];
+  }>;
+  search_sources: string[];  // المصادر المستخدمة
+}
+```
+
+**Prompt للذكاء الاصطناعي:**
+```
+You are a procurement specialist for construction projects in Saudi Arabia.
+Analyze this request and provide:
+1. A breakdown of items needed
+2. Estimated price ranges (SAR)
+3. Suggested supplier types
+4. Market availability notes
+```
+
+### 3. تحديث `supabase/config.toml`
+
+```toml
+[functions.search-offers]
+verify_jwt = false
+```
 
 ---
 
-### 3) جعل فتح الـ Dialog أكثر “مناعة” بتبديل نمط الربط (Trigger-based)
-بدل الاعتماد على state في الصفحة لفتح الـ Dialog، سنحوّل `RequestOfferDialog` إلى نمط Radix القياسي:
+## واجهة المستخدم - التفاصيل
 
-- داخل `RequestOfferDialog.tsx` نضيف `DialogTrigger asChild` ونسمح بتمرير زر كـ `children`:
-  - مثال الاستخدام:
-    - `<RequestOfferDialog><Button ...>Request Offer</Button></RequestOfferDialog>`
+### شاشة المعالجة (Processing View)
 
-وبذلك:
-- الضغط على الزر يصبح هو نفسه الـ Trigger الخاص بـ Radix.
-- يقل احتمال مشاكل state / re-render / event propagation.
-- ما زلنا ندعم `onOpenChange` عند الحاجة.
+```tsx
+{step === 'processing' && (
+  <div className="flex flex-col items-center justify-center py-12 space-y-6">
+    {/* Animated Icon Area */}
+    <div className="relative w-32 h-32 flex items-center justify-center">
+      <div className="absolute inset-0 border-2 border-dashed border-muted-foreground/30 rounded-lg" />
+      <div className="flex flex-col items-center gap-2">
+        <Sparkles className="w-10 h-10 text-primary animate-pulse" />
+        <div className="flex gap-1">
+          <Sparkles className="w-4 h-4 text-primary/60 animate-bounce" />
+          <Sparkles className="w-4 h-4 text-primary/80 animate-bounce delay-100" />
+          <Sparkles className="w-4 h-4 text-primary animate-bounce delay-200" />
+        </div>
+      </div>
+    </div>
 
-**النتيجة المتوقعة:** الزر يفتح النافذة بشكل مضمون أكثر.
+    {/* Status Text */}
+    <div className="text-center space-y-2">
+      <h3 className="text-lg font-semibold text-primary">
+        {isArabic ? "جاري المعالجة..." : "Processing..."}
+      </h3>
+      <p className="text-sm text-muted-foreground max-w-xs">
+        {isArabic 
+          ? "يقوم الذكاء الاصطناعي بتحليل عروض الشركاء من قواعد البيانات ومصادر الويب، ويُنشئ ملخصًا موجزًا"
+          : "AI analyzes partner offers from databases and web sources, creating a concise summary."}
+      </p>
+    </div>
 
----
-
-### 4) إصلاح تحذيرات Radix الخاصة بالـ refs (عامل محتمل لتعطّل التفاعل)
-لأن هناك تحذير سابق في الكونسل:
-> “Function components cannot be given refs … AlertDialogContent”
-
-سنقوم بتعديل `src/components/ui/alert-dialog.tsx` ليتبع نفس نمط `dialog.tsx`:
-- تحويل `AlertDialogHeader` و `AlertDialogFooter` إلى `React.forwardRef` بدل Function Components عادية.
-- التأكد من نفس معايير pointer-events عند الإغلاق (`data-[state=closed]:pointer-events-none`) موجودة ومتسقة.
-
-**النتيجة المتوقعة:** إزالة التحذير وتقليل احتمالات “الواجهة تتجمّد” أو “الـ Dialog لا يظهر/يتصرف بغرابة” بسبب مشاكل refs/focus.
-
----
-
-## تحسينات إضافية “مقترحات” سريعة بعد ما يشتغل الزر (تنفيذ اختياري ضمن نفس الطلب)
-إذا ترغب أن ننفّذ إضافة قيمة مباشرة بعد إصلاح الزر (بدون تعقيد كبير):
-1) **حفظ طلبات عروض الأسعار** في قاعدة البيانات (Offer Requests) وعرض “سجل الطلبات” داخل تبويب/قسم.
-2) **ربط الطلب بالشركاء النشطين**: يظهر “سيتم إرسال الطلب إلى X شركاء نشطين” (حتى لو الإرسال Simulated الآن).
-3) **قالب طلب ذكي حسب نوع الشريك** (Supplier/Vendor/Contractor) داخل الاقتراحات.
-4) (لاحقًا) **Voice input** عبر Web Speech API (لو يناسبك).
-
----
-
-## ملفات سيتم تعديلها
-- `src/pages/ProcurementPage.tsx`
-  - إضافة type للزر + طبقات أمان + (تشخيص مؤقت) + تعديل طريقة استدعاء `RequestOfferDialog`.
-- `src/components/procurement/RequestOfferDialog.tsx`
-  - دعم `DialogTrigger asChild` (نمط Trigger) بدل الاعتماد الكامل على props `open`.
-- `src/components/ui/alert-dialog.tsx`
-  - تعديل Header/Footer إلى `forwardRef` لتفادي تحذيرات refs وتحسين الاستقرار.
-
----
-
-## اختبار بعد التنفيذ (ضروري)
-1) على `/procurement`:
-   - اضغط **Request Offer**: يجب أن تفتح النافذة فورًا.
-   - أغلقها من X أو Cancel: يجب أن تغلق بدون تجميد.
-2) افتح **Add Partner Dialog** و**Delete confirmation**: التأكد أن كل الحوارات تعمل طبيعي.
-3) جرّب على موبايل + جرّب عربي/إنجليزي.
+    {/* Progress Bar */}
+    <div className="w-full max-w-sm space-y-2">
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>{isArabic ? "جاري التحميل..." : "Loading..."}</span>
+        <span className="text-primary font-medium">{progress}%</span>
+      </div>
+      <Progress value={progress} className="h-2" />
+    </div>
+  </div>
+)}
+```
 
 ---
 
-## ملاحظات/مخاطر
-- إذا كان سبب المشكلة Overlay خفي من Dialog سابق، خطوة (2) و(4) عادة تحلها.
-- إذا كان سبب المشكلة أن الضغط لا يصل بسبب طبقة CSS في صفحة المشتريات تحديدًا، خطوة (1) ستؤكد ذلك بسرعة، وخطوة (2) ستعالجه.
+## السلوك المتوقع
+
+1. **المستخدم يكتب طلبًا** أو **يضغط على اقتراح جاهز**
+2. **يضغط Submit Request**
+3. **تتحول الشاشة** إلى وضع المعالجة:
+   - تظهر الأيقونة المتحركة
+   - يتحرك شريط التقدم تدريجيًا
+   - النص التوضيحي يشرح ما يحدث
+4. **بعد اكتمال البحث (2-5 ثوان)**:
+   - يظهر toast نجاح
+   - تُغلق النافذة تلقائيًا
+5. **(مستقبلًا)** يمكن إضافة شاشة نتائج تعرض تفاصيل البحث
+
+---
+
+## معالجة الأخطاء
+
+| الحالة | الرسالة | الإجراء |
+|--------|---------|---------|
+| 429 Rate Limit | "تجاوز الحد المسموح، حاول لاحقًا" | العودة لشاشة الإدخال |
+| 402 Credits | "يرجى شحن الرصيد" | إظهار رسالة خطأ |
+| Network Error | "خطأ في الاتصال" | العودة لشاشة الإدخال + زر إعادة المحاولة |
+
+---
+
+## الخطوات التنفيذية
+
+1. **إنشاء Edge Function** `supabase/functions/search-offers/index.ts`
+2. **تحديث config.toml** لإضافة الدالة الجديدة
+3. **تعديل RequestOfferDialog.tsx**:
+   - إضافة states للتحكم بالخطوات
+   - إضافة شاشة المعالجة (Processing View)
+   - ربط Submit بـ Edge Function
+   - معالجة الأخطاء والنجاح
+
+---
+
+## اختبار بعد التنفيذ
+
+1. اذهب لصفحة `/procurement`
+2. اضغط على زر **Request Offer**
+3. اكتب طلبًا أو اضغط على اقتراح جاهز
+4. اضغط **Submit Request**
+5. **تحقق من**:
+   - ظهور شاشة المعالجة مع الأيقونة المتحركة
+   - تحرك شريط التقدم بسلاسة
+   - ظهور رسالة النجاح
+   - إغلاق النافذة تلقائيًا
 
