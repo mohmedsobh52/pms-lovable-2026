@@ -1,96 +1,112 @@
 
-# تنفيذ شاشة الشركاء الخارجيين ودمجها مع صفحة المشتريات
 
-## ملخص التنفيذ
+# خطة تحسين شاشة طلب عرض السعر (Request Offer Dialog)
 
-سأقوم بإنشاء شاشة جديدة للشركاء الخارجيين (External Partners) مع كامل الوظائف المطلوبة ودمجها في صفحة المشتريات الحالية.
+## الوضع الحالي
 
----
+الزر مرتبط بالفعل بالـ Dialog في `ProcurementPage.tsx` (سطر 59-65) ويفتح الشاشة بشكل صحيح.
 
-## المكونات المطلوبة
+## التحسينات المطلوبة بناءً على الصورة
 
-### 1. قاعدة البيانات
-
-**جدول جديد: `external_partners`**
-- يخزن بيانات الشركاء/الموردين
-- يتضمن: الاسم، الوصف، التقييم، الحالة، النوع، تواريخ العقد
-- محمي بـ RLS للمستخدمين
+سيتم تعديل `RequestOfferDialog.tsx` ليطابق التصميم الجديد:
 
 ---
 
-### 2. الملفات الجديدة
-
-| الملف | الوصف |
-|-------|-------|
-| `src/components/procurement/ExternalPartners.tsx` | المكون الرئيسي لعرض الشركاء |
-| `src/components/procurement/PartnerCard.tsx` | بطاقة الشريك الفردية |
-| `src/components/procurement/AddPartnerDialog.tsx` | نافذة إضافة/تعديل شريك |
-| `src/components/procurement/PartnerDetailsDialog.tsx` | نافذة تفاصيل الشريك |
-| `src/components/procurement/ProcurementContracts.tsx` | قسم العقود المرتبطة |
-| `src/components/procurement/RequestOfferDialog.tsx` | نافذة طلب عرض سعر |
-| `src/components/procurement/index.ts` | ملف التصدير |
-
----
-
-### 3. تحديث صفحة Procurement
-
-**الملف:** `src/pages/ProcurementPage.tsx`
-
-**التغييرات:**
-- إضافة header مع زر "Request Offer"
-- تحويل المحتوى إلى تبويبات:
-  - **Partners** - الشركاء الخارجيين (الشاشة الجديدة)
-  - **Procurement** - المشتريات (المحتوى الحالي)
-  - **Contracts** - العقود المرتبطة
-
----
-
-## تصميم بطاقة الشريك
+## التصميم الجديد
 
 ```text
-┌─────────────────────────────────────┐
-│ 🏢  ⭐⭐⭐⭐⭐ 4.5/5        [✏️]    │
-│ Qatar Tech Hub                      │
-│ Premium technology solutions...     │
-│                                     │
-│ [🟢 Active]    📅 24 Sept - 23 Nov  │
-│                                     │
-│         [ View Details ]            │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  ✨ Request Offer                                          ✕    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  Enter your request in detail to get the best price     │   │
+│  │  quotes from suppliers                                   │   │
+│  │                                                          │   │
+│  │  ┌───────────────────────────────────────────────────┐  │   │
+│  │  │ Write your request here...                    🎤  │  │   │
+│  │  └───────────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  Suggested requests:                                            │
+│                                                                 │
+│  [Need 10 laptops for development team]                         │
+│  [Office furniture for 50 employees]                            │
+│  [Construction materials for building project]                  │
+│                                                                 │
+│                                                                 │
+│          [ Cancel ]         [ 📤 Submit Request ]               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## الفلاتر والبحث
+## التغييرات التقنية
 
-- **البحث:** بالاسم أو الوصف
-- **الحالة:** الكل / نشط / غير نشط / معلق
-- **النوع:** مورد / بائع / مقاول / مستشار
-- **الترتيب:** الاسم / التقييم / التاريخ
+### 1. تبسيط الواجهة
+
+**إزالة:**
+- اختيار الشركاء (سيتم الإرسال لجميع الشركاء النشطين)
+- حقل الموضوع المنفصل
+- حقل الموعد النهائي
+
+**إضافة:**
+- صندوق نص واحد بتصميم أنيق
+- أيقونة ميكروفون (UI فقط)
+- اقتراحات جاهزة كأزرار قابلة للنقر
+
+### 2. الاقتراحات الجاهزة
+
+ستكون ثنائية اللغة:
+
+| English | العربية |
+|---------|---------|
+| Need 10 laptops for development team | نحتاج 10 أجهزة لابتوب لفريق التطوير |
+| Office furniture for 50 employees | أثاث مكتبي لـ 50 موظف |
+| Construction materials for building project | مواد بناء لمشروع إنشائي |
+| Electrical equipment and supplies | معدات ولوازم كهربائية |
+| HVAC systems for commercial building | أنظمة تكييف لمبنى تجاري |
+
+### 3. تحديث الكود
+
+**الملف:** `src/components/procurement/RequestOfferDialog.tsx`
+
+```tsx
+// State مبسط
+const [request, setRequest] = useState("");
+const [isLoading, setIsLoading] = useState(false);
+
+// اقتراحات جاهزة
+const suggestions = [
+  { en: "Need 10 laptops for development team", ar: "نحتاج 10 أجهزة لابتوب لفريق التطوير" },
+  { en: "Office furniture for 50 employees", ar: "أثاث مكتبي لـ 50 موظف" },
+  { en: "Construction materials for building project", ar: "مواد بناء لمشروع إنشائي" },
+  { en: "Electrical equipment and supplies", ar: "معدات ولوازم كهربائية" },
+];
+
+// عند النقر على اقتراح
+const handleSuggestionClick = (text: string) => {
+  setRequest(text);
+};
+```
 
 ---
 
-## قائمة الملفات النهائية
+## الملف المتأثر
 
-1. **قاعدة البيانات:** Migration لجدول `external_partners`
-2. **src/components/procurement/ExternalPartners.tsx** - جديد
-3. **src/components/procurement/PartnerCard.tsx** - جديد
-4. **src/components/procurement/AddPartnerDialog.tsx** - جديد
-5. **src/components/procurement/PartnerDetailsDialog.tsx** - جديد
-6. **src/components/procurement/ProcurementContracts.tsx** - جديد
-7. **src/components/procurement/RequestOfferDialog.tsx** - جديد
-8. **src/components/procurement/index.ts** - جديد
-9. **src/pages/ProcurementPage.tsx** - تعديل
+| الملف | التغيير |
+|-------|---------|
+| `src/components/procurement/RequestOfferDialog.tsx` | تعديل كامل للتصميم |
 
 ---
 
-## المميزات
+## المميزات الجديدة
 
-- واجهة مشابهة للصورة المرفقة
-- دعم كامل للغتين (عربي/إنجليزي)
-- تقييم بالنجوم (5 نجوم)
-- حالة الشريك (نشط/غير نشط/معلق)
-- فترة العقد مع التواريخ
-- بحث وفلاتر وترتيب
-- زر طلب عرض سعر
-- تكامل مع نظام العقود
+- ✅ واجهة بسيطة ونظيفة مطابقة للصورة
+- ✅ اقتراحات سريعة بنقرة واحدة
+- ✅ دعم كامل للغتين
+- ✅ زر إرسال مميز بأيقونة
+- ✅ أيقونة ميكروفون (تصميم UI)
+- ✅ رسالة توضيحية في الأعلى
+
