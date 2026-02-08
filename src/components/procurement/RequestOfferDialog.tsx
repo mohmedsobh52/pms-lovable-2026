@@ -1,4 +1,4 @@
-import { useState, ReactNode, useEffect } from "react";
+import { useState, ReactNode } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,8 +9,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useLanguage } from "@/hooks/useLanguage";
-import { Loader2, Send, Mic, Sparkles } from "lucide-react";
+import { Loader2, Send, Mic, Sparkles, CheckCircle, Lightbulb, Info, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -18,6 +26,24 @@ interface RequestOfferDialogProps {
   children?: ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+}
+
+interface EstimatedItem {
+  name: string;
+  estimated_price_min: number;
+  estimated_price_max: number;
+  currency: string;
+  suppliers: string[];
+}
+
+interface SearchResult {
+  summary: string;
+  estimated_items: EstimatedItem[];
+  recommendations: string[];
+  market_notes: string;
+  search_sources: string[];
+  total_estimated_min?: number;
+  total_estimated_max?: number;
 }
 
 const suggestions = [
@@ -40,22 +66,23 @@ export const RequestOfferDialog = ({
   const [internalOpen, setInternalOpen] = useState(false);
   const [step, setStep] = useState<DialogStep>('input');
   const [progress, setProgress] = useState(0);
+  const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
 
-  // Support both controlled and uncontrolled modes
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
+  
   const onOpenChange = (newOpen: boolean) => {
     if (!isControlled) {
       setInternalOpen(newOpen);
     }
     controlledOnOpenChange?.(newOpen);
     
-    // Reset state when closing
     if (!newOpen) {
       setTimeout(() => {
         setStep('input');
         setProgress(0);
         setRequest("");
+        setSearchResults(null);
       }, 300);
     }
   };
@@ -63,8 +90,30 @@ export const RequestOfferDialog = ({
   const handleSuggestionClick = (suggestion: { en: string; ar: string }) => {
     const text = isArabic ? suggestion.ar : suggestion.en;
     setRequest(text);
-    // Auto-submit when clicking a suggestion
     handleSubmitWithQuery(text);
+  };
+
+  const saveToDatabase = async (query: string, results: SearchResult) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase.from('offer_requests').insert([{
+        user_id: user.id,
+        request_text: query,
+        language: isArabic ? 'ar' : 'en',
+        summary: results.summary,
+        estimated_items: JSON.parse(JSON.stringify(results.estimated_items)),
+        recommendations: results.recommendations,
+        market_notes: results.market_notes,
+        search_sources: results.search_sources,
+        total_estimated_min: results.total_estimated_min,
+        total_estimated_max: results.total_estimated_max,
+        currency: 'SAR',
+      }]);
+    } catch (error) {
+      console.error('Error saving offer request:', error);
+    }
   };
 
   const handleSubmitWithQuery = async (query: string) => {
@@ -73,7 +122,6 @@ export const RequestOfferDialog = ({
     setStep('processing');
     setProgress(0);
 
-    // Simulate progress animation
     const progressInterval = setInterval(() => {
       setProgress(p => {
         if (p >= 90) return p;
@@ -99,20 +147,26 @@ export const RequestOfferDialog = ({
 
       setProgress(100);
 
-      // Show success toast with summary
-      toast.success(
-        isArabic
-          ? "تم البحث بنجاح! تم إرسال الطلب للموردين"
-          : "Search complete! Request sent to suppliers",
-        {
-          description: data?.summary || (isArabic ? "تم تحليل طلبك" : "Your request has been analyzed")
-        }
-      );
+      // Parse and structure the results
+      const results: SearchResult = {
+        summary: data?.summary || '',
+        estimated_items: data?.estimated_items || [],
+        recommendations: data?.recommendations || [],
+        market_notes: data?.market_notes || '',
+        search_sources: data?.search_sources || [],
+        total_estimated_min: data?.total_estimated_min,
+        total_estimated_max: data?.total_estimated_max,
+      };
 
-      // Close dialog after success
-      setTimeout(() => {
-        onOpenChange(false);
-      }, 1500);
+      setSearchResults(results);
+      setStep('results');
+
+      // Save to database
+      await saveToDatabase(query, results);
+
+      toast.success(
+        isArabic ? "تم تحليل الطلب بنجاح" : "Request analyzed successfully"
+      );
 
     } catch (error) {
       clearInterval(progressInterval);
@@ -121,9 +175,7 @@ export const RequestOfferDialog = ({
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       toast.error(
-        isArabic
-          ? "حدث خطأ أثناء البحث"
-          : "Error during search",
+        isArabic ? "حدث خطأ أثناء البحث" : "Error during search",
         { description: errorMessage }
       );
       
@@ -137,10 +189,123 @@ export const RequestOfferDialog = ({
     handleSubmitWithQuery(request);
   };
 
+  const handleNewRequest = () => {
+    setStep('input');
+    setProgress(0);
+    setRequest("");
+    setSearchResults(null);
+  };
+
+  // Results View
+  const renderResultsView = () => {
+    if (!searchResults) return null;
+
+    return (
+      <div className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto">
+        {/* Success Header */}
+        <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+            <CheckCircle className="w-5 h-5 flex-shrink-0" />
+            <span className="font-semibold">
+              {isArabic ? "تم تحليل الطلب بنجاح" : "Request analyzed successfully"}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">{searchResults.summary}</p>
+        </div>
+
+        {/* Estimated Items Table */}
+        {searchResults.estimated_items.length > 0 && (
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/50 px-4 py-2 border-b">
+              <h4 className="font-medium text-sm">
+                {isArabic ? "قائمة الموردين والأسعار" : "Suppliers & Prices"}
+              </h4>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[40%]">{isArabic ? "المادة" : "Item"}</TableHead>
+                  <TableHead className="w-[30%]">{isArabic ? "السعر (ر.س)" : "Price (SAR)"}</TableHead>
+                  <TableHead className="w-[30%]">{isArabic ? "الموردين" : "Suppliers"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {searchResults.estimated_items.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell className="text-primary font-medium">
+                      {item.estimated_price_min?.toLocaleString()} - {item.estimated_price_max?.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {item.suppliers?.join(isArabic ? "، " : ", ") || "-"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            
+            {/* Total Row */}
+            {searchResults.total_estimated_min && searchResults.total_estimated_max && (
+              <div className="bg-muted/30 px-4 py-3 border-t flex justify-between items-center">
+                <span className="font-medium">{isArabic ? "الإجمالي التقديري" : "Estimated Total"}</span>
+                <span className="text-primary font-bold">
+                  {searchResults.total_estimated_min.toLocaleString()} - {searchResults.total_estimated_max.toLocaleString()} {isArabic ? "ر.س" : "SAR"}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Recommendations */}
+        {searchResults.recommendations.length > 0 && (
+          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+            <h4 className="font-medium flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-2">
+              <Lightbulb className="w-4 h-4" />
+              {isArabic ? "التوصيات" : "Recommendations"}
+            </h4>
+            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+              {searchResults.recommendations.map((rec, i) => (
+                <li key={i}>{rec}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Market Notes */}
+        {searchResults.market_notes && (
+          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <h4 className="font-medium flex items-center gap-2 text-blue-700 dark:text-blue-400 mb-2">
+              <Info className="w-4 h-4" />
+              {isArabic ? "ملاحظات السوق" : "Market Notes"}
+            </h4>
+            <p className="text-sm text-muted-foreground">{searchResults.market_notes}</p>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3 pt-2 sticky bottom-0 bg-background pb-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleNewRequest}
+          >
+            <RotateCcw className="w-4 h-4 me-2" />
+            {isArabic ? "طلب جديد" : "New Request"}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => onOpenChange(false)}
+          >
+            {isArabic ? "إغلاق" : "Close"}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   // Processing View
   const renderProcessingView = () => (
     <div className="flex flex-col items-center justify-center py-12 space-y-6">
-      {/* Animated Icon Area */}
       <div className="relative w-32 h-32 flex items-center justify-center">
         <div className="absolute inset-0 border-2 border-dashed border-muted-foreground/30 rounded-lg animate-pulse" />
         <div className="flex flex-col items-center gap-2">
@@ -153,19 +318,17 @@ export const RequestOfferDialog = ({
         </div>
       </div>
 
-      {/* Status Text */}
       <div className="text-center space-y-2">
         <h3 className="text-lg font-semibold text-primary">
           {isArabic ? "جاري المعالجة..." : "Processing..."}
         </h3>
         <p className="text-sm text-muted-foreground max-w-xs">
           {isArabic 
-            ? "يقوم الذكاء الاصطناعي بتحليل عروض الشركاء من قواعد البيانات ومصادر الويب، ويُنشئ ملخصًا موجزًا"
-            : "AI analyzes partner offers from databases and web sources, creating a concise summary."}
+            ? "يقوم الذكاء الاصطناعي بتحليل عروض الشركاء من قواعد البيانات ومصادر الويب"
+            : "AI analyzes partner offers from databases and web sources"}
         </p>
       </div>
 
-      {/* Progress Bar */}
       <div className="w-full max-w-sm space-y-2">
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>{isArabic ? "جاري التحميل..." : "Loading..."}</span>
@@ -179,7 +342,6 @@ export const RequestOfferDialog = ({
   // Input View
   const renderInputView = () => (
     <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-      {/* Main Input Section */}
       <div className="bg-muted/50 rounded-xl p-4 space-y-3">
         <p className="text-sm text-muted-foreground">
           {isArabic
@@ -209,7 +371,6 @@ export const RequestOfferDialog = ({
         </div>
       </div>
 
-      {/* Suggestions */}
       <div className="space-y-3">
         <p className="text-sm font-medium text-muted-foreground">
           {isArabic ? "اقتراحات جاهزة:" : "Suggested requests:"}
@@ -228,7 +389,6 @@ export const RequestOfferDialog = ({
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex justify-end gap-3 pt-2">
         <Button
           type="button"
@@ -249,6 +409,17 @@ export const RequestOfferDialog = ({
     </form>
   );
 
+  const renderContent = () => {
+    switch (step) {
+      case 'processing':
+        return renderProcessingView();
+      case 'results':
+        return renderResultsView();
+      default:
+        return renderInputView();
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
@@ -260,7 +431,7 @@ export const RequestOfferDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        {step === 'processing' ? renderProcessingView() : renderInputView()}
+        {renderContent()}
       </DialogContent>
     </Dialog>
   );

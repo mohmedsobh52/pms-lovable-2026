@@ -1464,6 +1464,60 @@ export type Database = {
           },
         ]
       }
+      offer_requests: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          estimated_items: Json | null
+          id: string
+          language: string | null
+          market_notes: string | null
+          recommendations: string[] | null
+          request_text: string
+          search_sources: string[] | null
+          status: string | null
+          summary: string | null
+          total_estimated_max: number | null
+          total_estimated_min: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string | null
+          estimated_items?: Json | null
+          id?: string
+          language?: string | null
+          market_notes?: string | null
+          recommendations?: string[] | null
+          request_text: string
+          search_sources?: string[] | null
+          status?: string | null
+          summary?: string | null
+          total_estimated_max?: number | null
+          total_estimated_min?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string | null
+          estimated_items?: Json | null
+          id?: string
+          language?: string | null
+          market_notes?: string | null
+          recommendations?: string[] | null
+          request_text?: string
+          search_sources?: string[] | null
+          status?: string | null
+          summary?: string | null
+          total_estimated_max?: number | null
+          total_estimated_min?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       price_quotations: {
         Row: {
           ai_analysis: Json | null
