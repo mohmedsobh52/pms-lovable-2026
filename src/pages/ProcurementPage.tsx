@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ProcurementResourcesSchedule } from "@/components/ProcurementResourcesSchedule";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { PageLayout } from "@/components/PageLayout";
@@ -19,7 +19,6 @@ const ProcurementPage = () => {
   const { analysisData } = useAnalysisData();
   const { isArabic } = useLanguage();
   const { user } = useAuth();
-  const [requestOfferOpen, setRequestOfferOpen] = useState(false);
   const [partners, setPartners] = useState<ExternalPartner[]>([]);
 
   useEffect(() => {
@@ -56,13 +55,15 @@ const ProcurementPage = () => {
             </p>
           </div>
 
-          <Button
-            onClick={() => setRequestOfferOpen(true)}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
-          >
-            <Sparkles className="w-4 h-4 me-2" />
-            {isArabic ? "طلب عرض سعر" : "Request Offer"}
-          </Button>
+          <RequestOfferDialog>
+            <Button
+              type="button"
+              className="relative z-[60] pointer-events-auto bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+            >
+              <Sparkles className="w-4 h-4 me-2" />
+              {isArabic ? "طلب عرض سعر" : "Request Offer"}
+            </Button>
+          </RequestOfferDialog>
         </div>
 
         {/* Tabs */}
@@ -105,11 +106,6 @@ const ProcurementPage = () => {
         </Tabs>
       </div>
 
-      {/* Request Offer Dialog */}
-      <RequestOfferDialog
-        open={requestOfferOpen}
-        onOpenChange={setRequestOfferOpen}
-      />
     </PageLayout>
   );
 };

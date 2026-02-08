@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, ReactNode } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,8 +13,9 @@ import { Loader2, Send, Mic, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 interface RequestOfferDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  children?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 const suggestions = [
@@ -25,12 +27,24 @@ const suggestions = [
 ];
 
 export const RequestOfferDialog = ({
-  open,
-  onOpenChange,
+  children,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: RequestOfferDialogProps) => {
   const { isArabic } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
   const [request, setRequest] = useState("");
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  // Support both controlled and uncontrolled modes
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const onOpenChange = (newOpen: boolean) => {
+    if (!isControlled) {
+      setInternalOpen(newOpen);
+    }
+    controlledOnOpenChange?.(newOpen);
+  };
 
   const handleSuggestionClick = (suggestion: { en: string; ar: string }) => {
     setRequest(isArabic ? suggestion.ar : suggestion.en);
@@ -58,6 +72,7 @@ export const RequestOfferDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
