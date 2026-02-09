@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
+  Users,
   Phone,
   Mail,
   MapPin,
@@ -59,6 +60,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ContractsPrintPreview } from "@/components/contracts/ContractsPrintPreview";
 
+interface RegisteredSubcontractor {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  specialty: string | null;
+  license_number: string | null;
+}
 interface Contract {
   id: string;
   contract_number: string;
@@ -124,7 +133,9 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
   
   // AI generation states
   const [generatingField, setGeneratingField] = useState<string | null>(null);
-  
+
+  // Registered subcontractors for linking
+  const [registeredSubcontractors, setRegisteredSubcontractors] = useState<RegisteredSubcontractor[]>([]);
   const [formData, setFormData] = useState({
     // Step 1: Basic Info
     contract_number: "",
@@ -215,7 +226,23 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
 
   useEffect(() => {
     fetchContracts();
+    fetchRegisteredSubcontractors();
   }, [user, projectId]);
+
+  const fetchRegisteredSubcontractors = async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from("subcontractors")
+        .select("id, name, email, phone, specialty, license_number")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .order("name");
+      setRegisteredSubcontractors(data || []);
+    } catch (error) {
+      console.error("Error fetching subcontractors:", error);
+    }
+  };
 
   // Auto-calculate contract duration when dates change
   useEffect(() => {
@@ -589,6 +616,44 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
       case 2:
         return (
           <div className="space-y-4">
+            {/* Select from existing subcontractors */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                {isArabic ? "اختيار مقاول مسجل" : "Select Registered Subcontractor"}
+              </Label>
+              <Select
+                value="none"
+                onValueChange={(v) => {
+                  if (v === "none") return;
+                  const sub = registeredSubcontractors.find(s => s.id === v);
+                  if (sub) {
+                    setFormData(prev => ({
+                      ...prev,
+                      contractor_name: sub.name,
+                      contractor_phone: sub.phone || "",
+                      contractor_email: sub.email || "",
+                      contractor_license_number: sub.license_number || "",
+                    }));
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={isArabic ? "اختر من المقاولين المسجلين أو أدخل يدوياً" : "Pick a registered subcontractor or enter manually"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{isArabic ? "إدخال يدوي" : "Enter manually"}</SelectItem>
+                  {registeredSubcontractors.map((sub) => (
+                    <SelectItem key={sub.id} value={sub.id}>
+                      {sub.name} {sub.specialty ? `(${sub.specialty})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Separator className="my-2" />
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
