@@ -105,6 +105,109 @@ const numberToArabicWords = (num: number): string => {
   return ones[num];
 };
 
+// Format scope of work text into structured paragraphs and bullet points
+const formatScopeOfWork = (text: string): React.ReactNode => {
+  if (!text) return null;
+  
+  // Split by common section markers
+  const lines = text.split(/[\n\r]+/).filter(line => line.trim());
+  
+  const elements: React.ReactNode[] = [];
+  let currentSection: string | null = null;
+  let bulletItems: string[] = [];
+  let sectionCounter = 0;
+  
+  const flushBullets = () => {
+    if (bulletItems.length > 0) {
+      elements.push(
+        <ul key={`bullets-${elements.length}`} className="list-disc list-inside space-y-2 mr-6 my-3">
+          {bulletItems.map((item, idx) => (
+            <li key={idx} className="text-sm leading-relaxed text-gray-700">
+              {item.replace(/^[\*\-•]\s*/, '').trim()}
+            </li>
+          ))}
+        </ul>
+      );
+      bulletItems = [];
+    }
+  };
+  
+  lines.forEach((line, idx) => {
+    const trimmedLine = line.trim();
+    
+    // Check for bold section headers (marked with **)
+    const boldMatch = trimmedLine.match(/^\*\*([^*]+)\*\*:?$/);
+    if (boldMatch) {
+      flushBullets();
+      sectionCounter++;
+      elements.push(
+        <div key={`section-${idx}`} className="mt-6 mb-3">
+          <h5 className="font-bold text-[#1e3a5f] text-base flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-[#1e3a5f] text-white text-xs flex items-center justify-center">
+              {sectionCounter}
+            </span>
+            {boldMatch[1].trim()}
+          </h5>
+          <div className="h-px bg-gray-200 mt-2" />
+        </div>
+      );
+      return;
+    }
+    
+    // Check for numbered sections like "1." or "1-"
+    const numberedMatch = trimmedLine.match(/^(\d+)[\.\-\)]\s*(.+)$/);
+    if (numberedMatch) {
+      flushBullets();
+      elements.push(
+        <div key={`numbered-${idx}`} className="flex gap-3 my-3">
+          <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-800 text-xs flex items-center justify-center shrink-0 mt-1">
+            {numberedMatch[1]}
+          </span>
+          <p className="text-sm leading-relaxed text-gray-700 flex-1">
+            {numberedMatch[2]}
+          </p>
+        </div>
+      );
+      return;
+    }
+    
+    // Check for lettered sections like "أ." or "أ-"
+    const arabicLetterMatch = trimmedLine.match(/^([أ-ي])[\.\-\)]\s*(.+)$/);
+    if (arabicLetterMatch) {
+      flushBullets();
+      elements.push(
+        <div key={`letter-${idx}`} className="flex gap-3 my-3 mr-4">
+          <span className="w-6 h-6 rounded bg-gray-100 text-gray-700 text-xs flex items-center justify-center shrink-0 mt-1 font-bold">
+            {arabicLetterMatch[1]}
+          </span>
+          <p className="text-sm leading-relaxed text-gray-700 flex-1 font-semibold">
+            {arabicLetterMatch[2]}
+          </p>
+        </div>
+      );
+      return;
+    }
+    
+    // Check for bullet points
+    if (trimmedLine.match(/^[\*\-•]\s*.+/)) {
+      bulletItems.push(trimmedLine);
+      return;
+    }
+    
+    // Regular paragraph
+    flushBullets();
+    elements.push(
+      <p key={`para-${idx}`} className="text-sm leading-loose text-gray-700 my-3 text-justify">
+        {trimmedLine}
+      </p>
+    );
+  });
+  
+  flushBullets();
+  
+  return <div className="space-y-1">{elements}</div>;
+};
+
 export function LegalContractPreview({
   open,
   onOpenChange,
@@ -171,14 +274,14 @@ export function LegalContractPreview({
             font-family: 'Cairo', 'Amiri', serif; 
             font-size: 14px;
             line-height: 1.8;
-            padding: 40px;
+            padding: 30px;
             direction: rtl;
             background: white;
             color: #1a1a1a;
           }
           
           .contract-container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             border: 3px double #1e3a5f;
             padding: 40px;
@@ -287,7 +390,7 @@ export function LegalContractPreview({
           }
           
           .article {
-            margin: 25px 0;
+            margin: 30px 0;
             page-break-inside: avoid;
           }
           
@@ -296,15 +399,56 @@ export function LegalContractPreview({
             font-weight: bold;
             color: #1e3a5f;
             margin-bottom: 15px;
-            padding: 10px;
+            padding: 12px 15px;
             background: linear-gradient(90deg, #f0f9ff 0%, transparent 100%);
             border-right: 4px solid #1e3a5f;
           }
           
           .article-content {
-            padding: 15px;
+            padding: 15px 20px;
             line-height: 2;
             text-align: justify;
+          }
+          
+          .scope-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+          }
+          
+          .scope-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            color: #1e3a5f;
+            font-size: 15px;
+            margin-bottom: 12px;
+          }
+          
+          .scope-number {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #1e3a5f;
+            color: white;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          
+          .scope-list {
+            list-style: disc;
+            list-style-position: inside;
+            margin-right: 24px;
+          }
+          
+          .scope-list li {
+            margin: 8px 0;
+            line-height: 1.8;
           }
           
           .value-box {
@@ -413,9 +557,10 @@ export function LegalContractPreview({
           }
           
           @media print {
-            body { padding: 20px; }
-            .contract-container { border: none; padding: 20px; }
+            body { padding: 15px; }
+            .contract-container { border: 2px solid #1e3a5f; padding: 25px; }
             .no-print { display: none !important; }
+            .article { page-break-inside: avoid; }
           }
         </style>
       </head>
@@ -518,46 +663,46 @@ export function LegalContractPreview({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="max-w-4xl max-h-[90vh] overflow-hidden"
+        className="max-w-[95vw] w-full max-h-[95vh] overflow-hidden"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5" />
-            {isArabic ? "عرض العقد" : "Contract Preview"} - {contract.contract_number}
+            {isArabic ? "عرض العقد القانوني" : "Legal Contract Preview"} - {contract.contract_number}
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="h-[70vh]">
-          <div ref={printRef} className="p-6" dir="rtl">
+        <ScrollArea className="h-[85vh]">
+          <div ref={printRef} className="p-8" dir="rtl">
             {/* Contract Container */}
-            <div className="border-[3px] border-double border-[#1e3a5f] p-8 bg-white">
+            <div className="border-[3px] border-double border-[#1e3a5f] p-10 bg-white max-w-[900px] mx-auto shadow-lg">
               {/* Header */}
-              <div className="text-center mb-8 pb-6 border-b-2 border-[#1e3a5f]">
+              <div className="text-center mb-10 pb-6 border-b-2 border-[#1e3a5f]">
                 {companyLogo && (
-                  <img src={companyLogo} alt="Company Logo" className="h-16 mx-auto mb-3" />
+                  <img src={companyLogo} alt="Company Logo" className="h-20 mx-auto mb-4" />
                 )}
-                <div className="flex justify-between items-center mb-3">
+                <div className="flex justify-between items-center mb-4">
                   <span className="font-serif italic text-sm text-[#1e3a5f]">{company.nameEn}</span>
-                  <span className="font-bold text-base text-[#1e3a5f]">{company.nameAr}</span>
+                  <span className="font-bold text-lg text-[#1e3a5f]">{company.nameAr}</span>
                 </div>
                 <div className="h-[3px] bg-gradient-to-l from-[#1e3a5f] via-blue-500 to-[#1e3a5f]" />
               </div>
 
               {/* Contract Title */}
-              <div className="text-center my-8">
-                <h1 className="text-3xl font-bold text-[#1e3a5f] tracking-widest mb-3">
+              <div className="text-center my-10">
+                <h1 className="text-4xl font-bold text-[#1e3a5f] tracking-[0.3em] mb-4">
                   عـقـد مـقـاولـة
                 </h1>
-                <h2 className="text-xl text-gray-600 font-serif mb-3">
+                <h2 className="text-2xl text-gray-600 font-serif mb-4">
                   CONSTRUCTION CONTRACT
                 </h2>
-                <div className="h-px w-40 mx-auto bg-[#1e3a5f]" />
-                <p className="text-base text-gray-500 mt-4 font-semibold">
+                <div className="h-1 w-48 mx-auto bg-gradient-to-l from-transparent via-[#1e3a5f] to-transparent" />
+                <p className="text-lg text-gray-500 mt-6 font-semibold">
                   {isArabic ? "رقم العقد:" : "Contract #:"} {contract.contract_number}
                 </p>
-                <Badge variant="outline" className="mt-2">
+                <Badge variant="outline" className="mt-3 text-base px-4 py-1">
                   {isArabic 
                     ? TYPE_LABELS[contract.contract_type]?.ar || contract.contract_type
                     : TYPE_LABELS[contract.contract_type]?.en || contract.contract_type
@@ -566,18 +711,19 @@ export function LegalContractPreview({
               </div>
 
               {/* Preamble */}
-              <div className="text-center my-8 text-base leading-loose">
-                أبرم هذا العقد في يوم {format(new Date(), "EEEE", { locale: ar })} الموافق {format(new Date(), "dd/MM/yyyy")} بين كل من:
+              <div className="text-center my-10 text-lg leading-[2.5]">
+                أبرم هذا العقد في يوم <span className="font-bold">{format(new Date(), "EEEE", { locale: ar })}</span> الموافق <span className="font-bold">{format(new Date(), "dd/MM/yyyy")}</span> بين كل من:
               </div>
 
               {/* First Party */}
-              <div className="border rounded-lg p-5 mb-4 bg-gray-50">
-                <h3 className="font-bold text-lg text-[#1e3a5f] mb-4 pb-3 border-b">
+              <div className="border-2 rounded-xl p-6 mb-6 bg-gradient-to-bl from-gray-50 to-white shadow-sm">
+                <h3 className="font-bold text-xl text-[#1e3a5f] mb-5 pb-4 border-b-2 border-[#1e3a5f] flex items-center gap-3">
+                  <span className="w-8 h-8 rounded-full bg-[#1e3a5f] text-white text-sm flex items-center justify-center">1</span>
                   الطرف الأول (صاحب العمل)
                 </h3>
-                <div className="grid grid-cols-[100px_1fr] gap-3 text-sm">
+                <div className="grid grid-cols-[120px_1fr] gap-4 text-base">
                   <span className="font-semibold text-gray-600">الاسم:</span>
-                  <span>{company.nameAr}</span>
+                  <span className="font-bold">{company.nameAr}</span>
                   <span className="font-semibold text-gray-600">السجل التجاري:</span>
                   <span>{company.crNumber}</span>
                   <span className="font-semibold text-gray-600">العنوان:</span>
@@ -586,13 +732,14 @@ export function LegalContractPreview({
               </div>
 
               {/* Second Party */}
-              <div className="border rounded-lg p-5 mb-8 bg-gray-50">
-                <h3 className="font-bold text-lg text-[#1e3a5f] mb-4 pb-3 border-b">
+              <div className="border-2 rounded-xl p-6 mb-10 bg-gradient-to-bl from-gray-50 to-white shadow-sm">
+                <h3 className="font-bold text-xl text-[#1e3a5f] mb-5 pb-4 border-b-2 border-[#1e3a5f] flex items-center gap-3">
+                  <span className="w-8 h-8 rounded-full bg-[#1e3a5f] text-white text-sm flex items-center justify-center">2</span>
                   الطرف الثاني (المقاول)
                 </h3>
-                <div className="grid grid-cols-[100px_1fr] gap-3 text-sm">
+                <div className="grid grid-cols-[120px_1fr] gap-4 text-base">
                   <span className="font-semibold text-gray-600">الاسم:</span>
-                  <span>{contract.contractor_name || "-"}</span>
+                  <span className="font-bold">{contract.contractor_name || "-"}</span>
                   {contract.contractor_license_number && (
                     <>
                       <span className="font-semibold text-gray-600">رقم الترخيص:</span>
@@ -624,30 +771,40 @@ export function LegalContractPreview({
                 </div>
               </div>
 
+              <Separator className="my-8 h-px bg-gradient-to-l from-transparent via-gray-300 to-transparent" />
+
               {/* Article 1: Subject */}
-              <div className="my-6">
-                <h4 className="text-base font-bold text-[#1e3a5f] mb-4 p-3 bg-gradient-to-l from-blue-50 to-transparent border-r-4 border-[#1e3a5f]">
+              <div className="my-8">
+                <h4 className="text-lg font-bold text-[#1e3a5f] mb-5 p-4 bg-gradient-to-l from-blue-50 to-transparent border-r-4 border-[#1e3a5f] rounded-l-lg">
                   البند {getArabicOrdinal(1)}: موضوع العقد
                 </h4>
-                <div className="px-4 leading-loose text-justify">
-                  يلتزم الطرف الثاني بتنفيذ الأعمال التالية وفقاً للمواصفات والشروط المتفق عليها:
-                  <div className="border rounded-lg p-4 mt-3 bg-gray-50">
-                    {contract.scope_of_work || contract.contract_title}
+                <div className="px-6 leading-[2] text-justify">
+                  <p className="text-base mb-4">
+                    يلتزم الطرف الثاني بتنفيذ الأعمال التالية وفقاً للمواصفات والشروط المتفق عليها:
+                  </p>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mt-4">
+                    <h5 className="font-bold text-[#1e3a5f] text-base mb-4 flex items-center gap-2 border-b pb-3">
+                      <FileText className="w-5 h-5" />
+                      نطاق العمل
+                    </h5>
+                    <div className="scope-content text-base leading-[2]">
+                      {formatScopeOfWork(contract.scope_of_work || contract.contract_title)}
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Article 2: Value */}
-              <div className="my-6">
-                <h4 className="text-base font-bold text-[#1e3a5f] mb-4 p-3 bg-gradient-to-l from-blue-50 to-transparent border-r-4 border-[#1e3a5f]">
+              <div className="my-8">
+                <h4 className="text-lg font-bold text-[#1e3a5f] mb-5 p-4 bg-gradient-to-l from-blue-50 to-transparent border-r-4 border-[#1e3a5f] rounded-l-lg">
                   البند {getArabicOrdinal(2)}: قيمة العقد
                 </h4>
-                <div className="px-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-blue-700">
+                <div className="px-6">
+                  <div className="bg-gradient-to-bl from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-6 text-center shadow-sm">
+                    <div className="text-3xl font-bold text-blue-700 mb-3">
                       {formatCurrency(contract.contract_value || 0, contract.currency)}
                     </div>
-                    <div className="text-sm text-gray-600 mt-2">
+                    <div className="text-base text-gray-700 bg-white/80 rounded-lg py-2 px-4 inline-block">
                       ({numberToArabicWords(contract.contract_value || 0)} {contract.currency === "SAR" ? "ريال سعودي" : contract.currency} فقط لا غير)
                     </div>
                   </div>
@@ -655,42 +812,52 @@ export function LegalContractPreview({
               </div>
 
               {/* Article 3: Duration */}
-              <div className="my-6">
-                <h4 className="text-base font-bold text-[#1e3a5f] mb-4 p-3 bg-gradient-to-l from-blue-50 to-transparent border-r-4 border-[#1e3a5f]">
+              <div className="my-8">
+                <h4 className="text-lg font-bold text-[#1e3a5f] mb-5 p-4 bg-gradient-to-l from-blue-50 to-transparent border-r-4 border-[#1e3a5f] rounded-l-lg">
                   البند {getArabicOrdinal(3)}: مدة العقد
                 </h4>
-                <div className="px-4 leading-loose">
-                  <div className="flex justify-between items-center border-b pb-3 mb-3">
-                    <span>تاريخ البدء: <strong>{formatDate(contract.start_date)}</strong></span>
-                    <span>تاريخ الانتهاء: <strong>{formatDate(contract.end_date)}</strong></span>
+                <div className="px-6">
+                  <div className="grid grid-cols-2 gap-6 mb-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                      <p className="text-sm text-gray-600 mb-2">تاريخ البدء</p>
+                      <p className="text-xl font-bold text-green-700">{formatDate(contract.start_date)}</p>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                      <p className="text-sm text-gray-600 mb-2">تاريخ الانتهاء</p>
+                      <p className="text-xl font-bold text-red-700">{formatDate(contract.end_date)}</p>
+                    </div>
                   </div>
                   {contract.contract_duration_months && (
-                    <p>مدة التنفيذ: <strong>{contract.contract_duration_months} شهر</strong></p>
+                    <div className="bg-gray-50 border rounded-lg p-4 text-center">
+                      <p className="text-base">
+                        مدة التنفيذ: <span className="font-bold text-[#1e3a5f] text-xl">{contract.contract_duration_months}</span> شهر
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
 
               {/* Article 4: Financial Terms */}
-              <div className="my-6">
-                <h4 className="text-base font-bold text-[#1e3a5f] mb-4 p-3 bg-gradient-to-l from-blue-50 to-transparent border-r-4 border-[#1e3a5f]">
+              <div className="my-8">
+                <h4 className="text-lg font-bold text-[#1e3a5f] mb-5 p-4 bg-gradient-to-l from-blue-50 to-transparent border-r-4 border-[#1e3a5f] rounded-l-lg">
                   البند {getArabicOrdinal(4)}: الشروط المالية
                 </h4>
-                <div className="px-4">
-                  <table className="w-full border-collapse">
+                <div className="px-6 overflow-x-auto">
+                  <table className="w-full border-collapse rounded-lg overflow-hidden shadow-sm">
                     <thead>
                       <tr className="bg-[#1e3a5f] text-white">
-                        <th className="border p-3">الاحتجاز</th>
-                        <th className="border p-3">الدفعة المقدمة</th>
-                        <th className="border p-3">ضمان الأداء</th>
-                        <th className="border p-3">حد التغييرات</th>
+                        <th className="border border-[#1e3a5f] p-4 text-base">الاحتجاز</th>
+                        <th className="border border-[#1e3a5f] p-4 text-base">الدفعة المقدمة</th>
+                        <th className="border border-[#1e3a5f] p-4 text-base">ضمان الأداء</th>
+                        <th className="border border-[#1e3a5f] p-4 text-base">حد التغييرات</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr className="bg-gray-50">
-                        <td className="border p-3 text-center font-bold">{contract.retention_percentage || 10}%</td>
-                        <td className="border p-3 text-center font-bold">{contract.advance_payment_percentage || 20}%</td>
-                        <td className="border p-3 text-center font-bold">{contract.performance_bond_percentage || 5}%</td>
-                        <td className="border p-3 text-center font-bold">{contract.variation_limit_percentage || 15}%</td>
+                        <td className="border p-4 text-center text-xl font-bold text-[#1e3a5f]">{contract.retention_percentage || 10}%</td>
+                        <td className="border p-4 text-center text-xl font-bold text-green-700">{contract.advance_payment_percentage || 20}%</td>
+                        <td className="border p-4 text-center text-xl font-bold text-blue-700">{contract.performance_bond_percentage || 5}%</td>
+                        <td className="border p-4 text-center text-xl font-bold text-orange-700">{contract.variation_limit_percentage || 15}%</td>
                       </tr>
                     </tbody>
                   </table>
@@ -699,66 +866,70 @@ export function LegalContractPreview({
 
               {/* Article 5: Payment Terms */}
               {contract.payment_terms && (
-                <div className="my-6">
-                  <h4 className="text-base font-bold text-[#1e3a5f] mb-4 p-3 bg-gradient-to-l from-blue-50 to-transparent border-r-4 border-[#1e3a5f]">
+                <div className="my-8">
+                  <h4 className="text-lg font-bold text-[#1e3a5f] mb-5 p-4 bg-gradient-to-l from-blue-50 to-transparent border-r-4 border-[#1e3a5f] rounded-l-lg">
                     البند {getArabicOrdinal(5)}: شروط الدفع
                   </h4>
-                  <div className="px-4 leading-loose text-justify">
-                    {contract.payment_terms}
+                  <div className="px-6 leading-[2] text-justify">
+                    <div className="bg-gray-50 border rounded-lg p-5">
+                      {formatScopeOfWork(contract.payment_terms)}
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Additional Notes */}
               {contract.notes && (
-                <div className="my-6">
-                  <h4 className="text-base font-bold text-[#1e3a5f] mb-4 p-3 bg-gradient-to-l from-blue-50 to-transparent border-r-4 border-[#1e3a5f]">
+                <div className="my-8">
+                  <h4 className="text-lg font-bold text-[#1e3a5f] mb-5 p-4 bg-gradient-to-l from-yellow-50 to-transparent border-r-4 border-yellow-500 rounded-l-lg">
                     ملاحظات إضافية
                   </h4>
-                  <div className="px-4 leading-loose text-justify">
-                    {contract.notes}
+                  <div className="px-6 leading-[2] text-justify">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-5">
+                      {formatScopeOfWork(contract.notes)}
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Copies Note */}
-              <div className="text-center my-8 text-sm text-gray-600 italic">
+              <div className="text-center my-10 text-base text-gray-600 italic border-t border-b py-4">
                 حرر هذا العقد من نسختين أصليتين، نسخة لكل طرف
               </div>
 
               {/* Signatures */}
-              <div className="grid grid-cols-2 gap-10 mt-12">
-                <div className="text-center p-5 border rounded-lg">
-                  <h5 className="font-bold text-base text-[#1e3a5f] mb-10">الطرف الأول</h5>
-                  <div className="border-b-2 border-gray-400 mx-10 my-8" />
-                  <p className="text-xs text-gray-500">التوقيع والختم</p>
+              <div className="grid grid-cols-2 gap-12 mt-14">
+                <div className="text-center p-6 border-2 rounded-xl bg-gradient-to-b from-gray-50 to-white">
+                  <h5 className="font-bold text-lg text-[#1e3a5f] mb-12">الطرف الأول</h5>
+                  <div className="border-b-2 border-gray-400 mx-8 my-10" />
+                  <p className="text-sm text-gray-500">التوقيع والختم</p>
                 </div>
-                <div className="text-center p-5 border rounded-lg">
-                  <h5 className="font-bold text-base text-[#1e3a5f] mb-10">الطرف الثاني</h5>
-                  <div className="border-b-2 border-gray-400 mx-10 my-8" />
-                  <p className="text-xs text-gray-500">التوقيع والختم</p>
+                <div className="text-center p-6 border-2 rounded-xl bg-gradient-to-b from-gray-50 to-white">
+                  <h5 className="font-bold text-lg text-[#1e3a5f] mb-12">الطرف الثاني</h5>
+                  <div className="border-b-2 border-gray-400 mx-8 my-10" />
+                  <p className="text-sm text-gray-500">التوقيع والختم</p>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="mt-10 pt-5 border-t-2 border-[#1e3a5f] flex justify-between items-end text-xs text-gray-500">
-                <div className="flex gap-5">
-                  <span className="flex items-center gap-1">
-                    <Phone className="w-3 h-3" />
+              <div className="mt-12 pt-6 border-t-2 border-[#1e3a5f] flex justify-between items-end text-sm text-gray-500">
+                <div className="flex gap-6">
+                  <span className="flex items-center gap-2">
+                    <Phone className="w-4 h-4" />
                     {company.phone}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Mail className="w-3 h-3" />
+                  <span className="flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
                     {company.email}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Globe className="w-3 h-3" />
+                  <span className="flex items-center gap-2">
+                    <Globe className="w-4 h-4" />
                     {company.website}
                   </span>
                 </div>
                 {qrCodeUrl && (
                   <div>
-                    <img src={qrCodeUrl} alt="QR Code" className="w-16 h-16" />
+                    <img src={qrCodeUrl} alt="QR Code" className="w-20 h-20" />
                   </div>
                 )}
               </div>
