@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,14 +9,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import { 
   Users, Plus, Phone, Mail, Star, Building2, FileText, 
   Trash2, Edit, CheckCircle, Clock, AlertTriangle, TrendingUp,
-  Scale, BarChart3
+  Scale, BarChart3, FolderOpen, Search, ListChecks, ExternalLink,
+  FileCheck, Calculator
 } from "lucide-react";
 import { FIDICContractTemplates } from "./FIDICContractTemplates";
 import { SubcontractorProgressDashboard } from "./SubcontractorProgressDashboard";
@@ -49,10 +54,27 @@ interface Assignment {
   created_at: string;
 }
 
+interface ProjectOption {
+  id: string;
+  name: string;
+}
+
+interface ProjectItemOption {
+  id: string;
+  item_number: string;
+  description: string | null;
+  unit: string | null;
+  quantity: number | null;
+  unit_price: number | null;
+  total_price: number | null;
+  is_section: boolean | null;
+}
+
 export function SubcontractorManagement() {
   const { user } = useAuth();
   const { isArabic } = useLanguage();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -61,6 +83,17 @@ export function SubcontractorManagement() {
   const [showAssignmentDialog, setShowAssignmentDialog] = useState(false);
   const [selectedSubcontractor, setSelectedSubcontractor] = useState<Subcontractor | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  
+  // Projects & Items for linking
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [projectItems, setProjectItems] = useState<ProjectItemOption[]>([]);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [itemSearchTerm, setItemSearchTerm] = useState("");
+  const [loadingItems, setLoadingItems] = useState(false);
+
+  // Contracts linked to subcontractors
+  const [contracts, setContracts] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -89,18 +122,85 @@ export function SubcontractorManagement() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [subRes, assignRes] = await Promise.all([
+      const [subRes, assignRes, projRes, contractRes] = await Promise.all([
         supabase.from("subcontractors").select("*").order("created_at", { ascending: false }),
-        supabase.from("subcontractor_assignments").select("*").order("created_at", { ascending: false })
+        supabase.from("subcontractor_assignments").select("*").order("created_at", { ascending: false }),
+        supabase.from("project_data").select("id, name").order("created_at", { ascending: false }),
+        supabase.from("contracts").select("id, contract_number, contract_title, contractor_name, contract_value, status").order("created_at", { ascending: false })
       ]);
 
       if (subRes.data) setSubcontractors(subRes.data);
       if (assignRes.data) setAssignments(assignRes.data);
+      if (projRes.data) setProjects(projRes.data);
+      if (contractRes.data) setContracts(contractRes.data);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fetch project items when project is selected
+  useEffect(() => {
+    if (selectedProjectId) {
+      fetchProjectItems(selectedProjectId);
+    } else {
+      setProjectItems([]);
+      setSelectedItemIds([]);
+    }
+  }, [selectedProjectId]);
+
+  const fetchProjectItems = async (projectId: string) => {
+    setLoadingItems(true);
+    try {
+      const { data, error } = await supabase
+        .from("project_items")
+        .select("id, item_number, description, unit, quantity, unit_price, total_price, is_section")
+        .eq("project_id", projectId)
+        .order("sort_order", { ascending: true });
+      
+      if (error) throw error;
+      setProjectItems(data || []);
+    } catch (error) {
+      console.error("Error fetching items:", error);
+    } finally {
+      setLoadingItems(false);
+    }
+  };
+
+  // Filtered items based on search
+  const filteredItems = useMemo(() => {
+    if (!itemSearchTerm) return projectItems.filter(i => !i.is_section);
+    const term = itemSearchTerm.toLowerCase();
+    return projectItems.filter(i => 
+      !i.is_section && (
+        i.item_number?.toLowerCase().includes(term) ||
+        i.description?.toLowerCase().includes(term)
+      )
+    );
+  }, [projectItems, itemSearchTerm]);
+
+  // Calculate selected items value
+  const selectedItemsValue = useMemo(() => {
+    return projectItems
+      .filter(item => selectedItemIds.includes(item.id))
+      .reduce((sum, item) => sum + (item.total_price || 0), 0);
+  }, [projectItems, selectedItemIds]);
+
+  const handleToggleItem = (itemId: string) => {
+    setSelectedItemIds(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedItemIds(filteredItems.map(i => i.id));
+  };
+
+  const handleClearAll = () => {
+    setSelectedItemIds([]);
   };
 
   const handleAddSubcontractor = async () => {
@@ -122,7 +222,7 @@ export function SubcontractorManagement() {
 
       setSubcontractors(prev => [data, ...prev]);
       setShowAddDialog(false);
-      setFormData({ name: "", email: "", phone: "", specialty: "", license_number: "", notes: "" });
+      resetAddForm();
       
       toast({
         title: isArabic ? "تمت الإضافة" : "Added",
@@ -136,6 +236,66 @@ export function SubcontractorManagement() {
         variant: "destructive"
       });
     }
+  };
+
+  const handleSaveAndCreateContract = async () => {
+    if (!user || !formData.name) return;
+
+    try {
+      // First save subcontractor
+      const { data: subData, error: subError } = await supabase.from("subcontractors").insert({
+        user_id: user.id,
+        name: formData.name,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        specialty: formData.specialty || null,
+        license_number: formData.license_number || null,
+        notes: formData.notes || null,
+        status: "active"
+      }).select().single();
+
+      if (subError) throw subError;
+
+      // Then create a contract linked to this subcontractor
+      const contractNumber = `CON-${new Date().getFullYear()}-${String(contracts.length + 1).padStart(3, '0')}`;
+      const { error: contractError } = await supabase.from("contracts").insert({
+        user_id: user.id,
+        contract_number: contractNumber,
+        contract_title: `${isArabic ? "عقد مقاولة - " : "Subcontract - "}${formData.name}`,
+        contractor_name: formData.name,
+        contractor_phone: formData.phone || null,
+        contractor_email: formData.email || null,
+        contractor_license_number: formData.license_number || null,
+        contract_value: selectedItemsValue > 0 ? selectedItemsValue : null,
+        project_id: selectedProjectId || null,
+        status: "draft"
+      });
+
+      if (contractError) throw contractError;
+
+      setSubcontractors(prev => [subData, ...prev]);
+      setShowAddDialog(false);
+      resetAddForm();
+      fetchData();
+      
+      toast({
+        title: isArabic ? "تم الحفظ وإنشاء العقد" : "Saved & Contract Created",
+        description: isArabic ? "تم إضافة المقاول وإنشاء عقد مرتبط" : "Subcontractor added and linked contract created"
+      });
+    } catch (error) {
+      console.error("Error:", error);
+      toast({
+        title: isArabic ? "خطأ" : "Error",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const resetAddForm = () => {
+    setFormData({ name: "", email: "", phone: "", specialty: "", license_number: "", notes: "" });
+    setSelectedProjectId("");
+    setSelectedItemIds([]);
+    setItemSearchTerm("");
   };
 
   const handleUpdateProgress = async (assignmentId: string, newProgress: number) => {
@@ -208,6 +368,20 @@ export function SubcontractorManagement() {
     } catch (error) {
       console.error("Error adding assignment:", error);
     }
+  };
+
+  // Find linked contract for a subcontractor
+  const getLinkedContract = (sub: Subcontractor) => {
+    return contracts.find(c => c.contractor_name === sub.name);
+  };
+
+  // Find linked assignment project
+  const getLinkedProject = (sub: Subcontractor) => {
+    const assignment = assignments.find(a => a.subcontractor_id === sub.id && a.project_id);
+    if (assignment?.project_id) {
+      return projects.find(p => p.id === assignment.project_id);
+    }
+    return null;
   };
 
   const getStatusBadge = (status: string) => {
@@ -391,67 +565,226 @@ export function SubcontractorManagement() {
               </DialogContent>
             </Dialog>
 
-            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            {/* Enhanced Add Subcontractor Dialog */}
+            <Dialog open={showAddDialog} onOpenChange={(open) => { setShowAddDialog(open); if (!open) resetAddForm(); }}>
               <DialogTrigger asChild>
                 <Button size="sm" className="gap-2">
                   <Plus className="w-4 h-4" />
                   {isArabic ? "مقاول جديد" : "Add Subcontractor"}
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
+                onOpenAutoFocus={e => e.preventDefault()}
+                onCloseAutoFocus={e => e.preventDefault()}
+              >
                 <DialogHeader>
-                  <DialogTitle>{isArabic ? "إضافة مقاول فرعي" : "Add Subcontractor"}</DialogTitle>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    {isArabic ? "إضافة مقاول فرعي جديد" : "Add New Subcontractor"}
+                  </DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label>{isArabic ? "الاسم" : "Name"} *</Label>
-                    <Input 
-                      value={formData.name}
-                      onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>{isArabic ? "البريد الإلكتروني" : "Email"}</Label>
-                      <Input 
-                        type="email"
-                        value={formData.email}
-                        onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
+                
+                <ScrollArea className="flex-1 px-1">
+                  <div className="space-y-6">
+                    {/* Section 1: Contractor Info */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                        <Users className="w-4 h-4" />
+                        {isArabic ? "معلومات المقاول" : "Contractor Information"}
+                      </div>
+                      <Separator />
+                      <div>
+                        <Label>{isArabic ? "الاسم" : "Name"} *</Label>
+                        <Input 
+                          value={formData.name}
+                          onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
+                          placeholder={isArabic ? "اسم المقاول الفرعي" : "Subcontractor name"}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>{isArabic ? "البريد الإلكتروني" : "Email"}</Label>
+                          <Input 
+                            type="email"
+                            value={formData.email}
+                            onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
+                            dir="ltr"
+                          />
+                        </div>
+                        <div>
+                          <Label>{isArabic ? "الهاتف" : "Phone"}</Label>
+                          <Input 
+                            value={formData.phone}
+                            onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
+                            dir="ltr"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>{isArabic ? "التخصص" : "Specialty"}</Label>
+                          <Input 
+                            value={formData.specialty}
+                            onChange={e => setFormData(p => ({ ...p, specialty: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Label>{isArabic ? "رقم الرخصة" : "License No."}</Label>
+                          <Input 
+                            value={formData.license_number}
+                            onChange={e => setFormData(p => ({ ...p, license_number: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section 2: Project & Items Linking */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                        <FolderOpen className="w-4 h-4" />
+                        {isArabic ? "ربط المشروع والبنود" : "Link Project & Items"}
+                      </div>
+                      <Separator />
+                      
+                      <div>
+                        <Label className="flex items-center gap-2">
+                          <FolderOpen className="w-4 h-4" />
+                          {isArabic ? "المشروع" : "Project"}
+                        </Label>
+                        <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder={isArabic ? "اختر المشروع..." : "Select project..."} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">{isArabic ? "بدون مشروع" : "No project"}</SelectItem>
+                            {projects.map(p => (
+                              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {selectedProjectId && selectedProjectId !== "none" && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Label className="flex items-center gap-2">
+                              <ListChecks className="w-4 h-4" />
+                              {isArabic ? "البنود المتعاقد عليها" : "Contracted Items"}
+                            </Label>
+                          </div>
+                          
+                          {/* Search & Bulk Actions */}
+                          <div className="flex items-center gap-2">
+                            <div className="relative flex-1">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                              <Input
+                                placeholder={isArabic ? "بحث في البنود..." : "Search items..."}
+                                value={itemSearchTerm}
+                                onChange={e => setItemSearchTerm(e.target.value)}
+                                className="pl-10 h-9"
+                              />
+                            </div>
+                            <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                              {isArabic ? "تحديد الكل" : "Select All"}
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={handleClearAll}>
+                              {isArabic ? "إلغاء الكل" : "Clear"}
+                            </Button>
+                            {selectedItemIds.length > 0 && (
+                              <Badge variant="secondary">{selectedItemIds.length}</Badge>
+                            )}
+                          </div>
+
+                          {/* Items List */}
+                          <ScrollArea className="h-56 border rounded-lg">
+                            {loadingItems ? (
+                              <div className="p-4 text-center text-muted-foreground text-sm">
+                                {isArabic ? "جاري التحميل..." : "Loading..."}
+                              </div>
+                            ) : filteredItems.length === 0 ? (
+                              <div className="p-4 text-center text-muted-foreground text-sm">
+                                {isArabic ? "لا توجد بنود" : "No items found"}
+                              </div>
+                            ) : (
+                              <div className="divide-y">
+                                {filteredItems.map(item => {
+                                  const isSelected = selectedItemIds.includes(item.id);
+                                  return (
+                                    <div 
+                                      key={item.id}
+                                      className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/5 border-r-2 border-r-primary" : ""}`}
+                                      onClick={() => handleToggleItem(item.id)}
+                                    >
+                                      <Checkbox checked={isSelected} />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <Badge variant="outline" className="text-xs shrink-0">{item.item_number}</Badge>
+                                          <span className="text-sm truncate">{item.description || "-"}</span>
+                                        </div>
+                                      </div>
+                                      <div className="text-sm font-medium text-muted-foreground shrink-0">
+                                        {(item.total_price || 0).toLocaleString()} SAR
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </ScrollArea>
+
+                          {/* Selection Summary */}
+                          {selectedItemIds.length > 0 && (
+                            <div className="flex items-center justify-between p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                              <div className="flex items-center gap-2 text-sm">
+                                <Calculator className="w-4 h-4 text-primary" />
+                                <span>{isArabic ? "البنود المختارة:" : "Selected items:"} <strong>{selectedItemIds.length}</strong></span>
+                              </div>
+                              <div className="text-sm font-bold text-primary">
+                                {selectedItemsValue.toLocaleString()} SAR
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Section 3: Notes */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                        <FileText className="w-4 h-4" />
+                        {isArabic ? "ملاحظات" : "Notes"}
+                      </div>
+                      <Separator />
+                      <Textarea 
+                        value={formData.notes}
+                        onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))}
+                        placeholder={isArabic ? "ملاحظات إضافية..." : "Additional notes..."}
+                        rows={3}
                       />
                     </div>
-                    <div>
-                      <Label>{isArabic ? "الهاتف" : "Phone"}</Label>
-                      <Input 
-                        value={formData.phone}
-                        onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
-                      />
-                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>{isArabic ? "التخصص" : "Specialty"}</Label>
-                      <Input 
-                        value={formData.specialty}
-                        onChange={e => setFormData(p => ({ ...p, specialty: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label>{isArabic ? "رقم الرخصة" : "License No."}</Label>
-                      <Input 
-                        value={formData.license_number}
-                        onChange={e => setFormData(p => ({ ...p, license_number: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
-                    <Textarea 
-                      value={formData.notes}
-                      onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))}
-                    />
-                  </div>
-                  <Button onClick={handleAddSubcontractor} className="w-full">{isArabic ? "إضافة" : "Add"}</Button>
-                </div>
+                </ScrollArea>
+
+                <DialogFooter className="gap-2 pt-4 border-t">
+                  <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+                    {isArabic ? "إلغاء" : "Cancel"}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleSaveAndCreateContract}
+                    disabled={!formData.name}
+                    className="gap-2"
+                  >
+                    <FileCheck className="w-4 h-4" />
+                    {isArabic ? "حفظ وإنشاء عقد" : "Save & Create Contract"}
+                  </Button>
+                  <Button 
+                    onClick={handleAddSubcontractor} 
+                    disabled={!formData.name}
+                  >
+                    {isArabic ? "حفظ" : "Save"}
+                  </Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
@@ -472,77 +805,134 @@ export function SubcontractorManagement() {
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {subcontractors.map(sub => (
-                <Card key={sub.id} className="overflow-hidden">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Users className="w-5 h-5 text-primary" />
+              {subcontractors.map(sub => {
+                const linkedContract = getLinkedContract(sub);
+                const linkedProject = getLinkedProject(sub);
+                const subAssignments = assignments.filter(a => a.subcontractor_id === sub.id);
+                const totalValue = subAssignments.reduce((sum, a) => sum + (a.contract_value || 0), 0);
+
+                return (
+                  <Card key={sub.id} className="overflow-hidden">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Users className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-base">{sub.name}</CardTitle>
+                            <CardDescription>{sub.specialty || (isArabic ? "غير محدد" : "Not specified")}</CardDescription>
+                          </div>
                         </div>
-                        <div>
-                          <CardTitle className="text-base">{sub.name}</CardTitle>
-                          <CardDescription>{sub.specialty || (isArabic ? "غير محدد" : "Not specified")}</CardDescription>
+                        <Badge variant={sub.status === "active" ? "default" : "secondary"}>
+                          {sub.status === "active" ? (isArabic ? "نشط" : "Active") : (isArabic ? "غير نشط" : "Inactive")}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {sub.email && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Mail className="w-4 h-4" />
+                          <span>{sub.email}</span>
                         </div>
+                      )}
+                      {sub.phone && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Phone className="w-4 h-4" />
+                          <span>{sub.phone}</span>
+                        </div>
+                      )}
+                      {sub.license_number && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <FileText className="w-4 h-4" />
+                          <span>{sub.license_number}</span>
+                        </div>
+                      )}
+                      {sub.rating && (
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star 
+                              key={i} 
+                              className={`w-4 h-4 ${i < sub.rating! ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground"}`} 
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Linked Info */}
+                      {(linkedContract || linkedProject || totalValue > 0) && (
+                        <div className="space-y-1.5 pt-2 border-t">
+                          {linkedProject && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <FolderOpen className="w-3.5 h-3.5" />
+                              <span>{isArabic ? "المشروع:" : "Project:"} {linkedProject.name}</span>
+                            </div>
+                          )}
+                          {subAssignments.length > 0 && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <ListChecks className="w-3.5 h-3.5" />
+                              <span>{isArabic ? "المهام:" : "Tasks:"} {subAssignments.length} ({totalValue.toLocaleString()} SAR)</span>
+                            </div>
+                          )}
+                          {linkedContract && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <FileCheck className="w-3.5 h-3.5" />
+                              <span>{isArabic ? "العقد:" : "Contract:"} {linkedContract.contract_number}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Quick Links */}
+                      <div className="flex flex-wrap gap-1.5 pt-2 border-t">
+                        {linkedContract && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-xs gap-1"
+                            onClick={() => navigate("/contracts")}
+                          >
+                            <FileCheck className="w-3 h-3" />
+                            {isArabic ? "العقد" : "Contract"}
+                          </Button>
+                        )}
+                        {linkedProject && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-xs gap-1"
+                            onClick={() => navigate(`/projects/${linkedProject.id}`)}
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            {isArabic ? "المشروع" : "Project"}
+                          </Button>
+                        )}
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-7 text-xs gap-1"
+                          onClick={() => {
+                            setSelectedSubcontractor(sub);
+                            setAssignmentData(p => ({ ...p, subcontractor_id: sub.id }));
+                            setShowAssignmentDialog(true);
+                          }}
+                        >
+                          <Plus className="w-3 h-3" />
+                          {isArabic ? "مهمة" : "Task"}
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleDeleteSubcontractor(sub.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                        </Button>
                       </div>
-                      <Badge variant={sub.status === "active" ? "default" : "secondary"}>
-                        {sub.status === "active" ? (isArabic ? "نشط" : "Active") : (isArabic ? "غير نشط" : "Inactive")}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {sub.email && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Mail className="w-4 h-4" />
-                        <span>{sub.email}</span>
-                      </div>
-                    )}
-                    {sub.phone && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Phone className="w-4 h-4" />
-                        <span>{sub.phone}</span>
-                      </div>
-                    )}
-                    {sub.license_number && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <FileText className="w-4 h-4" />
-                        <span>{sub.license_number}</span>
-                      </div>
-                    )}
-                    {sub.rating && (
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star 
-                            key={i} 
-                            className={`w-4 h-4 ${i < sub.rating! ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground"}`} 
-                          />
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex gap-2 pt-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => {
-                          setSelectedSubcontractor(sub);
-                          setAssignmentData(p => ({ ...p, subcontractor_id: sub.id }));
-                          setShowAssignmentDialog(true);
-                        }}
-                      >
-                        {isArabic ? "إسناد عمل" : "Assign Work"}
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => handleDeleteSubcontractor(sub.id)}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
