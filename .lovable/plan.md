@@ -1,60 +1,81 @@
 
+# معالجة الخطأ وإضافة رابط المستخلصات
 
-# توحيد شاشة إضافة المقاول الفرعي
+## 1. معالجة خطأ "Cannot read properties of null (reading 'toLocaleString')"
 
-## المشكلة
-شاشة إضافة المقاول في التسعير (TenderSubcontractorsTab) تختلف عن الشاشة الموجودة في قسم مقاولي الباطن (SubcontractorManagement). الشاشة الثانية (المرفق الثاني) أكثر تفصيلاً وتحتوي على:
-- معلومات المقاول (الاسم، البريد، الهاتف، التخصص، رقم الرخصة)
-- ربط المشروع والبنود
-- ملاحظات
-- أزرار "حفظ" و "حفظ وإنشاء عقد"
+### السبب
+دالة `formatCurrency` في عدة ملفات تستدعي `value.toLocaleString()` بدون التحقق من أن `value` ليست `null`. كذلك Recharts Tooltip يمكن أن يمرر قيم `null`.
 
-## الحل
-تعديل نافذة إضافة المقاول في `TenderSubcontractorsTab.tsx` لتطابق تصميم ووظائف `SubcontractorManagement.tsx`.
+### الملفات المتأثرة والتعديلات
 
-## التغييرات المطلوبة
-
-### ملف واحد للتعديل
-
-| الملف | التغيير |
+| الملف | التعديل |
 |-------|---------|
-| `src/components/tender/TenderSubcontractorsTab.tsx` | استبدال نافذة الإضافة البسيطة بالنسخة المتقدمة المطابقة لشاشة مقاولي الباطن |
+| `src/pages/HomePage.tsx` | إضافة حماية null في `formatCurrency` و `formatDate` و Tooltip formatter |
+| `src/components/home/HeroSection.tsx` | إضافة حماية null في `formatCurrency` |
+| `src/components/MainDashboardOverview.tsx` | إضافة حماية null في `formatCurrency` |
+
+### التعديل المطلوب
+
+تغيير `formatCurrency` من:
+```typescript
+const formatCurrency = (value: number) => {
+  ...
+  return value.toLocaleString();
+};
+```
+
+إلى:
+```typescript
+const formatCurrency = (value: number) => {
+  if (value == null) return '0';
+  ...
+  return value.toLocaleString();
+};
+```
+
+تغيير `formatDate` لتقبل null:
+```typescript
+const formatDate = (dateString: string) => {
+  if (!dateString) return '-';
+  ...
+};
+```
+
+تغيير Recharts Tooltip formatter لتقبل null:
+```typescript
+<Tooltip formatter={(value: number) => formatCurrency(value ?? 0)} />
+```
+
+---
+
+## 2. إضافة رابط المستخلصات
+
+### الملفات المتأثرة
+
+| الملف | التعديل |
+|-------|---------|
+| `src/components/home/PhaseActionsGrid.tsx` | إضافة رابط المستخلصات في المرحلة 4 (العقود والتنفيذ) |
+| `src/pages/HomePage.tsx` | إضافة رابط المستخلصات في قسم Quick Access (mainModules) |
 
 ### التفاصيل
 
-**1. تحديث بيانات النموذج (formData)**
+**PhaseActionsGrid (المرحلة 4)** - إضافة عنصر جديد:
+- Icon: `FileText`
+- Label: المستخلصات / Progress Certificates
+- Description: مستخلصات المقاولين / Contractor invoices
+- href: `/progress-certificates`
+- isNew: true
 
-إضافة حقول جديدة: `email`, `phone`, `specialty`, `license_number`, `notes`
+**mainModules في HomePage** - إضافة عنصر جديد:
+- Icon: `FileText`
+- Label: المستخلصات / Certificates
+- href: `/progress-certificates`
 
-**2. إضافة دعم تحميل المشاريع والبنود**
+---
 
-- تحميل قائمة المشاريع من `project_data`
-- تحميل بنود المشروع المختار من `project_items`
-- دعم البحث والتحديد المتعدد للبنود
+## خطوات التنفيذ
 
-**3. استبدال تصميم النافذة**
-
-النافذة الجديدة ستحتوي على 3 أقسام (بنفس ترتيب شاشة مقاولي الباطن):
-
-| القسم | المحتوى |
-|-------|---------|
-| معلومات المقاول | الاسم (مطلوب)، البريد، الهاتف، التخصص، رقم الرخصة |
-| ربط المشروع والبنود | اختيار مشروع، قائمة بنود قابلة للتحديد مع بحث |
-| ملاحظات | حقل نصي للملاحظات الإضافية |
-
-**4. تحديث أزرار الحفظ**
-
-| الزر | الوظيفة |
-|------|---------|
-| إلغاء | إغلاق النافذة |
-| حفظ وإنشاء عقد | حفظ المقاول + إنشاء عقد مرتبط في جدول `contracts` |
-| حفظ | حفظ المقاول فقط |
-
-**5. تحسين عملية الحفظ**
-
-عند الحفظ، يتم إرسال جميع البيانات الإضافية (البريد، الهاتف، التخصص، رقم الرخصة) إلى جدول `subcontractors` بدلاً من الاسم والتخصص فقط.
-
-## النتيجة المتوقعة
-- نافذة إضافة المقاول في شاشة التسعير ستكون مطابقة تماماً لنافذة شاشة مقاولي الباطن
-- أي مقاول يُضاف من أي شاشة سيظهر في الشاشة الأخرى
-- دعم إنشاء عقد مباشرة عند إضافة المقاول
+1. إصلاح null safety في `formatCurrency` و `formatDate` في `HomePage.tsx`
+2. إصلاح null safety في `HeroSection.tsx` و `MainDashboardOverview.tsx`
+3. إضافة رابط المستخلصات في `PhaseActionsGrid.tsx` (المرحلة 4)
+4. إضافة رابط المستخلصات في `mainModules` بالصفحة الرئيسية
