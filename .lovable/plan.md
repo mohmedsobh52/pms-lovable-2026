@@ -1,288 +1,64 @@
 
-# خطة تحسين شاشة المقاولين: تحسين الأداء والربط المتكامل
 
-## نظرة عامة
+# إضافة أنواع مرافق جديدة (Facility Types)
 
-سيتم تحسين شاشة إضافة المقاولين الفرعيين وربطها بشكل متكامل مع:
-1. **العقود** (جدول `contracts`)
-2. **البنود** (جدول `project_items`)  
-3. **المشاريع** (جدول `project_data`)
-4. **الشركاء الخارجيين** (جدول `external_partners`)
+## المطلوب
+إضافة أنواع المرافق التالية إلى قائمة الاختيار في شاشة إضافة المرافق:
 
----
-
-## التحسينات المقترحة
-
-### 1. تحسين نموذج إضافة المقاول الفرعي
-
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       إضافة مقاول فرعي جديد                             │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌─ معلومات المقاول ─────────────────────────────────────────────────┐ │
-│  │  الاسم *              [________________________]                  │ │
-│  │  البريد               [____________]  الهاتف [__________]         │ │
-│  │  التخصص              [____________]  رقم الرخصة [________]        │ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-│                                                                         │
-│  ┌─ ربط المشروع والبنود ─────────────────────────────────────────────┐ │
-│  │                                                                   │ │
-│  │  📁 المشروع:  [▼ اختر المشروع ___________________]               │ │
-│  │                                                                   │ │
-│  │  📋 البنود المتعاقد عليها:                                        │ │
-│  │  ┌─────────────────────────────────────────────────────────────┐ │ │
-│  │  │ 🔍 بحث في البنود...                                        │ │ │
-│  │  ├─────────────────────────────────────────────────────────────┤ │ │
-│  │  │ ☑️ 1.1 - أعمال الحفر والردم           | SAR 150,000        │ │ │
-│  │  │ ☑️ 1.2 - أعمال الخرسانة المسلحة       | SAR 500,000        │ │ │
-│  │  │ ☐ 2.1 - أعمال البناء بالطابوق        | SAR 200,000        │ │ │
-│  │  │ ☐ 2.2 - أعمال اللياسة               | SAR 100,000        │ │ │
-│  │  └─────────────────────────────────────────────────────────────┘ │ │
-│  │                                                                   │ │
-│  │  📊 ملخص البنود المختارة:                                        │ │
-│  │     عدد البنود: 2 | القيمة الإجمالية: SAR 650,000               │ │
-│  │                                                                   │ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-│                                                                         │
-│  ┌─ شروط التعاقد ────────────────────────────────────────────────────┐ │
-│  │  قيمة العقد: [650,000]  (محسوبة تلقائياً أو يدوية)               │ │
-│  │  نسبة الاحتجاز: [5%]     تاريخ البدء: [____]  الانتهاء: [____]   │ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-│                                                                         │
-│  ┌─ ملاحظات ─────────────────────────────────────────────────────────┐ │
-│  │  [                                                               ] │ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-│                                                                         │
-│  ┌────────────────────────────────────────────────────────────────────┐│
-│  │  [إلغاء]                              [💾 حفظ وإنشاء عقد] [حفظ] ││
-│  └────────────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### 2. إضافة روابط سريعة للشاشات ذات الصلة
-
-```text
-┌─ بطاقة المقاول الفرعي ───────────────────────────────────────────────┐
-│  👤 أحمد محمد للمقاولات                                              │
-│  📍 أعمال الخرسانة | ⭐ 4.5 | ✅ نشط                                  │
-│                                                                       │
-│  📁 المشروع: الريان 3                                                │
-│  📋 البنود: 5 بنود (SAR 650,000)                                    │
-│  📄 العقد: CON-2026-001                                              │
-│                                                                       │
-│  ┌─ روابط سريعة ─────────────────────────────────────────────────┐  │
-│  │ [📄 عرض العقد] [📋 عرض البنود] [📁 المشروع] [✏️ تعديل]       │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────────────────────────┘
-```
-
-### 3. ربط ثنائي الاتجاه مع العقود
-
-```text
-في شاشة العقود (ContractManagement):
-┌─────────────────────────────────────────────────────────────────────────┐
-│  خطوة 2: بيانات المقاول                                                │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  🔗 اختيار مقاول موجود:  [▼ اختر من المقاولين المسجلين ___]           │
-│     أو                                                                  │
-│  ➕ إضافة مقاول جديد                                                   │
-│                                                                         │
-│  عند الاختيار يتم تعبئة البيانات تلقائياً:                              │
-│  - الاسم، الترخيص، الهاتف، البريد، العنوان                             │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+| النوع الحالي | النوع المطلوب إضافته |
+|---|---|
+| مكاتب (Offices) | موجود |
+| سكن (Accommodation) | موجود - تحديث إلى "سكن العمال" |
+| مخازن (Storage) | موجود |
+| معدات (Equipment) | موجود |
+| مرافق عامة (Utilities) | موجود |
+| أخرى (Other) | موجود |
+| -- | **دورات مياه (Toilets)** |
+| -- | **مولد كهربائي (Generator)** |
+| -- | **مركبة (Vehicle)** |
+| -- | **معدات تقليية (Heavy Equipment)** |
+| -- | **اتصالات (Communications)** |
 
 ---
 
-## الملفات المتأثرة
+## التغييرات التقنية
 
-| الملف | التغييرات |
+### ملفان للتحديث
+
+| الملف | التغيير |
 |-------|---------|
-| `src/components/SubcontractorManagement.tsx` | تحسين نموذج الإضافة + ربط المشاريع والبنود |
-| `src/components/ContractManagement.tsx` | إضافة اختيار المقاول من القائمة الموجودة |
-| `src/components/contracts/LegalContractPreview.tsx` | عرض بيانات المقاول المرتبط والبنود |
+| `src/components/tender/FacilitiesTab.tsx` | تحديث مصفوفة `FACILITY_TYPES` بإضافة الأنواع الجديدة |
+| `src/components/tender/FacilitiesChartsReport.tsx` | تحديث `FACILITY_TYPE_LABELS` لدعم الأنواع الجديدة في التقارير |
 
----
+### 1. تحديث FACILITY_TYPES في FacilitiesTab.tsx
 
-## التفاصيل التقنية
+تحديث المصفوفة من 6 عناصر إلى 11 عنصر:
 
-### 1. تحسين SubcontractorManagement.tsx
-
-**إضافة States جديدة:**
 ```typescript
-// جلب المشاريع
-const [projects, setProjects] = useState<Project[]>([]);
-const [selectedProjectId, setSelectedProjectId] = useState("");
-
-// جلب البنود
-const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
-const [selectedItems, setSelectedItems] = useState<string[]>([]);
-const [itemSearchTerm, setItemSearchTerm] = useState("");
+const FACILITY_TYPES = [
+  { value: "office", labelAr: "مكاتب", labelEn: "Offices" },
+  { value: "accommodation", labelAr: "سكن العمال", labelEn: "Workers Accommodation" },
+  { value: "toilets", labelAr: "دورات مياه", labelEn: "Toilets" },
+  { value: "generator", labelAr: "مولد كهربائي", labelEn: "Generator" },
+  { value: "vehicle", labelAr: "مركبة", labelEn: "Vehicle" },
+  { value: "storage", labelAr: "مخازن", labelEn: "Storage" },
+  { value: "equipment", labelAr: "معدات", labelEn: "Equipment" },
+  { value: "heavy_equipment", labelAr: "معدات ثقيلة", labelEn: "Heavy Equipment" },
+  { value: "communications", labelAr: "اتصالات", labelEn: "Communications" },
+  { value: "utilities", labelAr: "مرافق", labelEn: "Utilities" },
+  { value: "other", labelAr: "أخرى", labelEn: "Other" },
+];
 ```
 
-**جلب البيانات:**
-```typescript
-// جلب المشاريع
-const fetchProjects = async () => {
-  const { data } = await supabase
-    .from('project_data')
-    .select('id, name')
-    .eq('user_id', user?.id);
-  setProjects(data || []);
-};
+### 2. تحديث FACILITY_TYPE_LABELS في FacilitiesChartsReport.tsx
 
-// جلب بنود المشروع المختار
-const fetchProjectItems = async (projectId: string) => {
-  const { data } = await supabase
-    .from('project_items')
-    .select('id, item_number, description, quantity, unit_price, total_price')
-    .eq('project_id', projectId);
-  setProjectItems(data || []);
-};
-```
-
-**حساب قيمة العقد تلقائياً:**
-```typescript
-const calculateContractValue = () => {
-  return projectItems
-    .filter(item => selectedItems.includes(item.id))
-    .reduce((sum, item) => sum + (item.total_price || 0), 0);
-};
-```
-
-### 2. تحسين ContractManagement.tsx
-
-**إضافة اختيار المقاول:**
-```typescript
-// جلب المقاولين المسجلين
-const [subcontractors, setSubcontractors] = useState([]);
-
-const fetchSubcontractors = async () => {
-  const { data } = await supabase
-    .from('subcontractors')
-    .select('id, name, phone, email, license_number, specialty')
-    .eq('user_id', user?.id)
-    .eq('status', 'active');
-  setSubcontractors(data || []);
-};
-
-// عند اختيار مقاول
-const handleSelectSubcontractor = (subId: string) => {
-  const sub = subcontractors.find(s => s.id === subId);
-  if (sub) {
-    setFormData(prev => ({
-      ...prev,
-      contractor_name: sub.name,
-      contractor_phone: sub.phone,
-      contractor_email: sub.email,
-      contractor_license_number: sub.license_number,
-      subcontractor_id: sub.id // للربط
-    }));
-  }
-};
-```
-
-### 3. تحسين LegalContractPreview
-
-**إضافة عرض البنود المتعاقد عليها:**
-```typescript
-// إضافة prop جديد
-interface LegalContractPreviewProps {
-  // ... existing props
-  linkedItems?: ProjectItem[];
-}
-
-// عرض البنود في العقد
-<div className="article-section">
-  <h4>البند السادس: جدول الكميات</h4>
-  <table className="items-table">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>الوصف</th>
-        <th>الوحدة</th>
-        <th>الكمية</th>
-        <th>السعر</th>
-        <th>الإجمالي</th>
-      </tr>
-    </thead>
-    <tbody>
-      {linkedItems.map((item, i) => (
-        <tr key={item.id}>
-          <td>{i + 1}</td>
-          <td>{item.description}</td>
-          <td>{item.unit}</td>
-          <td>{item.quantity}</td>
-          <td>{item.unit_price}</td>
-          <td>{item.total_price}</td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</div>
-```
-
----
-
-## تحسينات الأداء
-
-1. **التحميل الكسول (Lazy Loading):**
-   - تحميل البنود فقط عند اختيار المشروع
-   - استخدام `useMemo` لتصفية البنود
-
-2. **التخزين المؤقت:**
-   - تخزين قائمة المشاريع والمقاولين
-   - تجنب الاستعلامات المتكررة
-
-3. **تحسين UI:**
-   - استخدام `ScrollArea` للقوائم الطويلة
-   - بحث فوري في البنود
-   - تحديد/إلغاء تحديد الكل
-
----
-
-## تحسينات الشكل العام
-
-1. **توسيع Dialog:** `max-w-3xl` بدلاً من الحجم الافتراضي
-2. **تقسيم الحقول:** استخدام Accordion أو Tabs للتنظيم
-3. **ألوان وأيقونات:** إضافة أيقونات توضيحية لكل قسم
-4. **الاستجابة:** تصميم متجاوب للموبايل
+إضافة نفس الأنواع الجديدة لضمان ظهور التسميات الصحيحة في التقارير والرسوم البيانية.
 
 ---
 
 ## خطوات التنفيذ
 
-1. **تحديث** `SubcontractorManagement.tsx`:
-   - إضافة اختيار المشروع
-   - إضافة تحميل وتحديد البنود
-   - حساب قيمة العقد التلقائي
-   - إضافة حقول شروط التعاقد
-   - إضافة روابط سريعة للبطاقات
+1. تحديث مصفوفة `FACILITY_TYPES` في `FacilitiesTab.tsx`
+2. تحديث `FACILITY_TYPE_LABELS` في `FacilitiesChartsReport.tsx`
+3. لا حاجة لتغييرات في قاعدة البيانات لأن النوع يُحفظ كنص حر (string)
 
-2. **تحديث** `ContractManagement.tsx`:
-   - إضافة Select للمقاولين المسجلين
-   - تعبئة البيانات تلقائياً
-
-3. **تحديث** `LegalContractPreview.tsx`:
-   - إضافة جدول البنود المتعاقد عليها
-   - ربط مع بيانات المشروع
-
-4. **اختبار:**
-   - التأكد من الربط الصحيح بين الجداول
-   - اختبار حساب القيم التلقائي
-   - اختبار الروابط السريعة
-
----
-
-## الروابط بين الشاشات
-
-```text
-SubcontractorsPage ←→ ContractManagement
-       ↓                      ↓
-   project_items ←→ contracts
-       ↓                      ↓
-   project_data ←→ LegalContractPreview
-```
