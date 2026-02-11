@@ -1,55 +1,44 @@
 
 
-# Fix: زر "New Certificate" لا يفتح النافذة
+# إصلاح زر "New Certificate" - لا يفتح النافذة
 
-## المشكلة الجذرية
+## المشكلة
+زر "مستخلص جديد" يضغط بنجاح لكن نافذة Dialog لا تظهر. السبب أن مكون `Dialog` في `dialog.tsx` هو مجرد إعادة تصدير مباشرة لـ `DialogPrimitive.Root` بدون `forwardRef`، مما يسبب فشل في عملية الـ mounting في بيئة المعاينة.
 
-مكون `Dialog` من Radix UI يتلقى ref من React أثناء المطابقة الداخلية (reconciliation)، مما ينتج تحذير "Function components cannot be given refs". هذا التحذير يمنع Dialog من العمل بشكل صحيح في بعض الحالات.
+## الحل (تعديلان فقط)
 
-تم التأكد من المشكلة عبر اختبار المتصفح: الضغط على الزر لا يفتح أي نافذة رغم تنفيذ الضغط بنجاح.
-
-## الحل
-
-### تغيير 1: إصلاح مكون Dialog (`src/components/ui/dialog.tsx`)
-
-لف مكون `Dialog` بـ `React.forwardRef` لمنع التحذير:
-
+### تعديل 1: `src/components/ui/dialog.tsx`
+تغيير السطر 7 من:
 ```typescript
-// قبل
 const Dialog = DialogPrimitive.Root;
-
-// بعد
+```
+إلى:
+```typescript
 const Dialog = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root>>(
   (props, _ref) => <DialogPrimitive.Root {...props} />
 );
 Dialog.displayName = "Dialog";
 ```
 
-### تغيير 2: إضافة DialogDescription في نافذة الإنشاء (`src/pages/ProgressCertificatesPage.tsx`)
+### تعديل 2: `src/pages/ProgressCertificatesPage.tsx`
+اضافة `DialogDescription` في import واضافتها داخل `DialogHeader` لنافذتي الانشاء والعرض:
 
-Radix Dialog يحتاج `DialogDescription` داخل كل `DialogContent`. عدم وجوده قد يسبب مشاكل في التصيير (rendering).
+**نافذة الانشاء (سطر 776):**
+```tsx
+<DialogDescription className="sr-only">Create a new progress certificate</DialogDescription>
+```
 
-- إضافة `DialogDescription` في import
-- إضافة وصف مخفي أو ظاهر داخل DialogHeader لكلا النافذتين (الإنشاء والعرض)
-
----
+**نافذة العرض (نفس النمط):**
+```tsx
+<DialogDescription className="sr-only">View certificate details</DialogDescription>
+```
 
 ## التفاصيل التقنية
 
-### الملفات المتأثرة
-
 | الملف | التعديل |
 |-------|---------|
-| `src/components/ui/dialog.tsx` | لف Dialog بـ forwardRef |
-| `src/pages/ProgressCertificatesPage.tsx` | إضافة DialogDescription + استيرادها |
+| `src/components/ui/dialog.tsx` | لف Dialog بـ forwardRef (سطر 7) |
+| `src/pages/ProgressCertificatesPage.tsx` | اضافة DialogDescription في الاستيراد + داخل كل DialogHeader |
 
-### سبب المشكلة
-
-إصدار `@radix-ui/react-dialog` الحالي (^1.1.14) يُصدّر `Dialog.Root` كـ function component بدون `forwardRef`. عندما يحاول React الداخلي تمرير ref إليه أثناء عملية mounting، ينتج التحذير الذي قد يمنع المكون من العمل في بيئة المعاينة (preview iframe).
-
-### خطوات التنفيذ
-
-1. تعديل `dialog.tsx` - لف Dialog بـ forwardRef
-2. تعديل `ProgressCertificatesPage.tsx` - إضافة DialogDescription
-3. اختبار فتح نافذة "مستخلص جديد"
+هذان التعديلان سيحلان مشكلة عدم فتح النافذة نهائيا.
 
