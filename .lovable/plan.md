@@ -1,65 +1,55 @@
 
 
-# خطة إصلاح وتطوير شاشات المستخلصات وعروض الأسعار
+# Fix: زر "New Certificate" لا يفتح النافذة
 
-## المشاكل المكتشفة
+## المشكلة الجذرية
 
-### 1. خطأ حرج: قيد المفتاح الأجنبي (FK) في جدول المستخلصات
-عمود `project_id` في جدول `progress_certificates` مرتبط بجدول `saved_projects` (القديم)، بينما الكود يستخدم `project_data` (الجديد). هذا يعني أن **حفظ أي مستخلص جديد سيفشل** بسبب انتهاك قيد FK.
+مكون `Dialog` من Radix UI يتلقى ref من React أثناء المطابقة الداخلية (reconciliation)، مما ينتج تحذير "Function components cannot be given refs". هذا التحذير يمنع Dialog من العمل بشكل صحيح في بعض الحالات.
 
-**الحل**: تعديل قاعدة البيانات لتغيير FK من `saved_projects` إلى `project_data`.
+تم التأكد من المشكلة عبر اختبار المتصفح: الضغط على الزر لا يفتح أي نافذة رغم تنفيذ الضغط بنجاح.
 
-### 2. شاشة عروض الأسعار (Quotations) تغلق تلقائياً
-مكون `QuotationUpload` يستورد `pdfjs-dist` مباشرة على مستوى الملف (سطر 19). إذا فشل تحميل المكتبة أو إعداد الـ worker، تنهار الشاشة بالكامل. المكون أيضاً لا يتعامل مع حالة عدم تسجيل الدخول (user = null) بشكل سليم مما يسبب أخطاء.
+## الحل
 
-**الحل**: إضافة حماية ضد الأخطاء ومعالجة حالة عدم وجود مستخدم.
+### تغيير 1: إصلاح مكون Dialog (`src/components/ui/dialog.tsx`)
 
-### 3. زر "New Certificate" - يعمل لكن الحفظ يفشل
-الزر يفتح النافذة بنجاح، لكن عملية الحفظ تفشل بسبب مشكلة FK المذكورة أعلاه.
+لف مكون `Dialog` بـ `React.forwardRef` لمنع التحذير:
 
----
+```typescript
+// قبل
+const Dialog = DialogPrimitive.Root;
 
-## التغييرات المطلوبة
-
-### تغيير 1: تعديل قاعدة البيانات (Migration)
-
-```sql
-ALTER TABLE progress_certificates 
-  DROP CONSTRAINT progress_certificates_project_id_fkey;
-
-ALTER TABLE progress_certificates 
-  ADD CONSTRAINT progress_certificates_project_id_fkey 
-  FOREIGN KEY (project_id) REFERENCES project_data(id);
+// بعد
+const Dialog = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root>>(
+  (props, _ref) => <DialogPrimitive.Root {...props} />
+);
+Dialog.displayName = "Dialog";
 ```
 
-### تغيير 2: إصلاح شاشة عروض الأسعار
+### تغيير 2: إضافة DialogDescription في نافذة الإنشاء (`src/pages/ProgressCertificatesPage.tsx`)
 
-**ملف: `src/components/QuotationUpload.tsx`**
-- تغيير استيراد `pdfjs-dist` من استيراد ثابت إلى استيراد ديناميكي (dynamic import) داخل الدوال التي تحتاجه
-- إضافة معالجة لحالة عدم وجود مستخدم مسجل (عرض رسالة بدلاً من الانهيار)
+Radix Dialog يحتاج `DialogDescription` داخل كل `DialogContent`. عدم وجوده قد يسبب مشاكل في التصيير (rendering).
 
-**ملف: `src/pages/QuotationsPage.tsx`**
-- إضافة ErrorBoundary حول المكونات لمنع انهيار الصفحة
-
-### تغيير 3: التأكد من عمل زر "New Certificate"
-
-بعد إصلاح FK، الكود الحالي سيعمل بشكل صحيح. سأضيف أيضاً:
-- رسالة تنبيه واضحة عند عدم تسجيل الدخول
-- معالجة أفضل للأخطاء في عمليات الحفظ
+- إضافة `DialogDescription` في import
+- إضافة وصف مخفي أو ظاهر داخل DialogHeader لكلا النافذتين (الإنشاء والعرض)
 
 ---
 
-## ملخص الملفات المتأثرة
+## التفاصيل التقنية
 
-| الملف | نوع التعديل |
-|-------|-------------|
-| Migration SQL | تغيير FK من `saved_projects` إلى `project_data` |
-| `src/components/QuotationUpload.tsx` | استيراد ديناميكي لـ pdfjs-dist + حماية null |
-| `src/pages/QuotationsPage.tsx` | إضافة ErrorBoundary |
-| `src/pages/ProgressCertificatesPage.tsx` | تحسين معالجة الأخطاء |
+### الملفات المتأثرة
 
-## ملاحظات
-- تصدير PDF للمستخلص **موجود بالفعل** ويعمل (زر Download في كل صف + زر في نافذة العرض)
-- ربط المقاولين بين الشاشات **موجود بالفعل** عبر جدول `subcontractors` الموحد
-- ربط العقود **موجود بالفعل** في نافذة الإنشاء
+| الملف | التعديل |
+|-------|---------|
+| `src/components/ui/dialog.tsx` | لف Dialog بـ forwardRef |
+| `src/pages/ProgressCertificatesPage.tsx` | إضافة DialogDescription + استيرادها |
+
+### سبب المشكلة
+
+إصدار `@radix-ui/react-dialog` الحالي (^1.1.14) يُصدّر `Dialog.Root` كـ function component بدون `forwardRef`. عندما يحاول React الداخلي تمرير ref إليه أثناء عملية mounting، ينتج التحذير الذي قد يمنع المكون من العمل في بيئة المعاينة (preview iframe).
+
+### خطوات التنفيذ
+
+1. تعديل `dialog.tsx` - لف Dialog بـ forwardRef
+2. تعديل `ProgressCertificatesPage.tsx` - إضافة DialogDescription
+3. اختبار فتح نافذة "مستخلص جديد"
 
