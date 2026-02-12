@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle, Zap, CheckSquare, X, Square } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle, Zap, CheckSquare, X, Square, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -104,6 +104,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   const [isUploading, setIsUploading] = useState(false);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -1149,9 +1150,28 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
             </div>
           )}
           
+          {/* Search Bar */}
+          <div className="px-2 pb-3">
+            <div className="relative">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="بحث باسم المورد أو اسم العرض..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pr-9 relative z-[70] pointer-events-auto"
+              />
+            </div>
+          </div>
+
           <CardContent>
             <div className="space-y-3">
-              {quotations.map((quotation) => (
+              {quotations
+                .filter(q =>
+                  !searchQuery ||
+                  q.supplier_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  q.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((quotation) => (
                 <Collapsible
                   key={quotation.id}
                   open={expandedId === quotation.id}
