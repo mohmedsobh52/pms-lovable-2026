@@ -1,48 +1,56 @@
 
-# إصلاح خطأ شاشة Quotations + التأكد من عمل زر المستخلص الجديد
+# إصلاح زر "مستخلص جديد" - الحل النهائي
 
-## المشكلة الأولى: شاشة Quotations تتعطل
+## المشكلة الجذرية
 
-**السبب:** في `src/components/QuotationUpload.tsx`، هناك عدة أماكن تستدعي `.toLocaleString()` على قيم قد تكون `null`:
+ملف `dialog-custom.css` يحتوي على 536 سطر من قواعد CSS تتحكم في `pointer-events` و `z-index` لعناصر Radix UI. عند استخدام `Button asChild` مع `Link`، يقوم Radix Slot بدمج خصائص HTML button (مثل `type="button"`) على عنصر `<a>`. هذا مع قواعد CSS المعقدة يمنع التنقل.
 
-- سطر 1439: `subtotal.toLocaleString()` — الشرط `!== undefined` لا يمنع `null`
-- سطر 1447: `tax.toLocaleString()` — نفس المشكلة
-- سطر 1453: `discount.toLocaleString()` — نفس المشكلة
-- سطر 1401: `displayTotal?.toLocaleString()` — قد يكون null
-- سطر 1399-1400: `quantity?.toLocaleString()` و `unit_price?.toLocaleString()`
+بالإضافة لذلك، يوجد Select components في نفس الصفحة تُصدر تحذيرات React ref، مما يشير لمشاكل في Radix على هذه الصفحة.
 
-**الحل:** إضافة فحص null لكل استدعاء `.toLocaleString()` باستخدام النمط:
-```text
-(value ?? 0).toLocaleString()
+## الحل
+
+استبدال `Button asChild` + `Link` بـ `Link` مباشرة مع تطبيق تنسيقات الزر يدوياً باستخدام `buttonVariants` + إضافة class حماية لضمان عدم حجب الزر.
+
+### التغيير في `src/pages/ProgressCertificatesPage.tsx`
+
+**قبل:**
+```
+<Button asChild>
+  <Link to="/progress-certificates/new">
+    <Plus className="h-4 w-4 mr-1" />
+    {isArabic ? "مستخلص جديد" : "New Certificate"}
+  </Link>
+</Button>
 ```
 
-### التغييرات في `src/components/QuotationUpload.tsx`:
+**بعد:**
+```
+<Link 
+  to="/progress-certificates/new"
+  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 relative z-[70] pointer-events-auto"
+>
+  <Plus className="h-4 w-4 mr-1" />
+  {isArabic ? "مستخلص جديد" : "New Certificate"}
+</Link>
+```
 
-| السطر | قبل | بعد |
-|-------|-----|-----|
-| 1399 | `item.quantity?.toLocaleString() \|\| '-'` | `(item.quantity ?? 0).toLocaleString()` |
-| 1400 | `item.unit_price?.toLocaleString() \|\| '-'` | `(item.unit_price ?? 0).toLocaleString()` |
-| 1401 | `displayTotal?.toLocaleString()` | `(displayTotal ?? 0).toLocaleString()` |
-| 1439 | `subtotal.toLocaleString()` | `(subtotal ?? 0).toLocaleString()` |
-| 1447 | `tax.toLocaleString()` | `(tax ?? 0).toLocaleString()` |
-| 1453 | `discount.toLocaleString()` | `(discount ?? 0).toLocaleString()` |
-| 1458 | `grand_total?.toLocaleString()` | `(grand_total ?? 0).toLocaleString()` |
+التغييرات:
+1. `Link` مباشرة بدون `Button asChild` - يتجنب Radix Slot تماما
+2. تنسيقات الزر مطبقة كـ className مباشرة
+3. `z-[70]` و `pointer-events-auto` لضمان عدم حجب الزر
+4. إزالة استيراد `Link` من الأعلى غير ضروري لأنه مستورد بالفعل
+5. يمكن حذف `Button` من الاستيرادات إذا لم يعد مستخدما في هذا السياق (لكنه مستخدم في أماكن أخرى في الصفحة)
 
----
-
-## المشكلة الثانية: زر "مستخلص جديد"
-
-الـ route `/progress-certificates/new` موجود بالفعل في `App.tsx` والصفحة `NewCertificatePage.tsx` تم إنشاؤها. سأتحقق من أن زر التنقل يعمل بشكل صحيح في `ProgressCertificatesPage.tsx`.
-
----
-
-## الملفات المتأثرة
+### ملف واحد يتأثر
 
 | الملف | التعديل |
 |-------|---------|
-| `src/components/QuotationUpload.tsx` | إضافة null safety لـ 7 استدعاءات `.toLocaleString()` |
+| `src/pages/ProgressCertificatesPage.tsx` | استبدال Button+Link بـ Link مباشر مع تنسيقات الزر |
 
-## لماذا هذا الحل سيعمل
+### لماذا سيعمل
 
-1. استخدام `??` (nullish coalescing) بدلا من `?.` (optional chaining) يضمن تحويل `null` و `undefined` إلى `0` قبل استدعاء `.toLocaleString()`
-2. هذا يتوافق مع معيار المشروع الموثق في الذاكرة: "null-safety-formatting-standard"
+1. عنصر `<a>` نقي بدون أي تدخل من Radix Slot
+2. React Router's Link يتحكم في التنقل عبر `onClick` الخاص به
+3. `z-[70]` أعلى من كل القواعد في dialog-custom.css (أعلى z-index هناك هو 65)
+4. `pointer-events-auto` صريح يتجاوز أي قاعدة CSS أخرى
+5. لا يوجد أي مكون Radix متورط - فقط عنصر HTML عادي
