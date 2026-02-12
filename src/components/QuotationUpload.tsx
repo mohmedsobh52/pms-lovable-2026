@@ -996,7 +996,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
             رفع عرض سعر جديد
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 form-card-safe">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">اسم العرض</Label>
@@ -1041,10 +1041,11 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
           <div className="relative">
             <input
               type="file"
+              id="quotation-file-upload"
               accept=".pdf,.xls,.xlsx"
               onChange={handleFileUpload}
               disabled={isUploading || !user}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+              className="hidden"
             />
             <div className={`
               border-2 border-dashed rounded-xl p-8 text-center transition-colors
@@ -1068,6 +1069,12 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                       PDF أو Excel • الحد الأقصى 10 ميجابايت
                     </p>
                   </div>
+                  <Button asChild variant="outline" className="mt-3 relative z-[70] pointer-events-auto">
+                    <label htmlFor="quotation-file-upload" className="cursor-pointer">
+                      <Upload className="w-4 h-4 mr-2" />
+                      رفع الملف
+                    </label>
+                  </Button>
                 </div>
               )}
             </div>
