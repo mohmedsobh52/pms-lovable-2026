@@ -24,6 +24,8 @@ import { PageLayout } from "@/components/PageLayout";
 import { HistoricalPricingStats } from "@/components/HistoricalPricingStats";
 import { HistoricalPricingPDFReport } from "@/components/HistoricalPricingPDFReport";
 import { ImportFromSavedProjects } from "@/components/ImportFromSavedProjects";
+import { HistoricalItemsTable } from "@/components/HistoricalItemsTable";
+import { normalizeHistoricalItems, NormalizedHistoricalItem } from "@/lib/historical-data-utils";
 interface HistoricalFile {
   id: string;
   file_name: string;
@@ -72,7 +74,7 @@ export default function HistoricalPricingPage() {
   const [currency, setCurrency] = useState("SAR");
   const [notes, setNotes] = useState("");
   const [isVerified, setIsVerified] = useState(false);
-  const [uploadedItems, setUploadedItems] = useState<RawDataItem[]>([]);
+  const [uploadedItems, setUploadedItems] = useState<NormalizedHistoricalItem[]>([]);
   const [uploadedHeaders, setUploadedHeaders] = useState<string[]>([]);
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [pdfPagePreviews, setPdfPagePreviews] = useState<string[]>([]);
@@ -130,15 +132,16 @@ export default function HistoricalPricingPage() {
         // Handle PDF with OCR
         await handlePDFUpload(file);
       } else {
-        // Handle Excel files - extract raw data as-is
+        // Handle Excel files - extract raw data then normalize
         const result = await extractRawDataFromExcel(file);
         
         if (result.rows && result.rows.length > 0) {
-          setUploadedItems(result.rows);
+          const normalized = normalizeHistoricalItems(result.rows, result.headers);
+          setUploadedItems(normalized);
           setUploadedHeaders(result.headers);
           toast({
             title: "✅ تم قراءة الملف",
-            description: `تم استخراج ${result.rows.length} صف من الملف بالبيانات الأصلية`,
+            description: `تم استخراج ${normalized.length} بند من الملف`,
           });
         } else {
           toast({
@@ -222,18 +225,17 @@ export default function HistoricalPricingPage() {
       if (error) throw error;
 
       if (data?.items && Array.isArray(data.items) && data.items.length > 0) {
-        // Use the original items as-is from the PDF extraction
-        const items: RawDataItem[] = data.items;
-        // Use original headers from PDF if available, otherwise extract from first item
+        const rawItems = data.items;
         const headers = data.headers && Array.isArray(data.headers) && data.headers.length > 0
           ? data.headers
-          : Object.keys(items[0] || {});
+          : Object.keys(rawItems[0] || {});
         
-        setUploadedItems(items);
+        const normalized = normalizeHistoricalItems(rawItems, headers);
+        setUploadedItems(normalized);
         setUploadedHeaders(headers);
         toast({
           title: "✅ تم استخراج البيانات",
-          description: `تم استخراج ${items.length} صف من ملف PDF بالبيانات الأصلية`,
+          description: `تم استخراج ${normalized.length} بند من ملف PDF`,
         });
       } else {
         toast({
@@ -253,7 +255,8 @@ export default function HistoricalPricingPage() {
     if (uploadedItems.length === 0) return;
 
     const wb = createWorkbook();
-    addJsonSheet(wb, uploadedItems, 'Extracted Data', { header: uploadedHeaders });
+    const exportData = uploadedItems.map(item => ({ ...item } as Record<string, unknown>));
+    addJsonSheet(wb, exportData, 'Extracted Data');
     
     const fileName = uploadedFileName ? 
       `extracted_${uploadedFileName.replace(/\.[^/.]+$/, '')}.xlsx` : 
@@ -313,11 +316,8 @@ export default function HistoricalPricingPage() {
     }
 
     try {
-      // Calculate total from items - look for common price column names
-      const totalValue = uploadedItems.reduce((sum, item) => {
-        const price = item.total_price || item.totalPrice || item['الإجمالي'] || item['المبلغ'] || item['القيمة'] || item['total'] || item['amount'] || 0;
-        return sum + (typeof price === 'number' ? price : parseFloat(String(price)) || 0);
-      }, 0);
+      // Calculate total from normalized items
+      const totalValue = uploadedItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
 
       const { error } = await supabase
         .from("historical_pricing_files")
@@ -596,59 +596,15 @@ export default function HistoricalPricingPage() {
                   </div>
                 )}
 
-                {/* Preview Items - Dynamic columns */}
+                {/* Preview Items - Normalized BOQ Table */}
                 {uploadedItems.length > 0 && (
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label>معاينة البيانات المستخرجة ({uploadedItems.length} صف)</Label>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={handleExportToExcel}
-                        className="gap-2"
-                      >
-                        <Download className="w-4 h-4" />
-                        تصدير إلى Excel
-                      </Button>
-                    </div>
-                    <ScrollArea className="h-[250px] border rounded-lg">
-                      <div className="min-w-max">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              {uploadedHeaders.slice(0, 8).map((header, idx) => (
-                                <TableHead key={idx} className="text-xs whitespace-nowrap px-2">
-                                  {header}
-                                </TableHead>
-                              ))}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {uploadedItems.slice(0, 30).map((item, idx) => (
-                              <TableRow key={idx}>
-                                {uploadedHeaders.slice(0, 8).map((header, hIdx) => (
-                                  <TableCell key={hIdx} className="text-xs px-2 max-w-[200px] truncate">
-                                    {item[header] !== undefined && item[header] !== null 
-                                      ? String(item[header]) 
-                                      : '-'}
-                                  </TableCell>
-                                ))}
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                      {uploadedItems.length > 30 && (
-                        <p className="text-center text-xs text-muted-foreground py-2">
-                          ... و {uploadedItems.length - 30} صف آخر
-                        </p>
-                      )}
-                      {uploadedHeaders.length > 8 && (
-                        <p className="text-center text-xs text-muted-foreground py-1">
-                          يعرض {Math.min(8, uploadedHeaders.length)} أعمدة من {uploadedHeaders.length}
-                        </p>
-                      )}
-                    </ScrollArea>
+                    <Label>معاينة وتعديل البنود ({uploadedItems.length} بند)</Label>
+                    <HistoricalItemsTable
+                      items={uploadedItems}
+                      onItemsChange={setUploadedItems}
+                      projectName={projectName || uploadedFileName}
+                    />
                   </div>
                 )}
               </div>
@@ -876,43 +832,14 @@ export default function HistoricalPricingPage() {
                   </div>
                 )}
 
-                <ScrollArea className="h-[400px] border rounded-lg">
-                  <div className="min-w-max">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {selectedFile.items.length > 0 && 
-                            Object.keys(selectedFile.items[0]).slice(0, 10).map((key, idx) => (
-                              <TableHead key={idx} className="text-xs whitespace-nowrap px-2">
-                                {key}
-                              </TableHead>
-                            ))
-                          }
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {selectedFile.items.map((item: any, idx: number) => (
-                          <TableRow key={idx}>
-                            {Object.keys(selectedFile.items[0]).slice(0, 10).map((key, kIdx) => (
-                              <TableCell key={kIdx} className="text-xs px-2 max-w-[200px] truncate">
-                                {item[key] !== undefined && item[key] !== null 
-                                  ? (typeof item[key] === 'number' 
-                                      ? item[key].toLocaleString() 
-                                      : String(item[key]))
-                                  : '-'}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  {selectedFile.items.length > 0 && Object.keys(selectedFile.items[0]).length > 10 && (
-                    <p className="text-center text-xs text-muted-foreground py-2">
-                      يعرض 10 أعمدة من {Object.keys(selectedFile.items[0]).length}
-                    </p>
-                  )}
-                </ScrollArea>
+                <HistoricalItemsTable
+                  items={normalizeHistoricalItems(selectedFile.items)}
+                  onItemsChange={(updatedItems) => {
+                    setSelectedFile({ ...selectedFile, items: updatedItems, items_count: updatedItems.length });
+                  }}
+                  fileId={selectedFile.id}
+                  projectName={selectedFile.project_name}
+                />
               </div>
             )}
 
