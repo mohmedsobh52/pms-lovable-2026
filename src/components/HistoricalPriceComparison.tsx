@@ -124,26 +124,36 @@ export function HistoricalPriceComparison({ items, suggestions, onApplyAdjustedP
     const itemWords = item.description.toLowerCase().split(/\s+/);
 
     for (const histItem of historicalItems) {
-      if (!histItem.description || !histItem.unit_price) continue;
+      // Support normalized format (description, description_ar) and legacy formats
+      const histDescription = histItem.description || histItem.description_ar || '';
+      const histUnitPrice = histItem.unit_price ?? 0;
+      const histItemNumber = histItem.item_number || '';
+      const histUnit = histItem.unit || '';
 
-      const histWords = histItem.description.toLowerCase().split(/\s+/);
-      const commonWords = itemWords.filter(w => histWords.includes(w) && w.length > 2);
+      if (!histDescription || !histUnitPrice) continue;
+
+      const histWords = histDescription.toLowerCase().split(/\s+/);
+      // Also check Arabic description for matching
+      const histArWords = (histItem.description_ar || '').toLowerCase().split(/\s+/);
+      const allHistWords = [...new Set([...histWords, ...histArWords])];
+      
+      const commonWords = itemWords.filter(w => allHistWords.includes(w) && w.length > 2);
       const matchScore = (commonWords.length / Math.max(itemWords.length, histWords.length)) * 100;
 
       // Also check if units match
-      const unitMatch = item.unit?.toLowerCase() === histItem.unit?.toLowerCase();
+      const unitMatch = item.unit?.toLowerCase() === histUnit.toLowerCase();
       const adjustedScore = matchScore * (unitMatch ? 1.2 : 0.8);
 
       if (adjustedScore >= 30) {
         const currentPrice = item.unit_price || 0;
-        const historicalPrice = histItem.unit_price || 0;
+        const historicalPrice = histUnitPrice;
         const trendPercentage = currentPrice > 0 
           ? ((historicalPrice - currentPrice) / currentPrice) * 100 
           : 0;
 
         matches.push({
-          item_number: histItem.item_number,
-          description: histItem.description,
+          item_number: histItemNumber,
+          description: histDescription,
           historical_price: historicalPrice,
           historical_project: histItem.project_name || "مشروع سابق",
           historical_date: histItem.created_at || new Date().toISOString(),
