@@ -418,28 +418,23 @@ export function TenderPDFExport({
           ["  - Materials", `${pricingSettings.currency} ${formatCurrency(directCosts?.materials || 0)}`],
           ["  - Labor", `${pricingSettings.currency} ${formatCurrency(directCosts?.labor || 0)}`],
           ["  - Equipment", `${pricingSettings.currency} ${formatCurrency(directCosts?.equipment || 0)}`],
-          ["─────────────────", "─────────────"],
           ["Site Staff Costs", `${pricingSettings.currency} ${formatCurrency(totals.staffCosts)}`],
           ["Facilities Costs", `${pricingSettings.currency} ${formatCurrency(totals.facilitiesCosts)}`],
           ["Insurance Costs", `${pricingSettings.currency} ${formatCurrency(totals.insuranceCosts)}`],
           ["Guarantees Costs", `${pricingSettings.currency} ${formatCurrency(totals.guaranteesCosts)}`],
           ["Other Indirect Costs", `${pricingSettings.currency} ${formatCurrency(totals.indirectCosts)}`],
           ["Subcontractors Costs", `${pricingSettings.currency} ${formatCurrency(totals.subcontractorsCosts)}`],
-          ["─────────────────", "─────────────"],
           ["Total Indirect Costs", `${pricingSettings.currency} ${formatCurrency(totalIndirect)}`],
-          ["═══════════════", "═══════════"],
           ["TOTAL ALL COSTS", `${pricingSettings.currency} ${formatCurrency(allCosts)}`],
           [`Profit (${pricingSettings.profitMargin}%)`, `+ ${pricingSettings.currency} ${formatCurrency(profit)}`],
           [`Contingency (${pricingSettings.contingency}%)`, `+ ${pricingSettings.currency} ${formatCurrency(contingency)}`],
-          ["═══════════════", "═══════════"],
           ["GRAND TOTAL", `${pricingSettings.currency} ${formatCurrency(grandTotal)}`],
         ];
 
         // Add price per sqm if area is provided
         if (options.includePricePerSqm && projectArea > 0) {
-          summaryData.push(["─────────────────", "─────────────"]);
-          summaryData.push(["Built Area", `${formatCurrency(projectArea)} m²`]);
-          summaryData.push(["Price per m²", `${pricingSettings.currency} ${formatCurrency(pricePerSqm)}`]);
+          summaryData.push(["Built Area", `${formatCurrency(projectArea)} m2`]);
+          summaryData.push(["Price per m2", `${pricingSettings.currency} ${formatCurrency(pricePerSqm)}`]);
         }
 
         autoTable(doc, {
@@ -452,25 +447,42 @@ export function TenderPDFExport({
             1: { halign: "right" },
           },
           didParseCell: (data) => {
-            // Grand Total row styling
-            if (data.row.index === 18) {
+            if (data.section !== 'body') return;
+            const idx = data.row.index;
+            // Direct Costs row - green background
+            if (idx === 0) {
+              data.cell.styles.fillColor = [220, 252, 231];
+              data.cell.styles.fontStyle = "bold";
+            }
+            // Sub-items - normal weight
+            if (idx >= 1 && idx <= 3) {
+              data.cell.styles.fontStyle = "normal";
+            }
+            // Total Indirect Costs - grey + top border
+            if (idx === 10) {
+              data.cell.styles.fillColor = [240, 240, 240];
+              data.cell.styles.fontStyle = "bold";
+              data.cell.styles.lineWidth = { top: 0.5, bottom: 0, left: 0, right: 0 };
+              data.cell.styles.lineColor = [150, 150, 150];
+            }
+            // TOTAL ALL COSTS - grey + thick top border
+            if (idx === 11) {
+              data.cell.styles.fillColor = [240, 240, 240];
+              data.cell.styles.fontStyle = "bold";
+              data.cell.styles.lineWidth = { top: 1, bottom: 0, left: 0, right: 0 };
+              data.cell.styles.lineColor = [100, 100, 100];
+            }
+            // GRAND TOTAL - blue background + white text
+            if (idx === 14) {
               data.cell.styles.fillColor = [30, 64, 175];
               data.cell.styles.textColor = [255, 255, 255];
               data.cell.styles.fontSize = 12;
               data.cell.styles.fontStyle = "bold";
+              data.cell.styles.lineWidth = { top: 1, bottom: 0, left: 0, right: 0 };
+              data.cell.styles.lineColor = [30, 64, 175];
             }
-            // Total All Costs row
-            if (data.row.index === 14) {
-              data.cell.styles.fillColor = [240, 240, 240];
-              data.cell.styles.fontStyle = "bold";
-            }
-            // Direct Costs row
-            if (data.row.index === 0) {
-              data.cell.styles.fillColor = [220, 252, 231];
-              data.cell.styles.fontStyle = "bold";
-            }
-            // Price per sqm row
-            if (projectArea > 0 && data.row.index === summaryData.length - 1) {
+            // Price per sqm rows - light blue
+            if (projectArea > 0 && idx >= 15) {
               data.cell.styles.fillColor = [219, 234, 254];
               data.cell.styles.fontStyle = "bold";
             }
