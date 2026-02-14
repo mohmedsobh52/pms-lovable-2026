@@ -52,6 +52,31 @@ interface TenderPDFExportProps {
   projectArea?: number;
 }
 
+const guaranteeTypeLabels: Record<string, string> = {
+  bid_bond: "Bid Bond",
+  performance_bond: "Performance Bond",
+  advance_payment: "Advance Payment Bond",
+  retention: "Retention Bond",
+  maintenance: "Maintenance Bond",
+  other: "Other",
+};
+
+const indirectCategoryLabels: Record<string, string> = {
+  headquarters: "Headquarters",
+  operational: "Operational Expenses",
+  financial: "Financial Costs",
+  reserve: "Reserve",
+  technical: "Technical Expenses",
+  legal: "Legal Expenses",
+  marketing: "Marketing & Relations",
+  training: "Training & Development",
+  safety: "Safety & Health",
+  quality: "Quality Control",
+  environmental: "Environmental",
+  transport: "Transportation",
+  other: "Other",
+};
+
 export function TenderPDFExport({
   isArabic,
   projectName,
@@ -192,7 +217,7 @@ export function TenderPDFExport({
         yPos += 8;
 
         const staffTableData = staffData.map((s: any) => [
-          s.position || s.positionEn,
+          s.positionEn || s.position,
           s.count?.toString() || "1",
           formatCurrency(s.monthlySalary || 0),
           formatCurrency(s.totalAnnual || s.total || 0),
@@ -224,7 +249,7 @@ export function TenderPDFExport({
         yPos += 8;
 
         const facilitiesTableData = facilitiesData.map((f: any) => [
-          f.name || f.nameEn,
+          f.nameEn || f.name,
           formatCurrency(f.monthlyCost || 0),
           formatCurrency(f.annualCost || f.total || 0),
         ]);
@@ -255,7 +280,7 @@ export function TenderPDFExport({
         yPos += 8;
 
         const insuranceTableData = insuranceData.map((i: any) => [
-          i.type || i.typeEn,
+          i.typeEn || i.type,
           i.percentage ? `${i.percentage}%` : "-",
           formatCurrency(i.premium || i.total || 0),
         ]);
@@ -286,7 +311,7 @@ export function TenderPDFExport({
         yPos += 8;
 
         const guaranteesTableData = guaranteesData.map((g: any) => [
-          g.type || g.typeEn,
+          guaranteeTypeLabels[g.type] || g.typeEn || g.type,
           g.percentage ? `${g.percentage}%` : "-",
           formatCurrency(g.cost || g.total || 0),
         ]);
@@ -317,8 +342,8 @@ export function TenderPDFExport({
         yPos += 8;
 
         const indirectTableData = indirectCostsData.map((c: any) => [
-          c.category || c.categoryEn,
-          c.name || c.nameEn,
+          indirectCategoryLabels[c.category] || c.categoryEn || c.category,
+          c.nameEn || c.name,
           c.costType === "percentage" ? `${c.value}%` : formatCurrency(c.value || 0),
           formatCurrency(c.total || 0),
         ]);
@@ -349,7 +374,7 @@ export function TenderPDFExport({
         yPos += 8;
 
         const subcontractorsTableData = subcontractorsData.map((s: any) => [
-          s.subcontractorName || s.name || s.nameEn,
+          s.subcontractorName || s.nameEn || s.name,
           s.scope || s.specialty || "-",
           formatCurrency(s.contractValue || 0),
         ]);
