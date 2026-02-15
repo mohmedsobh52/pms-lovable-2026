@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { 
   FolderOpen, Building2, DollarSign, AlertTriangle, Layers,
-  Settings2, ChevronRight, Package, Loader2, Clock, Briefcase, Zap
+  Settings2, ChevronRight, Package, Loader2, Clock, Briefcase, Zap,
+  TrendingUp, TrendingDown, Plus, ArrowUpRight
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,6 +17,7 @@ import { PMSLogo } from "@/components/PMSLogo";
 import { PageLayout } from "@/components/PageLayout";
 import { LifecycleFlow } from "@/components/home/LifecycleFlow";
 import { PhaseActionsGrid } from "@/components/home/PhaseActionsGrid";
+import { cn } from "@/lib/utils";
 
 interface ProjectSummary {
   id: string;
@@ -46,6 +49,41 @@ const mainModules = [
   { icon: AlertTriangle, label: { ar: "المخاطر", en: "Risks" }, href: "/risk", count: "activeRisks" },
   { icon: Settings2, label: { ar: "الإعدادات", en: "Settings" }, href: "/settings", count: null },
   { icon: Layers, label: { ar: "المستخلصات", en: "Certificates" }, href: "/progress-certificates", count: null },
+];
+
+const kpiConfig = [
+  { 
+    key: "totalProjects" as const, 
+    icon: FolderOpen, 
+    labelAr: "المشاريع", labelEn: "Projects",
+    borderClass: "border-t-primary",
+    iconBg: "bg-primary/10", iconColor: "text-primary",
+    subKey: "totalItems" as const, subLabelAr: "بند", subLabelEn: "items"
+  },
+  { 
+    key: "totalValue" as const, 
+    icon: DollarSign,
+    labelAr: "القيمة الإجمالية", labelEn: "Total Value",
+    borderClass: "border-t-emerald-500",
+    iconBg: "bg-emerald-500/10", iconColor: "text-emerald-600 dark:text-emerald-400",
+    subKey: null, subLabelAr: "SAR", subLabelEn: "SAR"
+  },
+  { 
+    key: "totalContracts" as const, 
+    icon: Briefcase,
+    labelAr: "العقود", labelEn: "Contracts",
+    borderClass: "border-t-orange-500",
+    iconBg: "bg-orange-500/10", iconColor: "text-orange-600 dark:text-orange-400",
+    subKey: null, subLabelAr: "", subLabelEn: ""
+  },
+  { 
+    key: "activeRisks" as const, 
+    icon: AlertTriangle,
+    labelAr: "المخاطر النشطة", labelEn: "Active Risks",
+    borderClass: "border-t-red-500",
+    iconBg: "bg-red-500/10", iconColor: "text-red-600 dark:text-red-400",
+    subKey: "totalRisks" as const, subLabelAr: "من", subLabelEn: "of"
+  },
 ];
 
 export default function HomePage() {
@@ -182,135 +220,141 @@ export default function HomePage() {
     return isArabic ? "مساء الخير" : "Good evening";
   };
 
+  const getKpiValue = (key: string) => {
+    if (!stats) return 0;
+    const val = stats[key as keyof DashboardStats];
+    if (key === "totalValue") return formatCurrency(val as number);
+    return val;
+  };
+
   return (
     <PageLayout showBackground>
       <div className="space-y-6">
         {/* Welcome Banner */}
         {user && (
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold">
-                {greeting()} 👋
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {new Date().toLocaleDateString(isArabic ? 'ar-SA' : 'en-US', { 
-                  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-                })}
-              </p>
+          <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-r from-primary/10 via-accent/5 to-transparent p-5 md:p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <h1 className="text-2xl md:text-3xl font-bold">
+                  {greeting()} 👋
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {new Date().toLocaleDateString(isArabic ? 'ar-SA' : 'en-US', { 
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+                  })}
+                </p>
+                {stats && stats.totalProjects > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    <span className="font-semibold text-foreground">{stats.totalProjects}</span>{" "}
+                    {isArabic ? "مشروع نشط" : "active projects"}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <Link to="/projects/new">
+                  <Button size="sm" className="gap-2 shadow-md">
+                    <Plus className="h-4 w-4" />
+                    {isArabic ? "مشروع جديد" : "New Project"}
+                  </Button>
+                </Link>
+                <PMSLogo size="md" />
+              </div>
             </div>
-            <PMSLogo size="md" />
+            {/* Decorative element */}
+            <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-primary/5 blur-2xl" />
           </div>
         )}
 
-        {/* 4 KPI Cards */}
+        {/* 4 KPI Cards - Enhanced */}
         {user && stats && (
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-primary/20">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <FolderOpen className="h-4 w-4 text-primary" />
-                  {isArabic ? "المشاريع" : "Projects"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.totalProjects}</div>
-                <p className="text-xs text-muted-foreground">{stats.totalItems} {isArabic ? "بند" : "items"}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-green-500/20">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  {isArabic ? "القيمة الإجمالية" : "Total Value"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(stats.totalValue)}</div>
-                <p className="text-xs text-muted-foreground">SAR</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-orange-500/20">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Briefcase className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                  {isArabic ? "العقود" : "Contracts"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.totalContracts}</div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-red-500/20">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                  {isArabic ? "المخاطر النشطة" : "Active Risks"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.activeRisks}</div>
-                <p className="text-xs text-muted-foreground">
-                  {isArabic ? `من ${stats.totalRisks}` : `of ${stats.totalRisks}`}
-                </p>
-              </CardContent>
-            </Card>
+            {kpiConfig.map((kpi) => {
+              const Icon = kpi.icon;
+              return (
+                <Card key={kpi.key} className={cn("border-t-2 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5", kpi.borderClass)}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", kpi.iconBg)}>
+                        <Icon className={cn("h-5 w-5", kpi.iconColor)} />
+                      </div>
+                      <ArrowUpRight className="h-4 w-4 text-muted-foreground/50" />
+                    </div>
+                    <div className="text-3xl font-bold tracking-tight">
+                      {getKpiValue(kpi.key)}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isArabic ? kpi.labelAr : kpi.labelEn}
+                      {kpi.subKey && stats[kpi.subKey] !== undefined && (
+                        <span className="ml-1 rtl:mr-1">
+                          {" "}• {kpi.subLabelEn !== "items" ? `${kpi.subLabelEn} ` : ""}{kpi.subKey === "totalItems" ? `${stats[kpi.subKey]} ${isArabic ? kpi.subLabelAr : kpi.subLabelEn}` : `${isArabic ? kpi.subLabelAr : kpi.subLabelEn} ${stats[kpi.subKey]}`}
+                        </span>
+                      )}
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </section>
         )}
 
         {/* Recent Projects + Quick Access */}
         {user && stats && (
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Recent Projects */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+            {/* Recent Projects - Enhanced */}
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 bg-muted/20">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Clock className="h-4 w-4" />
+                  <Clock className="h-4 w-4 text-primary" />
                   {isArabic ? "المشاريع الأخيرة" : "Recent Projects"}
                 </CardTitle>
                 <Link to="/projects">
                   <Button variant="ghost" size="sm" className="gap-1 text-xs">
-                    {isArabic ? "الكل" : "All"}
+                    {isArabic ? "عرض الكل" : "View All"}
                     <ChevronRight className="h-3 w-3" />
                   </Button>
                 </Link>
               </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[260px]">
+              <CardContent className="p-0">
+                <ScrollArea className="h-[280px]">
                   {recentProjects.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="divide-y divide-border/40">
                       {recentProjects.map((project) => (
                         <div 
                           key={project.id} 
-                          className="flex items-center justify-between p-3 rounded-lg bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer"
+                          className="flex items-center justify-between p-4 hover:bg-muted/40 transition-colors cursor-pointer"
                           onClick={() => navigate(`/projects/${project.id}`)}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                              <Building2 className="h-4 w-4 text-primary" />
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                              <Building2 className="h-5 w-5 text-primary" />
                             </div>
-                            <div>
-                              <p className="font-medium text-sm">{project.name}</p>
-                              <p className="text-xs text-muted-foreground">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-sm truncate">{project.name}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
                                 {project.items_count} {isArabic ? "بند" : "items"} • {formatDate(project.updated_at)}
                               </p>
+                              {/* Mini progress bar */}
+                              <Progress value={Math.min(project.items_count * 10, 100)} className="h-1 mt-1.5" />
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-sm">{formatCurrency(project.total_value)}</p>
-                            <p className="text-[10px] text-muted-foreground">SAR</p>
+                          <div className="text-right shrink-0 ml-3 rtl:mr-3">
+                            <p className="font-bold text-sm">{formatCurrency(project.total_value)}</p>
+                            <Badge variant="outline" className="text-[10px] mt-0.5">SAR</Badge>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground space-y-2 py-8">
-                      <FolderOpen className="h-8 w-8" />
-                      <p className="text-sm">{isArabic ? "لا توجد مشاريع" : "No projects yet"}</p>
+                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground space-y-3 py-12">
+                      <div className="w-14 h-14 rounded-full bg-muted/50 flex items-center justify-center">
+                        <FolderOpen className="h-7 w-7" />
+                      </div>
+                      <p className="text-sm font-medium">{isArabic ? "لا توجد مشاريع بعد" : "No projects yet"}</p>
                       <Link to="/projects/new">
-                        <Button size="sm">{isArabic ? "ابدأ الآن" : "Get Started"}</Button>
+                        <Button size="sm" className="gap-2">
+                          <Plus className="h-4 w-4" />
+                          {isArabic ? "ابدأ الآن" : "Get Started"}
+                        </Button>
                       </Link>
                     </div>
                   )}
@@ -318,21 +362,23 @@ export default function HomePage() {
               </CardContent>
             </Card>
 
-            {/* Quick Access */}
-            <Card>
-              <CardHeader>
+            {/* Quick Access - Enhanced */}
+            <Card className="overflow-hidden">
+              <CardHeader className="border-b border-border/50 bg-muted/20">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Layers className="h-4 w-4" />
+                  <Layers className="h-4 w-4 text-primary" />
                   {isArabic ? "الوصول السريع" : "Quick Access"}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {mainModules.map((module, index) => (
                     <Link key={index} to={module.href}>
-                      <div className="p-3 rounded-lg border hover:bg-muted/50 hover:border-primary/30 transition-all cursor-pointer text-center space-y-2 group">
-                        <module.icon className="h-5 w-5 mx-auto text-primary group-hover:scale-110 transition-transform" />
-                        <p className="text-xs font-medium">{isArabic ? module.label.ar : module.label.en}</p>
+                      <div className="p-4 rounded-xl border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 cursor-pointer text-center space-y-2.5 group hover:shadow-sm hover:-translate-y-0.5">
+                        <div className="w-10 h-10 mx-auto rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+                          <module.icon className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
+                        </div>
+                        <p className="text-xs font-semibold">{isArabic ? module.label.ar : module.label.en}</p>
                         {module.count && stats && (
                           <Badge variant="secondary" className="text-[10px]">
                             {stats[module.count as keyof DashboardStats] || 0}
@@ -348,13 +394,13 @@ export default function HomePage() {
         )}
 
         {/* Lifecycle Flow */}
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-2 border-b border-border/50 bg-muted/20">
             <CardTitle className="text-center text-base">
               {isArabic ? "🏗️ دورة حياة المشروع" : "🏗️ Project Lifecycle"}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 md:p-6">
             <LifecycleFlow 
               activePhase={activePhase} 
               onPhaseChange={setActivePhase}

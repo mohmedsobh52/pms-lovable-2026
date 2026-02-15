@@ -113,7 +113,7 @@ export function LifecycleFlow({ activePhase, onPhaseChange, projectProgress = 0 
                   `bg-gradient-to-br ${phase.bgGradient}`,
                   "transition-all duration-300",
                   "hover:-translate-y-1 hover:shadow-lg",
-                  isActive && "ring-3 ring-white/40 scale-110 shadow-lg",
+                  isActive && "ring-2 ring-primary/40 scale-110 shadow-xl shadow-primary/20",
                   isPast && "opacity-60 hover:opacity-80",
                   !isActive && !isPast && "opacity-70 hover:opacity-100"
                 )}
