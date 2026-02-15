@@ -256,8 +256,18 @@
   }
 
   .kpi-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+
+  .dashboard-card {
+    @apply bg-card/95 backdrop-blur-sm rounded-xl border border-border/50 transition-all duration-200;
     box-shadow: var(--shadow-md);
-    transform: translateY(-1px);
+  }
+
+  .dashboard-card:hover {
+    box-shadow: var(--shadow-xl);
+    border-color: hsl(var(--primary) / 0.2);
   }
 
   .data-table { @apply w-full text-sm; }

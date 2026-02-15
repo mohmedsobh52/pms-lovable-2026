@@ -87,7 +87,7 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
   const isActive = (href: string) => location.pathname === href;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-gradient-to-r from-background/90 via-background/85 to-background/90 backdrop-blur-xl">
       <div className="container mx-auto px-4 h-14 md:h-16 flex items-center justify-between gap-2">
         {/* Left: Mobile Menu + Logo */}
         <div className="flex items-center gap-2">

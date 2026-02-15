@@ -110,7 +110,7 @@ export function PhaseActionsGrid({ activePhase }: PhaseActionsGridProps) {
               <Card className={cn(
                 "group h-full transition-all duration-200 cursor-pointer border",
                 currentPhaseConfig.borderColor,
-                "hover:shadow-md hover:-translate-y-0.5"
+                "hover:shadow-lg hover:-translate-y-1"
               )}>
                 {action.isNew && (
                   <Badge className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5">
@@ -125,9 +125,9 @@ export function PhaseActionsGrid({ activePhase }: PhaseActionsGridProps) {
                 )}
                 <CardContent className="p-4 flex items-start gap-3">
                   <div className={cn(
-                    "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                    "w-11 h-11 rounded-xl flex items-center justify-center shrink-0",
                     `bg-gradient-to-br ${currentPhaseConfig.bgGradient}`,
-                    "group-hover:scale-105 transition-transform duration-200"
+                    "group-hover:scale-110 transition-transform duration-200 shadow-sm"
                   )}>
                     <Icon className="w-5 h-5 text-white" />
                   </div>

@@ -16,40 +16,37 @@ const BackgroundImage = ({ activePhase = 1 }: BackgroundImageProps) => {
 
   return (
     <>
-      {/* Base Gradient */}
-      <div className="fixed inset-0 -z-50 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
+      {/* Deep Multi-tone Gradient */}
+      <div className="fixed inset-0 -z-50 bg-gradient-to-br from-slate-950 via-blue-950/50 to-slate-950" />
       
-      {/* Single Aurora Blob */}
+      {/* Aurora Blob - Phase Responsive */}
       <div
-        className="fixed -z-45 w-[500px] h-[400px] rounded-full blur-[120px] transition-colors duration-[2000ms]"
+        className="fixed -z-45 w-[600px] h-[500px] rounded-full blur-[150px] transition-colors duration-[2000ms]"
         style={{
-          left: '30%',
-          top: '25%',
-          backgroundColor: `hsl(${currentPhaseColor} / 0.12)`,
+          left: '35%',
+          top: '20%',
+          backgroundColor: `hsl(${currentPhaseColor} / 0.08)`,
           transform: 'translate(-50%, -50%)'
         }}
       />
 
-      {/* Subtle Grid */}
+      {/* Blueprint Grid */}
       <div 
-        className="fixed inset-0 -z-40 opacity-[0.03]"
+        className="fixed inset-0 -z-40 opacity-[0.04]"
         style={{
           backgroundImage: `
-            linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+            linear-gradient(rgba(147,197,253,0.15) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(147,197,253,0.15) 1px, transparent 1px)
           `,
-          backgroundSize: '60px 60px'
+          backgroundSize: '40px 40px'
         }}
       />
 
-      {/* Single Floating Orb */}
+      {/* Vignette Effect */}
       <div 
-        className="fixed w-72 h-72 md:w-[350px] md:h-[350px] rounded-full blur-[100px] -z-35 transition-colors duration-[2000ms]"
-        style={{ 
-          bottom: '20%',
-          right: '15%',
-          backgroundColor: `hsl(217 91% 60% / 0.08)`,
-          animation: 'float 12s ease-in-out infinite'
+        className="fixed inset-0 -z-35 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse at center, transparent 40%, hsl(222 47% 8% / 0.6) 100%)'
         }}
       />
       
