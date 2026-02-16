@@ -21,16 +21,16 @@ import {
 } from "lucide-react";
 
 const sections = [
-  { nameAr: "المشاريع", nameEn: "Projects", path: "/projects", icon: FolderOpen, color: "from-blue-500/20 to-blue-600/10" },
-  { nameAr: "جدول الكميات", nameEn: "BOQ Items", path: "/items", icon: Layers, color: "from-emerald-500/20 to-emerald-600/10" },
-  { nameAr: "التسعير والتحليل", nameEn: "Cost Analysis", path: "/cost-analysis", icon: DollarSign, color: "from-amber-500/20 to-amber-600/10" },
-  { nameAr: "العقود", nameEn: "Contracts", path: "/contracts", icon: Briefcase, color: "from-purple-500/20 to-purple-600/10" },
-  { nameAr: "المشتريات", nameEn: "Procurement", path: "/procurement", icon: Package, color: "from-cyan-500/20 to-cyan-600/10" },
-  { nameAr: "مقاولي الباطن", nameEn: "Subcontractors", path: "/subcontractors", icon: Users, color: "from-orange-500/20 to-orange-600/10" },
-  { nameAr: "المخاطر", nameEn: "Risk", path: "/risk", icon: AlertTriangle, color: "from-red-500/20 to-red-600/10" },
-  { nameAr: "التقارير", nameEn: "Reports", path: "/projects?tab=reports", icon: FileText, color: "from-indigo-500/20 to-indigo-600/10" },
-  { nameAr: "المستخلصات", nameEn: "Certificates", path: "/progress-certificates", icon: Award, color: "from-yellow-500/20 to-yellow-600/10" },
-  { nameAr: "المكتبة", nameEn: "Library", path: "/library", icon: BookOpen, color: "from-teal-500/20 to-teal-600/10" },
+  { nameAr: "المشاريع", nameEn: "Projects", path: "/projects", icon: FolderOpen, color: "from-blue-500/30 to-blue-700/20", iconColor: "text-blue-300" },
+  { nameAr: "جدول الكميات", nameEn: "BOQ Items", path: "/items", icon: Layers, color: "from-emerald-500/30 to-emerald-700/20", iconColor: "text-emerald-300" },
+  { nameAr: "التسعير والتحليل", nameEn: "Cost Analysis", path: "/cost-analysis", icon: DollarSign, color: "from-amber-500/30 to-amber-700/20", iconColor: "text-amber-300" },
+  { nameAr: "العقود", nameEn: "Contracts", path: "/contracts", icon: Briefcase, color: "from-purple-500/30 to-purple-700/20", iconColor: "text-purple-300" },
+  { nameAr: "المشتريات", nameEn: "Procurement", path: "/procurement", icon: Package, color: "from-cyan-500/30 to-cyan-700/20", iconColor: "text-cyan-300" },
+  { nameAr: "مقاولي الباطن", nameEn: "Subcontractors", path: "/subcontractors", icon: Users, color: "from-orange-500/30 to-orange-700/20", iconColor: "text-orange-300" },
+  { nameAr: "المخاطر", nameEn: "Risk", path: "/risk", icon: AlertTriangle, color: "from-red-500/30 to-red-700/20", iconColor: "text-red-300" },
+  { nameAr: "التقارير", nameEn: "Reports", path: "/projects?tab=reports", icon: FileText, color: "from-indigo-500/30 to-indigo-700/20", iconColor: "text-indigo-300" },
+  { nameAr: "المستخلصات", nameEn: "Certificates", path: "/progress-certificates", icon: Award, color: "from-yellow-500/30 to-yellow-700/20", iconColor: "text-yellow-300" },
+  { nameAr: "المكتبة", nameEn: "Library", path: "/library", icon: BookOpen, color: "from-teal-500/30 to-teal-700/20", iconColor: "text-teal-300" },
 ];
 
 export default function HomePage() {
@@ -47,7 +47,7 @@ export default function HomePage() {
         <div className="flex items-center gap-3 mb-8">
           <PMSLogo size="lg" />
           <div className="text-center">
-            <h1 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
+            <h1 className="text-2xl md:text-3xl font-bold text-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
               {isArabic ? "نظام إدارة المشاريع" : "Project Management System"}
             </h1>
             <p className="text-white/70 text-sm mt-1">
@@ -66,17 +66,18 @@ export default function HomePage() {
                 key={section.path}
                 to={section.path}
                 className={`group relative flex flex-col items-center justify-center gap-3 p-6 rounded-xl
-                  bg-black/30 backdrop-blur-sm border border-white/10
-                  hover:bg-primary/20 hover:border-primary/40 hover:scale-105
-                  transition-all duration-300 cursor-pointer shadow-lg
+                  bg-black/40 border border-white/15
+                  hover:border-white/30 hover:scale-105
+                  transition-transform transition-colors duration-200 transform-gpu will-change-transform
+                  cursor-pointer shadow-lg
                   bg-gradient-to-br ${section.color}`}
               >
-                <div className="w-14 h-14 rounded-xl bg-white/10 group-hover:bg-primary/20 flex items-center justify-center transition-colors duration-300">
-                  <Icon className="w-8 h-8 text-white group-hover:text-primary-foreground drop-shadow" />
+                <div className={`w-14 h-14 rounded-xl bg-white/10 group-hover:bg-white/20 group-hover:ring-2 group-hover:ring-white/20 flex items-center justify-center transition-colors duration-200`}>
+                  <Icon className={`w-8 h-8 ${section.iconColor} drop-shadow`} />
                 </div>
                 <div className="text-center">
                   <p className="text-white font-semibold text-sm">{section.nameAr}</p>
-                  <p className="text-white/60 text-xs mt-0.5">{section.nameEn}</p>
+                  <p className="text-white/75 text-xs mt-0.5">{section.nameEn}</p>
                 </div>
               </Link>
             );
