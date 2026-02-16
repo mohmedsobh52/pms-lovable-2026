@@ -1,86 +1,29 @@
 
-# اعادة تصميم الهوم بيدج - شاشة الاقسام العشرة التفاعلية
 
-## الفكرة
+# تحسين الالوان والاداء للهوم بيدج
 
-اعادة كتابة صفحة الهوم بيدج بالكامل لتكون شاشة navigation hub بسيطة وانيقة تعرض فقط:
-1. الـ 10 اقسام (اذرع) كبطاقات تفاعلية شفافة فوق صورة الخلفية
-2. بيانات المصمم (صورة + لوجو الشركة + معلومات الاتصال)
+## التحسينات المقترحة
 
-بالضغط على اي قسم يتم الانتقال مباشرة الى الصفحة المقابلة.
+### 1. تحسين الوان البطاقات
 
----
+حاليا الالوان شفافة جدا (`/20` و `/10`) مما يجعلها باهتة. سيتم:
+- زيادة تشبع الالوان لكل بطاقة لتكون اكثر وضوحا وحيوية
+- اضافة لون مميز لكل ايقونة بدلا من الابيض الموحد
+- تحسين تاثير hover بتوهج لوني مميز لكل قسم
+- اضافة ring ملون عند hover على حاوية الايقونة
 
-## التصميم
+### 2. تحسين الاداء
 
-```text
-+----------------------------------------------------------+
-|  [لوجو PMS]              UnifiedHeader          [اعدادات] |
-+----------------------------------------------------------+
-|                                                          |
-|   صورة الدوائر الالكترونية كخلفية كاملة                  |
-|                                                          |
-|   +----------+  +----------+  +----------+  +----------+ |
-|   | مشاريع   |  | BOQ      |  | تسعير    |  | عقود     | |
-|   | Projects |  | Items    |  | Costs    |  | Contract | |
-|   +----------+  +----------+  +----------+  +----------+ |
-|                                                          |
-|   +----------+  +----------+  +----------+               |
-|   | مشتريات  |  | مقاولين  |  | مخاطر    |               |
-|   | Procure  |  | Subcon   |  | Risk     |               |
-|   +----------+  +----------+  +----------+               |
-|                                                          |
-|   +----------+  +----------+  +----------+               |
-|   | تقارير   |  | مستخلصات |  | مكتبة    |               |
-|   | Reports  |  | Certif   |  | Library  |               |
-|   +----------+  +----------+  +----------+               |
-|                                                          |
-+----------------------------------------------------------+
-| [صورة] Dr.Eng. Mohamed Sobh | [لوجو] AL IMTYAZ          |
-| مدير المشاريع | هاتف | ايميل                              |
-+----------------------------------------------------------+
-```
+- استبدال `backdrop-blur-sm` على كل بطاقة بـ `will-change-transform` لتسريع الانيميشن
+- تقليل `transition-all` واستبداله بـ `transition-transform transition-colors` (اخف على المتصفح)
+- اضافة `transform-gpu` لتفعيل hardware acceleration على hover animations
+- تحسين `BackgroundImage.tsx` باضافة `will-change: auto` بدلا من اعادة رسم الطبقات
 
----
+### 3. تحسين التباين والقراءة
 
-## الاقسام العشرة وروابطها
-
-| # | القسم | الرابط | الايقونة |
-|---|-------|--------|----------|
-| 1 | المشاريع (Projects) | /projects | FolderOpen |
-| 2 | جدول الكميات (BOQ) | /items | Layers |
-| 3 | التسعير والتحليل (Cost Analysis) | /cost-analysis | DollarSign |
-| 4 | العقود (Contracts) | /contracts | Briefcase |
-| 5 | المشتريات (Procurement) | /procurement | Package |
-| 6 | مقاولي الباطن (Subcontractors) | /subcontractors | Users |
-| 7 | المخاطر (Risk) | /risk | AlertTriangle |
-| 8 | التقارير (Reports) | /projects?tab=reports | FileText |
-| 9 | المستخلصات (Certificates) | /progress-certificates | Award |
-| 10 | المكتبة (Library) | /library | BookOpen |
-
----
-
-## خطوات التنفيذ
-
-### 1. اعادة كتابة `src/pages/HomePage.tsx`
-
-**حذف كامل** للمحتوى القديم (KPI cards, Recent Projects, Quick Access, Lifecycle, PhaseActions) واستبداله بـ:
-
-- **Header Section**: عنوان PMS + لوجو الشركة + رسالة ترحيب مختصرة
-- **Navigation Grid**: شبكة من 10 بطاقات شفافة (`bg-black/30 backdrop-blur-sm`)
-  - كل بطاقة: ايقونة كبيرة + اسم عربي + اسم انجليزي
-  - تاثير hover: توهج + تكبير (`hover:scale-105 hover:bg-primary/20`)
-  - بالضغط: `Link` مباشر للصفحة المقابلة
-  - تخطيط: 5 اعمدة desktop / 3 tablet / 2 mobile
-- **Designer Footer**: شريط ثابت اسفل الصفحة يحتوي:
-  - صورة المصمم الشخصية (دائرية)
-  - الاسم والمنصب (Dr.Eng. Mohamed Sobh - Projects Director)
-  - لوجو شركة الامتياز
-  - هاتف + ايميل (روابط مباشرة)
-
-### 2. الصفحة لن تستخدم `PageLayout`
-
-لان الهوم بيدج الجديدة صفحة full-screen بدون navigation bar او breadcrumbs. ستستخدم فقط `UnifiedHeader` مباشرة مع `BackgroundImage`.
+- تحسين لون النص الانجليزي من `text-white/60` الى `text-white/75`
+- تحسين تباين الفوتر وبيانات المصمم
+- اضافة `text-shadow` خفيف على العنوان الرئيسي
 
 ---
 
@@ -88,38 +31,38 @@
 
 | الملف | الاجراء |
 |-------|---------|
-| `src/pages/HomePage.tsx` | اعادة كتابة كاملة |
+| `src/pages/HomePage.tsx` | تحسين الوان البطاقات + تحسين اداء الانيميشن + تحسين التباين |
+| `src/components/BackgroundImage.tsx` | تحسين اداء طبقات الخلفية |
 
 ---
 
 ## التفاصيل التقنية
 
-### بيانات المصمم (من DeveloperInfo.tsx الموجود)
+### الوان البطاقات المحسنة
 
-- الاسم: Dr.Eng. Mohamed Sobh
-- المنصب: Projects Director / مدير المشاريع
-- الشركة: AL IMTYAZ ALWATANIYA CONT.
-- الهاتف: +966 54 800 0243
-- الايميل: moh.sobh@imtyaz.sa
-- الصورة: `src/assets/developer/mohamed-sobh.jpg`
-- اللوجو: `src/assets/company/alimtyaz-logo.jpg`
+كل بطاقة ستحصل على لون gradient اقوى ولون ايقونة مميز:
 
-### تنسيق البطاقات
+| القسم | اللون الحالي | اللون الجديد | لون الايقونة |
+|-------|-------------|-------------|-------------|
+| المشاريع | `blue-500/20` | `blue-500/30 to-blue-700/20` | `text-blue-300` |
+| BOQ | `emerald-500/20` | `emerald-500/30 to-emerald-700/20` | `text-emerald-300` |
+| التسعير | `amber-500/20` | `amber-500/30 to-amber-700/20` | `text-amber-300` |
+| العقود | `purple-500/20` | `purple-500/30 to-purple-700/20` | `text-purple-300` |
+| المشتريات | `cyan-500/20` | `cyan-500/30 to-cyan-700/20` | `text-cyan-300` |
+| مقاولين | `orange-500/20` | `orange-500/30 to-orange-700/20` | `text-orange-300` |
+| المخاطر | `red-500/20` | `red-500/30 to-red-700/20` | `text-red-300` |
+| التقارير | `indigo-500/20` | `indigo-500/30 to-indigo-700/20` | `text-indigo-300` |
+| المستخلصات | `yellow-500/20` | `yellow-500/30 to-yellow-700/20` | `text-yellow-300` |
+| المكتبة | `teal-500/20` | `teal-500/30 to-teal-700/20` | `text-teal-300` |
 
-كل بطاقة تفاعلية:
-- `bg-black/30 backdrop-blur-sm border border-white/10`
-- `hover:bg-primary/20 hover:border-primary/40 hover:scale-105`
-- `transition-all duration-300 cursor-pointer`
-- ايقونة `h-10 w-10` + نص بحجمين (عربي وانجليزي)
-- `rounded-xl shadow-lg`
+### تحسينات الاداء
 
-### شريط المصمم
+البطاقات:
+- `transition-all duration-300` يتحول الى `transition-transform transition-colors duration-200`
+- اضافة `transform-gpu` لتسريع الحركة
+- حذف `backdrop-blur-sm` من البطاقات (غير ضروري مع الخلفية الداكنة) لتقليل عبء GPU
 
-- `bg-black/50 backdrop-blur-md border-t border-white/10`
-- صورة `w-12 h-12 rounded-full ring-2 ring-primary/30`
-- لوجو `w-10 h-10 rounded-lg`
-- روابط الهاتف والايميل قابلة للضغط
+الخلفية:
+- اضافة `loading="lazy"` مفاهيمي عبر تحسين الطبقات
+- تبسيط overlay layers
 
-### المحتوى القديم
-
-محتوى الداشبورد الحالي (KPIs, Recent Projects, Lifecycle) يبقى متاحا في صفحة `/dashboard` الموجودة مسبقا (DashboardPage.tsx).
