@@ -51,11 +51,13 @@ export default function Auth() {
 
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
-          setError("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+          setError("البريد الإلكتروني أو كلمة المرور غير صحيحة. إذا لم يكن لديك حساب، يرجى إنشاء حساب جديد.");
         } else if (error.message.includes("User already registered")) {
-          setError("هذا البريد الإلكتروني مسجل مسبقاً");
+          setError("هذا البريد الإلكتروني مسجل مسبقاً. يرجى تسجيل الدخول.");
         } else if (error.message.includes("Email not confirmed")) {
           setError("يرجى تأكيد البريد الإلكتروني أولاً");
+        } else if (error.message.includes("Email rate limit exceeded")) {
+          setError("تم تجاوز الحد الأقصى من المحاولات. يرجى الانتظار قليلاً والمحاولة مرة أخرى.");
         } else {
           setError(error.message);
         }
@@ -65,9 +67,13 @@ export default function Auth() {
       if (!isLogin) {
         toast({
           title: "تم إنشاء الحساب بنجاح",
-          description: "يمكنك الآن تسجيل الدخول",
+          description: "تم تسجيل دخولك تلقائياً",
         });
-        setIsLogin(true);
+      } else {
+        toast({
+          title: "تم تسجيل الدخول بنجاح",
+          description: "مرحباً بك في نظام PMS",
+        });
       }
     } finally {
       setIsLoading(false);
@@ -95,15 +101,49 @@ export default function Auth() {
           </div>
 
           {/* Title */}
-          <h2 className="text-xl font-semibold text-center mb-6">
+          <h2 className="text-xl font-semibold text-center mb-2">
             {isLogin ? "تسجيل الدخول" : "إنشاء حساب جديد"}
           </h2>
 
+          {/* Info Message */}
+          {isLogin ? (
+            <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-center text-sm text-blue-600 dark:text-blue-400">
+              ليس لديك حساب؟{" "}
+              <button
+                type="button"
+                onClick={() => setIsLogin(false)}
+                className="font-semibold underline hover:text-blue-700 dark:hover:text-blue-300"
+              >
+                أنشئ حساباً جديداً هنا
+              </button>
+            </div>
+          ) : (
+            <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-center text-sm text-green-600 dark:text-green-400">
+              سجل حسابك الآن! التسجيل سريع ولا يحتاج إلى تأكيد البريد الإلكتروني
+            </div>
+          )}
+
           {/* Error Message */}
           {error && (
-            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive text-sm">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              {error}
+            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+              {isLogin && error.includes("غير صحيحة") && (
+                <div className="mt-2 pt-2 border-t border-destructive/20">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLogin(false);
+                      setError(null);
+                    }}
+                    className="text-xs hover:underline font-medium"
+                  >
+                    انقر هنا لإنشاء حساب جديد ←
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
