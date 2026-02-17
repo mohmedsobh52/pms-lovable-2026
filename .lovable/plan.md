@@ -1,32 +1,58 @@
 
+# توليد صورة تعبر عن ادارة المشاريع
 
-# اضافة ايقونة عروض الاسعار (Quotations) على الصفحة الرئيسية
+## الفكرة
 
-## التغيير
+انشاء Edge Function جديدة تستخدم نموذج `google/gemini-2.5-flash-image` عبر Lovable AI Gateway لتوليد صورة احترافية تعبر عن ادارة المشاريع الانشائية، ثم حفظها في التخزين السحابي واستخدامها في التطبيق.
 
-اضافة قسم جديد "عروض الاسعار" في شبكة التنقل على الصفحة الرئيسية، بنفس تصميم الاقسام الموجودة.
+## التعديلات المطلوبة
 
-## التفاصيل
+### 1. انشاء Edge Function: `supabase/functions/generate-image/index.ts`
 
-### الملف: `src/pages/HomePage.tsx`
+- تستقبل prompt نصي وتستخدم `google/gemini-2.5-flash-image` مع `modalities: ["image", "text"]`
+- تحول الصورة من base64 وترفعها الى Storage bucket
+- ترجع رابط الصورة العام
 
-1. اضافة ايقونة `FileSearch` من lucide-react (مناسبة لعروض الاسعار)
+### 2. انشاء Storage Bucket
 
-2. اضافة عنصر جديد في مصفوفة `sections`:
+- انشاء bucket اسمه `generated-images` مع سياسة وصول عامة للقراءة
 
-| الخاصية | القيمة |
-|---------|--------|
-| nameAr | عروض الاسعار |
-| nameEn | Quotations |
-| descAr | مقارنة ورفع العروض |
-| descEn | Upload & compare quotes |
-| path | /quotations |
-| icon | FileSearch |
-| color | from-pink-500/30 to-pink-700/20 |
-| iconColor | text-pink-300 |
-| countKey | null |
+### 3. انشاء صفحة/مكون بسيط لتوليد الصورة
 
-3. يتم اضافته بعد قسم "التسعير والتحليل" (Cost Analysis) ليكون في موقع منطقي بجانب الاقسام المالية
+- زر في الواجهة يستدعي الـ Edge Function مع prompt مناسب لادارة المشاريع
+- عرض الصورة المولدة مع امكانية تحميلها
+- Prompt مقترح: "Professional illustration of construction project management: blueprints, hard hats, cranes, Gantt charts, and a team collaborating on a modern building site, digital art style, clean and corporate"
 
-لا توجد تغييرات اخرى مطلوبة - القسم الجديد سيظهر تلقائيا في الشبكة بنفس التصميم والانيميشن.
+### 4. استخدام الصورة
+
+- بعد التوليد يمكن استخدامها كخلفية او صورة في الصفحة الرئيسية
+
+## التفاصيل التقنية
+
+### Edge Function - الكود الاساسي
+
+```typescript
+// POST { prompt: "..." }
+const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${LOVABLE_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    model: "google/gemini-2.5-flash-image",
+    messages: [{ role: "user", content: prompt }],
+    modalities: ["image", "text"],
+  }),
+});
+// استخراج base64 -> رفع الى Storage -> ارجاع URL
+```
+
+### الملفات المتأثرة
+
+| الملف | التغيير |
+|-------|---------|
+| `supabase/functions/generate-image/index.ts` | ملف جديد - Edge Function للتوليد |
+| `src/pages/HomePage.tsx` او مكون جديد | زر توليد + عرض الصورة |
+| Migration SQL | انشاء Storage bucket |
 
