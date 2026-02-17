@@ -1,58 +1,41 @@
 
+# ترتيب ومعالجة شريط الهيدر
 
-# تحسين الهوم بيدج - انيميشن + اوصاف + عدادات + موبايل
+## المشكلة
 
-## ملخص التحسينات
+الشريط العلوي مزدحم بعناصر كثيرة (Dashboard, Projects, Analysis, Library, Fast Extract, Reports, Search, History, Theme, Language, Settings, User) مما يسبب تداخل وقطع على الشاشات المتوسطة.
 
-3 محاور رئيسية: تاثيرات حركية احترافية، اوصاف مختصرة وعدادات حية لكل بطاقة، وتحسين تجربة الموبايل.
+## الحل
 
----
+اعادة ترتيب العناصر وتقليل المساحة المستهلكة:
 
-## 1. اضافة وصف مختصر وعداد لكل بطاقة
+### 1. تجميع الادوات في قائمة واحدة (الجانب الايمن)
 
-كل بطاقة ستعرض:
-- الاسم العربي والانجليزي (موجود)
-- **وصف مختصر** يظهر اسفل الاسم (جديد)
-- **عداد** يعرض عدد العناصر النشطة من قاعدة البيانات (جديد)
+بدلا من عرض كل زر منفردا (History + Theme + Language + Settings)، يتم تجميعهم في **DropdownMenu واحد** بايقونة Settings:
+- ThemeToggle (داخل القائمة)
+- LanguageToggle (داخل القائمة) 
+- NavigationHistory (داخل القائمة)
+- Settings link (داخل القائمة)
 
-| القسم | الوصف العربي | الوصف الانجليزي | مصدر العداد |
-|-------|-------------|-----------------|-------------|
-| المشاريع | ادارة ومتابعة المشاريع | Manage & track projects | `saved_projects` |
-| جدول الكميات | بنود الاعمال والكميات | Work items & quantities | `project_items` |
-| التسعير | تحليل التكاليف والاسعار | Cost & price analysis | `cost_analysis` |
-| العقود | ادارة العقود والضمانات | Contracts & warranties | `contracts` |
-| المشتريات | طلبات الشراء والموردين | Procurement & suppliers | `external_partners` |
-| مقاولي الباطن | ادارة مقاولي الباطن | Subcontractor management | `subcontractors` |
-| المخاطر | تقييم وادارة المخاطر | Risk assessment | `risks` |
-| التقارير | التقارير والتحليلات | Reports & analytics | عداد ثابت |
-| المستخلصات | الشهادات والمستخلصات | Progress certificates | `progress_certificates` |
-| المكتبة | مكتبة الاسعار والمواد | Price & material library | `material_prices` |
+هذا يوفر ~4 ازرار من الشريط.
 
----
+### 2. تقليل حجم عناصر التنقل الوسطى
 
-## 2. تاثيرات حركية احترافية
+- حذف النصوص من Dashboard و Fast Extract و Reports على الشاشات المتوسطة (lg فقط)
+- تصغير المسافات بين العناصر (`gap-0.5` بدلا من `gap-1`)
 
-### انيميشن الدخول (Staggered Entrance)
-- البطاقات تظهر واحدة تلو الاخرى بتاخير 50ms بين كل بطاقة
-- تاثير fade-in + slide-up عند تحميل الصفحة
-- يتم عبر inline style مع `animationDelay` و CSS animation
+### 3. الترتيب النهائي
 
-### تحسين Hover
-- تكبير اكبر قليلا (`hover:scale-[1.08]`)
-- ظل متوهج ملون (`hover:shadow-[0_0_20px_rgba(color,0.3)]`)
-- الايقونة تتحرك لاعلى قليلا عند hover (`group-hover:-translate-y-1`)
-- العداد يظهر بتاثير fade عند hover
+```text
+[Logo BOQ] | [Dashboard] [Projects▾] [Analysis▾] [Library▾] [⚡] [📊] | [🔍 ⌘K] [⚙ ▾] [👤]
+```
 
----
+حيث `[⚙ ▾]` يفتح قائمة تحتوي: Theme, Language, History, Settings
 
-## 3. تحسين تجربة الموبايل
+### 4. تحسين زر البحث
 
-- الشبكة على الموبايل: `grid-cols-2` مع `gap-3` اصغر
-- تصغير padding البطاقات على الموبايل: `p-4 md:p-6`
-- تصغير الايقونات: `w-10 h-10 md:w-14 md:h-14`
-- الوصف يختفي على الموبايل (`hidden sm:block`) لتوفير المساحة
-- الفوتر يتحول لعمودي على الموبايل (موجود بالفعل)
-- العنوان اصغر على الموبايل: `text-xl md:text-3xl`
+- ابقاء `⌘K` مرئي فقط على `lg` وما فوق
+- تصغير padding الزر
 
 ---
 
@@ -60,61 +43,33 @@
 
 | الملف | الاجراء |
 |-------|---------|
-| `src/pages/HomePage.tsx` | اضافة اوصاف + عدادات + انيميشن + تحسين responsive |
+| `src/components/UnifiedHeader.tsx` | اعادة ترتيب العناصر وتجميع الادوات في قائمة واحدة |
 
 ---
 
 ## التفاصيل التقنية
 
-### جلب العدادات
+### القائمة المجمعة الجديدة
 
-استخدام `useEffect` + `supabase` لجلب عدد العناصر من الجداول التالية عند تحميل الصفحة:
-- `saved_projects` (count)
-- `contracts` (count)
-- `progress_certificates` (count)
-- `subcontractors` (count)
-- `risks` (count)
-- `external_partners` (count)
-- `material_prices` (count)
-- `project_items` (count)
-- `cost_analysis` (count)
-
-النتائج تخزن في state object واحد ويتم عرضها كـ badge صغير على كل بطاقة.
-
-### بنية البيانات المحدثة
+تستبدل الازرار المنفردة (NavigationHistorySidebar + ThemeToggle + LanguageToggle + Settings) بـ DropdownMenu واحد:
 
 ```text
-sections = [
-  {
-    nameAr, nameEn, path, icon, color, iconColor,
-    descAr: "ادارة ومتابعة المشاريع",    // جديد
-    descEn: "Manage & track projects",     // جديد
-    countKey: "saved_projects"              // جديد - مفتاح العداد
-  },
-  ...
-]
+<DropdownMenu>
+  <DropdownMenuTrigger>
+    <Settings2 icon />
+  </DropdownMenuTrigger>
+  <DropdownMenuContent>
+    - Toggle Theme (Sun/Moon + text)
+    - Toggle Language (AR/EN)
+    - Separator
+    - Navigation History (يفتح Sheet)
+    - Settings (Link)
+  </DropdownMenuContent>
+</DropdownMenu>
 ```
 
-### CSS Animation للدخول
+### التحسينات على التنقل الوسطى
 
-```text
-@keyframes card-enter {
-  from { opacity: 0; transform: translateY(20px) scale(0.95); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-```
-
-يتم تطبيقه عبر inline style:
-```text
-style={{ animation: 'card-enter 0.4s ease-out forwards', animationDelay: `${index * 50}ms`, opacity: 0 }}
-```
-
-### عرض العداد
-
-Badge صغير في الزاوية العلوية للبطاقة:
-```text
-<span className="absolute top-2 end-2 bg-white/20 text-white text-[10px] px-1.5 py-0.5 rounded-full">
-  {count}
-</span>
-```
-
+- `gap-0.5` بدلا من `gap-1`
+- النصوص تظهر فقط على `xl:inline` بدلا من `lg:inline` للعناصر المزدحمة
+- Fast Extract و Reports تبقى بايقوناتها الملونة المميزة
