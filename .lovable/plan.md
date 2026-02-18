@@ -1,139 +1,107 @@
 
-# إضافة تبويب "التحليل المتقدم" في صفحة تفاصيل المشروع
+# إصلاح خطأ RLS عند رفع BOQ في المشاريع المحفوظة
 
-## ما يريده المستخدم
+## السبب الجذري
 
-الشاشة في الصورة هي مكون `AnalysisResults` — واجهة التحليل الكاملة التي تحتوي على تبويبات:
-- Items (جدول البنود مع التسعير والأكواد والفلاتر)
-- WBS (هيكل تقسيم العمل)
-- Cost (تحليل التكاليف)
-- Brief (ملخص)
-- Charts (الرسوم البيانية)
-- Time Schedule (الجدول الزمني)
-- Schedule Integration
-- Synced
-
-المستخدم يريد هذه الشاشة **داخل قسم المشاريع** — أي كتبويب إضافي في صفحة `/projects/:id`.
-
-## التشخيص الحالي
-
-صفحة `/projects/:id` (`ProjectDetailsPage.tsx`) تحتوي حالياً على 4 تبويبات:
-1. **Overview** — نظرة عامة
-2. **BOQ** — جدول كميات بسيط (`ProjectBOQTab`)
-3. **Documents** — المستندات
-4. **Settings** — الإعدادات
-
-`ProjectBOQTab` هو مكون **بسيط** يعرض جدول البنود فقط. أما `AnalysisResults` فهو المكون **الكامل** بكل الإمكانيات المتقدمة.
-
-## الحل
-
-إضافة تبويب خامس اسمه **"تحليل متقدم"** يعرض `AnalysisResults` بالكامل، مع تحويل بيانات `project_items` من قاعدة البيانات إلى الصيغة المطلوبة.
-
-## التغييرات التقنية
-
-### الملف الوحيد: `src/pages/ProjectDetailsPage.tsx`
-
-#### 1. استيراد `AnalysisResults`
-```typescript
-import { AnalysisResults } from "@/components/AnalysisResults";
+سياسة RLS لجدول `project_items` عند الإضافة (INSERT) تتحقق من:
+```sql
+EXISTS (
+  SELECT 1 FROM project_data
+  WHERE project_data.id = project_items.project_id
+    AND project_data.user_id = auth.uid()
+)
 ```
 
-#### 2. تحويل بيانات المشروع إلى صيغة AnalysisData
+المشروع الحالي (`e520085c-3a89-43fe-9bca-0d4f73a4e181`) موجود في جدول `saved_projects` وليس في `project_data`. لذلك عند محاولة إدراج بنود في `project_items` بـ `project_id` يشير لمشروع من `saved_projects`، تفشل سياسة RLS لأنه لا يوجد سجل مطابق في `project_data`.
 
-مكون `AnalysisResults` يقبل `data` من نوع `AnalysisData` يحتوي على:
-```typescript
-{
-  analysis_type: string;
-  items: BOQItem[];
-  summary: { total_items, total_value, categories, currency };
-}
+## الحلول المتاحة
+
+**الحل المختار: إصلاح سياسة RLS لتشمل كلا الجدولين**
+
+تعديل سياسة INSERT لجدول `project_items` لتتحقق من كلا الجدولين (`project_data` و`saved_projects`):
+
+```sql
+-- سياسة INSERT الجديدة
+CREATE POLICY "Users can create items for their projects"
+ON public.project_items FOR INSERT
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM project_data
+    WHERE project_data.id = project_items.project_id
+      AND project_data.user_id = auth.uid()
+  )
+  OR
+  EXISTS (
+    SELECT 1 FROM saved_projects
+    WHERE saved_projects.id = project_items.project_id
+      AND saved_projects.user_id = auth.uid()
+  )
+);
 ```
 
-بينما `project_items` من قاعدة البيانات يحتوي على نفس الحقول تقريباً. نبني دالة `useMemo` لتحويل البيانات:
+يجب تطبيق نفس المنطق على سياسات SELECT و UPDATE و DELETE أيضاً لضمان الاتساق الكامل.
 
-```typescript
-const projectAnalysisData = useMemo(() => {
-  if (!project || items.length === 0) return null;
-  return {
-    analysis_type: "boq",
-    file_name: project.file_name || project.name,
-    items: items.map(item => ({
-      item_number: item.item_number || "",
-      description: item.description || "",
-      unit: item.unit || "",
-      quantity: item.quantity || 0,
-      unit_price: item.unit_price || null,
-      total_price: item.total_price || null,
-      category: item.category || "General",
-      is_section: item.is_section || false,
-    })),
-    summary: {
-      total_items: items.length,
-      total_value: pricingStats.totalValue,
-      categories: [...new Set(items.map(i => i.category).filter(Boolean))],
-      currency: project.currency || "SAR",
-    },
-  };
-}, [project, items, pricingStats]);
+## التغييرات المطلوبة
+
+### Migration SQL — تحديث سياسات RLS لـ `project_items`
+
+```sql
+-- حذف السياسات القديمة
+DROP POLICY IF EXISTS "Users can create items for their projects" ON public.project_items;
+DROP POLICY IF EXISTS "Users can view items of their projects" ON public.project_items;
+DROP POLICY IF EXISTS "Users can update items of their projects" ON public.project_items;
+DROP POLICY IF EXISTS "Users can delete items of their projects" ON public.project_items;
+
+-- إنشاء سياسة مساعدة (دالة) للتحقق من ملكية المشروع في كلا الجدولين
+CREATE OR REPLACE FUNCTION public.user_owns_project(_project_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM project_data
+    WHERE id = _project_id AND user_id = auth.uid()
+  )
+  OR EXISTS (
+    SELECT 1 FROM saved_projects
+    WHERE id = _project_id AND user_id = auth.uid()
+  );
+$$;
+
+-- إعادة إنشاء السياسات الأربع باستخدام الدالة
+CREATE POLICY "Users can create items for their projects"
+ON public.project_items FOR INSERT
+WITH CHECK (public.user_owns_project(project_id));
+
+CREATE POLICY "Users can view items of their projects"
+ON public.project_items FOR SELECT
+USING (public.user_owns_project(project_id));
+
+CREATE POLICY "Users can update items of their projects"
+ON public.project_items FOR UPDATE
+USING (public.user_owns_project(project_id));
+
+CREATE POLICY "Users can delete items of their projects"
+ON public.project_items FOR DELETE
+USING (public.user_owns_project(project_id));
 ```
 
-#### 3. إضافة التبويب الجديد
+### لماذا استخدام `SECURITY DEFINER Function`؟
 
-في `TabsList`:
-```typescript
-<TabsTrigger value="analysis">
-  <Brain className="w-4 h-4 mr-1" />
-  {isArabic ? "تحليل متقدم" : "Advanced Analysis"}
-</TabsTrigger>
-```
+- تمنع تكرار نفس الـ subquery في 4 سياسات مختلفة
+- تمنع أي مشاكل recursive محتملة
+- تتبع أفضل الممارسات الموصى بها في Supabase
 
-في `TabsContent`:
-```typescript
-<TabsContent value="analysis">
-  {projectAnalysisData ? (
-    <AnalysisResults
-      data={projectAnalysisData}
-      fileName={project?.file_name || project?.name}
-      savedProjectId={projectId}
-      onApplyRate={async (itemNumber, newRate) => {
-        // تحديث السعر مباشرة في قاعدة البيانات
-        const item = items.find(i => i.item_number === itemNumber);
-        if (!item) return;
-        await supabase
-          .from("project_items")
-          .update({ unit_price: newRate, total_price: (item.quantity || 0) * newRate })
-          .eq("id", item.id);
-        // إعادة تحميل البنود
-        const { data } = await supabase
-          .from("project_items")
-          .select("*")
-          .eq("project_id", projectId)
-          .order("sort_order", { ascending: true });
-        if (data) setItems(data);
-      }}
-    />
-  ) : (
-    <div className="text-center py-16 text-muted-foreground">
-      <p>{isArabic ? "لا توجد بنود للتحليل. ارفع ملف BOQ أولاً." : "No items to analyze. Upload a BOQ file first."}</p>
-      <Button className="mt-4" onClick={() => setShowBOQUploadDialog(true)}>
-        {isArabic ? "رفع ملف BOQ" : "Upload BOQ"}
-      </Button>
-    </div>
-  )}
-</TabsContent>
-```
+## لا تغييرات في الكود
+
+هذا الإصلاح يتم فقط على مستوى قاعدة البيانات (RLS policies). ملف `BOQUploadDialog.tsx` الكود فيه صحيح بعد الإصلاح السابق (حذف `user_id`).
 
 ## الملفات المتأثرة
 
-| الملف | التغيير |
-|-------|---------|
-| `src/pages/ProjectDetailsPage.tsx` | إضافة استيراد + `useMemo` لتحويل البيانات + تبويب جديد |
+| | النوع | الوصف |
+|---|---|---|
+| قاعدة البيانات | Migration | تحديث سياسات RLS + إضافة دالة `user_owns_project` |
 
-لا تغييرات على قاعدة البيانات أو أي ملفات أخرى.
-
-## ملاحظة مهمة
-
-`AnalysisResults` مكون ضخم جداً (2598 سطر) ويتضمن كل وظائف التسعير والتحليل والتصدير. عند فتح تبويب "تحليل متقدم":
-- التغييرات في الأسعار ستُحفظ في قاعدة البيانات مباشرة عبر `onApplyRate`
-- كل وظائف التصدير (Excel, PDF, Word) ستعمل تلقائياً بدون تعديل
-- جميع التبويبات الداخلية (Items, WBS, Cost...) ستكون متاحة
+لا تغييرات على أي ملفات TypeScript/React.
