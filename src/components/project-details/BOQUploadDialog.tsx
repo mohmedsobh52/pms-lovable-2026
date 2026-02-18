@@ -72,12 +72,8 @@ export function BOQUploadDialog({
         throw new Error(isArabic ? "لم يتم استخراج أي بنود" : "No items extracted");
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
       const rows = items.map((item: any, idx: number) => ({
         project_id: projectId,
-        user_id: user.id,
         item_number: item.item_number || item.number || String(idx + 1),
         description: item.description || item.desc || "",
         unit: item.unit || "",
