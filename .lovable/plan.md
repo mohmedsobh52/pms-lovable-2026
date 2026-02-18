@@ -1,141 +1,124 @@
 
-# إصلاح صفحة BOQ Items الفارغة
 
-## المشكلة
-صفحة `/items` تعرض الآن رسالة فارغة بسيطة عندما لا يوجد `analysisData` في الذاكرة المؤقتة. هذا يحدث عند:
-- زيارة الصفحة مباشرة من الشريط العلوي
-- بعد تحديث المتصفح
-- بعد العودة من صفحة أخرى
+# إصلاح خطأ user_id + إضافة المشاريع الأخيرة في صفحة BOQ Items
 
-## التغييرات المطلوبة
+## 1. تشخيص الخطأ (السبب الجذري)
 
-### 1. تعديل `BOQUploadDialog.tsx` — جعل `projectId` اختيارياً
+في `src/components/project-details/BOQUploadDialog.tsx`، الدالة `saveItemsToProject` تبني كل صف بهذا الشكل:
 
-المكون الحالي يتطلب `projectId` لحفظ البنود في قاعدة البيانات. نحتاج:
-- جعل `projectId` اختيارياً (`projectId?: string`)
-- إضافة callback جديد `onSuccessWithData?: (data: any) => void` يُستدعى بدلاً من الحفظ في قاعدة البيانات عندما لا يوجد `projectId`
-- الحفاظ على السلوك الحالي كاملاً عندما يوجد `projectId`
+```typescript
+const rows = items.map((item: any, idx: number) => ({
+  project_id: projectId,
+  user_id: user.id,   // ← هذا هو المشكلة
+  ...
+}));
+```
 
-### 2. تحديث `BOQItemsPage.tsx` — صفحة إرشادية ذكية
+جدول `project_items` في قاعدة البيانات **لا يحتوي على عمود `user_id`**. الأعمدة الموجودة هي:
 
-بدلاً من الرسالة الفارغة الحالية، عرض:
+`id, project_id, item_number, description, unit, quantity, unit_price, total_price, category, notes, created_at, overhead_percentage, profit_percentage, pricing_notes, is_detailed_priced, sort_order, description_ar, subcategory, specifications, is_section`
 
+**الإصلاح:** حذف `user_id: user.id` من كائن الصف المُدرَج، والاكتفاء بـ `project_id` للربط.
+
+## 2. إضافة المشاريع الأخيرة في صفحة BOQ Items
+
+في `src/pages/BOQItemsPage.tsx`، عند غياب `analysisData`، نضيف قسماً يعرض آخر 4 مشاريع حديثة من `saved_projects` مع إمكانية فتح أي منها مباشرة (تحميل `analysis_data` في الـ context).
+
+**التصميم:**
 ```
 ┌─────────────────────────────────────────────────────┐
-│   📋  بنود جدول الكميات (BOQ)                       │
-│   لم يتم تحميل أي ملف تحليل بعد                     │
+│  📋  بنود جدول الكميات                              │
+│  لا توجد بيانات تحليل حالياً                        │
 │                                                     │
-│  ┌──────────────────┐  ┌──────────────────────────┐ │
-│  │  📤 رفع ملف BOQ  │  │  📁 فتح مشروع محفوظ      │ │
-│  │  (PDF / Excel)   │  │  من قائمة مشاريعك        │ │
-│  └──────────────────┘  └──────────────────────────┘ │
+│  [ 📤 رفع ملف BOQ ]   [ 📁 فتح مشروع ]             │
+│                                                     │
+│  ── المشاريع الأخيرة ──                             │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐│
+│  │  مشروع أ    │ │  مشروع ب    │ │  مشروع ج    ││
+│  │  120 بند    │ │   85 بند    │ │   67 بند    ││
+│  │  [فتح]      │ │  [فتح]      │ │  [فتح]      ││
+│  └──────────────┘ └──────────────┘ └──────────────┘│
 └─────────────────────────────────────────────────────┘
 ```
 
-عند رفع الملف وإكمال التحليل:
-- يتم تحميل البيانات في `analysisData` context
-- تُعرض `AnalysisResults` مباشرة في نفس الصفحة دون انتقال
+عند الضغط على "فتح" لأي مشروع:
+- يُحمَّل `analysis_data` من `saved_projects` مباشرة في الـ context
+- تُعرض `AnalysisResults` فوراً دون انتقال لصفحة أخرى
 
-## التغييرات التقنية
+## التغييرات التقنية التفصيلية
 
 ### الملف 1: `src/components/project-details/BOQUploadDialog.tsx`
 
-**تحديث الـ interface:**
+**السطر المُصلَح (78-88):** حذف `user_id` فقط:
+
 ```typescript
-interface BOQUploadDialogProps {
-  open: boolean;
-  onClose: () => void;
-  projectId?: string;           // اختياري الآن
-  isArabic: boolean;
-  onSuccess: () => void;
-  onSuccessWithData?: (data: any) => void; // جديد — عند غياب projectId
-}
+const rows = items.map((item: any, idx: number) => ({
+  project_id: projectId,
+  // user_id: user.id,  ← محذوف — العمود غير موجود في الجدول
+  item_number: item.item_number || item.number || String(idx + 1),
+  description: item.description || item.desc || "",
+  unit: item.unit || "",
+  quantity: parseFloat(item.quantity) || 0,
+  unit_price: parseFloat(item.unit_price || item.rate || 0) || null,
+  total_price: parseFloat(item.total_price || item.amount || 0) || null,
+  sort_order: idx,
+}));
 ```
 
-**تحديث منطق الحفظ:**
-```typescript
-// إذا لم يكن هناك projectId، نستدعي onSuccessWithData بدلاً من الحفظ في DB
-if (!projectId) {
-  onSuccessWithData?.({ items, file_name: selectedFile.name });
-  setStatus("success");
-  setTimeout(handleSuccess, 1500);
-  return;
-}
-await saveItemsToProject(items);
-```
+يمكن أيضاً إزالة `const { data: { user } } = await supabase.auth.getUser()` إذا لم يُستخدم في مكان آخر داخل نفس الدالة (تنظيف الكود).
 
 ### الملف 2: `src/pages/BOQItemsPage.tsx`
 
-**إضافات جديدة:**
-- استيراد `useState` + `BOQUploadDialog` + أيقونات Lucide
-- إضافة `const [showUploadDialog, setShowUploadDialog] = useState(false)`
-- استبدال الحالة الفارغة بالتصميم الجديد
+**إضافات:**
+1. استيراد `useEffect` + `useAuth` + `projectService`
+2. State جديدة: `recentProjects` + `loadingRecent`
+3. `useEffect` يجلب المشاريع الأخيرة عند تحميل الصفحة
+4. قسم "المشاريع الأخيرة" في الحالة الفارغة
 
-**الكود الجديد للحالة الفارغة:**
+**منطق تحميل المشروع للعرض المباشر:**
 ```typescript
-import { useState } from "react";
-import { Upload, FolderOpen, FileSpreadsheet } from "lucide-react";
-import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
-
-// داخل المكون
-const [showUploadDialog, setShowUploadDialog] = useState(false);
-
-if (!analysisData) {
-  return (
-    <PageLayout>
-      <div className="flex flex-col items-center justify-center py-16 gap-8 max-w-2xl mx-auto px-4">
-        
-        {/* أيقونة + عنوان */}
-        <div className="text-center space-y-3">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-            <FileSpreadsheet className="w-8 h-8 text-primary" />
-          </div>
-          <h2 className="text-2xl font-bold">
-            {isArabic ? "بنود جدول الكميات" : "BOQ Items"}
-          </h2>
-          <p className="text-muted-foreground">
-            {isArabic
-              ? "لا توجد بيانات تحليل. ارفع ملف BOQ أو افتح مشروعاً محفوظاً."
-              : "No analysis data. Upload a BOQ file or open a saved project."}
-          </p>
-        </div>
-
-        {/* أزرار الإجراءات */}
-        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
-          <Button size="lg" className="flex-1 gap-2" onClick={() => setShowUploadDialog(true)}>
-            <Upload className="w-5 h-5" />
-            {isArabic ? "رفع ملف BOQ" : "Upload BOQ File"}
-          </Button>
-          <Button size="lg" variant="outline" className="flex-1 gap-2" asChild>
-            <Link to="/projects">
-              <FolderOpen className="w-5 h-5" />
-              {isArabic ? "فتح مشروع" : "Open Project"}
-            </Link>
-          </Button>
-        </div>
-      </div>
-
-      {/* Dialog رفع BOQ بدون projectId */}
-      <BOQUploadDialog
-        open={showUploadDialog}
-        onClose={() => setShowUploadDialog(false)}
-        isArabic={isArabic}
-        onSuccess={() => setShowUploadDialog(false)}
-        onSuccessWithData={(data) => {
-          setAnalysisData(data);
-          setShowUploadDialog(false);
-        }}
-      />
-    </PageLayout>
-  );
-}
+const handleOpenProject = (project: any) => {
+  if (project.analysis_data) {
+    setAnalysisData({
+      ...project.analysis_data,
+      file_name: project.file_name || project.name,
+    });
+  }
+};
 ```
 
-## الملفات المتأثرة
+**قسم المشاريع الأخيرة:**
+```typescript
+{recentProjects.length > 0 && (
+  <div className="w-full max-w-2xl">
+    <h3 className="text-sm font-medium text-muted-foreground mb-3 text-center">
+      {isArabic ? "المشاريع الأخيرة" : "Recent Projects"}
+    </h3>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {recentProjects.map(project => (
+        <div key={project.id} className="border rounded-lg p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+          <div>
+            <p className="font-medium text-sm">{project.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {project.analysis_data?.items?.length || 0} {isArabic ? "بند" : "items"}
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => handleOpenProject(project)}>
+            {isArabic ? "فتح" : "Open"}
+          </Button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+```
 
-| الملف | نوع التغيير |
-|-------|------------|
-| `src/pages/BOQItemsPage.tsx` | تحديث الحالة الفارغة + ربط BOQUploadDialog |
-| `src/components/project-details/BOQUploadDialog.tsx` | جعل `projectId` اختيارياً + إضافة `onSuccessWithData` |
+## ملخص الملفات المتأثرة
 
-لا تغييرات على قاعدة البيانات أو الـ Edge Functions.
+| الملف | نوع التغيير | وصف |
+|-------|------------|-----|
+| `src/components/project-details/BOQUploadDialog.tsx` | إصلاح خطأ | حذف `user_id` من INSERT في `project_items` |
+| `src/pages/BOQItemsPage.tsx` | تحسين | إضافة قسم المشاريع الأخيرة في الحالة الفارغة |
+
+لا تغييرات على قاعدة البيانات أو Edge Functions.
+
