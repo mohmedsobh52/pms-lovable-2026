@@ -1,141 +1,134 @@
 
-# تحسين شاشة الترحيب (Onboarding) مع 4 تحسينات
+# إصلاح صفحة BOQ Items الفارغة (`/items`)
 
-## ملخص التغييرات المطلوبة
+## تشخيص المشكلة
 
-1. **localStorage** — شاشة الترحيب تظهر مرة واحدة فقط لكل مشروع
-2. **تتبع التقدم** — تلوين الخطوات عند إكمالها (BOQ مرفوع / تسعير / تقارير)
-3. **رفع BOQ مباشرة** — إضافة Dialog لرفع الملفات داخل صفحة تفاصيل المشروع
-4. **التحقق من صحة الأزرار** — مراجعة كاملة لمنطق البانر والنافذة
+صفحة `/items` تعتمد بالكامل على `analysisData` المخزنة في `sessionStorage` (context مؤقت). عند زيارة الصفحة مباشرة أو بعد تحديث المتصفح:
 
----
+- `analysisData` يساوي `null`
+- يظهر fallback بسيط: نص + زر "Go to Home"
+- لا توجد أي محتوى مفيد للمستخدم
 
-## 1. حفظ حالة الترحيب في localStorage
+هذا هو ما يراه المستخدم — صفحة فارغة تقريباً مع زر واحد في المنتصف.
 
-**المشكلة الحالية:** `showOnboarding` يعتمد على `location.state.isNewProject` فقط — لذا عند تحديث الصفحة يختفي الـ flag ولكن لا توجد مشكلة، والأهم: عند العودة لنفس المشروع من أي صفحة أخرى، لن يظهر الـ modal مجدداً (لأن state لا ينتقل) — هذا سلوك صحيح جزئياً.
+## الحل المقترح
 
-**الحل الصحيح:** استخدام `localStorage` بمفتاح `onboarded_${projectId}` لمنع ظهور النافذة مرة ثانية حتى لو عاد المستخدم بـ `isNewProject: true` (إعادة تحميل نادرة).
+بدلاً من إظهار شاشة فارغة، نحوّل الصفحة إلى **صفحة ذكية** تعرض:
 
-**في `ProjectDetailsPage.tsx`:**
-```typescript
-// تحديد ما إذا كان يجب عرض الـ onboarding
-const isNewProject = (location.state as any)?.isNewProject === true;
-const onboardingKey = `onboarded_${projectId}`;
-const alreadyOnboarded = localStorage.getItem(onboardingKey) === "true";
+1. **إذا كانت هناك بيانات** (`analysisData` موجود) → تعرض `AnalysisResults` كما هو الحال الآن ✓
+2. **إذا لم تكن هناك بيانات** → تعرض صفحة إرشادية جميلة بدلاً من الفراغ
 
-const [showOnboarding, setShowOnboarding] = useState(
-  isNewProject && !alreadyOnboarded
-);
+## التصميم المقترح للحالة الفارغة
 
-// عند الإغلاق — حفظ الحالة
-const handleCloseOnboarding = () => {
-  localStorage.setItem(onboardingKey, "true");
-  setShowOnboarding(false);
-};
+```text
+┌─────────────────────────────────────────────────────┐
+│                                                     │
+│   📋  بنود BOQ                                      │
+│   لم يتم تحميل أي ملف تحليل بعد                    │
+│                                                     │
+│  ┌─────────────────┐  ┌─────────────────────────┐  │
+│  │  📤 رفع ملف BOQ │  │  📁 فتح مشروع محفوظ    │  │
+│  │  (PDF / Excel)  │  │  من قائمة مشاريعك       │  │
+│  └─────────────────┘  └─────────────────────────┘  │
+│                                                     │
+│  ─── أو ───                                         │
+│                                                     │
+│  🔍 مشاريعك الأخيرة:                               │
+│  ┌─────────────────────────────────────────────┐   │
+│  │  مشروع 1  │  مشروع 2  │  مشروع 3           │   │
+│  └─────────────────────────────────────────────┘   │
+│                                                     │
+└─────────────────────────────────────────────────────┘
 ```
 
----
+## التغييرات التقنية
 
-## 2. تتبع تقدم المشروع في شاشة الترحيب
+### الملف الوحيد: `src/pages/BOQItemsPage.tsx`
 
-**المنطق:**
-- **خطوة 1 (رفع BOQ):** `items.length > 0` — يوجد بنود مستخرجة
-- **خطوة 2 (التسعير):** `items.some(i => i.unit_price && i.unit_price > 0)` — يوجد بنود مسعّرة
-- **خطوة 3 (التقارير):** تُعتبر مكتملة إذا اكتملت الخطوتان السابقتان
+**الحالة الفارغة الجديدة تحتوي على:**
 
-**تمرير البيانات إلى `OnboardingModal`:**
+1. **بطاقة رفع BOQ مباشرة** — باستخدام `BOQUploadDialog` الذي أنشأناه مسبقاً في التحسينات السابقة. عند رفع الملف يتم تحميل البيانات في الـ context ويعاد عرض `AnalysisResults` مباشرة.
+
+2. **رابط للمشاريع المحفوظة** — زر يوجه إلى `/projects` لفتح مشروع موجود.
+
+3. **رسالة توضيحية واضحة** بالعربية والإنجليزية.
+
+**الكود الجديد:**
+
 ```typescript
-// في ProjectDetailsPage.tsx — حساب التقدم
-const hasItems = items.length > 0;
-const hasPricing = items.some(i => (i.unit_price || 0) > 0);
-const completedSteps = [hasItems, hasPricing, hasItems && hasPricing];
-```
+// إضافة state للتحكم في BOQUploadDialog
+const [showUploadDialog, setShowUploadDialog] = useState(false);
 
-**تحديث `OnboardingModal.tsx` — props جديدة:**
-```typescript
-interface OnboardingModalProps {
-  // ... الموجودة
-  completedSteps?: boolean[]; // [boq, pricing, reports]
+// الحالة الفارغة الجديدة
+if (!analysisData) {
+  return (
+    <PageLayout>
+      <div className="flex flex-col items-center justify-center py-16 gap-8 max-w-2xl mx-auto">
+        
+        {/* Icon + Title */}
+        <div className="text-center space-y-2">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+            <FileSpreadsheet className="w-8 h-8 text-primary" />
+          </div>
+          <h2 className="text-2xl font-bold">
+            {isArabic ? "بنود BOQ" : "BOQ Items"}
+          </h2>
+          <p className="text-muted-foreground">
+            {isArabic 
+              ? "لا توجد بيانات تحليل. ارفع ملف BOQ أو افتح مشروعاً محفوظاً"
+              : "No analysis data. Upload a BOQ file or open a saved project."}
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 w-full">
+          <Button 
+            size="lg" 
+            className="flex-1 gap-2"
+            onClick={() => setShowUploadDialog(true)}
+          >
+            <Upload className="w-5 h-5" />
+            {isArabic ? "رفع ملف BOQ" : "Upload BOQ File"}
+          </Button>
+          
+          <Button 
+            size="lg" 
+            variant="outline" 
+            className="flex-1 gap-2"
+            asChild
+          >
+            <Link to="/projects">
+              <FolderOpen className="w-5 h-5" />
+              {isArabic ? "فتح مشروع محفوظ" : "Open Saved Project"}
+            </Link>
+          </Button>
+        </div>
+      </div>
+
+      {/* BOQ Upload Dialog */}
+      <BOQUploadDialog
+        open={showUploadDialog}
+        onClose={() => setShowUploadDialog(false)}
+        onSuccess={(data) => {
+          setAnalysisData(data);
+          setShowUploadDialog(false);
+        }}
+        isArabic={isArabic}
+      />
+    </PageLayout>
+  );
 }
 ```
 
-**تصميم الخطوات المكتملة:**
+### تعديل بسيط على `BOQUploadDialog`
 
-| الحالة | اللون | الأيقونة |
-|--------|-------|----------|
-| غير مكتملة | رمادي فاتح | رقم (1, 2, 3) |
-| مكتملة | أخضر | ✓ CheckCircle |
+المكون الحالي `BOQUploadDialog` مرتبط بـ `projectId`. نضيف prop اختياري `projectId?: string` بدلاً من إلزامي، لأن هنا لا يوجد مشروع مرتبط — نريد فقط تحميل البيانات في الـ context.
 
-```
-┌──────────────────────────────────────────────┐
-│  ✅ رفع BOQ         (أخضر — مكتمل)           │
-│  ⭕ التسعير         (رمادي — لم يكتمل بعد)   │
-│  ⭕ التقارير        (رمادي — لم يكتمل بعد)   │
-└──────────────────────────────────────────────┘
-```
-
----
-
-## 3. رفع ملف BOQ مباشرة من صفحة المشروع
-
-**المشكلة:** زر "ابدأ التحليل" يوجه المستخدم إلى الصفحة الرئيسية `/` لرفع الملف، وهذا يكسر سياق المشروع.
-
-**الحل:** إضافة `Dialog` بسيط داخل `ProjectDetailsPage.tsx` يحتوي على `FileUpload` مكون موجود مسبقاً، مع منطق رفع الملف وتحليله وحفظ النتائج في المشروع الحالي.
-
-**مكون جديد: `src/components/project-details/BOQUploadDialog.tsx`**
-
-```typescript
-interface BOQUploadDialogProps {
-  open: boolean;
-  onClose: () => void;
-  projectId: string;
-  isArabic: boolean;
-  onSuccess: () => void; // لإعادة تحميل البنود بعد الرفع
-}
-```
-
-**يحتوي على:**
-- `FileUpload` component (drag & drop + browse)
-- حالات: اختيار الملف → تحليل → نجاح/خطأ
-- يرسل الملف إلى edge function `analyze-boq` أو `process-pdf-boq`
-- عند النجاح: يستدعي `onSuccess()` لإعادة تحميل البنود في الصفحة
-
-**ربط الـ Dialog بالبانر والـ Onboarding:**
-```typescript
-// بدلاً من navigate("/")
-onClick={() => setShowBOQUploadDialog(true)}
-```
-
-```typescript
-// في OnboardingModal — تغيير onStartAnalysis ليفتح الـ Dialog
-onStartAnalysis={() => {
-  handleCloseOnboarding();
-  setShowBOQUploadDialog(true); // بدلاً من navigate
-}}
-```
-
----
-
-## 4. التحقق من صحة الأزرار
-
-**المراجعة الكاملة:**
-
-| الزر | الموقع | الوضع الحالي | التعديل |
-|------|--------|-------------|---------|
-| "ابدأ التحليل" في البانر | `ProjectDetailsPage.tsx:873` | `navigate("/")` | فتح `BOQUploadDialog` |
-| "ابدأ برفع BOQ الآن" في Modal | `OnboardingModal.tsx:130` | استدعاء `onStartAnalysis` | فتح `BOQUploadDialog` |
-| "استكشف المشروع" في Modal | `OnboardingModal.tsx:135` | `onClose()` | يعمل صحيح ✓ |
-| زر X في البانر | `ProjectDetailsPage.tsx:880` | `setShowBOQUploadBanner(false)` | يعمل صحيح ✓ |
-| إغلاق النافذة (onClose) | `ProjectDetailsPage.tsx:1178` | `setShowOnboarding(false)` | يضاف localStorage |
-
----
-
-## الملفات المتأثرة
+## ملخص الملفات المتأثرة
 
 | الملف | نوع التغيير |
 |-------|------------|
-| `src/components/OnboardingModal.tsx` | تحديث — إضافة `completedSteps` props وتلوين الخطوات |
-| `src/pages/ProjectDetailsPage.tsx` | تحديث — localStorage + ربط BOQUploadDialog + تمرير completedSteps |
-| `src/components/project-details/BOQUploadDialog.tsx` | **ملف جديد** — Dialog لرفع BOQ مباشرة |
+| `src/pages/BOQItemsPage.tsx` | تحديث الحالة الفارغة + إضافة BOQUploadDialog |
+| `src/components/project-details/BOQUploadDialog.tsx` | جعل `projectId` اختيارياً + إضافة callback `onSuccessWithData` |
 
-لا تغييرات على قاعدة البيانات أو الـ Edge Functions.
+لا تغييرات على قاعدة البيانات.
