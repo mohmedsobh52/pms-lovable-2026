@@ -93,7 +93,9 @@ export const quotationService = {
 
   async createQuotation(userId: string, quotationData: {
     name: string;
+    file_url?: string;
     file_name?: string;
+    file_type?: string;
     supplier_name?: string;
     quotation_date?: string;
     total_amount?: number;
@@ -107,9 +109,17 @@ export const quotationService = {
         .from('price_quotations')
         .insert({
           user_id: userId,
-          ...quotationData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          name: quotationData.name,
+          file_url: quotationData.file_url || '',
+          file_name: quotationData.file_name,
+          file_type: quotationData.file_type,
+          supplier_name: quotationData.supplier_name,
+          quotation_date: quotationData.quotation_date,
+          total_amount: quotationData.total_amount,
+          currency: quotationData.currency,
+          status: quotationData.status,
+          ai_analysis: quotationData.ai_analysis,
+          project_id: quotationData.project_id,
         })
         .select()
         .single();

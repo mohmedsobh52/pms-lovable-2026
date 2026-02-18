@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, FolderOpen } from "lucide-react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { Loader2, FolderOpen, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -39,9 +39,13 @@ import {
 export default function ProjectDetailsPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const { isArabic } = useLanguage();
   const { toast } = useToast();
+
+  const isNewProject = (location.state as any)?.isNewProject === true;
+  const [showBOQUploadBanner, setShowBOQUploadBanner] = useState(isNewProject);
   
   const [project, setProject] = useState<ProjectData | null>(null);
   const [items, setItems] = useState<ProjectItem[]>([]);
@@ -845,6 +849,39 @@ export default function ProjectDetailsPage() {
       />
 
       <main className="container mx-auto px-4 py-6">
+        {/* BOQ Upload Banner - shown only after new project creation */}
+        {showBOQUploadBanner && (
+          <div className="mb-6 relative flex items-center gap-4 p-4 rounded-xl border border-primary/30 bg-primary/5 shadow-sm">
+            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10 shrink-0">
+              <Upload className="w-6 h-6 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-foreground text-sm">
+                {isArabic ? "📤 رفع وتحليل BOQ جديد" : "📤 Upload & Analyze New BOQ"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {isArabic
+                  ? "حلل ملفات PDF/Excel لاستخراج بنود جدول الكميات وأسعارها"
+                  : "Analyze PDF/Excel files to extract BOQ items and prices"}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="shrink-0"
+              onClick={() => navigate("/analyze")}
+            >
+              {isArabic ? "ابدأ التحليل" : "Start Analysis"}
+            </Button>
+            <button
+              aria-label="Close"
+              className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              onClick={() => setShowBOQUploadBanner(false)}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         <Tabs value={activeTab} onValueChange={handleTabChange} className="tabs-navigation-safe">
           <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="overview">
