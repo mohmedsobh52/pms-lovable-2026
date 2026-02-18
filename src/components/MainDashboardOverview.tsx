@@ -184,7 +184,7 @@ export function MainDashboardOverview() {
 
       const categoryData = Object.entries(categories)
         .map(([name, value]) => ({ name, value }))
-        .filter(([_, value]) => value > 0)
+        .filter((item) => item.value > 0)
         .sort((a, b) => b.value - a.value)
         .slice(0, 5);
 

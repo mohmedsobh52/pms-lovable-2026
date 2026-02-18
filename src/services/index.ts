@@ -1,2 +1,2 @@
 export * from './projectService';
-export * from './quotationService';
+export { quotationService } from './quotationService';

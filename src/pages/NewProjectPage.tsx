@@ -149,7 +149,7 @@ export default function NewProjectPage() {
           : "Project created successfully, you can now add BOQ items",
       });
       
-      navigate(`/projects/${data.id}`);
+      navigate(`/projects/${data.id}`, { state: { isNewProject: true } });
     } catch (error: any) {
       console.error("Error creating project:", error);
       toast({
