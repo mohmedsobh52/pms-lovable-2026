@@ -1,58 +1,66 @@
 
-# توليد صورة تعبر عن ادارة المشاريع
+# نقل شاشة "Upload & Analyze New BOQ" لتظهر بعد إنشاء مشروع جديد
 
-## الفكرة
+## المشكلة الحالية
 
-انشاء Edge Function جديدة تستخدم نموذج `google/gemini-2.5-flash-image` عبر Lovable AI Gateway لتوليد صورة احترافية تعبر عن ادارة المشاريع الانشائية، ثم حفظها في التخزين السحابي واستخدامها في التطبيق.
+بطاقة "رفع وتحليل BOQ جديد" موجودة فقط في صفحة قائمة المشاريع (`/projects`). بعد إنشاء مشروع جديد، يتم التوجيه إلى صفحة تفاصيل المشروع مباشرةً دون أي دعوة لرفع ملف BOQ.
 
-## التعديلات المطلوبة
+## الحل المقترح
 
-### 1. انشاء Edge Function: `supabase/functions/generate-image/index.ts`
+### 1. تمرير حالة "مشروع جديد" عند الانتقال
 
-- تستقبل prompt نصي وتستخدم `google/gemini-2.5-flash-image` مع `modalities: ["image", "text"]`
-- تحول الصورة من base64 وترفعها الى Storage bucket
-- ترجع رابط الصورة العام
-
-### 2. انشاء Storage Bucket
-
-- انشاء bucket اسمه `generated-images` مع سياسة وصول عامة للقراءة
-
-### 3. انشاء صفحة/مكون بسيط لتوليد الصورة
-
-- زر في الواجهة يستدعي الـ Edge Function مع prompt مناسب لادارة المشاريع
-- عرض الصورة المولدة مع امكانية تحميلها
-- Prompt مقترح: "Professional illustration of construction project management: blueprints, hard hats, cranes, Gantt charts, and a team collaborating on a modern building site, digital art style, clean and corporate"
-
-### 4. استخدام الصورة
-
-- بعد التوليد يمكن استخدامها كخلفية او صورة في الصفحة الرئيسية
-
-## التفاصيل التقنية
-
-### Edge Function - الكود الاساسي
-
+في `NewProjectPage.tsx` بعد نجاح الإنشاء، بدلاً من:
 ```typescript
-// POST { prompt: "..." }
-const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${LOVABLE_API_KEY}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    model: "google/gemini-2.5-flash-image",
-    messages: [{ role: "user", content: prompt }],
-    modalities: ["image", "text"],
-  }),
-});
-// استخراج base64 -> رفع الى Storage -> ارجاع URL
+navigate(`/projects/${data.id}`);
 ```
 
-### الملفات المتأثرة
+نغير إلى:
+```typescript
+navigate(`/projects/${data.id}`, { state: { isNewProject: true } });
+```
+
+### 2. إضافة بانر "رفع وتحليل BOQ" في ProjectDetailsPage
+
+في `ProjectDetailsPage.tsx`، نقرأ `location.state`:
+```typescript
+const location = useLocation();
+const isNewProject = location.state?.isNewProject === true;
+const [showBOQUploadBanner, setShowBOQUploadBanner] = useState(isNewProject);
+```
+
+ثم نعرض بانر/بطاقة مشابهة لما في SavedProjectsPage أعلى تبويبات المشروع مباشرةً، وتحتوي على:
+- أيقونة وعنوان: "رفع وتحليل BOQ جديد"
+- زر "ابدأ التحليل" يوجه إلى `/analyze`
+- زر إغلاق (X) لإخفاء البانر
+- تختفي تلقائياً إذا كانت البيانات موجودة أو عند الإغلاق
+
+### التدفق الكامل بعد التعديل
+
+```text
+إنشاء مشروع جديد
+      ↓
+صفحة تفاصيل المشروع
+      ↓
+[بانر أعلى الصفحة]
+┌─────────────────────────────────────────┐
+│  📤 رفع وتحليل BOQ جديد               │
+│  حلل ملفات PDF/Excel لاستخراج البنود   │
+│           [ابدأ التحليل]    [×]         │
+└─────────────────────────────────────────┘
+      ↓ (يختفي عند الإغلاق أو الانتقال)
+تبويبات المشروع: نظرة عامة | BOQ | المستندات | الإعدادات
+```
+
+## التغييرات التقنية
 
 | الملف | التغيير |
 |-------|---------|
-| `supabase/functions/generate-image/index.ts` | ملف جديد - Edge Function للتوليد |
-| `src/pages/HomePage.tsx` او مكون جديد | زر توليد + عرض الصورة |
-| Migration SQL | انشاء Storage bucket |
+| `src/pages/NewProjectPage.tsx` | إضافة `{ state: { isNewProject: true } }` عند navigate |
+| `src/pages/ProjectDetailsPage.tsx` | قراءة location.state + إضافة بانر شرطي + import useLocation |
 
+## ملاحظات
+
+- البانر يظهر فقط عند أول زيارة للمشروع الجديد (مرة واحدة)
+- لا يظهر عند زيارة مشاريع قديمة
+- عند الضغط على "ابدأ التحليل" يتم التوجيه إلى `/analyze` (الصفحة الرئيسية للتحليل)
+- لا تغييرات على قاعدة البيانات
