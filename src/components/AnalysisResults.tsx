@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain } from "lucide-react";
 import { DualHorizontalScrollBar } from "./DualHorizontalScrollBar";
 import { TableControls, BOQ_TABLE_COLUMNS } from "./TableControls";
 import {
@@ -158,6 +158,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   const { toast } = useToast();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">("items");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(getSavedCompanyInfo());
   
@@ -854,6 +855,15 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     };
   }, [data]);
 
+  // Pricing progress for sidebar badge
+  const pricingProgress = useMemo(() => {
+    const items = (data.items || []).filter(item => !!item.item_number && !deletedItemNumbers.has(item.item_number));
+    const pricedItems = items.filter(item => {
+      const calcCosts = getItemCalculatedCosts(item.item_number!);
+      return (calcCosts.aiSuggestedRate || 0) > 0;
+    });
+    return { priced: pricedItems.length, total: items.length };
+  }, [data.items, deletedItemNumbers, getItemCalculatedCosts]);
 
   // Handle saving item costs
   const handleSaveItemCost = useCallback((itemId: string, costs: CostInputs) => {
@@ -1388,66 +1398,127 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
       <div className="flex" style={{ minHeight: '600px' }}>
 
         {/* ── Left Sidebar ── */}
-        <div className="w-52 shrink-0 border-r border-border bg-muted/20 flex flex-col" dir="ltr">
-          <div className="p-3 flex-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-3">
-              {isArabic ? "التحليل" : "Analysis"}
-            </p>
+        <div
+          className={cn(
+            "shrink-0 border-r border-border bg-muted/20 flex flex-col transition-all duration-200",
+            sidebarCollapsed ? "w-12" : "w-52"
+          )}
+          dir="ltr"
+        >
+          {/* Collapse Toggle Button */}
+          <div className="flex items-center justify-between p-2 border-b border-border">
+            {!sidebarCollapsed && (
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                {isArabic ? "التحليل" : "Analysis"}
+              </p>
+            )}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground ml-auto"
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {/* Navigation Items */}
+          <div className="p-2 flex-1">
             <nav className="space-y-1">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                    isArabic ? "flex-row-reverse text-right" : "text-left",
-                    activeTab === tab.id
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  {tab.icon}
-                  <span className="truncate">{isArabic ? tab.labelAr : tab.label}</span>
-                </button>
-              ))}
+              {tabs.map(tab => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                    className={cn(
+                      "w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm font-medium transition-all relative",
+                      sidebarCollapsed ? "justify-center" : (isArabic ? "flex-row-reverse text-right" : "text-left"),
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                    title={sidebarCollapsed ? (isArabic ? tab.labelAr : tab.label) : undefined}
+                  >
+                    {tab.icon}
+                    {!sidebarCollapsed && (
+                      <>
+                        <span className="truncate flex-1">{isArabic ? tab.labelAr : tab.label}</span>
+                        {tab.id === "items" && pricingProgress.total > 0 && (
+                          <span className={cn(
+                            "text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0",
+                            pricingProgress.priced === pricingProgress.total
+                              ? "bg-green-500/20 text-green-700 dark:text-green-400"
+                              : "bg-orange-500/20 text-orange-700 dark:text-orange-400"
+                          )}>
+                            {pricingProgress.priced}/{pricingProgress.total}
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {sidebarCollapsed && tab.id === "items" && pricingProgress.total > 0 && (
+                      <span className={cn(
+                        "absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full",
+                        pricingProgress.priced === pricingProgress.total ? "bg-green-500" : "bg-orange-500"
+                      )} />
+                    )}
+                  </button>
+                );
+              })}
             </nav>
           </div>
 
           {/* Bottom status indicators */}
-          <div className="p-3 border-t border-border space-y-2">
-            {lastSavedAt && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Clock className="w-3 h-3 shrink-0" />
-                <span className="truncate">{lastSavedAt.toLocaleTimeString()}</span>
-              </div>
-            )}
-            {user && (
-              <div className={cn(
-                "flex items-center gap-1.5 text-xs",
-                isSavingPrices
-                  ? "text-yellow-600"
-                  : editedCount > 0
-                    ? "text-green-600"
-                    : "text-muted-foreground"
-              )}>
-                <Cloud className={cn("w-3 h-3 shrink-0", isSavingPrices && "animate-pulse")} />
-                <span className="truncate">
-                  {isSavingPrices
-                    ? (isArabic ? 'جاري الحفظ...' : 'Syncing...')
+          {!sidebarCollapsed && (
+            <div className="p-3 border-t border-border space-y-2">
+              {/* Pricing progress bar */}
+              {pricingProgress.total > 0 && (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>{isArabic ? "التسعير" : "Pricing"}</span>
+                    <span>{Math.round((pricingProgress.priced / pricingProgress.total) * 100)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-300"
+                      style={{ width: `${(pricingProgress.priced / pricingProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              {lastSavedAt && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Clock className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{lastSavedAt.toLocaleTimeString()}</span>
+                </div>
+              )}
+              {user && (
+                <div className={cn(
+                  "flex items-center gap-1.5 text-xs",
+                  isSavingPrices
+                    ? "text-yellow-600 dark:text-yellow-400"
                     : editedCount > 0
-                      ? (isArabic ? `${editedCount} بند (محفوظ)` : `${editedCount} synced`)
-                      : (isArabic ? 'متزامن' : 'Synced')
-                  }
-                </span>
-              </div>
-            )}
-            {!user && editedCount > 0 && (
-              <div className="flex items-center gap-1.5 text-xs text-orange-600">
-                <CloudOff className="w-3 h-3 shrink-0" />
-                <span className="truncate">{isArabic ? 'سجل دخول للحفظ' : 'Login to save'}</span>
-              </div>
-            )}
-          </div>
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-muted-foreground"
+                )}>
+                  <Cloud className={cn("w-3 h-3 shrink-0", isSavingPrices && "animate-pulse")} />
+                  <span className="truncate">
+                    {isSavingPrices
+                      ? (isArabic ? 'جاري الحفظ...' : 'Syncing...')
+                      : editedCount > 0
+                        ? (isArabic ? `${editedCount} بند (محفوظ)` : `${editedCount} synced`)
+                        : (isArabic ? 'متزامن' : 'Synced')
+                    }
+                  </span>
+                </div>
+              )}
+              {!user && editedCount > 0 && (
+                <div className="flex items-center gap-1.5 text-xs text-destructive">
+                  <CloudOff className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{isArabic ? 'سجل دخول للحفظ' : 'Login to save'}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Main Content Area ── */}
@@ -2112,19 +2183,19 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
             >
               <table className="w-full min-w-[1200px]" dir="ltr">
                 <thead>
-                  <tr className="bg-slate-100 dark:bg-slate-800 border-b-2 border-primary/20">
+                <tr className="bg-primary/8 border-b-2 border-primary/20">
                     {visibleColumns.includes("index") && (
                       <th className={cn(
-                        "px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap",
-                        pinnedColumns.includes("index") && "sticky left-0 z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                        "px-3 py-3 text-center font-bold text-sm text-foreground whitespace-nowrap bg-primary/8",
+                        pinnedColumns.includes("index") && "sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                       )}>
                         #
                       </th>
                     )}
                     {visibleColumns.includes("item_number") && (
                       <th className={cn(
-                        "px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap",
-                        pinnedColumns.includes("item_number") && "sticky left-[40px] z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                        "px-3 py-3 text-left font-bold text-sm text-foreground whitespace-nowrap bg-primary/8",
+                        pinnedColumns.includes("item_number") && "sticky left-[40px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                       )}>
                         <div className="flex items-center gap-1">
                           Item No.
@@ -2134,16 +2205,16 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                     )}
                     {visibleColumns.includes("item_code") && (
                       <th className={cn(
-                        "px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap",
-                        pinnedColumns.includes("item_code") && "sticky left-[120px] z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                        "px-3 py-3 text-left font-bold text-sm text-foreground whitespace-nowrap bg-primary/8",
+                        pinnedColumns.includes("item_code") && "sticky left-[120px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                       )}>
                         Item Code
                       </th>
                     )}
                     {visibleColumns.includes("description") && (
                       <th className={cn(
-                        "px-3 py-3 text-left font-bold text-sm text-slate-700 dark:text-slate-200 min-w-[300px]",
-                        pinnedColumns.includes("description") && "sticky left-[200px] z-10 bg-slate-100 dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                        "px-3 py-3 text-left font-bold text-sm text-foreground min-w-[300px] bg-primary/8",
+                        pinnedColumns.includes("description") && "sticky left-[200px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                       )}>
                         <div className="flex items-center gap-1">
                           Description
@@ -2152,31 +2223,31 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                       </th>
                     )}
                     {visibleColumns.includes("unit") && (
-                      <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      <th className="px-3 py-3 text-center font-bold text-sm text-foreground whitespace-nowrap bg-primary/8">
                         Unit
                       </th>
                     )}
                     {visibleColumns.includes("quantity") && (
-                      <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      <th className="px-3 py-3 text-center font-bold text-sm text-foreground whitespace-nowrap bg-primary/8">
                         Qty
                       </th>
                     )}
                     {visibleColumns.includes("ai_rate") && (
-                      <th className="px-3 py-3 text-right font-bold text-sm text-purple-700 dark:text-purple-300 whitespace-nowrap bg-purple-500/10">
+                      <th className="px-3 py-3 text-right font-bold text-sm text-primary whitespace-nowrap bg-primary/15">
                         AI Rate
                       </th>
                     )}
                     {visibleColumns.includes("calc_price") && (
-                      <th className="px-3 py-3 text-right font-bold text-sm text-primary dark:text-primary whitespace-nowrap bg-primary/10">
+                      <th className="px-3 py-3 text-right font-bold text-sm text-primary whitespace-nowrap bg-primary/20">
                         Total
                       </th>
                     )}
                     {visibleColumns.includes("balance_status") && (
-                      <th className="px-3 py-3 text-center font-bold text-sm text-emerald-700 dark:text-emerald-300 whitespace-nowrap bg-emerald-500/10">
+                      <th className="px-3 py-3 text-center font-bold text-sm text-primary whitespace-nowrap bg-primary/10">
                         {isArabic ? "التوازن" : "Balance"}
                       </th>
                     )}
-                    <th className="px-3 py-3 text-center font-bold text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                    <th className="px-3 py-3 text-center font-bold text-sm text-muted-foreground whitespace-nowrap bg-primary/8">
                       Actions
                     </th>
                   </tr>
