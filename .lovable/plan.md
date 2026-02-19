@@ -1,92 +1,67 @@
 
-# تحسينات Advanced Analysis + صفحة المشاريع
+# تكملة التحسينات: Actions Dropdown + تمييز البحث + مؤشر التسعير في المشاريع
 
-## ما سيتغير
+## ملخص ما تم تنفيذه مسبقاً ✅
+- القائمة الجانبية القابلة للطي في `AnalysisResults.tsx`
+- مؤشر تقدم التسعير في الشريط الجانبي
+- هيكل السطور والأعمدة في الجدول
 
-### 1. قائمة Actions في جدول البنود (AnalysisResults.tsx)
+## ما يحتاج تنفيذاً الآن
 
-الصورة المرفقة تظهر Dropdown menu بالخيارات:
-- **$ Quick Price** — تطبيق AI Rate مباشرة
-- **📄 Detailed Price** — فتح محرر التكاليف المفصل
-- **✏️ Edit** — تعديل الوصف/البيانات
-- **⊗ Clear Price** — مسح السعر المحسوب
-- **🗑️ Delete** — حذف البند
+### 1. استبدال أزرار Actions بـ Dropdown Menu موحد
 
-حالياً عمود Actions يحتوي فقط على زر `Edit` من `ItemCostEditor` + زر حذف مشروط (للبنود بكمية صفر فقط).
-
-**التغيير:** استبدال الأزرار الحالية بـ `DropdownMenu` موحد بالخيارات الخمسة المطلوبة:
-
+**الوضع الحالي (السطور 2379-2410):**
 ```tsx
-<DropdownMenu>
-  <DropdownMenuTrigger asChild>
-    <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-      <MoreHorizontal className="w-4 h-4" />
-    </Button>
-  </DropdownMenuTrigger>
-  <DropdownMenuContent align="end" className="w-44">
-    <DropdownMenuItem onClick={() => handleQuickPrice(item)}>
-      <DollarSign className="w-4 h-4 text-green-600" />
-      {isArabic ? "سعر سريع" : "Quick Price"}
-    </DropdownMenuItem>
-    <DropdownMenuItem onClick={() => openDetailedPrice(item)}>
-      <FileText className="w-4 h-4 text-blue-600" />
-      {isArabic ? "سعر مفصل" : "Detailed Price"}
-    </DropdownMenuItem>
-    <DropdownMenuSeparator />
-    <DropdownMenuItem onClick={() => openCostEditor(item)}>
-      <Edit className="w-4 h-4" />
-      {isArabic ? "تعديل" : "Edit"}
-    </DropdownMenuItem>
-    <DropdownMenuItem onClick={() => handleClearPrice(item.item_number)}>
-      <XCircle className="w-4 h-4" />
-      {isArabic ? "مسح السعر" : "Clear Price"}
-    </DropdownMenuItem>
-    <DropdownMenuSeparator />
-    <DropdownMenuItem
-      onClick={() => handleDeleteZeroQtyRow(item.item_number)}
-      className="text-destructive focus:text-destructive"
-    >
-      <Trash2 className="w-4 h-4" />
-      {isArabic ? "حذف" : "Delete"}
-    </DropdownMenuItem>
-  </DropdownMenuContent>
-</DropdownMenu>
+<div className="flex items-center justify-center gap-1">
+  <ItemCostEditor ... />   {/* زر "تفاصيل التكاليف" */}
+  {(!item.quantity || item.quantity === 0) && (
+    <Button ...><XCircle ... /></Button>  {/* زر الحذف فقط للكمية صفر */}
+  )}
+</div>
 ```
 
-**Quick Price:** يستخدم `updateAIRate` لضبط AI Rate للبند بقيمة مقترحة (يفتح input صغير أو يطبق متوسط الأسعار المماثلة).
+**الجديد:** Dropdown Menu بخمسة خيارات:
 
-**Detailed Price:** يفتح `ItemCostEditor` (ExcavationCostAnalysis dialog الحالي).
+```
+⚡ Quick Price   ← يفتح input صغير لإدخال سعر سريع مباشرة
+📄 Detailed Price ← يفتح ItemCostEditor (الموجود)
+──────────
+✏️ Edit          ← يفتح ItemCostEditor أيضاً (نفس الوظيفة حالياً)
+⊘ Clear Price   ← updateAIRate(item_number, 0)
+──────────
+🗑️ Delete        ← handleDeleteZeroQtyRow - متاح لجميع البنود (بدون شرط الكمية)
+```
 
-**Clear Price:** يستدعي `updateAIRate(item.item_number, 0)` لمسح الـ AI Rate.
+التنفيذ سيستخدم `DropdownMenu` المستورد فعلاً في السطر 6-11.
 
-**Delete:** يستدعي `handleDeleteZeroQtyRow` الموجودة (مع إزالة شرط الكمية = صفر لتكون متاحة لأي بند).
+سيُضاف state صغير `quickPriceItemId` لتتبع البند المختار للسعر السريع.
 
 ---
 
-### 2. البحث الفوري مع تمييز النص بالأصفر (AnalysisResults.tsx)
+### 2. تمييز نص البحث بالأصفر في عمود Description
 
-**الوضع الحالي:** `searchQuery` state موجود (سطر 593) وتُفلتر البنود بناءً عليه في `filteredItems`. لكن النص في خلية Description يُعرض كنص عادي:
+**الوضع الحالي (السطر 2328-2330):**
 ```tsx
-<p className="text-sm ...">
+<p className="text-sm font-medium ...">
   {cleanText(item.description)}
 </p>
 ```
 
-**التغيير:** إنشاء دالة `highlightText` تُقسّم النص عند تطابق `searchQuery` وتُلف الأجزاء المطابقة بـ `<mark>`:
+**الجديد:** إضافة دالة `highlightText` بعد `cleanText` (سطر ~70):
 
-```tsx
-const highlightText = useCallback((text: string, query: string) => {
-  if (!query.trim()) return <span>{text}</span>;
+```typescript
+const highlightText = (text: string, query: string): React.ReactNode => {
+  const cleaned = cleanText(text);
+  if (!query.trim()) return cleaned;
   
-  const cleanedText = cleanText(text);
-  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  const parts = cleanedText.split(regex);
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = cleaned.split(new RegExp(`(${escaped})`, 'gi'));
   
   return (
     <>
       {parts.map((part, i) =>
-        regex.test(part) ? (
-          <mark key={i} className="bg-yellow-300 dark:bg-yellow-600/70 text-foreground rounded px-0.5">
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} className="bg-yellow-300 dark:bg-yellow-600/60 text-foreground rounded-sm px-0.5 not-italic">
             {part}
           </mark>
         ) : (
@@ -95,38 +70,34 @@ const highlightText = useCallback((text: string, query: string) => {
       )}
     </>
   );
-}, []);
+};
 ```
 
-ثم استخدامها في خلية Description:
+ثم تغيير السطر 2329:
 ```tsx
-<p className="text-sm font-medium ...">
-  {highlightText(item.description, searchQuery)}
-</p>
+{highlightText(item.description, searchQuery)}
 ```
 
-البحث فوري لأن `searchQuery` يتغير مع كل ضغطة مفتاح (controlled input موجود بالفعل).
+البحث فوري لأن `searchQuery` controlled state.
 
 ---
 
-### 3. مؤشر تقدم التسعير في كارت المشروع (SavedProjectsPage.tsx)
+### 3. مؤشر تقدم التسعير في كروت المشاريع
 
-**الوضع الحالي:** بطاقة المشروع تعرض: الاسم، اسم الملف، عدد البنود، القيمة، التاريخ، والأزرار.
+**الملف:** `src/pages/SavedProjectsPage.tsx`
+**الموضع:** داخل كارت المشروع (السطر 596-624)، بين Stats وDate
 
-**التغيير:** إضافة شريط تقدم ملوّن يوضح نسبة البنود المسعّرة.
-
-**مصدر البيانات:** كل مشروع يحتوي على `analysis_data` بداخله `items`. البنود المسعّرة هي تلك التي `unit_price > 0` أو `total_price > 0`.
-
-```tsx
-// حساب تقدم التسعير
+**المنطق:**
+```typescript
 const pricedCount = (project.analysis_data?.items || [])
   .filter((item: any) => (item.unit_price || 0) > 0 || (item.total_price || 0) > 0).length;
 const totalCount = project.items_count || 0;
 const pricingPct = totalCount > 0 ? Math.round((pricedCount / totalCount) * 100) : 0;
 ```
 
-**واجهة المستخدم داخل الكارت (بين Stats وDate):**
+**الإضافة بين Stats و Date (بعد السطر 613):**
 ```tsx
+{/* Pricing Progress Bar */}
 {totalCount > 0 && (
   <div className="mb-3">
     <div className="flex justify-between items-center mb-1 text-xs text-muted-foreground">
@@ -142,11 +113,7 @@ const pricingPct = totalCount > 0 ? Math.round((pricedCount / totalCount) * 100)
       <div
         className={cn(
           "h-full rounded-full transition-all",
-          pricingPct === 100
-            ? "bg-green-500"
-            : pricingPct > 50
-              ? "bg-primary"
-              : "bg-orange-400"
+          pricingPct === 100 ? "bg-green-500" : pricingPct > 50 ? "bg-primary" : "bg-orange-400"
         )}
         style={{ width: `${pricingPct}%` }}
       />
@@ -161,16 +128,7 @@ const pricingPct = totalCount > 0 ? Math.round((pricedCount / totalCount) * 100)
 
 | الملف | التغييرات |
 |-------|-----------|
-| `src/components/AnalysisResults.tsx` | (1) استبدال Actions buttons بـ DropdownMenu موحد، (2) دالة `highlightText` + تطبيقها في خلية Description |
-| `src/pages/SavedProjectsPage.tsx` | (3) إضافة شريط تقدم التسعير في بطاقة المشروع |
+| `src/components/AnalysisResults.tsx` | دالة `highlightText` + تطبيقها في Description + استبدال Actions بـ Dropdown |
+| `src/pages/SavedProjectsPage.tsx` | إضافة شريط تقدم التسعير داخل كارت المشروع |
 
 ## لا تغييرات على قاعدة البيانات
-
-جميع البيانات المطلوبة متوفرة في `analysis_data.items` المحفوظة مع كل مشروع.
-
-## ملاحظات التنفيذ
-
-- دالة `highlightText` تُهرّب أحرف regex الخاصة لتجنب الأخطاء عند البحث بنصوص تحتوي على `(`, `)`, `.` إلخ.
-- يُعاد `regex.test()` مرتين لاختبار التطابق — يجب reset الـ `lastIndex` لأن الـ flag `g` يُبقي الـ index. سيتم استخدام `new RegExp(..., 'gi')` لكل عملية مقارنة بدلاً من regex.test() مباشرة.
-- شريط التسعير في الكارت يستخدم `analysis_data?.items` المخزنة في المشروع وليس بيانات AI Rate الحية من localStorage (لأن بيانات localStorage خاصة بجهاز المستخدم وليست في قاعدة البيانات) — لذا يعرض النسبة بناءً على `unit_price > 0` الموجودة في بيانات التحليل المحفوظة.
-- زر Delete في القائمة سيُتاح لجميع البنود (ليس فقط بكمية صفر) مع نفس آلية الـ Undo الموجودة.
