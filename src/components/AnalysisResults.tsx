@@ -2326,7 +2326,17 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                             idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
                           )}>
                             <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={cleanText(item.description)}>
-                              {cleanText(item.description)}
+                              {(() => {
+                                const text = cleanText(item.description);
+                                if (!searchQuery.trim()) return text;
+                                const escaped = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+                                return parts.map((part, i) =>
+                                  part.toLowerCase() === searchQuery.toLowerCase()
+                                    ? <mark key={i} className="bg-yellow-300 dark:bg-yellow-500/50 text-foreground rounded-sm px-0.5 not-italic">{part}</mark>
+                                    : <span key={i}>{part}</span>
+                                );
+                              })()}
                             </p>
                           </td>
                         )}
@@ -2378,34 +2388,70 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                         )}
                         <td className="px-3 py-3 text-center">
                           <div className="flex items-center justify-center gap-1">
-                            <ItemCostEditor
-                              itemId={item.item_number}
-                              itemDescription={item.description}
-                              quantity={item.quantity}
-                              currentCosts={costData}
-                              calculatedCosts={calcCosts}
-                              onSave={handleSaveItemCost}
-                              onCopyFrom={handleCopyFromItem}
-                              onSaveAsTemplate={handleSaveAsTemplate}
-                              onApplyTemplate={handleApplyTemplate}
-                              onDeleteTemplate={handleDeleteTemplate}
-                              savedTemplate={savedTemplate}
-                              savedTemplates={savedTemplates}
-                              availableItems={availableItemsForCopy}
-                              currency={data.summary?.currency || "SAR"}
-                            />
-                            {/* Delete button for zero quantity items */}
-                            {(!item.quantity || item.quantity === 0) && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteZeroQtyRow(item.item_number)}
-                                className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
-                                title={isArabic ? "حذف البند (كمية صفر)" : "Delete item (zero qty)"}
-                              >
-                                <XCircle className="w-4 h-4" />
-                              </Button>
-                            )}
+                            {/* Unified Actions Dropdown */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-muted">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48 bg-popover border border-border shadow-lg z-[80]">
+                                {/* Quick Price */}
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    const rate = item.unit_price && item.unit_price > 0 ? item.unit_price : 0;
+                                    updateAIRate(item.item_number, rate || 0);
+                                    toast({ title: isArabic ? "تم تطبيق السعر السريع" : "Quick price applied", description: rate > 0 ? rate.toLocaleString() : isArabic ? "لا يوجد سعر مرجعي" : "No reference price" });
+                                  }}
+                                  className="gap-2 cursor-pointer"
+                                >
+                                  <DollarSign className="w-4 h-4 text-green-600" />
+                                  <span>{isArabic ? "سعر سريع" : "Quick Price"}</span>
+                                </DropdownMenuItem>
+                                {/* Detailed Price - opens ItemCostEditor */}
+                                <div className="flex items-center px-2 py-1.5 text-sm gap-2 cursor-pointer hover:bg-accent rounded-sm transition-colors"
+                                  onClick={(e) => e.stopPropagation()}>
+                                  <ItemCostEditor
+                                    itemId={item.item_number}
+                                    itemDescription={item.description}
+                                    quantity={item.quantity}
+                                    currentCosts={costData}
+                                    calculatedCosts={calcCosts}
+                                    onSave={handleSaveItemCost}
+                                    onCopyFrom={handleCopyFromItem}
+                                    onSaveAsTemplate={handleSaveAsTemplate}
+                                    onApplyTemplate={handleApplyTemplate}
+                                    onDeleteTemplate={handleDeleteTemplate}
+                                    savedTemplate={savedTemplate}
+                                    savedTemplates={savedTemplates}
+                                    availableItems={availableItemsForCopy}
+                                    currency={data.summary?.currency || "SAR"}
+                                  />
+                                  <span className="flex-1">{isArabic ? "سعر مفصل" : "Detailed Price"}</span>
+                                </div>
+                                <DropdownMenuSeparator />
+                                {/* Clear Price */}
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    updateAIRate(item.item_number, 0);
+                                    toast({ title: isArabic ? "تم مسح السعر" : "Price cleared" });
+                                  }}
+                                  className="gap-2 cursor-pointer"
+                                >
+                                  <XCircle className="w-4 h-4 text-muted-foreground" />
+                                  <span>{isArabic ? "مسح السعر" : "Clear Price"}</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                {/* Delete */}
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteZeroQtyRow(item.item_number)}
+                                  className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  <span>{isArabic ? "حذف البند" : "Delete"}</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </td>
                       </tr>

@@ -43,6 +43,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 interface ProjectData {
   id: string;
@@ -612,6 +613,37 @@ export default function SavedProjectsPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Pricing Progress Bar */}
+                {(() => {
+                  const totalCount = project.items_count || 0;
+                  const pricedCount = (project.analysis_data?.items || [])
+                    .filter((item: any) => (item.unit_price || 0) > 0 || (item.total_price || 0) > 0).length;
+                  const pricingPct = totalCount > 0 ? Math.round((pricedCount / totalCount) * 100) : 0;
+                  if (totalCount === 0) return null;
+                  return (
+                    <div className="mb-3">
+                      <div className="flex justify-between items-center mb-1 text-xs text-muted-foreground">
+                        <span>{isArabic ? "التسعير" : "Pricing"}</span>
+                        <span className={cn(
+                          "font-semibold",
+                          pricingPct === 100 ? "text-green-600" : pricingPct > 50 ? "text-primary" : "text-orange-500"
+                        )}>
+                          {pricedCount}/{totalCount} ({pricingPct}%)
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-300",
+                            pricingPct === 100 ? "bg-green-500" : pricingPct > 50 ? "bg-primary" : "bg-orange-400"
+                          )}
+                          style={{ width: `${pricingPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Date */}
                 <div className="flex items-center gap-1 text-xs text-muted-foreground mb-4">
