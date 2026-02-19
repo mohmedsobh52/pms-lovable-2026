@@ -1,151 +1,156 @@
 
-# تحسين صفحة المشاريع: السحب والإفلات المباشر + تحسينات UX
+# إضافة القائمة الجانبية في شاشة Advanced Analysis
 
 ## الوضع الحالي
 
-بعد التحديثات السابقة، الوضع الحالي هو:
-- ✅ تبويب "تحليل BOQ" موجود ويعمل
-- ✅ شاشة المشاريع الفارغة تحتوي على زر الانتقال لتبويب التحليل
-- ✅ بعد الحفظ يُعيد تحميل المشاريع وينتقل للقائمة
+مكوّن `AnalysisResults.tsx` يستخدم **تبويبات أفقية** (horizontal tabs) في أعلى الشاشة للتنقل بين الأقسام:
+- Items · WBS · Cost · Brief · Charts · Time Schedule · Schedule Integration
 
-**ما ينقص:** السحب والإفلات مباشرةً على تبويب المشاريع (بدون الدخول لتبويب التحليل أولاً).
+المطلوب: تحويلها إلى **قائمة جانبية عمودية** (vertical sidebar) كما يظهر في الصورة المرفقة مع الإبقاء على المحتوى الرئيسي يملأ بقية المساحة.
 
-## التحسينات المطلوبة
+## التصميم المقترح
 
-### 1. السحب والإفلات على تبويب المشاريع
-عندما يسحب المستخدم ملف PDF أو Excel فوق محتوى تبويب "المشاريع":
-- تظهر منطقة استقبال الملف بصرياً (overlay شبه شفاف أزرق)
-- عند إفلات الملف: ينتقل تلقائياً لتبويب "تحليل BOQ" مع تمرير الملف للمكوّن
-- يبدأ التحليل مباشرة دون أن يحتاج المستخدم لاختيار الملف مجدداً
-
-### 2. تمرير الملف لـ `BOQAnalyzerPanel`
-يحتاج `BOQAnalyzerPanel` لخاصية `initialFile?: File` جديدة لاستقبال الملف المسحوب:
-```typescript
-interface BOQAnalyzerPanelProps {
-  onProjectSaved?: (projectId: string) => void;
-  embedded?: boolean;
-  initialFile?: File;  // ← جديد
-}
-```
-عند استلام `initialFile`، يُضبط كـ `selectedFile` تلقائياً عبر `useEffect`.
-
-### 3. تحسين بصري لشاشة المشاريع الفارغة
-تحسين بسيط على التصميم الحالي: إضافة نص توضيحي أن السحب والإفلات يعمل مباشرة.
-
-## التغييرات التقنية
-
-### الملف 1: `src/components/BOQAnalyzerPanel.tsx`
-
-**إضافة `initialFile` prop:**
-```typescript
-interface BOQAnalyzerPanelProps {
-  onProjectSaved?: (projectId: string) => void;
-  embedded?: boolean;
-  initialFile?: File;
-}
-
-export function BOQAnalyzerPanel({ onProjectSaved, embedded = false, initialFile }: BOQAnalyzerPanelProps) {
-  // ...
-  useEffect(() => {
-    if (initialFile) {
-      setSelectedFile(initialFile);
-    }
-  }, [initialFile]);
+```text
+┌─────────────────────────────────────────────────┐
+│  KPI Dashboard (أعلى الصفحة - بدون تغيير)       │
+├──────────────┬──────────────────────────────────┤
+│  القائمة     │                                  │
+│  الجانبية   │     المحتوى الرئيسي              │
+│              │     (Items / WBS / Cost ...)      │
+│  ● Items     │                                  │
+│  ○ WBS       │                                  │
+│  ○ Cost      │                                  │
+│  ○ Brief     │                                  │
+│  ○ Charts    │                                  │
+│  ○ Schedule  │                                  │
+│  ○ Integrat. │                                  │
+│              │                                  │
+├──────────────┤                                  │
+│  أدوات وتصدير│                                  │
+│  (أسفل)      │                                  │
+└──────────────┴──────────────────────────────────┘
 ```
 
-### الملف 2: `src/pages/SavedProjectsPage.tsx`
+## التغييرات التقنية على `AnalysisResults.tsx`
 
-**أ. إضافة state للملف المسحوب وحالة drag:**
-```typescript
-const [draggedFile, setDraggedFile] = useState<File | null>(null);
-const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
-```
+### 1. تغيير هيكل التخطيط (Layout)
 
-**ب. منطق السحب والإفلات على المحتوى الكامل لتبويب المشاريع:**
-```typescript
-const handleGlobalDragOver = useCallback((e: React.DragEvent) => {
-  e.preventDefault();
-  const files = e.dataTransfer.items;
-  if (files.length > 0) setIsGlobalDragOver(true);
-}, []);
+**الحالي:** تخطيط عمودي — شريط التبويبات + أزرار التصدير في نفس السطر الأفقي، ثم المحتوى أسفله.
 
-const handleGlobalDragLeave = useCallback((e: React.DragEvent) => {
-  // التحقق من أن الماوس خرج من المنطقة كلياً
-  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-    setIsGlobalDragOver(false);
-  }
-}, []);
+**الجديد:** تخطيط أفقي مقسّم إلى:
+- **عمود أيسر (w-48):** القائمة الجانبية العمودية بعناصر التنقل
+- **عمود أيمن (flex-1):** المحتوى الرئيسي + شريط الأدوات/التصدير في أعلى المحتوى
 
-const handleGlobalDrop = useCallback((e: React.DragEvent) => {
-  e.preventDefault();
-  setIsGlobalDragOver(false);
-  const files = e.dataTransfer.files;
-  if (files.length > 0) {
-    const file = files[0];
-    // التحقق من نوع الملف
-    const isValid = file.name.endsWith('.pdf') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
-    if (isValid) {
-      setDraggedFile(file);
-      setActiveTab("analyze"); // الانتقال لتبويب التحليل
-    }
-  }
-}, []);
-```
+### 2. مكوّن القائمة الجانبية
 
-**ج. تطبيق السحب والإفلات على `TabsContent value="projects"`:**
-```typescript
-<TabsContent 
-  value="projects" 
-  className="space-y-6 relative"
-  onDragOver={handleGlobalDragOver}
-  onDragLeave={handleGlobalDragLeave}
-  onDrop={handleGlobalDrop}
->
-  {/* Drag Overlay */}
-  {isGlobalDragOver && activeTab === "projects" && (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-xl backdrop-blur-sm">
-      <div className="text-center">
-        <Upload className="w-16 h-16 mx-auto mb-3 text-primary" />
-        <p className="text-xl font-semibold text-primary">
-          {isArabic ? "أفلت الملف لبدء التحليل" : "Drop file to start analysis"}
-        </p>
-        <p className="text-sm text-muted-foreground mt-1">PDF, Excel</p>
+```tsx
+{/* Sidebar */}
+<div className="w-48 shrink-0 border-r border-border bg-muted/20 min-h-[600px] flex flex-col">
+  <div className="p-3 flex-1">
+    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">
+      {isArabic ? "التحليل" : "Analysis"}
+    </p>
+    <nav className="space-y-1">
+      {tabs.map(tab => (
+        <button
+          key={tab.id}
+          onClick={() => setActiveTab(tab.id)}
+          className={cn(
+            "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all text-right",
+            activeTab === tab.id
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          {tab.icon}
+          <span>{isArabic ? tab.labelAr : tab.label}</span>
+        </button>
+      ))}
+    </nav>
+  </div>
+
+  {/* مؤشر آخر حفظ + Synced في أسفل القائمة */}
+  <div className="p-3 border-t border-border space-y-2">
+    {lastSavedAt && (
+      <div className="text-xs text-muted-foreground flex items-center gap-1">
+        <Clock className="w-3 h-3" />
+        {lastSavedAt.toLocaleTimeString()}
       </div>
+    )}
+    {user && (
+      <div className={cn("text-xs flex items-center gap-1", ...)}>
+        <Cloud className="w-3 h-3" />
+        {isSavingPrices ? "Syncing..." : "Synced"}
+      </div>
+    )}
+  </div>
+</div>
+```
+
+### 3. تحديث مصفوفة `tabs` لإضافة التسميات العربية
+
+```tsx
+const tabs = [
+  { id: "items",       label: "Items",                labelAr: "البنود",                icon: <Package className="w-4 h-4" /> },
+  { id: "wbs",         label: "WBS",                  labelAr: "هيكل العمل",            icon: <Layers className="w-4 h-4" /> },
+  { id: "costs",       label: "Cost",                 labelAr: "التكاليف",              icon: <DollarSign className="w-4 h-4" /> },
+  { id: "summary",     label: "Brief",                labelAr: "الملخص",               icon: <BarChart3 className="w-4 h-4" /> },
+  { id: "charts",      label: "Charts",               labelAr: "الرسوم البيانية",        icon: <BarChart3 className="w-4 h-4" /> },
+  { id: "timeline",    label: "Time Schedule",        labelAr: "الجدول الزمني",         icon: <CalendarDays className="w-4 h-4" /> },
+  { id: "integration", label: "Schedule Integration", labelAr: "تكامل الجدول",         icon: <Link2 className="w-4 h-4" /> },
+] as const;
+```
+
+### 4. نقل شريط الأزرار (Export/Tools) فوق المحتوى
+
+شريط الأزرار (Save Project · Export · Tools · Compare...) سيُنقل إلى أعلى المحتوى الرئيسي داخل العمود الأيمن بدلاً من أن يكون بجانب التبويبات.
+
+## التغيير الكامل للهيكل
+
+**الحالي:**
+```tsx
+<div className="border-b border-border">
+  <div className="flex items-center justify-between p-4">
+    <div className="flex gap-2"> {/* tabs */} </div>
+    <div className="flex gap-2"> {/* buttons */} </div>
+  </div>
+</div>
+<div className="p-4"> {/* content */} </div>
+```
+
+**الجديد:**
+```tsx
+<div className="flex" style={{ minHeight: '600px' }}>
+  {/* Sidebar */}
+  <div className="w-48 border-r flex flex-col">
+    {/* nav items */}
+  </div>
+
+  {/* Main Content Area */}
+  <div className="flex-1 flex flex-col">
+    {/* Top Toolbar (Buttons) */}
+    <div className="border-b p-4 flex gap-2 flex-wrap">
+      {/* Save · Export · Tools · Compare... */}
     </div>
-  )}
-  {/* ... rest of content */}
-</TabsContent>
-```
-
-**د. تمرير `draggedFile` لـ `BOQAnalyzerPanel` ومسحه بعد الاستخدام:**
-```typescript
-<TabsContent value="analyze">
-  <BOQAnalyzerPanel
-    key={draggedFile?.name} // إعادة mount عند تغيير الملف
-    initialFile={draggedFile || undefined}
-    onProjectSaved={(projectId) => {
-      setDraggedFile(null);
-      fetchProjects();
-      setActiveTab("projects");
-    }}
-    embedded={true}
-  />
-</TabsContent>
-```
-
-**هـ. تحسين شاشة المشاريع الفارغة:**
-إضافة نص توضيحي عن السحب والإفلات تحت الزر الموجود:
-```typescript
-<p className="text-xs text-muted-foreground mt-2">
-  {isArabic ? "أو اسحب وأفلت ملف PDF/Excel مباشرةً هنا" : "Or drag & drop a PDF/Excel file directly here"}
-</p>
+    {/* Tab Content */}
+    <div className="p-4 flex-1">
+      {/* activeTab content */}
+    </div>
+  </div>
+</div>
 ```
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/BOQAnalyzerPanel.tsx` | إضافة `initialFile` prop + `useEffect` لضبطه |
-| `src/pages/SavedProjectsPage.tsx` | إضافة drag-and-drop overlay + تمرير الملف للمكوّن |
+| `src/components/AnalysisResults.tsx` | تحويل التبويبات الأفقية إلى قائمة جانبية عمودية + إعادة ترتيب شريط الأدوات |
 
-## لا تغييرات على قاعدة البيانات
+لا تغييرات على قاعدة البيانات أو Edge Functions أو أي ملفات أخرى.
+
+## ملاحظات التنفيذ
+
+- الـ `as const` على مصفوفة `tabs` يحتاج تحديثاً لإضافة `labelAr` — يجب إزالة `as const` أو توسيعه.
+- عرض القائمة الجانبية `w-48` (192px) مناسب لعرض النصوص مع الأيقونات.
+- على الشاشات الصغيرة يمكن الإبقاء على السلوك الحالي (responsive fallback).
+- الـ KPI Dashboard في أعلى الشاشة يبقى كما هو خارج هيكل الـ sidebar.
