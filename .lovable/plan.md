@@ -1,214 +1,176 @@
 
-# تحسين شاشة Advanced Analysis: Collapsible Sidebar + Pricing Progress + Table Polish
+# تحسينات Advanced Analysis + صفحة المشاريع
 
-## الوضع الحالي
+## ما سيتغير
 
-بعد قراءة `AnalysisResults.tsx` كاملاً (2612 سطر)، الوضع الحالي هو:
+### 1. قائمة Actions في جدول البنود (AnalysisResults.tsx)
 
-**القائمة الجانبية (السطور 1391-1451):**
-- موجودة بعرض ثابت `w-52`
-- لا يمكن إخفاؤها أو طيّها
-- تعرض فقط عناصر التنقل + مؤشر الحفظ في الأسفل
-- لا يوجد مؤشر تقدم التسعير
+الصورة المرفقة تظهر Dropdown menu بالخيارات:
+- **$ Quick Price** — تطبيق AI Rate مباشرة
+- **📄 Detailed Price** — فتح محرر التكاليف المفصل
+- **✏️ Edit** — تعديل الوصف/البيانات
+- **⊗ Clear Price** — مسح السعر المحسوب
+- **🗑️ Delete** — حذف البند
 
-**جدول البنود (السطور 2113-2369):**
-- الأعمدة الحالية: #، Item No.، Item Code، Description، Unit، Qty، AI Rate، Total، Balance، Actions
-- الأعمدة موجودة لكن التصميم يمكن تحسينه
+حالياً عمود Actions يحتوي فقط على زر `Edit` من `ItemCostEditor` + زر حذف مشروط (للبنود بكمية صفر فقط).
 
-**ما يُطلب إضافته:**
-1. **Collapsible Sidebar** - زر طيّ القائمة الجانبية لتوسيع المحتوى
-2. **مؤشر تقدم التسعير** - بجانب تبويب Items في القائمة الجانبية
-3. **تحسين الجدول** - تصميم أكثر وضوحاً وتنظيماً مطابق للصورة
-
-## التغييرات التقنية
-
-### الملف الوحيد: `src/components/AnalysisResults.tsx`
-
----
-
-### 1. إضافة state لطيّ القائمة الجانبية
-
-**بعد السطر 160** (قائمة الـ state):
-```typescript
-const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-```
-
----
-
-### 2. حساب مؤشر تقدم التسعير
-
-**بعد `kpiData` useMemo (السطر 855)**، إضافة:
-```typescript
-// Pricing progress for sidebar badge
-const pricingProgress = useMemo(() => {
-  const items = (data.items || []).filter(item => !!item.item_number && !deletedItemNumbers.has(item.item_number));
-  const pricedItems = items.filter(item => {
-    const calcCosts = getItemCalculatedCosts(item.item_number);
-    return (calcCosts.aiSuggestedRate || 0) > 0;
-  });
-  return { priced: pricedItems.length, total: items.length };
-}, [data.items, deletedItemNumbers, getItemCalculatedCosts]);
-```
-
----
-
-### 3. تحديث هيكل القائمة الجانبية (السطور 1388-1451)
-
-**الهيكل الجديد للـ sidebar:**
+**التغيير:** استبدال الأزرار الحالية بـ `DropdownMenu` موحد بالخيارات الخمسة المطلوبة:
 
 ```tsx
-{/* ── Sidebar + Content layout ── */}
-<div className="flex" style={{ minHeight: '600px' }}>
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+      <MoreHorizontal className="w-4 h-4" />
+    </Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align="end" className="w-44">
+    <DropdownMenuItem onClick={() => handleQuickPrice(item)}>
+      <DollarSign className="w-4 h-4 text-green-600" />
+      {isArabic ? "سعر سريع" : "Quick Price"}
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => openDetailedPrice(item)}>
+      <FileText className="w-4 h-4 text-blue-600" />
+      {isArabic ? "سعر مفصل" : "Detailed Price"}
+    </DropdownMenuItem>
+    <DropdownMenuSeparator />
+    <DropdownMenuItem onClick={() => openCostEditor(item)}>
+      <Edit className="w-4 h-4" />
+      {isArabic ? "تعديل" : "Edit"}
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => handleClearPrice(item.item_number)}>
+      <XCircle className="w-4 h-4" />
+      {isArabic ? "مسح السعر" : "Clear Price"}
+    </DropdownMenuItem>
+    <DropdownMenuSeparator />
+    <DropdownMenuItem
+      onClick={() => handleDeleteZeroQtyRow(item.item_number)}
+      className="text-destructive focus:text-destructive"
+    >
+      <Trash2 className="w-4 h-4" />
+      {isArabic ? "حذف" : "Delete"}
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+```
 
-  {/* ── Left Sidebar ── */}
-  <div className={cn(
-    "shrink-0 border-r border-border bg-muted/20 flex flex-col transition-all duration-200",
-    sidebarCollapsed ? "w-12" : "w-52"
-  )} dir="ltr">
-    
-    {/* Collapse Toggle Button */}
-    <div className="flex items-center justify-between p-2 border-b border-border">
-      {!sidebarCollapsed && (
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
-          {isArabic ? "التحليل" : "Analysis"}
-        </p>
+**Quick Price:** يستخدم `updateAIRate` لضبط AI Rate للبند بقيمة مقترحة (يفتح input صغير أو يطبق متوسط الأسعار المماثلة).
+
+**Detailed Price:** يفتح `ItemCostEditor` (ExcavationCostAnalysis dialog الحالي).
+
+**Clear Price:** يستدعي `updateAIRate(item.item_number, 0)` لمسح الـ AI Rate.
+
+**Delete:** يستدعي `handleDeleteZeroQtyRow` الموجودة (مع إزالة شرط الكمية = صفر لتكون متاحة لأي بند).
+
+---
+
+### 2. البحث الفوري مع تمييز النص بالأصفر (AnalysisResults.tsx)
+
+**الوضع الحالي:** `searchQuery` state موجود (سطر 593) وتُفلتر البنود بناءً عليه في `filteredItems`. لكن النص في خلية Description يُعرض كنص عادي:
+```tsx
+<p className="text-sm ...">
+  {cleanText(item.description)}
+</p>
+```
+
+**التغيير:** إنشاء دالة `highlightText` تُقسّم النص عند تطابق `searchQuery` وتُلف الأجزاء المطابقة بـ `<mark>`:
+
+```tsx
+const highlightText = useCallback((text: string, query: string) => {
+  if (!query.trim()) return <span>{text}</span>;
+  
+  const cleanedText = cleanText(text);
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const parts = cleanedText.split(regex);
+  
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark key={i} className="bg-yellow-300 dark:bg-yellow-600/70 text-foreground rounded px-0.5">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
       )}
-      <button
-        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground ml-auto"
-        title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-      </button>
+    </>
+  );
+}, []);
+```
+
+ثم استخدامها في خلية Description:
+```tsx
+<p className="text-sm font-medium ...">
+  {highlightText(item.description, searchQuery)}
+</p>
+```
+
+البحث فوري لأن `searchQuery` يتغير مع كل ضغطة مفتاح (controlled input موجود بالفعل).
+
+---
+
+### 3. مؤشر تقدم التسعير في كارت المشروع (SavedProjectsPage.tsx)
+
+**الوضع الحالي:** بطاقة المشروع تعرض: الاسم، اسم الملف، عدد البنود، القيمة، التاريخ، والأزرار.
+
+**التغيير:** إضافة شريط تقدم ملوّن يوضح نسبة البنود المسعّرة.
+
+**مصدر البيانات:** كل مشروع يحتوي على `analysis_data` بداخله `items`. البنود المسعّرة هي تلك التي `unit_price > 0` أو `total_price > 0`.
+
+```tsx
+// حساب تقدم التسعير
+const pricedCount = (project.analysis_data?.items || [])
+  .filter((item: any) => (item.unit_price || 0) > 0 || (item.total_price || 0) > 0).length;
+const totalCount = project.items_count || 0;
+const pricingPct = totalCount > 0 ? Math.round((pricedCount / totalCount) * 100) : 0;
+```
+
+**واجهة المستخدم داخل الكارت (بين Stats وDate):**
+```tsx
+{totalCount > 0 && (
+  <div className="mb-3">
+    <div className="flex justify-between items-center mb-1 text-xs text-muted-foreground">
+      <span>{isArabic ? "التسعير" : "Pricing"}</span>
+      <span className={cn(
+        "font-semibold",
+        pricingPct === 100 ? "text-green-600" : pricingPct > 50 ? "text-primary" : "text-orange-500"
+      )}>
+        {pricedCount}/{totalCount} ({pricingPct}%)
+      </span>
     </div>
-
-    {/* Navigation Items */}
-    <div className="p-2 flex-1">
-      <nav className="space-y-1">
-        {tabs.map(tab => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={cn(
-                "w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm font-medium transition-all",
-                sidebarCollapsed ? "justify-center" : (isArabic ? "flex-row-reverse text-right" : "text-left"),
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-              title={sidebarCollapsed ? (isArabic ? tab.labelAr : tab.label) : undefined}
-            >
-              {tab.icon}
-              {!sidebarCollapsed && (
-                <>
-                  <span className="truncate flex-1">{isArabic ? tab.labelAr : tab.label}</span>
-                  {/* Pricing progress badge - only on "items" tab */}
-                  {tab.id === "items" && pricingProgress.total > 0 && (
-                    <span className={cn(
-                      "text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0",
-                      pricingProgress.priced === pricingProgress.total
-                        ? "bg-green-500/20 text-green-600"
-                        : "bg-orange-500/20 text-orange-600"
-                    )}>
-                      {pricingProgress.priced}/{pricingProgress.total}
-                    </span>
-                  )}
-                </>
-              )}
-              {/* Collapsed: small dot indicator for Items tab */}
-              {sidebarCollapsed && tab.id === "items" && pricingProgress.total > 0 && (
-                <span className={cn(
-                  "absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full",
-                  pricingProgress.priced === pricingProgress.total ? "bg-green-500" : "bg-orange-500"
-                )} />
-              )}
-            </button>
-          );
-        })}
-      </nav>
+    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+      <div
+        className={cn(
+          "h-full rounded-full transition-all",
+          pricingPct === 100
+            ? "bg-green-500"
+            : pricingPct > 50
+              ? "bg-primary"
+              : "bg-orange-400"
+        )}
+        style={{ width: `${pricingPct}%` }}
+      />
     </div>
-
-    {/* Bottom status (hidden when collapsed) */}
-    {!sidebarCollapsed && (
-      <div className="p-3 border-t border-border space-y-2">
-        {/* Pricing Progress Bar */}
-        {pricingProgress.total > 0 && (
-          <div className="space-y-1">
-            <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>{isArabic ? "التسعير" : "Pricing"}</span>
-              <span>{Math.round((pricingProgress.priced / pricingProgress.total) * 100)}%</span>
-            </div>
-            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full transition-all"
-                style={{ width: `${(pricingProgress.priced / pricingProgress.total) * 100}%` }}
-              />
-            </div>
-          </div>
-        )}
-        {/* Clock + Cloud sync indicators */}
-        {lastSavedAt && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="w-3 h-3 shrink-0" />
-            <span className="truncate">{lastSavedAt.toLocaleTimeString()}</span>
-          </div>
-        )}
-        {/* ... existing cloud sync code ... */}
-      </div>
-    )}
   </div>
-
-  {/* ── Main Content Area ── */}
-  <div className="flex-1 flex flex-col min-w-0">
-    {/* ... existing toolbar + content ... */}
-  </div>
-</div>
+)}
 ```
 
 ---
-
-### 4. تحسين تصميم الجدول
-
-**رأس الجدول (السطور 2114-2182):** تحسينات بسيطة على الألوان والتباعد:
-- تحديث row header color إلى `bg-primary/10` بدلاً من `bg-slate-100`
-- إضافة خطوط فاصلة أوضح بين المجموعات
-
-**صفوف الجدول (السطور 2208-2341):** تحسينات مرئية:
-- تحسين تمييز صفوف المبالغ العالية والصفر
-- إضافة progress mini-bar في عمود Qty للبنود المسعّرة
-- التأكد أن عمود Total يعرض القيمة بشكل أوضح مع اللون
-
-**الأعمدة الحالية مطابقة للمطلوب:**
-```
-#  |  Item No.  |  Item Code  |  Description  |  Unit  |  Qty  |  AI Rate  |  Total  |  Balance  |  Actions
-```
-
----
-
-### 5. الإصلاحات الإضافية
-
-- **استيراد أيقونات ChevronLeft/ChevronRight** - إضافتها لـ import السطر 2
-- **تأكيد عمل التنقل** - التحقق من الـ `activeTab` state يعمل بشكل صحيح مع القائمة الجديدة
-
----
-
-## ملخص التغييرات
-
-| الجزء | التغيير |
-|-------|---------|
-| State (سطر ~160) | `const [sidebarCollapsed, setSidebarCollapsed] = useState(false)` |
-| Import (سطر 2) | إضافة `ChevronLeft, ChevronRight` |
-| pricingProgress (سطر ~856) | `useMemo` جديد لحساب البنود المسعّرة |
-| Sidebar (سطور 1391-1451) | طي/توسيع + مؤشر تقدم + شريط تقدم |
-| Table header (سطر ~2115) | تحسين الألوان |
-| Table rows (سطر ~2213) | تحسين المرئيات |
 
 ## الملفات المتأثرة
 
-| الملف | التغيير |
-|-------|---------|
-| `src/components/AnalysisResults.tsx` | جميع التغييرات أعلاه |
+| الملف | التغييرات |
+|-------|-----------|
+| `src/components/AnalysisResults.tsx` | (1) استبدال Actions buttons بـ DropdownMenu موحد، (2) دالة `highlightText` + تطبيقها في خلية Description |
+| `src/pages/SavedProjectsPage.tsx` | (3) إضافة شريط تقدم التسعير في بطاقة المشروع |
 
-لا تغييرات على قاعدة البيانات أو Edge Functions.
+## لا تغييرات على قاعدة البيانات
+
+جميع البيانات المطلوبة متوفرة في `analysis_data.items` المحفوظة مع كل مشروع.
+
+## ملاحظات التنفيذ
+
+- دالة `highlightText` تُهرّب أحرف regex الخاصة لتجنب الأخطاء عند البحث بنصوص تحتوي على `(`, `)`, `.` إلخ.
+- يُعاد `regex.test()` مرتين لاختبار التطابق — يجب reset الـ `lastIndex` لأن الـ flag `g` يُبقي الـ index. سيتم استخدام `new RegExp(..., 'gi')` لكل عملية مقارنة بدلاً من regex.test() مباشرة.
+- شريط التسعير في الكارت يستخدم `analysis_data?.items` المخزنة في المشروع وليس بيانات AI Rate الحية من localStorage (لأن بيانات localStorage خاصة بجهاز المستخدم وليست في قاعدة البيانات) — لذا يعرض النسبة بناءً على `unit_price > 0` الموجودة في بيانات التحليل المحفوظة.
+- زر Delete في القائمة سيُتاح لجميع البنود (ليس فقط بكمية صفر) مع نفس آلية الـ Undo الموجودة.
