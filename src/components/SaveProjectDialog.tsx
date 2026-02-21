@@ -52,10 +52,10 @@ export function SaveProjectDialog({
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const saveProject = async (overwrite: boolean, existingId?: string) => {
+  const saveProject = async (overwrite: boolean, existingId?: string, nameOverride?: string) => {
     if (!user) return;
 
-    const trimmedName = projectName.trim();
+    const trimmedName = (nameOverride || projectName).trim();
     setIsSaving(true);
 
     try {
@@ -159,14 +159,15 @@ export function SaveProjectDialog({
   };
 
   const handleSaveWithNewName = () => {
-    // Generate unique name with timestamp
     const timestamp = new Date().toLocaleTimeString("ar-SA", {
       hour: "2-digit",
       minute: "2-digit",
     });
-    setProjectName(`${projectName.trim()} (${timestamp})`);
+    const newName = `${projectName.trim()} (${timestamp})`;
+    setProjectName(newName);
     setDuplicateDialogOpen(false);
     setDuplicateProject(null);
+    saveProject(false, undefined, newName);
   };
 
   return (
@@ -227,7 +228,7 @@ export function SaveProjectDialog({
               يوجد مشروع بنفس الاسم
             </AlertDialogTitle>
             <AlertDialogDescription>
-              يوجد مشروع محفوظ باسم "{duplicateProject?.name}". ماذا تريد أن تفعل؟
+              يوجد مشروع محفوظ باسم "{duplicateProject?.name}". يمكنك استبداله بالبيانات الجديدة أو حفظه باسم مختلف.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
