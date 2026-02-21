@@ -401,14 +401,20 @@ export function calculateTotal(quantity: number, unitPrice: number): number {
  * Safely compute total value from items, filtering out corrupt/overflow numbers
  */
 export function safeTotalValue(items: NormalizedHistoricalItem[]): number {
-  return items.reduce((sum, item) => {
+  let total = 0;
+  let safeTotal = 0; // fallback: only items with computed support
+  for (const item of items) {
     const tp = item.total_price || 0;
-    if (!Number.isFinite(tp) || tp > 1e12 || tp < -1e12) return sum;
+    if (!Number.isFinite(tp) || tp > 1e12 || tp < -1e12) continue;
     const computed = (item.quantity || 0) * (item.unit_price || 0);
     let safeTP = tp;
     // If no qty*price supports the value and it's excessively large, ignore it
     if (computed <= 0 && tp > 1e8) safeTP = 0;
     else if (computed > 0 && tp > 0 && tp / computed > 100) safeTP = computed;
-    return sum + safeTP;
-  }, 0);
+    total += safeTP;
+    if (computed > 0) safeTotal += computed;
+  }
+  // If total is still unreasonably large, fall back to computed-only
+  if (total > 1e12) return safeTotal;
+  return total;
 }
