@@ -143,13 +143,13 @@ export default function NewProjectPage() {
       if (error) throw error;
       
       toast({
-        title: isArabic ? "تم إنشاء المشروع" : "Project Created",
+        title: isArabic ? "🎉 تم إنشاء المشروع بنجاح" : "🎉 Project Created Successfully",
         description: isArabic 
-          ? "تم إنشاء المشروع بنجاح، يمكنك الآن إضافة بنود BOQ"
-          : "Project created successfully, you can now add BOQ items",
+          ? "الخطوة التالية: ارفع ملف BOQ لبدء التحليل"
+          : "Next step: Upload your BOQ file to start analysis",
       });
       
-      navigate(`/projects/${data.id}`, { state: { isNewProject: true } });
+      navigate(`/projects?tab=analyze`, { state: { newProjectId: data.id, newProjectName: data.name } });
     } catch (error: any) {
       console.error("Error creating project:", error);
       toast({
