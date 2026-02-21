@@ -27,7 +27,14 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
   const [searchQuery, setSearchQuery] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [tablePage, setTablePage] = useState(1);
+  const [descColWidth, setDescColWidth] = useState<'sm' | 'md' | 'lg'>('md');
   const { toast } = useToast();
+
+  const descWidthClass = {
+    sm: 'min-w-[200px] max-w-[250px]',
+    md: 'min-w-[300px] max-w-[400px]',
+    lg: 'min-w-[450px] max-w-[600px]',
+  };
 
   const filteredItems = useMemo(() => {
     if (!searchQuery.trim()) return items;
@@ -189,7 +196,7 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
         className={`cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 min-h-[24px] flex items-center group ${!readOnly ? '' : 'cursor-default'}`}
         onClick={() => !readOnly && startEdit(item.id, field, value)}
       >
-        <span className={`text-xs ${isDescription ? 'whitespace-pre-wrap break-words' : 'truncate max-w-[120px]'}`}>{displayValue}</span>
+        <span className={`text-xs ${isDescription ? 'whitespace-pre-wrap break-words leading-relaxed' : 'truncate max-w-[120px]'}`}>{displayValue}</span>
         {!readOnly && (
           <Edit3 className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 mr-1 flex-shrink-0" />
         )}
@@ -219,9 +226,15 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
     <div className="space-y-3">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="secondary">{items.length} بند</Badge>
           <Badge variant="outline">{totalValue.toLocaleString()} إجمالي</Badge>
+          <div className="flex items-center gap-1 border rounded-md px-1 py-0.5">
+            <span className="text-[10px] text-muted-foreground">عرض الوصف:</span>
+            <Button variant={descColWidth === 'sm' ? 'secondary' : 'ghost'} size="sm" className="h-6 text-[10px] px-2" onClick={() => setDescColWidth('sm')}>صغير</Button>
+            <Button variant={descColWidth === 'md' ? 'secondary' : 'ghost'} size="sm" className="h-6 text-[10px] px-2" onClick={() => setDescColWidth('md')}>متوسط</Button>
+            <Button variant={descColWidth === 'lg' ? 'secondary' : 'ghost'} size="sm" className="h-6 text-[10px] px-2" onClick={() => setDescColWidth('lg')}>كبير</Button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -266,8 +279,8 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[60px]">م</TableHead>
-                <TableHead className="text-xs whitespace-nowrap px-2 min-w-[280px]">Description</TableHead>
-                <TableHead className="text-xs whitespace-nowrap px-2 min-w-[280px]">وصف البند</TableHead>
+                <TableHead className={`text-xs whitespace-nowrap px-2 ${descWidthClass[descColWidth]}`}>Description</TableHead>
+                <TableHead className={`text-xs whitespace-nowrap px-2 ${descWidthClass[descColWidth]}`}>وصف البند</TableHead>
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[60px]">الوحدة</TableHead>
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[80px]">الكمية</TableHead>
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[90px]">سعر الوحدة</TableHead>
@@ -289,8 +302,8 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
                 paginatedItems.map((item) => (
                   <TableRow key={item.id} className={isZeroRow(item) ? 'bg-yellow-500/5' : ''}>
                     <TableCell className="px-2">{renderCell(item, 'item_number')}</TableCell>
-                    <TableCell className="px-2">{renderCell(item, 'description')}</TableCell>
-                    <TableCell className="px-2">{renderCell(item, 'description_ar')}</TableCell>
+                    <TableCell className={`px-2 ${descWidthClass[descColWidth]}`}>{renderCell(item, 'description')}</TableCell>
+                    <TableCell className={`px-2 ${descWidthClass[descColWidth]}`}>{renderCell(item, 'description_ar')}</TableCell>
                     <TableCell className="px-2">{renderCell(item, 'unit')}</TableCell>
                     <TableCell className="px-2">{renderCell(item, 'quantity')}</TableCell>
                     <TableCell className="px-2">{renderCell(item, 'unit_price')}</TableCell>
