@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate, Link, useSearchParams, useLocation } from "react-router-dom";
 import {
   FolderOpen, Trash2, Loader2, Calendar, FileText, Search,
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
   SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload,
-  TrendingUp, AlertTriangle, ExternalLink, FileSpreadsheet, History
+  TrendingUp, AlertTriangle, ExternalLink, FileSpreadsheet, History, Check, Pencil
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -138,6 +138,12 @@ export default function SavedProjectsPage() {
   const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   
+  // Inline editing state
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const editInputRef = useRef<HTMLInputElement>(null);
+
   // Drag-and-drop state
   const [draggedFile, setDraggedFile] = useState<File | null>(null);
   const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
@@ -439,6 +445,122 @@ export default function SavedProjectsPage() {
     return result;
   }, [projects, searchQuery, sortField, sortDirection]);
 
+  // Inline edit handlers
+  const handleStartEdit = (project: ProjectData) => {
+    setEditingProjectId(project.id);
+    setEditingName(project.name);
+    setTimeout(() => editInputRef.current?.focus(), 50);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingProjectId(null);
+    setEditingName("");
+  };
+
+  const handleSaveEdit = async (projectId: string) => {
+    const trimmed = editingName.trim();
+    if (!trimmed) {
+      toast({ title: isArabic ? "الاسم مطلوب" : "Name is required", variant: "destructive" });
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      // Check duplicates excluding current project
+      const [{ data: s1 }, { data: s2 }] = await Promise.all([
+        supabase.from("saved_projects").select("id").eq("user_id", user!.id).ilike("name", trimmed).neq("id", projectId).limit(1),
+        supabase.from("project_data").select("id").eq("user_id", user!.id).ilike("name", trimmed).neq("id", projectId).limit(1),
+      ]);
+
+      if ((s1 && s1.length > 0) || (s2 && s2.length > 0)) {
+        toast({ title: isArabic ? "هذا الاسم مستخدم بالفعل" : "This name is already taken", variant: "destructive" });
+        setIsSavingEdit(false);
+        return;
+      }
+
+      // Update both tables in parallel
+      await Promise.all([
+        supabase.from("saved_projects").update({ name: trimmed, updated_at: new Date().toISOString() }).eq("id", projectId),
+        supabase.from("project_data").update({ name: trimmed, updated_at: new Date().toISOString() }).eq("id", projectId),
+      ]);
+
+      // Update locally
+      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, name: trimmed } : p));
+      setEditingProjectId(null);
+      setEditingName("");
+      toast({ title: isArabic ? "تم تحديث الاسم" : "Name updated" });
+    } catch (err: any) {
+      toast({ title: isArabic ? "خطأ في التحديث" : "Update error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  // Excel export handler
+  const handleExportToExcel = async (project: ProjectData) => {
+    try {
+      toast({ title: isArabic ? "جارٍ التصدير..." : "Exporting..." });
+
+      // Fetch project items
+      const { data: items } = await supabase
+        .from("project_items")
+        .select("*")
+        .eq("project_id", project.id)
+        .order("item_number");
+
+      // Fallback to analysis_data items
+      const exportItems = (items && items.length > 0)
+        ? items.map((item: any, idx: number) => ({
+            [isArabic ? "م" : "#"]: idx + 1,
+            [isArabic ? "رقم البند" : "Item No"]: item.item_number || '',
+            [isArabic ? "الوصف" : "Description"]: item.description || '',
+            [isArabic ? "الوحدة" : "Unit"]: item.unit || '',
+            [isArabic ? "الكمية" : "Qty"]: item.quantity || 0,
+            [isArabic ? "سعر الوحدة" : "Unit Price"]: item.unit_price || 0,
+            [isArabic ? "الإجمالي" : "Total"]: item.total_price || ((item.quantity || 0) * (item.unit_price || 0)),
+            [isArabic ? "الفئة" : "Category"]: item.category || '',
+          }))
+        : (project.analysis_data?.items || []).map((item: any, idx: number) => ({
+            [isArabic ? "م" : "#"]: idx + 1,
+            [isArabic ? "رقم البند" : "Item No"]: item.item_number || item.رقم_البند || '',
+            [isArabic ? "الوصف" : "Description"]: item.description || item.الوصف || '',
+            [isArabic ? "الوحدة" : "Unit"]: item.unit || item.الوحدة || '',
+            [isArabic ? "الكمية" : "Qty"]: item.quantity || item.الكمية || 0,
+            [isArabic ? "سعر الوحدة" : "Unit Price"]: item.unit_price || item.سعر_الوحدة || 0,
+            [isArabic ? "الإجمالي" : "Total"]: item.total_price || item.الإجمالي || 0,
+            [isArabic ? "الفئة" : "Category"]: item.category || item.الفئة || '',
+          }));
+
+      if (exportItems.length === 0) {
+        toast({ title: isArabic ? "لا توجد بنود للتصدير" : "No items to export", variant: "destructive" });
+        return;
+      }
+
+      const { createWorkbook, addJsonSheet, downloadWorkbook } = await import("@/lib/exceljs-utils");
+      const wb = createWorkbook();
+      const ws = addJsonSheet(wb, exportItems, isArabic ? "بنود المشروع" : "Project Items");
+
+      // Add total row
+      const totalKey = isArabic ? "الإجمالي" : "Total";
+      const total = exportItems.reduce((sum: number, item: any) => sum + (Number(item[totalKey]) || 0), 0);
+      const totalRow: any = {};
+      const keys = Object.keys(exportItems[0]);
+      keys.forEach(k => totalRow[k] = '');
+      totalRow[keys[0]] = '';
+      totalRow[isArabic ? "الوصف" : "Description"] = isArabic ? "الإجمالي الكلي" : "Grand Total";
+      totalRow[totalKey] = total;
+
+      const lastRowNum = ws.rowCount + 1;
+      const vals = keys.map(k => totalRow[k]);
+      const addedRow = ws.addRow(vals);
+      addedRow.font = { bold: true };
+
+      await downloadWorkbook(wb, `${project.name}.xlsx`);
+      toast({ title: isArabic ? "تم التصدير بنجاح" : "Exported successfully" });
+    } catch (err: any) {
+      toast({ title: isArabic ? "خطأ في التصدير" : "Export error", description: err.message, variant: "destructive" });
+    }
+  };
   const handleLoadProject = (project: ProjectData) => {
     navigate(`/projects/${project.id}`);
   };
@@ -711,9 +833,40 @@ export default function SavedProjectsPage() {
                 {/* Header */}
                 <div className="flex items-start justify-between gap-2 mb-4">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-display font-semibold truncate group-hover:text-primary transition-colors">
-                      {project.name}
-                    </h3>
+                    {editingProjectId === project.id ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          ref={editInputRef}
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveEdit(project.id);
+                            if (e.key === 'Escape') handleCancelEdit();
+                          }}
+                          className="h-8 text-sm"
+                          disabled={isSavingEdit}
+                        />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-green-600" onClick={() => handleSaveEdit(project.id)} disabled={isSavingEdit}>
+                          {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={handleCancelEdit} disabled={isSavingEdit}>
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 group/name">
+                        <h3 className="font-display font-semibold truncate group-hover:text-primary transition-colors">
+                          {project.name}
+                        </h3>
+                        <button
+                          onClick={() => handleStartEdit(project)}
+                          className="opacity-0 group-hover/name:opacity-100 transition-opacity p-1 rounded hover:bg-muted"
+                          title={isArabic ? "تعديل الاسم" : "Edit name"}
+                        >
+                          <Pencil className="w-3 h-3 text-muted-foreground" />
+                        </button>
+                      </div>
+                    )}
                     {project.file_name && (
                       <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
                         <FileText className="w-3 h-3 shrink-0" />
@@ -807,6 +960,14 @@ export default function SavedProjectsPage() {
                     onClick={() => handleViewDetails(project)}
                   >
                     <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleExportToExcel(project)}
+                    title={isArabic ? "تصدير Excel" : "Export Excel"}
+                  >
+                    <Download className="w-4 h-4" />
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -1025,8 +1186,7 @@ export default function SavedProjectsPage() {
                         size="sm"
                         className="gap-2 text-xs"
                         onClick={() => {
-                          setSelectedProject(null);
-                          navigate(`/projects/${selectedProject?.id}`);
+                          if (selectedProject) handleExportToExcel(selectedProject);
                         }}
                       >
                         <FileSpreadsheet className="w-3 h-3" />
