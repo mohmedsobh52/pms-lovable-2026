@@ -1,64 +1,56 @@
 
-# معالجة مشكلة حفظ الإعدادات (المنطقة/المدينة) في تفاصيل المشروع
 
-## المشكلة الرئيسية
+# إضافة تبويب إدارة العقود الهندسية في صفحة تفاصيل المشروع
 
-عند حفظ إعدادات المشروع (بما في ذلك المنطقة والمدينة)، الكود يحاول التحديث دائماً في جدول `project_data`. لكن بعض المشاريع مخزنة في جدول `saved_projects`، مما يعني أن الحفظ يفشل بصمت (لا يظهر خطأ لكن لا يتم حفظ البيانات).
+## الهدف
 
-## الحل
+إضافة تبويب جديد "العقود" في صفحة تفاصيل المشروع (`ProjectDetailsPage`) لربط إدارة العقود الهندسية مباشرة بالمشروع، مع استخدام المكونات الموجودة بالفعل (`ContractManagement`).
 
-### تعديل `src/pages/ProjectDetailsPage.tsx`
+## التغييرات المطلوبة
 
-1. **تتبع مصدر المشروع**: إضافة state جديد `projectSource` لتحديد من أي جدول تم تحميل المشروع (`project_data` أو `saved_projects`).
+### 1. تعديل `src/pages/ProjectDetailsPage.tsx`
 
-2. **تعديل `handleSaveSettings`**: استخدام `projectSource` لتحديد الجدول الصحيح للتحديث:
-   - إذا كان المشروع من `project_data` يتم التحديث فيه
-   - إذا كان من `saved_projects` يتم التحديث فيه مع تعديل أسماء الأعمدة المناسبة
+- إضافة import لـ `ContractManagement` و أيقونة `FileText`
+- إضافة `TabsTrigger` جديد باسم "العقود" / "Contracts" بعد تبويب المستندات
+- إضافة `TabsContent` جديد يعرض مكون `ContractManagement` مع تمرير `projectId`
 
-3. **تعديل `fetchProjectData`**: تسجيل مصدر المشروع عند التحميل.
+```text
+التبويبات بعد التعديل:
+نظرة عامة | جدول الكميات | تحليل متقدم | المستندات | العقود | الإعدادات
+```
+
+### 2. تعديل `src/components/ContractManagement.tsx`
+
+- إضافة prop اختياري `projectId` لتصفية العقود حسب المشروع
+- عند تمرير `projectId`، يتم فلترة العقود المرتبطة بهذا المشروع فقط
+- عند إنشاء عقد جديد من داخل المشروع، يتم ربطه تلقائياً بالمشروع الحالي
 
 ## التفاصيل التقنية
-
-### State جديد
-
-```typescript
-const [projectSource, setProjectSource] = useState<"project_data" | "saved_projects">("project_data");
-```
-
-### تعديل `fetchProjectData`
-
-عند العثور على المشروع في `saved_projects`، يتم تعيين:
-```typescript
-setProjectSource("saved_projects");
-```
-
-### تعديل `handleSaveSettings`
-
-```typescript
-if (projectSource === "saved_projects") {
-  await supabase
-    .from("saved_projects")
-    .update({
-      name: editForm.name.trim(),
-      analysis_data: updatedAnalysisData,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", projectId);
-} else {
-  await supabase
-    .from("project_data")
-    .update({
-      name: editForm.name.trim(),
-      currency: editForm.currency,
-      analysis_data: updatedAnalysisData,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", projectId);
-}
-```
 
 ### الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/ProjectDetailsPage.tsx` | إضافة `projectSource` state، تعديل `fetchProjectData` و `handleSaveSettings` |
+| `src/pages/ProjectDetailsPage.tsx` | إضافة تبويب العقود + import |
+| `src/components/ContractManagement.tsx` | إضافة `projectId` prop اختياري + فلترة |
+
+### تبويب العقود الجديد
+
+```typescript
+<TabsTrigger value="contracts" className="flex items-center gap-1 flex-shrink-0">
+  <FileText className="w-3.5 h-3.5" />
+  {isArabic ? "العقود" : "Contracts"}
+</TabsTrigger>
+
+<TabsContent value="contracts">
+  <ContractManagement projectId={projectId} />
+</TabsContent>
+```
+
+### فلترة العقود حسب المشروع
+
+في `ContractManagement.tsx`، عند وجود `projectId`:
+- الاستعلام يضيف `.eq("project_id", projectId)` 
+- عند إنشاء عقد جديد يتم تعيين `project_id` تلقائياً
+- يبقى المكون يعمل بدون `projectId` في الصفحات الأخرى (مثل `ContractsPage`)
+
