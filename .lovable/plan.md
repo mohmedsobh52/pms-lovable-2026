@@ -1,79 +1,83 @@
 
 
-# حذف مشاريع دفعة واحدة + نسخ/استنساخ مشروع
+# معالجة عدم ظهور الوصف العربي + تحسين الشكل والأداء
 
-## 1. حذف عدة مشاريع دفعة واحدة (Bulk Delete)
+## المشكلة الجذرية
 
-### التغييرات في `src/pages/SavedProjectsPage.tsx`:
+عند رفع ملف Excel يحتوي على عمودي وصف (عربي وإنجليزي)، النظام يتعرف على كليهما كـ `description` ويكتب الثاني فوق الأول. السبب:
 
-**إضافة حالات جديدة:**
-- `selectedProjectIds: Set<string>` لتتبع المشاريع المحددة
-- `isBulkDeleting: boolean` لحالة التحميل أثناء الحذف الجماعي
+1. `COLUMN_PATTERNS` في `excel-utils.ts` يضع كل أنماط الوصف العربي والإنجليزي تحت مفتاح `description` واحد
+2. `ExcelBOQItem` لا يحتوي على حقل `descriptionAr`
+3. `convertExcelToAnalysisItems` لا ينقل `description_ar` إطلاقاً
 
-**إضافة checkbox لكل بطاقة مشروع:**
-- خانة اختيار (Checkbox) في الزاوية العلوية اليسرى لكل بطاقة
-- خانة "تحديد الكل" في شريط الأدوات
+## خطة الحل
 
-**شريط إجراءات جماعي:**
-- يظهر عند تحديد مشروع واحد أو أكثر
-- يعرض عدد المشاريع المحددة
-- زر "حذف المحدد" مع تأكيد عبر AlertDialog
-- زر "إلغاء التحديد"
+### 1. إضافة دعم `descriptionAr` في استخراج Excel
 
-**دالة `handleBulkDelete`:**
-- حذف `project_items` ثم `project_data` ثم `saved_projects` لكل مشروع محدد
-- تحديث القائمة المحلية
-- إعادة تعيين التحديد
+**الملف: `src/lib/excel-utils.ts`**
 
----
+- إضافة `descriptionAr` إلى واجهة `ExcelBOQItem`
+- إضافة نمط `descriptionAr` جديد في `COLUMN_PATTERNS` يحتوي على أنماط عربية محددة مثل: `'وصف البند', 'الوصف', 'البيان', 'الوصف العربي', 'بيان الأعمال', 'وصف', 'بيان', 'التفاصيل', 'الأعمال'`
+- إزالة هذه الأنماط العربية من مفتاح `description` (مع ترك الأنماط الإنجليزية)
+- إضافة منطق ذكي: إذا وُجد عمود واحد فقط للوصف (عربي أو إنجليزي)، يُعامل كـ `description`. إذا وُجد عمودان، يُفصل العربي عن الإنجليزي
+- استخراج القيمة في `extractBOQItems` و `applyCustomMapping`
 
-## 2. نسخ/استنساخ مشروع (Clone Project)
+### 2. نقل `description_ar` عبر سلسلة التحليل
 
-### التغييرات في `src/pages/SavedProjectsPage.tsx`:
+**الملف: `src/lib/local-excel-analysis.ts`**
 
-**إضافة زر نسخ في بطاقة المشروع:**
-- زر جديد بأيقونة Copy بجانب أزرار التصدير والحذف
+- إضافة `description_ar?: string` إلى `LocalAnalysisItem`
+- في `convertExcelToAnalysisItems`: نقل `item.descriptionAr` إلى `description_ar`
 
-**دالة `handleCloneProject(project)`:**
-1. توليد اسم جديد تلقائي: `"${project.name} - نسخة"` أو `"${project.name} - Copy"`
-2. فحص تكرار الاسم وإضافة رقم تسلسلي إذا لزم (نسخة 2، نسخة 3...)
-3. إنشاء سجل جديد في `project_data` بنفس `analysis_data` و `wbs_data`
-4. إنشاء سجل في `saved_projects` بنفس المعرف الجديد
-5. جلب `project_items` الأصلية وإنشاء نسخ منها مع `project_id` الجديد
-6. جلب `item_costs` المرتبطة ونسخها للبنود الجديدة
-7. إعادة تحميل القائمة
+### 3. نقل البيانات في صفحات التحليل
 
----
+**الملفات: `src/pages/Index.tsx` و `src/components/BOQAnalyzerPanel.tsx` و `src/components/project-details/BOQUploadDialog.tsx`**
+
+- التأكد أن `normalizedItems` ينقل `description_ar` في الـ spread operator (غالباً يعمل تلقائياً مع `...item`)
+
+### 4. تحسين حفظ المشروع
+
+**الملف: `src/components/SaveProjectDialog.tsx`**
+
+- التحقق أن `description_ar` يُحفظ مع بنود المشروع (موجود بالفعل في السطر 154)
+
+### 5. تحسين الشكل والأداء في الجدول
+
+**الملف: `src/components/AnalysisResults.tsx`**
+
+- إصلاح auto-detection: إذا كان المستخدم حفظ `boq_visible_columns` سابقاً بدون `description_ar`، يتم إضافته تلقائياً عند وجود بيانات عربية (إزالة شرط `!saved`)
+- تحسين عرض العمود: تقليل `min-w` لتوفير مساحة، وإضافة خلفية خفيفة مميزة للعمود العربي
 
 ## التفاصيل التقنية
 
-### شريط الإجراءات الجماعي (Bulk Actions Bar)
+### التعامل مع عمود وصف واحد vs عمودين
 
 ```text
-عند selectedProjectIds.size > 0:
-  يظهر شريط ثابت أعلى قائمة المشاريع:
-  [✓ تحديد الكل] [X محدد] [🗑 حذف المحدد] [← إلغاء التحديد]
+detectColumnMapping(headers):
+  1. أولاً: البحث عن أنماط descriptionAr (عربية فقط)
+  2. ثانياً: البحث عن أنماط description (إنجليزية فقط) 
+  3. إذا وُجد descriptionAr فقط (بدون description إنجليزي):
+     → فحص محتوى البيانات: إذا كان عربياً، نسخه أيضاً كـ description
+  4. إذا وُجد عمود واحد فقط يطابق أي نمط وصف:
+     → يُعامل كـ description (الأساسي)
+     → إذا كان محتواه عربياً، يُنسخ أيضاً إلى descriptionAr
 ```
 
-### منطق الاستنساخ
+### منطق الكشف الذكي (بعد الاستخراج)
 
 ```text
-handleCloneProject(project):
-  1. baseName = project.name + (isArabic ? " - نسخة" : " - Copy")
-  2. التحقق من عدم تكرار الاسم (إضافة رقم إذا لزم)
-  3. إنشاء projectId جديد (UUID)
-  4. INSERT INTO project_data (id, name, analysis_data, wbs_data, ...)
-  5. INSERT INTO saved_projects (id, name, analysis_data, wbs_data, ...)
-  6. SELECT * FROM project_items WHERE project_id = originalId
-  7. لكل بند: INSERT INTO project_items مع project_id الجديد → حفظ mapping قديم→جديد
-  8. SELECT * FROM item_costs WHERE project_item_id IN (original item ids)
-  9. لكل تكلفة: INSERT INTO item_costs مع project_item_id الجديد (من mapping)
-  10. fetchProjects() لتحديث القائمة
+في extractBOQItems بعد بناء كل item:
+  - إذا وُجد description فقط وهو عربي (يحتوي حروف عربية):
+    → item.descriptionAr = item.description
+  - إذا وُجد descriptionAr فقط بدون description:
+    → item.description = item.descriptionAr (fallback)
 ```
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/SavedProjectsPage.tsx` | Checkbox + شريط إجراءات جماعي + حذف دفعة واحدة + زر نسخ + دالة استنساخ |
+| `src/lib/excel-utils.ts` | إضافة `descriptionAr` في الواجهة والأنماط والاستخراج |
+| `src/lib/local-excel-analysis.ts` | إضافة `description_ar` في الواجهة ونقلها |
+| `src/components/AnalysisResults.tsx` | تحسين auto-detection وتحسين شكل العمود |
 
