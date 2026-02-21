@@ -1,49 +1,46 @@
 
 
-# إصلاح خطأ "Cannot read properties of null (reading 'total_value')"
+# إظهار وصف البند كاملاً (عربي + إنجليزي) بدون قص
 
-## السبب الجذري
+## المشكلة
 
-الدالة `getSafeProjectTotal` تُستدعى في سطرين 826-827 بـ `selectedProject!` (non-null assertion) داخل محتوى الـ Dialog. رغم أن الـ Dialog يكون مغلقاً عندما `selectedProject === null`، إلا أن React يقيّم (renders) المحتوى الداخلي حتى لو كان الـ Dialog مغلقاً. النتيجة: `getSafeProjectTotal(null!)` يحاول قراءة `null.total_value` فيحدث الكراش.
+في ملف `src/components/HistoricalItemsTable.tsx` سطر 192، خلية الوصف تستخدم `truncate` و `max-w-[300px]` مما يقص النص الطويل ويظهر "..." بدلاً من النص الكامل.
+
+```
+<span className="text-xs truncate max-w-[300px]">
+```
 
 ## الحل
 
-### 1. إضافة حماية null في `getSafeProjectTotal`
+### الملف: `src/components/HistoricalItemsTable.tsx`
 
-```typescript
-function getSafeProjectTotal(project: ProjectData | null | undefined): number {
-  if (!project) return 0;
-  const storedTotal = project.total_value || 0;
-  // ... باقي المنطق كما هو
-}
-```
+#### 1. إزالة القص من خلايا الوصف (سطر 192)
 
-### 2. إزالة non-null assertions في حوار التفاصيل (سطر 826-827)
-
-```typescript
+```text
 // الحالي:
-getSafeProjectTotal(selectedProject!)
+<span className={`text-xs truncate ${isDescription ? 'max-w-[300px]' : 'max-w-[120px]'}`}>
 
 // الجديد:
-getSafeProjectTotal(selectedProject)
+<span className={`text-xs ${isDescription ? 'whitespace-pre-wrap break-words' : 'truncate max-w-[120px]'}`}>
 ```
 
-### 3. إضافة حماية إضافية لمحتوى الـ Dialog
+هذا يجعل الوصف (العربي والإنجليزي) يظهر كاملاً مع التفاف تلقائي للنص، بينما تبقى الحقول الأخرى (الكمية، السعر...) مقصوصة كما هي.
 
-لف محتوى الـ Dialog بشرط `selectedProject` لتجنب أي عمليات حساب غير ضرورية عندما لا يوجد مشروع محدد:
+#### 2. توسيع عرض أعمدة الوصف (سطر 269-270)
 
-```typescript
-<DialogContent>
-  {selectedProject && (
-    // ... المحتوى الحالي
-  )}
-</DialogContent>
+```text
+// الحالي:
+<TableHead className="text-xs whitespace-nowrap px-2 min-w-[200px]">Description</TableHead>
+<TableHead className="text-xs whitespace-nowrap px-2 min-w-[200px]">وصف البند</TableHead>
+
+// الجديد:
+<TableHead className="text-xs whitespace-nowrap px-2 min-w-[280px]">Description</TableHead>
+<TableHead className="text-xs whitespace-nowrap px-2 min-w-[280px]">وصف البند</TableHead>
 ```
 
-## التفاصيل التقنية
+## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/SavedProjectsPage.tsx` | إضافة null guard في getSafeProjectTotal + إزالة non-null assertions + لف محتوى Dialog بشرط |
+| `src/components/HistoricalItemsTable.tsx` | إزالة truncate من الوصف + توسيع الأعمدة |
 
-هذا إصلاح بسيط ومباشر يمنع الكراش نهائياً.
