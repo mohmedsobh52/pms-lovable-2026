@@ -109,7 +109,7 @@ const COLUMN_PATTERNS = {
     'م2', 'م3', 'م.ط', 'طن', 'كجم', 'لتر', 'القياس', 'وحدات'
   ],
   quantity: [
-    'qty', 'quantity', 'amount', 'count', 'no.', 'nos', 'quantities', 'qnty',
+    'qty', 'quantity', 'count', 'no.', 'nos', 'quantities', 'qnty',
     'كمية', 'الكمية', 'العدد', 'الكميه', 'الكم', 'الكميات', 'المقدار',
     'حجم', 'الحجم', 'المساحة', 'كميات', 'عدد'
   ],
@@ -840,9 +840,10 @@ export async function extractRawDataFromExcel(
   console.log('extractRawDataFromExcel - Header row index:', headerRowIndex, 'Score:', bestHeaderScore);
   
   const headerRow = data[headerRowIndex] || [];
-  const headers = headerRow.map((h, idx) => 
-    (h != null && String(h).trim()) || `Column_${idx + 1}`
-  );
+  const headers = headerRow.map((h, idx) => {
+    if (h == null || String(h).trim() === '') return `Column_${idx + 1}`;
+    return String(h).trim(); // Always keep as string, even if it looks like a number
+  });
   
   // Fast row extraction with Arabic number conversion
   const rows: Array<Record<string, unknown>> = [];
