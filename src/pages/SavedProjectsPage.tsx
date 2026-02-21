@@ -47,7 +47,8 @@ import {
 import { cn } from "@/lib/utils";
 
 // === Helper functions for safe total value display ===
-function getSafeProjectTotal(project: ProjectData): number {
+function getSafeProjectTotal(project: ProjectData | null | undefined): number {
+  if (!project) return 0;
   const storedTotal = project.total_value || 0;
   if (storedTotal >= 0 && storedTotal < 1e10) return storedTotal;
   
@@ -799,7 +800,7 @@ export default function SavedProjectsPage() {
             </DialogTitle>
           </DialogHeader>
           
-          <div className="overflow-y-auto max-h-[60vh]">
+          {selectedProject && <div className="overflow-y-auto max-h-[60vh]">
             {isLoadingItems ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -823,8 +824,8 @@ export default function SavedProjectsPage() {
                     <p className="font-semibold text-lg text-emerald-600">
                       {formatLargeNumber(
                         projectItems.length > 0 
-                          ? (computeSafeTotalFromItems(projectItems) || getSafeProjectTotal(selectedProject!))
-                          : getSafeProjectTotal(selectedProject!),
+                          ? (computeSafeTotalFromItems(projectItems) || getSafeProjectTotal(selectedProject))
+                          : getSafeProjectTotal(selectedProject),
                         selectedProject?.currency || 'SAR'
                       )}
                     </p>
@@ -928,7 +929,7 @@ export default function SavedProjectsPage() {
                 )}
               </>
             )}
-          </div>
+          </div>}
         </DialogContent>
       </Dialog>
     </div>
