@@ -4,11 +4,12 @@ import {
   FolderOpen, Trash2, Loader2, Calendar, FileText, Search,
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
   SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload,
-  TrendingUp, AlertTriangle, ExternalLink, FileSpreadsheet, History, Check, Pencil
+  TrendingUp, AlertTriangle, ExternalLink, FileSpreadsheet, History, Check, Pencil, Copy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AttachmentsTab } from "@/components/projects/AttachmentsTab";
 import { ReportsTab } from "@/components/projects/ReportsTab";
@@ -147,6 +148,12 @@ export default function SavedProjectsPage() {
   // Drag-and-drop state
   const [draggedFile, setDraggedFile] = useState<File | null>(null);
   const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
+
+  // Bulk selection state
+  const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isCloning, setIsCloning] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   
   // Tab state - check URL for initial tab and mode
   const urlTab = searchParams.get("tab");
@@ -565,6 +572,149 @@ export default function SavedProjectsPage() {
     navigate(`/projects/${project.id}`);
   };
 
+  // Toggle selection of a single project
+  const toggleProjectSelection = (projectId: string) => {
+    setSelectedProjectIds(prev => {
+      const next = new Set(prev);
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+      return next;
+    });
+  };
+
+  // Toggle select all
+  const toggleSelectAll = () => {
+    if (selectedProjectIds.size === filteredProjects.length) {
+      setSelectedProjectIds(new Set());
+    } else {
+      setSelectedProjectIds(new Set(filteredProjects.map(p => p.id)));
+    }
+  };
+
+  // Bulk delete handler
+  const handleBulkDelete = async () => {
+    if (selectedProjectIds.size === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const ids = Array.from(selectedProjectIds);
+      for (const id of ids) {
+        await supabase.from("project_items").delete().eq("project_id", id);
+        await supabase.from("project_data").delete().eq("id", id);
+        await supabase.from("saved_projects").delete().eq("id", id);
+      }
+      toast({
+        title: isArabic
+          ? `تم حذف ${ids.length} مشروع بنجاح`
+          : `${ids.length} projects deleted successfully`,
+      });
+      setSelectedProjectIds(new Set());
+      setShowBulkDeleteConfirm(false);
+      fetchProjects();
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "خطأ في الحذف الجماعي" : "Bulk delete error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  // Clone project handler
+  const handleCloneProject = async (project: ProjectData) => {
+    setIsCloning(true);
+    try {
+      const suffix = isArabic ? " - نسخة" : " - Copy";
+      let newName = project.name + suffix;
+      const existingNames = projects.map(p => p.name);
+      let counter = 1;
+      while (existingNames.includes(newName)) {
+        counter++;
+        newName = project.name + suffix + ` ${counter}`;
+      }
+
+      const newProjectId = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      await supabase.from("project_data").insert({
+        id: newProjectId,
+        name: newName,
+        file_name: project.file_name,
+        analysis_data: project.analysis_data,
+        wbs_data: project.wbs_data,
+        total_value: project.total_value,
+        items_count: project.items_count,
+        currency: project.currency,
+        user_id: user!.id,
+        created_at: now,
+        updated_at: now,
+      });
+
+      await supabase.from("saved_projects").insert({
+        id: newProjectId,
+        name: newName,
+        file_name: project.file_name,
+        analysis_data: project.analysis_data,
+        wbs_data: project.wbs_data,
+        user_id: user!.id,
+        created_at: now,
+        updated_at: now,
+      });
+
+      const { data: originalItems } = await supabase
+        .from("project_items")
+        .select("*")
+        .eq("project_id", project.id);
+
+      if (originalItems && originalItems.length > 0) {
+        const idMapping = new Map<string, string>();
+        const clonedItems = originalItems.map((item: any) => {
+          const newItemId = crypto.randomUUID();
+          idMapping.set(item.id, newItemId);
+          const { id, created_at, ...rest } = item;
+          return { ...rest, id: newItemId, project_id: newProjectId };
+        });
+
+        for (let i = 0; i < clonedItems.length; i += 50) {
+          await supabase.from("project_items").insert(clonedItems.slice(i, i + 50));
+        }
+
+        const originalItemIds = originalItems.map((item: any) => item.id);
+        const { data: originalCosts } = await supabase
+          .from("item_costs")
+          .select("*")
+          .in("project_item_id", originalItemIds);
+
+        if (originalCosts && originalCosts.length > 0) {
+          const clonedCosts = originalCosts
+            .filter((cost: any) => idMapping.has(cost.project_item_id))
+            .map((cost: any) => {
+              const { id, created_at, ...rest } = cost;
+              return { ...rest, id: crypto.randomUUID(), project_item_id: idMapping.get(cost.project_item_id)! };
+            });
+
+          for (let i = 0; i < clonedCosts.length; i += 50) {
+            await supabase.from("item_costs").insert(clonedCosts.slice(i, i + 50));
+          }
+        }
+      }
+
+      toast({
+        title: isArabic ? "تم نسخ المشروع بنجاح" : "Project cloned successfully",
+        description: newName,
+      });
+      fetchProjects();
+    } catch (error: any) {
+      toast({
+        title: isArabic ? "خطأ في نسخ المشروع" : "Clone error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCloning(false);
+    }
+  };
 
   if (authLoading) {
     return (
@@ -794,6 +944,63 @@ export default function SavedProjectsPage() {
           </div>
         </div>
 
+        {/* Bulk Actions Bar */}
+        {selectedProjectIds.size > 0 && (
+          <div className="glass-card p-3 flex items-center justify-between gap-3 border-primary/20 bg-primary/5">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={selectedProjectIds.size === filteredProjects.length && filteredProjects.length > 0}
+                onCheckedChange={toggleSelectAll}
+              />
+              <span className="text-sm font-medium">
+                {selectedProjectIds.size} {isArabic ? "محدد" : "selected"}
+              </span>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedProjectIds(new Set())}>
+                <X className="w-4 h-4 mr-1" />
+                {isArabic ? "إلغاء التحديد" : "Deselect"}
+              </Button>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-2"
+              onClick={() => setShowBulkDeleteConfirm(true)}
+            >
+              <Trash2 className="w-4 h-4" />
+              {isArabic ? `حذف المحدد (${selectedProjectIds.size})` : `Delete Selected (${selectedProjectIds.size})`}
+            </Button>
+          </div>
+        )}
+
+        {/* Bulk Delete Confirmation Dialog */}
+        <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+          <AlertDialogContent dir={isArabic ? 'rtl' : 'ltr'}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {isArabic ? "حذف المشاريع المحددة" : "Delete Selected Projects"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {isArabic
+                  ? `هل أنت متأكد من حذف ${selectedProjectIds.size} مشروع؟ لا يمكن التراجع عن هذا الإجراء.`
+                  : `Are you sure you want to delete ${selectedProjectIds.size} projects? This action cannot be undone.`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-2">
+              <AlertDialogCancel disabled={isBulkDeleting}>
+                {isArabic ? "إلغاء" : "Cancel"}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleBulkDelete}
+                className="bg-destructive text-destructive-foreground"
+                disabled={isBulkDeleting}
+              >
+                {isBulkDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {isArabic ? "حذف" : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Projects Grid */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
@@ -828,10 +1035,20 @@ export default function SavedProjectsPage() {
             {filteredProjects.map((project) => (
               <div
                 key={project.id}
-                className="glass-card p-5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 group"
+                className={cn(
+                  "glass-card p-5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 group relative",
+                  selectedProjectIds.has(project.id) && "border-primary/40 bg-primary/5"
+                )}
               >
+                {/* Selection Checkbox */}
+                <div className="absolute top-3 left-3 z-10">
+                  <Checkbox
+                    checked={selectedProjectIds.has(project.id)}
+                    onCheckedChange={() => toggleProjectSelection(project.id)}
+                  />
+                </div>
                 {/* Header */}
-                <div className="flex items-start justify-between gap-2 mb-4">
+                <div className="flex items-start justify-between gap-2 mb-4 pl-7">
                   <div className="flex-1 min-w-0">
                     {editingProjectId === project.id ? (
                       <div className="flex items-center gap-1">
@@ -968,6 +1185,15 @@ export default function SavedProjectsPage() {
                     title={isArabic ? "تصدير Excel" : "Export Excel"}
                   >
                     <Download className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCloneProject(project)}
+                    disabled={isCloning}
+                    title={isArabic ? "نسخ المشروع" : "Clone Project"}
+                  >
+                    {isCloning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
