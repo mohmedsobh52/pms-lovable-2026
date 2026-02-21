@@ -1,45 +1,76 @@
 
 
-# تحسين أداء قسم العقود الهندسية
+# ربط العقود بالمشاريع وبنود التسعير BOQ + تحسين شكل العقد القانوني
 
-## المشاكل الحالية
+## الهدف
 
-المكون `ContractManagement.tsx` يتكون من **1224 سطر** في ملف واحد، مما يسبب:
+1. إنشاء جدول ربط بين العقود وبنود المشروع (BOQ Items)
+2. إضافة واجهة لاختيار وإضافة بنود BOQ إلى العقد
+3. عرض بنود التسعير المرتبطة في العقد القانوني
+4. تحسين شكل العقد ليبدو كعقد محامي محترف (بنود قانونية إضافية، ترقيم مواد، شروط عامة)
 
-1. **إعادة رندرة كاملة عند كل ضغطة مفتاح** - كل تغيير في النموذج يعيد رندرة الصفحة بالكامل (الهيدر + الإحصائيات + كل التبويبات)
-2. **حسابات متكررة غير ضرورية** - الإحصائيات (إجمالي القيمة، العقود النشطة، نسبة الإنجاز) تُحسب عند كل رندرة
-3. **عدم وجود ترقيم صفحات** - كل العقود تُعرض دفعة واحدة بدون pagination
-4. **عدم تحسين الدوال** - كل الدوال مثل `handleSave`, `handleDelete`, `formatCurrency` تُنشأ من جديد عند كل رندرة
-5. **إنشاء كائنات مضمنة** - مصفوفات الإحصائيات والتبويبات تُنشأ في كل رندرة
+---
 
-## الحل
+## التغييرات المطلوبة
 
-### 1. تحسين الحسابات بـ `useMemo`
+### 1. إنشاء جدول قاعدة بيانات جديد: `contract_boq_items`
 
-تغليف حسابات الإحصائيات (`totalValue`, `activeContracts`, `completedContracts`, `avgProgress`) في `useMemo` بدلاً من حسابها مباشرة.
+جدول ربط بين العقود وبنود المشروع مع إمكانية تخصيص الكمية والسعر لكل عقد:
 
-### 2. تحسين الدوال بـ `useCallback`
+| العمود | النوع | الوصف |
+|--------|-------|-------|
+| id | uuid | المعرف |
+| contract_id | uuid | معرف العقد (FK) |
+| project_item_id | uuid | معرف بند المشروع (FK) |
+| item_number | text | رقم البند |
+| description | text | وصف البند |
+| unit | text | الوحدة |
+| quantity | numeric | الكمية (يمكن تعديلها عن الأصل) |
+| unit_price | numeric | سعر الوحدة |
+| total_price | numeric | الإجمالي |
+| notes | text | ملاحظات |
+| user_id | uuid | معرف المستخدم |
+| created_at | timestamptz | تاريخ الإنشاء |
 
-تغليف الدوال الرئيسية (`handleSave`, `handleDelete`, `resetForm`, `formatCurrency`, `openEditDialog`, `openViewDialog`, `applyTemplate`, `selectFIDIC`) في `useCallback` لمنع إعادة إنشائها.
+مع سياسات RLS للمستخدم المالك.
 
-### 3. فصل المكونات الثقيلة
+### 2. تعديل `src/components/ContractManagement.tsx`
 
-استخراج الأقسام التالية كمكونات فرعية مع `React.memo`:
+**إضافة تبويب جديد "بنود التسعير" (BOQ Items):**
 
-- `ContractStatsBar` - شريط الإحصائيات
-- `ContractCreateForm` - نموذج إنشاء العقد  
-- `FIDICSelector` - تبويب FIDIC
-- `ContractTemplates` - تبويب القوالب
-- `ContractsList` - قائمة العقود
-- `ContractViewDialog` - حوار عرض العقد
+- تبويب سادس في شريط التنقل الداخلي
+- يعرض بنود BOQ المرتبطة بالعقد الحالي (عند عرض/تعديل عقد)
+- زر "إضافة بنود من المشروع" يفتح Dialog لاختيار بنود من `project_items`
+- جدول يعرض البنود المرتبطة مع إمكانية تعديل الكمية/السعر أو الحذف
+- ملخص إجمالي بنود التسعير
 
-### 4. إضافة ترقيم صفحات (Pagination)
+**المنطق:**
+- عند فتح العقد للتعديل/العرض، يتم تحميل `contract_boq_items` المرتبطة
+- عند الضغط على "إضافة بنود"، يتم عرض بنود المشروع المرتبط (`project_id` من العقد) مع checkbox للاختيار
+- البنود المختارة تُنسخ بقيمها الأصلية مع إمكانية التعديل
+- إجمالي بنود التسعير يُعرض ويُقارن بقيمة العقد
 
-استخدام `usePagination` الموجود بالفعل مع `PaginationControls` لعرض العقود على صفحات (10 عقود لكل صفحة).
+### 3. تعديل `src/components/contracts/LegalContractPreview.tsx`
 
-### 5. نقل الثوابت خارج المكون
+**إضافة بنود التسعير في العقد القانوني + تحسين الشكل المهني:**
 
-التأكد من أن `FIDIC_BOOKS`, `CONTRACT_TEMPLATES`, `contractTypes`, `statuses`, `projectTypes`, `contractorCategories` معرّفة خارج المكون (بعضها موجود بالفعل).
+#### بنود قانونية جديدة:
+- **مادة: جدول الكميات والأسعار** - جدول BOQ مفصل بالأرقام والوصف والكميات والأسعار
+- **مادة: الأحكام العامة** - أحكام قانونية معيارية (القوة القاهرة، فسخ العقد، تسوية النزاعات، السرية)
+- **مادة: التزامات الأطراف** - التزامات صاحب العمل والمقاول بشكل مفصل
+- **مادة: أحكام التغييرات** - إجراءات الأوامر التغييرية
+- **مادة: التأمينات** - متطلبات التأمين على الأعمال والعمال
+
+#### تحسينات الشكل:
+- ترقيم المواد بشكل عربي قانوني (المادة الأولى، المادة الثانية...)
+- إضافة عبارة "بسم الله الرحمن الرحيم" في أعلى العقد
+- ديباجة قانونية مفصلة مع ذكر الأهلية القانونية
+- جدول BOQ بتنسيق احترافي مع أرقام وإجماليات
+- عبارة "والله ولي التوفيق" قبل التوقيعات
+- إضافة شاهدين في قسم التوقيعات
+- ترقيم الصفحات في الطباعة
+
+---
 
 ## التفاصيل التقنية
 
@@ -47,51 +78,53 @@
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/ContractManagement.tsx` | تحسينات الأداء + فصل المكونات + pagination |
+| Migration SQL | إنشاء جدول `contract_boq_items` + RLS |
+| `src/components/ContractManagement.tsx` | تبويب BOQ Items + Dialog اختيار بنود + عرض الجدول |
+| `src/components/contracts/LegalContractPreview.tsx` | بنود قانونية جديدة + جدول BOQ + تحسين الشكل المهني |
 
-### تحسينات `useMemo`
+### هيكل تبويب بنود التسعير (BOQ Items Tab)
 
-```typescript
-const stats = useMemo(() => ({
-  totalValue: filteredContracts.reduce((sum, c) => sum + (c.contract_value || 0), 0),
-  activeContracts: filteredContracts.filter(c => c.status === "active").length,
-  completedContracts: filteredContracts.filter(c => c.status === "completed").length,
-  avgProgress: filteredContracts.length > 0
-    ? filteredContracts.reduce((sum, c) => sum + getContractProgress(c), 0) / filteredContracts.length
-    : 0,
-}), [filteredContracts]);
+```text
++-------------------------------------------+
+| [بحث في البنود...]    [+ إضافة بنود]      |
++-------------------------------------------+
+| # | الوصف      | الوحدة | الكمية | السعر | الإجمالي | حذف |
+|---|------------|--------|--------|-------|---------|------|
+| 1 | خرسانة... | م3     | 500    | 1200  | 600,000 |  🗑  |
+| 2 | حديد...   | طن     | 80     | 4500  | 360,000 |  🗑  |
++-------------------------------------------+
+| إجمالي بنود التسعير: 960,000 SAR          |
+| قيمة العقد: 1,000,000 SAR                 |
+| الفرق: 40,000 SAR (4%)                    |
++-------------------------------------------+
 ```
 
-### تحسينات `useCallback`
+### بنود العقد القانوني المحسنة
 
-```typescript
-const handleSave = useCallback(async () => { ... }, [user, formData, editingContract, projectId]);
-const handleDelete = useCallback(async (id: string) => { ... }, [user]);
-const formatCurrency = useCallback((value: number, currency: string) => { ... }, [isArabic]);
-```
+```text
+بسم الله الرحمن الرحيم
+عـقـد مـقـاولـة
 
-### نقل الثوابت خارج المكون
+التمهيد (ديباجة قانونية)
+المادة الأولى: موضوع العقد ونطاق الأعمال
+المادة الثانية: قيمة العقد
+المادة الثالثة: جدول الكميات والأسعار (BOQ) ← جديد
+المادة الرابعة: مدة العقد
+المادة الخامسة: الشروط المالية
+المادة السادسة: شروط الدفع
+المادة السابعة: التزامات صاحب العمل ← جديد
+المادة الثامنة: التزامات المقاول ← جديد
+المادة التاسعة: أحكام التغييرات ← جديد
+المادة العاشرة: التأمينات ← جديد
+المادة الحادية عشرة: الأحكام العامة ← جديد
+  - القوة القاهرة
+  - فسخ العقد
+  - تسوية النزاعات
+  - السرية
+  - الإخطارات
+المادة الثانية عشرة: أحكام ختامية ← جديد
 
-نقل `statuses`, `contractorCategories`, `projectTypes`, `contractTypes` خارج المكون لأنها ثابتة ولا تعتمد على أي state.
-
-### إضافة Pagination
-
-```typescript
-const pagination = usePagination({ pageSize: 10 });
-
-useEffect(() => {
-  pagination.setTotalItems(filteredContracts.length);
-}, [filteredContracts.length]);
-
-const paginatedContracts = useMemo(() => {
-  return filteredContracts.slice(pagination.from, pagination.to + 1);
-}, [filteredContracts, pagination.from, pagination.to]);
-```
-
-### فصل المكونات الفرعية (داخل نفس الملف باستخدام React.memo)
-
-```typescript
-const ContractCard = React.memo(({ contract, onView, onEdit, onDelete, ... }) => { ... });
-const StatsBar = React.memo(({ stats, formatCurrency, isArabic }) => { ... });
+والله ولي التوفيق
+التوقيعات (طرف أول + طرف ثاني + شاهد أول + شاهد ثاني)
 ```
 
