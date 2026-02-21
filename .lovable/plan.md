@@ -1,112 +1,93 @@
 
 
-# إصلاح القيمة الإجمالية الخاطئة في بطاقات الملفات التاريخية
+# إصلاح أخطاء صفحة Time Schedule وتحسين الأداء والشكل
 
-## المشكلة الحقيقية
+## الأخطاء المكتشفة
 
-الإصلاحات السابقة عالجت القيمة داخل حوار العرض فقط (View Dialog)، لكن **بطاقة الملف في القائمة** لا تزال تعرض `total_value` المخزن في قاعدة البيانات مباشرة (240 كوينتيليون). السبب:
+### 1. خطأ "Missing key prop" في ScheduleIntegration
+في السطر 540 من `ScheduleIntegration.tsx`، يتم استخدام Fragment فارغ `<>` داخل `.map()` بدون خاصية `key`. يجب تغييره إلى `<Fragment key={idx}>`.
 
-1. قائمة الملفات تجلب البيانات بدون عمود `items` (لأسباب أداء)، فلا يمكن حساب `safeTotalValue` من البنود
-2. شرط الإصلاح التلقائي (auto-fix) يعمل فقط عند فتح حوار العرض، لكن المستخدم يرى القيمة الخاطئة قبل أن يفتح الحوار
-3. شرط الإصلاح يشترط `total_value > 1e15` لكن يجب أن يكون `> 1e12`
+### 2. عدم تمرير `projectId` إلى ProjectTimeline
+في `AnalysisResults.tsx` (سطر 2755)، يتم استدعاء `<ProjectTimeline wbsData={wbsData.wbs} />` بدون تمرير `projectId` و `projectName`، مما يمنع حفظ التقديرات الزمنية في قاعدة البيانات.
 
-## الحل (3 خطوات)
+### 3. زر "Generate WBS First" لا ينتقل لتبويب WBS
+الزر يستدعي `onGenerateWBS` مباشرة لكن لا ينتقل المستخدم إلى تبويب WBS لرؤية النتيجة، ثم يحتاج العودة يدوياً لتبويب Time Schedule.
 
-### 1. تنظيف `total_value` عند عرض القائمة
+### 4. أداء ضعيف - استيراد XLSX غير ضروري عند التحميل الأول
+`ProjectTimeline` يستورد `XLSX` من exceljs-utils في كل تحميل، مما يبطئ العرض الأولي.
 
-في عرض بطاقة الملف، إذا كانت `total_value > 1e12` يتم عرض "قيمة غير صحيحة" مع علامة تحذير بدلاً من الرقم الضخم.
+## الحلول المقترحة
 
-### 2. إصلاح تلقائي عند فتح حوار العرض
+### الملف 1: `src/components/ScheduleIntegration.tsx`
+- تغيير `<>` إلى `<Fragment key={idx}>` في سطر 540
+- إضافة `import { Fragment }` من React
 
-تخفيف شرط auto-fix من `> 1e15` إلى `> 1e12`، وإضافة تحديث فوري لقائمة `files` في الذاكرة بعد الإصلاح حتى تظهر القيمة الصحيحة فوراً بدون إعادة تحميل.
+### الملف 2: `src/components/AnalysisResults.tsx`
+- تمرير `projectId={savedProjectId}` و `projectName={fileName}` إلى `<ProjectTimeline>`
+- تحسين زر "Generate WBS First" ليقوم أولاً بإنشاء WBS ثم ينتقل تلقائياً لتبويب WBS
 
-### 3. إضافة زر "إصلاح القيم" في القائمة
+### الملف 3: `src/components/ProjectTimeline.tsx`
+- تحويل استيراد XLSX إلى dynamic import داخل دالة `exportToExcel` فقط
+- تحسين الشكل العام:
+  - إضافة تأثيرات حركية للأشرطة الزمنية
+  - تحسين ألوان بطاقات الإحصائيات
+  - إضافة حالة فارغة أكثر جاذبية مع رسوم متحركة
+  - تحسين استجابة الشاشة على الأجهزة الصغيرة
 
-إضافة زر صغير بجانب القيمة الخاطئة يقوم بتحميل بنود الملف وإعادة حساب القيمة الصحيحة وتحديث قاعدة البيانات.
+## التفاصيل التقنية
+
+### إصلاح Missing Key (ScheduleIntegration.tsx)
+
+```text
+السطر 540:
+الحالي:  <>
+الجديد:  <Fragment key={idx}>
+
+وإغلاقه المقابل:
+الحالي:  </>
+الجديد:  </Fragment>
+```
+
+### تمرير projectId (AnalysisResults.tsx)
+
+```text
+السطر 2755:
+الحالي:
+  <ProjectTimeline wbsData={wbsData.wbs} />
+
+الجديد:
+  <ProjectTimeline 
+    wbsData={wbsData.wbs} 
+    projectId={savedProjectId}
+    projectName={fileName || "المشروع"}
+  />
+```
+
+### Dynamic Import لـ XLSX (ProjectTimeline.tsx)
+
+```text
+الحالي (سطر 14):
+  import { XLSX } from "@/lib/exceljs-utils";
+
+الجديد:
+  // إزالة الاستيراد الثابت
+
+  // داخل exportToExcel:
+  const { XLSX } = await import("@/lib/exceljs-utils");
+```
+
+### تحسين الشكل (ProjectTimeline.tsx)
+
+- إضافة تدرجات لونية لأشرطة Gantt بدلاً من ألوان مسطحة
+- تحسين حالة "لا يوجد جدول زمني" بأيقونة متحركة وأزرار أوضح
+- تحسين بطاقات الإحصائيات بتأثير hover
+- تقليل الحد الأدنى لعرض الجدول من 800px إلى 600px لتحسين العرض على الشاشات الصغيرة
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/HistoricalPricingPage.tsx` | تنظيف العرض + إصلاح auto-fix + زر إصلاح |
+| `src/components/ScheduleIntegration.tsx` | إصلاح missing key prop |
+| `src/components/AnalysisResults.tsx` | تمرير projectId/projectName للجدول الزمني |
+| `src/components/ProjectTimeline.tsx` | Dynamic import + تحسين الشكل والأداء |
 
-## التفاصيل التقنية
-
-### تنظيف عرض القيمة في البطاقة (سطر 978-982)
-
-```text
-الحالي:
-  <p className="text-lg font-bold" title={file.total_value?.toLocaleString()}>
-    {formatLargeNumber(file.total_value || 0)}
-  </p>
-
-الجديد:
-  {file.total_value > 1e12 ? (
-    <div className="flex items-center gap-1">
-      <AlertTriangle className="w-4 h-4 text-amber-500" />
-      <span className="text-xs text-amber-600">قيمة تحتاج إصلاح</span>
-      <Button size="sm" variant="ghost" className="h-6 px-2"
-        onClick={(e) => { e.stopPropagation(); fixFileTotal(file); }}>
-        <RefreshCw className="w-3 h-3" />
-      </Button>
-    </div>
-  ) : (
-    <p className="text-lg font-bold">{formatLargeNumber(file.total_value || 0)}</p>
-  )}
-```
-
-### دالة fixFileTotal الجديدة
-
-```text
-const fixFileTotal = async (file: HistoricalFileMeta) => {
-  // 1. تحميل بنود الملف من DB
-  const { data } = await supabase
-    .from("historical_pricing_files")
-    .select("items")
-    .eq("id", file.id)
-    .single();
-  
-  // 2. حساب القيمة الصحيحة
-  const normalized = normalizeHistoricalItems(data.items);
-  const correctTotal = safeTotalValue(normalized);
-  
-  // 3. تحديث DB
-  await supabase.from("historical_pricing_files")
-    .update({ total_value: correctTotal })
-    .eq("id", file.id);
-  
-  // 4. تحديث القائمة في الذاكرة فوراً
-  setFiles(prev => prev.map(f => 
-    f.id === file.id ? { ...f, total_value: correctTotal } : f
-  ));
-  
-  toast.success("تم إصلاح القيمة الإجمالية");
-};
-```
-
-### تعديل شرط auto-fix (سطر 1075-1076)
-
-```text
-الحالي:
-  if (selectedFile.total_value && Math.abs(computedTotal - selectedFile.total_value) > 1 && 
-      (!Number.isFinite(selectedFile.total_value) || selectedFile.total_value > 1e15))
-
-الجديد:
-  if (selectedFile.total_value && Math.abs(computedTotal - selectedFile.total_value) > 1 && 
-      (!Number.isFinite(selectedFile.total_value) || selectedFile.total_value > 1e12 || 
-       (computedTotal > 0 && selectedFile.total_value / computedTotal > 100)))
-```
-
-وإضافة تحديث فوري لقائمة files بعد الإصلاح:
-
-```text
-supabase.from("historical_pricing_files")
-  .update({ total_value: computedTotal })
-  .eq("id", selectedFile.id)
-  .then(() => {
-    // تحديث القائمة فوراً
-    setFiles(prev => prev.map(f => 
-      f.id === selectedFile.id ? { ...f, total_value: computedTotal } : f
-    ));
-  });
-```
