@@ -50,7 +50,7 @@ import { cn } from "@/lib/utils";
 function getSafeProjectTotal(project: ProjectData | null | undefined): number {
   if (!project) return 0;
   const storedTotal = project.total_value || 0;
-  if (storedTotal >= 0 && storedTotal < 1e10) return storedTotal;
+  if (storedTotal > 0 && storedTotal < 1e10) return storedTotal;
   
   const items = project.analysis_data?.items || [];
   if (items.length === 0) return 0;
@@ -62,15 +62,14 @@ function getSafeProjectTotal(project: ProjectData | null | undefined): number {
     const tp = parseFloat(item.total_price) || 0;
     const computed = qty * price;
     
-    let safeTP = tp;
-    if (computed > 0 && tp > 0 && tp / computed > 100) safeTP = computed;
-    else if (computed <= 0 && tp > 1e8) safeTP = 0;
-    else if (!Number.isFinite(tp) || tp > 1e12) safeTP = computed > 0 ? computed : 0;
-    
-    total += safeTP;
+    if (computed > 0) {
+      total += computed;
+    } else if (tp > 0 && tp < 1e10) {
+      total += tp;
+    }
   }
   
-  return total > 1e12 ? 0 : total;
+  return total;
 }
 
 function formatLargeNumber(value: number, currency?: string): string {
@@ -81,13 +80,11 @@ function formatLargeNumber(value: number, currency?: string): string {
 
 function computeSafeTotalFromItems(items: ProjectItem[]): number {
   return items.reduce((sum, item) => {
-    const tp = item.total_price || 0;
     const computed = (item.quantity || 0) * (item.unit_price || 0);
-    let safe = tp;
-    if (computed > 0 && tp > 0 && tp / computed > 100) safe = computed;
-    else if (computed <= 0 && tp > 1e8) safe = 0;
-    if (!Number.isFinite(safe)) safe = 0;
-    return sum + safe;
+    const tp = item.total_price || 0;
+    if (computed > 0) return sum + computed;
+    if (tp > 0 && Number.isFinite(tp) && tp < 1e10) return sum + tp;
+    return sum;
   }, 0);
 }
 
@@ -197,7 +194,15 @@ export default function SavedProjectsPage() {
           analysis_data: p.analysis_data,
           wbs_data: p.wbs_data,
           items_count: analysisData?.items?.length || analysisData?.summary?.total_items || 0,
-          total_value: analysisData?.summary?.total_value || 0,
+          total_value: (() => {
+            const summaryTotal = analysisData?.summary?.total_value || 0;
+            if (summaryTotal > 0 && summaryTotal < 1e10) return summaryTotal;
+            return (analysisData?.items || []).reduce((sum: number, item: any) => {
+              const computed = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
+              const tp = parseFloat(item.total_price) || 0;
+              return sum + (computed > 0 ? computed : (tp > 0 && tp < 1e10 ? tp : 0));
+            }, 0);
+          })(),
           currency: analysisData?.summary?.currency || 'SAR',
           created_at: p.created_at,
           updated_at: p.updated_at,
