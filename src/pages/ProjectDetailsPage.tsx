@@ -61,6 +61,7 @@ export default function ProjectDetailsPage() {
   };
   
   const [project, setProject] = useState<ProjectData | null>(null);
+  const [projectSource, setProjectSource] = useState<"project_data" | "saved_projects">("project_data");
   const [items, setItems] = useState<ProjectItem[]>([]);
   const [attachments, setAttachments] = useState<ProjectAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -137,6 +138,7 @@ export default function ProjectDetailsPage() {
           if (savedError) throw savedError;
           
           if (savedProject) {
+            setProjectSource("saved_projects");
             // Transform saved_projects data to match ProjectData interface
             const savedAnalysisData = savedProject.analysis_data as any;
             projectData = {
@@ -473,17 +475,28 @@ export default function ProjectDetailsPage() {
         }
       };
 
-      const { error } = await supabase
-        .from("project_data")
-        .update({
-          name: editForm.name.trim(),
-          currency: editForm.currency,
-          analysis_data: updatedAnalysisData,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", projectId);
-
-      if (error) throw error;
+      if (projectSource === "saved_projects") {
+        const { error } = await supabase
+          .from("saved_projects")
+          .update({
+            name: editForm.name.trim(),
+            analysis_data: updatedAnalysisData,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", projectId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("project_data")
+          .update({
+            name: editForm.name.trim(),
+            currency: editForm.currency,
+            analysis_data: updatedAnalysisData,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", projectId);
+        if (error) throw error;
+      }
 
       setProject(prev => prev ? {
         ...prev,
