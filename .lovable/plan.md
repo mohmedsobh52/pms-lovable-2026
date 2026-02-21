@@ -1,83 +1,54 @@
 
-
-# تحديث القيمة الإجمالية (Value) لتظهر بشكل صحيح
+# تحديث القيمة الإجمالية في قاعدة البيانات عند اكتشاف قيم فاسدة
 
 ## المشكلة
 
-عند تحميل المشاريع، القيمة الإجمالية `total_value` تُستخرج من `analysis_data.summary.total_value`. إذا كانت القيمة المخزنة فاسدة (أكبر من 10 مليار)، الدالة `getSafeProjectTotal` تحاول إعادة الحساب من `analysis_data.items` لكنها تفشل أحياناً وتعرض "0 SAR".
-
-المشكلة الأساسية: الدالة تعتمد فقط على `total_price` المخزن في كل بند، لكن بعض البنود لا تحتوي على `total_price` وإنما على `unit_price` و `quantity` فقط.
+القيمة الإجمالية المخزنة في `analysis_data.summary.total_value` في قاعدة البيانات فاسدة (240,568,176,224,047,730,000 SAR). الكود الحالي يعيد حسابها للعرض فقط لكن لا يحفظ القيمة الصحيحة في قاعدة البيانات، فتظل القيمة الخاطئة تظهر.
 
 ## الحل
 
 ### الملف: `src/pages/SavedProjectsPage.tsx`
 
-#### 1. تحسين `getSafeProjectTotal` (سطر 50-74)
+بعد تحميل المشاريع وحساب القيم الصحيحة، إضافة دالة تقوم بتحديث القيم الفاسدة مباشرة في قاعدة البيانات (`saved_projects` و `project_data`). هذا يعني أن القيمة ستُصحح مرة واحدة ولن تظهر خاطئة مرة أخرى.
 
-تحسين إعادة حساب القيمة عند التصحيح: استخدام `quantity * unit_price` كبديل عندما `total_price` غير متاح أو فاسد.
+#### 1. إضافة دالة `fixCorruptedTotals` بعد `fetchProjects`
+
+بعد حساب `allProjects`، نمر على كل مشروع ونقارن القيمة المخزنة بالقيمة المحسوبة. إذا كانت مختلفة (القيمة المخزنة فاسدة)، نقوم بتحديث `analysis_data.summary.total_value` في قاعدة البيانات:
 
 ```text
-function getSafeProjectTotal(project: ProjectData | null | undefined): number {
-  if (!project) return 0;
-  const storedTotal = project.total_value || 0;
-  if (storedTotal > 0 && storedTotal < 1e10) return storedTotal;
-  
-  const items = project.analysis_data?.items || [];
-  if (items.length === 0) return 0;
-  
-  let total = 0;
-  for (const item of items) {
-    const qty = parseFloat(item.quantity) || 0;
-    const price = parseFloat(item.unit_price) || 0;
-    const tp = parseFloat(item.total_price) || 0;
-    const computed = qty * price;
-    
-    // استخدام القيمة المحسوبة إذا كانت متاحة، وإلا total_price
-    if (computed > 0) {
-      total += computed;
-    } else if (tp > 0 && tp < 1e10) {
-      total += tp;
-    }
+// بعد سطر 234 (setProjects(allProjects))
+// تصحيح القيم الفاسدة في قاعدة البيانات
+for (const project of allProjects) {
+  const storedTotal = project.analysis_data?.summary?.total_value || 0;
+  if (storedTotal >= 1e10 || storedTotal < 0) {
+    const correctedTotal = project.total_value; // القيمة المحسوبة أعلاه
+    const updatedAnalysis = {
+      ...project.analysis_data,
+      summary: {
+        ...(project.analysis_data?.summary || {}),
+        total_value: correctedTotal,
+      },
+    };
+    // تحديث saved_projects
+    await supabase
+      .from('saved_projects')
+      .update({ analysis_data: updatedAnalysis, updated_at: new Date().toISOString() })
+      .eq('id', project.id);
+    // تحديث project_data أيضاً
+    await supabase
+      .from('project_data')
+      .update({ analysis_data: updatedAnalysis, total_value: correctedTotal, updated_at: new Date().toISOString() })
+      .eq('id', project.id);
   }
-  
-  return total;
 }
 ```
 
-#### 2. تحسين حساب `total_value` عند تحميل المشاريع (سطر 200)
+#### 2. إزالة شارة "Corrected" بعد التصحيح الدائم
 
-عند تحميل المشروع، حساب القيمة الإجمالية من البنود مباشرة إذا كان `summary.total_value` صفراً أو فاسداً:
-
-```text
-// سطر 199-201
-const summaryTotal = analysisData?.summary?.total_value || 0;
-const itemsTotal = (analysisData?.items || []).reduce((sum: number, item: any) => {
-  const computed = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-  const tp = parseFloat(item.total_price) || 0;
-  return sum + (computed > 0 ? computed : (tp > 0 && tp < 1e10 ? tp : 0));
-}, 0);
-total_value: (summaryTotal > 0 && summaryTotal < 1e10) ? summaryTotal : itemsTotal,
-```
-
-#### 3. تحسين `computeSafeTotalFromItems` (سطر 82-92)
-
-نفس المنطق: إضافة حساب `quantity * unit_price` كبديل:
-
-```text
-function computeSafeTotalFromItems(items: ProjectItem[]): number {
-  return items.reduce((sum, item) => {
-    const computed = (item.quantity || 0) * (item.unit_price || 0);
-    const tp = item.total_price || 0;
-    if (computed > 0) return sum + computed;
-    if (tp > 0 && Number.isFinite(tp) && tp < 1e10) return sum + tp;
-    return sum;
-  }, 0);
-}
-```
+بما أن القيمة ستُصحح فعلياً في قاعدة البيانات، لن تحتاج شارة "Corrected" بعد التحميل التالي. سيتم الإبقاء عليها فقط أثناء الجلسة الحالية كمؤشر أن التصحيح تم.
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/SavedProjectsPage.tsx` | تحسين 3 دوال لحساب القيمة الصحيحة من البنود |
-
+| `src/pages/SavedProjectsPage.tsx` | إضافة تحديث تلقائي للقيم الفاسدة في قاعدة البيانات عند تحميل المشاريع |
