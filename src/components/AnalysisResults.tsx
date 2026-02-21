@@ -48,6 +48,7 @@ import { ContractManagement } from "./ContractManagement";
 import { CostBenefitAnalysis } from "./CostBenefitAnalysis";
 import { ProjectComparisonPDFExport } from "./ProjectComparisonPDFExport";
 import { QuickPriceDialog } from "@/components/project-details/QuickPriceDialog";
+import DetailedPriceDialog from "@/components/pricing/DetailedPriceDialog";
 import { EVMAlertSettings } from "./EVMAlertSettings";
 import { RiskDetailedReport } from "./RiskDetailedReport";
 import { ContractLinkage } from "./ContractLinkage";
@@ -593,6 +594,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   // Search and filter states
    const [searchQuery, setSearchQuery] = useState("");
    const [quickPriceItem, setQuickPriceItem] = useState<any>(null);
+   const [detailedPriceItem, setDetailedPriceItem] = useState<any>(null);
   const [unitFilter, setUnitFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [costRangeFilter, setCostRangeFilter] = useState<string>("all");
@@ -2418,27 +2420,24 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                                   <DollarSign className="w-4 h-4 text-green-600" />
                                   <span>{isArabic ? "سعر سريع" : "Quick Price"}</span>
                                 </DropdownMenuItem>
-                                {/* Detailed Price - opens ItemCostEditor */}
-                                <div className="flex items-center px-2 py-1.5 text-sm gap-2 cursor-pointer hover:bg-accent rounded-sm transition-colors"
-                                  onClick={(e) => e.stopPropagation()}>
-                                  <ItemCostEditor
-                                    itemId={item.item_number}
-                                    itemDescription={item.description}
-                                    quantity={item.quantity}
-                                    currentCosts={costData}
-                                    calculatedCosts={calcCosts}
-                                    onSave={handleSaveItemCost}
-                                    onCopyFrom={handleCopyFromItem}
-                                    onSaveAsTemplate={handleSaveAsTemplate}
-                                    onApplyTemplate={handleApplyTemplate}
-                                    onDeleteTemplate={handleDeleteTemplate}
-                                    savedTemplate={savedTemplate}
-                                    savedTemplates={savedTemplates}
-                                    availableItems={availableItemsForCopy}
-                                    currency={data.summary?.currency || "SAR"}
-                                  />
-                                  <span className="flex-1">{isArabic ? "سعر مفصل" : "Detailed Price"}</span>
-                                </div>
+                                {/* Detailed Price - opens DetailedPriceDialog */}
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setDetailedPriceItem({
+                                      id: item.item_number,
+                                      item_number: item.item_number,
+                                      description: item.description,
+                                      unit: item.unit,
+                                      quantity: item.quantity,
+                                      unit_price: item.unit_price || null,
+                                      total_price: item.total_price || null,
+                                    });
+                                  }}
+                                  className="gap-2 cursor-pointer"
+                                >
+                                  <Calculator className="w-4 h-4 text-blue-600" />
+                                  <span>{isArabic ? "سعر مفصل" : "Detailed Price"}</span>
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 {/* Clear Price */}
                                 <DropdownMenuItem
@@ -2752,6 +2751,25 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
         }}
         isArabic={isArabic}
         currency={data.summary?.currency || "SAR"}
+      />
+
+      {/* Detailed Price Dialog */}
+      <DetailedPriceDialog
+        isOpen={!!detailedPriceItem}
+        onClose={() => setDetailedPriceItem(null)}
+        item={detailedPriceItem}
+        currency={data.summary?.currency || "SAR"}
+        onSave={() => setDetailedPriceItem(null)}
+        onApplyPrice={(unitPrice) => {
+          if (detailedPriceItem) {
+            updateAIRate(detailedPriceItem.item_number, unitPrice);
+            toast({
+              title: isArabic ? "تم تطبيق السعر" : "Price applied",
+              description: unitPrice.toLocaleString(),
+            });
+            setDetailedPriceItem(null);
+          }
+        }}
       />
     </>
   );
