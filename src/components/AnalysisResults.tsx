@@ -115,6 +115,7 @@ function isValidArabicText(text: string): boolean {
 interface BOQItem {
   item_number: string;
   description: string;
+  description_ar?: string;
   unit: string;
   quantity: number;
   unit_price?: number;
@@ -262,7 +263,29 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     const saved = localStorage.getItem("boq_visible_columns");
     return saved ? JSON.parse(saved) : BOQ_TABLE_COLUMNS.map(col => col.id);
   });
-  
+
+  // Auto-detect Arabic descriptions and add column if present
+  const hasArabicDescriptions = useMemo(() => {
+    return data?.items?.some(item => (item as any).description_ar?.trim()) ?? false;
+  }, [data?.items]);
+
+  useEffect(() => {
+    if (hasArabicDescriptions && !visibleColumns.includes("description_ar")) {
+      const saved = localStorage.getItem("boq_visible_columns");
+      if (!saved) {
+        setVisibleColumns(prev => {
+          const descIdx = prev.indexOf("description");
+          if (descIdx >= 0) {
+            const next = [...prev];
+            next.splice(descIdx + 1, 0, "description_ar");
+            return next;
+          }
+          return [...prev, "description_ar"];
+        });
+      }
+    }
+  }, [hasArabicDescriptions]);
+
   // ---- Manual edits persistence using database (instead of localStorage) ----
   const {
     editedPrices: dbEditedPrices,
@@ -2136,11 +2159,13 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const headers = ["Item #", "Item Code", "Description", "Unit", "Quantity", "Unit Price (SAR)", "Total Price (SAR)"];
+                    const hasArabicDesc = filteredItems.some(item => (item as any).description_ar?.trim());
+                    const headers = ["Item #", "Item Code", "Description", ...(hasArabicDesc ? ["Arabic Description"] : []), "Unit", "Quantity", "Unit Price (SAR)", "Total Price (SAR)"];
                     const rows = filteredItems.map((item, idx) => [
                       String(idx + 1),
                       item.item_number,
                       item.description,
+                      ...(hasArabicDesc ? [(item as any).description_ar || ""] : []),
                       item.unit,
                       item.quantity.toString(),
                       item.unit_price?.toString() || "",
@@ -2241,6 +2266,11 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                           Description
                           {pinnedColumns.includes("description") && <Pin className="w-3 h-3 text-primary" />}
                         </div>
+                      </th>
+                    )}
+                    {visibleColumns.includes("description_ar") && (
+                      <th className="px-3 py-3 text-right font-bold text-sm text-foreground min-w-[250px] bg-primary/8" dir="rtl">
+                        الوصف العربي
                       </th>
                     )}
                     {visibleColumns.includes("unit") && (
@@ -2350,6 +2380,26 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                               {(() => {
                                 const text = cleanText(item.description);
                                 if (!searchQuery.trim()) return text;
+                                const escaped = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+                                return parts.map((part, i) =>
+                                  part.toLowerCase() === searchQuery.toLowerCase()
+                                    ? <mark key={i} className="bg-yellow-300 dark:bg-yellow-500/50 text-foreground rounded-sm px-0.5 not-italic">{part}</mark>
+                                    : <span key={i}>{part}</span>
+                                );
+                              })()}
+                            </p>
+                          </td>
+                        )}
+                        {visibleColumns.includes("description_ar") && (
+                          <td className={cn(
+                            "px-3 py-3 text-right min-w-[250px] max-w-[400px]",
+                            idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                          )} dir="rtl">
+                            <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words">
+                              {(() => {
+                                const text = (item as any).description_ar ? cleanText((item as any).description_ar) : "-";
+                                if (text === "-" || !searchQuery.trim()) return text;
                                 const escaped = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                                 const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
                                 return parts.map((part, i) =>

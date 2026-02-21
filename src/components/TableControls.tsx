@@ -386,6 +386,7 @@ export const BOQ_TABLE_COLUMNS = [
   { id: "item_number", label: "Item No.", labelAr: "رقم البند" },
   { id: "item_code", label: "Item Code", labelAr: "كود البند" },
   { id: "description", label: "Description", labelAr: "الوصف" },
+  { id: "description_ar", label: "Arabic Desc.", labelAr: "الوصف العربي" },
   { id: "unit", label: "Unit", labelAr: "الوحدة" },
   { id: "quantity", label: "Qty", labelAr: "الكمية" },
   { id: "ai_rate", label: "AI Rate", labelAr: "سعر AI" },
