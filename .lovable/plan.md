@@ -1,83 +1,85 @@
 
 
-# معالجة عدم ظهور الوصف العربي + تحسين الشكل والأداء
+# معالجة عدم ظهور الوصف العربي + دعم تحليل PDF
 
-## المشكلة الجذرية
+## المشكلة
 
-عند رفع ملف Excel يحتوي على عمودي وصف (عربي وإنجليزي)، النظام يتعرف على كليهما كـ `description` ويكتب الثاني فوق الأول. السبب:
+عند تحليل ملف PDF (أو نص مستخرج)، الوصف العربي لا يظهر في الجدول لأن:
 
-1. `COLUMN_PATTERNS` في `excel-utils.ts` يضع كل أنماط الوصف العربي والإنجليزي تحت مفتاح `description` واحد
-2. `ExcelBOQItem` لا يحتوي على حقل `descriptionAr`
-3. `convertExcelToAnalysisItems` لا ينقل `description_ar` إطلاقاً
+1. **Edge Function `analyze-boq`**: البرومبت لا يطلب من الذكاء الاصطناعي إرجاع حقل `description_ar` منفصل
+2. **التحليل المحلي للنصوص `local-text-analysis.ts`**: واجهة `LocalTextItem` لا تحتوي على `description_ar`
+3. **`normalizeAnalysisResult` في `Index.tsx`**: يستخدم `...item` spread لكن لا يضيف كشف ذكي للعربية
+4. **`BOQAnalyzerPanel.tsx`**: نفس المشكلة في التطبيع (normalization)
 
 ## خطة الحل
 
-### 1. إضافة دعم `descriptionAr` في استخراج Excel
+### 1. تحديث Edge Function `analyze-boq`
 
-**الملف: `src/lib/excel-utils.ts`**
+**الملف: `supabase/functions/analyze-boq/index.ts`**
 
-- إضافة `descriptionAr` إلى واجهة `ExcelBOQItem`
-- إضافة نمط `descriptionAr` جديد في `COLUMN_PATTERNS` يحتوي على أنماط عربية محددة مثل: `'وصف البند', 'الوصف', 'البيان', 'الوصف العربي', 'بيان الأعمال', 'وصف', 'بيان', 'التفاصيل', 'الأعمال'`
-- إزالة هذه الأنماط العربية من مفتاح `description` (مع ترك الأنماط الإنجليزية)
-- إضافة منطق ذكي: إذا وُجد عمود واحد فقط للوصف (عربي أو إنجليزي)، يُعامل كـ `description`. إذا وُجد عمودان، يُفصل العربي عن الإنجليزي
-- استخراج القيمة في `extractBOQItems` و `applyCustomMapping`
+- إضافة `description_ar` إلى `BOQItem` interface (سطر 5-16)
+- إضافة `description_ar` إلى `boqAnalysisTool` schema (سطر 329-345) كحقل اختياري
+- تحديث البرومبت العربي (سطر 517-550): طلب `description_ar` للوصف العربي عند وجود وصفين
+- تحديث البرومبت الإنجليزي (سطر 551-559): طلب `description_ar` إذا كان المستند يحتوي على نص عربي
 
-### 2. نقل `description_ar` عبر سلسلة التحليل
+### 2. تحديث التحليل المحلي للنصوص
 
-**الملف: `src/lib/local-excel-analysis.ts`**
+**الملف: `src/lib/local-text-analysis.ts`**
 
-- إضافة `description_ar?: string` إلى `LocalAnalysisItem`
-- في `convertExcelToAnalysisItems`: نقل `item.descriptionAr` إلى `description_ar`
+- إضافة `description_ar?: string` إلى `LocalTextItem` (سطر 7-19)
+- في `extractItemsFromText` و `extractItemsByLineAnalysis`: إذا كان الوصف يحتوي على نص عربي، نسخه إلى `description_ar`
 
-### 3. نقل البيانات في صفحات التحليل
+### 3. إضافة كشف ذكي في `normalizeAnalysisResult`
 
-**الملفات: `src/pages/Index.tsx` و `src/components/BOQAnalyzerPanel.tsx` و `src/components/project-details/BOQUploadDialog.tsx`**
+**الملف: `src/pages/Index.tsx`**
 
-- التأكد أن `normalizedItems` ينقل `description_ar` في الـ spread operator (غالباً يعمل تلقائياً مع `...item`)
+- في `normalizeAnalysisResult` (سطر 74-109): إضافة منطق لكشف وتعيين `description_ar`:
+  - إذا أرجع الـ AI حقل `description_ar`، يُستخدم كما هو
+  - إذا كان `description` يحتوي على نص عربي ولا يوجد `description_ar`، يُنسخ تلقائياً
 
-### 4. تحسين حفظ المشروع
+### 4. نفس الكشف الذكي في `BOQAnalyzerPanel`
 
-**الملف: `src/components/SaveProjectDialog.tsx`**
+**الملف: `src/components/BOQAnalyzerPanel.tsx`**
 
-- التحقق أن `description_ar` يُحفظ مع بنود المشروع (موجود بالفعل في السطر 154)
-
-### 5. تحسين الشكل والأداء في الجدول
-
-**الملف: `src/components/AnalysisResults.tsx`**
-
-- إصلاح auto-detection: إذا كان المستخدم حفظ `boq_visible_columns` سابقاً بدون `description_ar`، يتم إضافته تلقائياً عند وجود بيانات عربية (إزالة شرط `!saved`)
-- تحسين عرض العمود: تقليل `min-w` لتوفير مساحة، وإضافة خلفية خفيفة مميزة للعمود العربي
+- في normalized items (سطور 462-476 و 366-371): إضافة نفس منطق الكشف عن العربية
 
 ## التفاصيل التقنية
 
-### التعامل مع عمود وصف واحد vs عمودين
+### منطق الكشف الذكي (مشترك بين جميع المسارات)
 
 ```text
-detectColumnMapping(headers):
-  1. أولاً: البحث عن أنماط descriptionAr (عربية فقط)
-  2. ثانياً: البحث عن أنماط description (إنجليزية فقط) 
-  3. إذا وُجد descriptionAr فقط (بدون description إنجليزي):
-     → فحص محتوى البيانات: إذا كان عربياً، نسخه أيضاً كـ description
-  4. إذا وُجد عمود واحد فقط يطابق أي نمط وصف:
-     → يُعامل كـ description (الأساسي)
-     → إذا كان محتواه عربياً، يُنسخ أيضاً إلى descriptionAr
+لكل بند بعد التطبيع:
+  1. إذا وجد description_ar من المصدر (AI/Excel) → استخدمه
+  2. إذا لم يوجد description_ar:
+     - فحص description: هل يحتوي حروف عربية؟
+     - إذا نعم: description_ar = description
+  3. إذا وجد description_ar بدون description:
+     - description = description_ar (fallback)
 ```
 
-### منطق الكشف الذكي (بعد الاستخراج)
+### تحديث بنية البرومبت في analyze-boq
 
 ```text
-في extractBOQItems بعد بناء كل item:
-  - إذا وُجد description فقط وهو عربي (يحتوي حروف عربية):
-    → item.descriptionAr = item.description
-  - إذا وُجد descriptionAr فقط بدون description:
-    → item.description = item.descriptionAr (fallback)
+البرومبت العربي الجديد يضيف:
+  - description: الوصف (بالإنجليزية إذا متوفر)
+  - description_ar: الوصف العربي (إذا كان النص يحتوي على وصف عربي)
+
+البرومبت الإنجليزي يضيف:
+  - description_ar (optional): Arabic description if present in source
+```
+
+### تحديث Tool Schema
+
+```text
+إضافة في boqAnalysisTool.parameters.properties.items.items.properties:
+  description_ar: { type: ["string", "null"], description: "Arabic description if available" }
 ```
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/lib/excel-utils.ts` | إضافة `descriptionAr` في الواجهة والأنماط والاستخراج |
-| `src/lib/local-excel-analysis.ts` | إضافة `description_ar` في الواجهة ونقلها |
-| `src/components/AnalysisResults.tsx` | تحسين auto-detection وتحسين شكل العمود |
-
+| `supabase/functions/analyze-boq/index.ts` | إضافة `description_ar` في الواجهة والبرومبت والـ tool schema |
+| `src/lib/local-text-analysis.ts` | إضافة `description_ar` في `LocalTextItem` + كشف تلقائي |
+| `src/pages/Index.tsx` | كشف ذكي للعربية في `normalizeAnalysisResult` |
+| `src/components/BOQAnalyzerPanel.tsx` | كشف ذكي للعربية في التطبيع |
