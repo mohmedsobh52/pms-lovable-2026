@@ -6,6 +6,8 @@
 /* Force instant appearance/disappearance for Radix components */
 [data-radix-popper-content-wrapper] {
   animation-duration: 0ms !important;
+  z-index: 60 !important;
+  pointer-events: auto !important;
 }
 
 [data-state="open"] {
