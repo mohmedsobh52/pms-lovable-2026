@@ -9,7 +9,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Treemap } from "recharts";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
@@ -132,6 +133,8 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
   const [aiProvider, setAiProvider] = useState<'lovable' | 'openai' | 'genspark' | 'manus' | 'all'>('all');
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, percentage: 0 });
   const [fromCache, setFromCache] = useState(false);
+  const [chartType, setChartType] = useState<'pie' | 'treemap'>('pie');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'materials' | 'labor' | 'equipment'>('all');
   const { toast } = useToast();
   const { language } = useLanguage();
   const isArabic = language === 'ar';
@@ -744,13 +747,41 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
             </CardContent>
           </Card>
 
-          {/* Pie Chart - Optimized */}
+          {/* Pie Chart / Treemap - Optimized */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <PieChartIcon className="w-5 h-5" />
-                {t('توزيع التكاليف حسب البند', 'Cost Distribution by Item')}
-              </CardTitle>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <PieChartIcon className="w-5 h-5" />
+                  {t('توزيع التكاليف حسب البند', 'Cost Distribution by Item')}
+                </CardTitle>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Chart type toggle */}
+                  <ToggleGroup type="single" value={chartType} onValueChange={(v) => v && setChartType(v as 'pie' | 'treemap')} size="sm" className="border rounded-lg p-0.5">
+                    <ToggleGroupItem value="pie" aria-label="Pie Chart" className="text-xs px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                      <PieChartIcon className="w-3.5 h-3.5 me-1" />
+                      {t('دائري', 'Pie')}
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="treemap" aria-label="Treemap" className="text-xs px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                      <BarChart3 className="w-3.5 h-3.5 me-1" />
+                      {t('خريطة', 'Map')}
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                  {/* Category filter */}
+                  <ToggleGroup type="single" value={categoryFilter} onValueChange={(v) => v && setCategoryFilter(v as any)} size="sm" className="border rounded-lg p-0.5">
+                    <ToggleGroupItem value="all" className="text-xs px-2.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">{t('الكل', 'All')}</ToggleGroupItem>
+                    <ToggleGroupItem value="materials" className="text-xs px-2.5 data-[state=on]:bg-blue-600 data-[state=on]:text-white">
+                      <Package className="w-3 h-3 me-1" />{t('مواد', 'Mat')}
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="labor" className="text-xs px-2.5 data-[state=on]:bg-green-600 data-[state=on]:text-white">
+                      <Users className="w-3 h-3 me-1" />{t('عمالة', 'Labor')}
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="equipment" className="text-xs px-2.5 data-[state=on]:bg-orange-600 data-[state=on]:text-white">
+                      <Wrench className="w-3 h-3 me-1" />{t('معدات', 'Equip')}
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {(() => {
@@ -763,12 +794,35 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                 const MAX_SLICES = 10;
                 const MIN_PERCENT = 0.03;
 
-                const rawItems = (displayResult.cost_analysis || []).map((item, idx) => ({
+                // Classify each item by dominant cost category
+                const classifyItem = (item: CostBreakdownItem): 'materials' | 'labor' | 'equipment' => {
+                  const mat = item.materials?.total || 0;
+                  const lab = item.labor?.total || 0;
+                  const eq = item.equipment?.total || 0;
+                  if (mat >= lab && mat >= eq) return 'materials';
+                  if (lab >= mat && lab >= eq) return 'labor';
+                  return 'equipment';
+                };
+
+                const allItems = (displayResult.cost_analysis || []).map((item, idx) => ({
                   name: item.item_description?.substring(0, 30) || `${t('بند', 'Item')} ${idx + 1}`,
                   fullName: item.item_description || '',
                   value: item.total_cost || 0,
                   itemNumber: items[idx]?.item_number || `${idx + 1}`,
+                  category: classifyItem(item),
                 }));
+
+                // Apply category filter
+                const rawItems = categoryFilter === 'all' ? allItems : allItems.filter(i => i.category === categoryFilter);
+
+                if (rawItems.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
+                      <Package className="w-10 h-10 mb-2 opacity-40" />
+                      <p className="text-sm">{t('لا توجد بنود في هذه الفئة', 'No items in this category')}</p>
+                    </div>
+                  );
+                }
 
                 const grandTotal = rawItems.reduce((s, i) => s + i.value, 0) || 1;
                 const sorted = [...rawItems].sort((a, b) => b.value - a.value);
@@ -784,6 +838,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                     fullName: t(`${othersItems.length} بند آخر`, `${othersItems.length} other items`),
                     value: othersValue,
                     itemNumber: '',
+                    category: 'materials' as const,
                   }] : []),
                 ];
 
@@ -800,15 +855,16 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                   );
                 };
 
-                const CustomPieTooltip = ({ active, payload }: any) => {
+                const CustomTooltip = ({ active, payload }: any) => {
                   if (!active || !payload?.length) return null;
                   const d = payload[0].payload;
-                  const pct = ((d.value / grandTotal) * 100).toFixed(1);
+                  const val = d.value ?? d.size ?? 0;
+                  const pct = ((val / grandTotal) * 100).toFixed(1);
                   return (
                     <div className="bg-popover border rounded-lg shadow-lg p-3 max-w-[250px]">
                       {d.itemNumber && <p className="text-xs text-muted-foreground mb-1">{t('بند', 'Item')} {d.itemNumber}</p>}
                       <p className="font-medium text-sm leading-tight mb-1">{d.fullName || d.name}</p>
-                      <p className="text-primary font-bold">{formatNumber(d.value)} {currency}</p>
+                      <p className="text-primary font-bold">{formatNumber(val)} {currency}</p>
                       <p className="text-xs text-muted-foreground">{pct}% {t('من الإجمالي', 'of total')}</p>
                     </div>
                   );
@@ -819,36 +875,105 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
                   color: PIE_COLORS[idx % PIE_COLORS.length],
                 }));
 
+                // Category filter badge count
+                const filterCounts = {
+                  all: allItems.length,
+                  materials: allItems.filter(i => i.category === 'materials').length,
+                  labor: allItems.filter(i => i.category === 'labor').length,
+                  equipment: allItems.filter(i => i.category === 'equipment').length,
+                };
+
+                // Treemap custom content
+                const TreemapContent = ({ x, y, width, height, name, value, index }: any) => {
+                  if (width < 4 || height < 4) return null;
+                  const pct = ((value / grandTotal) * 100).toFixed(0);
+                  const color = PIE_COLORS[index % PIE_COLORS.length];
+                  const showText = width > 50 && height > 30;
+                  const showPct = width > 35 && height > 20;
+                  return (
+                    <g>
+                      <rect x={x} y={y} width={width} height={height} fill={color} stroke="hsl(var(--background))" strokeWidth={2} rx={4} />
+                      {showText && (
+                        <text x={x + width / 2} y={y + height / 2 - 6} textAnchor="middle" dominantBaseline="central" fill="white" className="text-[10px] font-medium" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
+                          {name?.length > width / 7 ? name.substring(0, Math.floor(width / 7)) + '…' : name}
+                        </text>
+                      )}
+                      {showPct && (
+                        <text x={x + width / 2} y={y + height / 2 + (showText ? 10 : 0)} textAnchor="middle" dominantBaseline="central" fill="rgba(255,255,255,0.85)" className="text-[9px]" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                          {pct}%
+                        </text>
+                      )}
+                    </g>
+                  );
+                };
+
+                // Treemap data format
+                const treemapData = pieData.map((item, idx) => ({
+                  name: item.name,
+                  size: item.value,
+                  fullName: item.fullName,
+                  itemNumber: item.itemNumber,
+                  value: item.value,
+                  fill: PIE_COLORS[idx % PIE_COLORS.length],
+                }));
+
                 return (
-                  <div className="h-[400px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={pieData}
-                          cx="50%"
-                          cy="45%"
-                          innerRadius={65}
-                          outerRadius={130}
-                          paddingAngle={2}
-                          dataKey="value"
-                          labelLine={false}
-                          label={renderInnerLabel}
-                        >
-                          {pieData.map((_, idx) => (
-                            <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} stroke="hsl(var(--background))" strokeWidth={2} />
-                          ))}
-                        </Pie>
-                        <RechartsTooltip content={<CustomPieTooltip />} />
-                        <Legend
-                          layout="horizontal"
-                          align="center"
-                          verticalAlign="bottom"
-                          payload={legendData}
-                          wrapperStyle={{ paddingTop: '16px' }}
-                          formatter={(value) => <span className="text-xs">{value}</span>}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                  <div>
+                    {/* Filter count badges */}
+                    <div className="flex gap-2 mb-3 text-xs text-muted-foreground">
+                      <span>{t(`${rawItems.length} بند`, `${rawItems.length} items`)}</span>
+                      {categoryFilter !== 'all' && (
+                        <Badge variant="secondary" className="text-[10px] h-5">
+                          {categoryFilter === 'materials' ? t('مواد', 'Materials') : categoryFilter === 'labor' ? t('عمالة', 'Labor') : t('معدات', 'Equipment')}
+                          : {filterCounts[categoryFilter]}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="h-[400px]">
+                      {chartType === 'pie' ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={pieData}
+                              cx="50%"
+                              cy="45%"
+                              innerRadius={65}
+                              outerRadius={130}
+                              paddingAngle={2}
+                              dataKey="value"
+                              labelLine={false}
+                              label={renderInnerLabel}
+                            >
+                              {pieData.map((_, idx) => (
+                                <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} stroke="hsl(var(--background))" strokeWidth={2} />
+                              ))}
+                            </Pie>
+                            <RechartsTooltip content={<CustomTooltip />} />
+                            <Legend
+                              layout="horizontal"
+                              align="center"
+                              verticalAlign="bottom"
+                              payload={legendData}
+                              wrapperStyle={{ paddingTop: '16px' }}
+                              formatter={(value) => <span className="text-xs">{value}</span>}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <Treemap
+                            data={treemapData}
+                            dataKey="size"
+                            aspectRatio={4 / 3}
+                            stroke="hsl(var(--background))"
+                            content={<TreemapContent />}
+                          >
+                            <RechartsTooltip content={<CustomTooltip />} />
+                          </Treemap>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
                   </div>
                 );
               })()}
