@@ -26,7 +26,7 @@ import { HistoricalPricingStats } from "@/components/HistoricalPricingStats";
 import { HistoricalPricingPDFReport } from "@/components/HistoricalPricingPDFReport";
 import { ImportFromSavedProjects } from "@/components/ImportFromSavedProjects";
 import { HistoricalItemsTable } from "@/components/HistoricalItemsTable";
-import { normalizeHistoricalItems, NormalizedHistoricalItem } from "@/lib/historical-data-utils";
+import { normalizeHistoricalItems, NormalizedHistoricalItem, safeTotalValue } from "@/lib/historical-data-utils";
 
 interface HistoricalFileMeta {
   id: string;
@@ -390,7 +390,7 @@ export default function HistoricalPricingPage() {
     }
 
     try {
-      const totalValue = uploadedItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+      const totalValue = safeTotalValue(uploadedItems);
       
       // Chunk items if too large (>2000 items)
       const itemsToSave = uploadedItems.length > MAX_ITEMS_PER_SAVE 
@@ -930,7 +930,11 @@ export default function HistoricalPricingPage() {
                               <p className="text-xs text-muted-foreground">بند</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-lg font-bold">{file.total_value.toLocaleString()}</p>
+                              <p className="text-lg font-bold">
+                                {(Number.isFinite(file.total_value) && file.total_value < 1e15) 
+                                  ? file.total_value.toLocaleString() 
+                                  : "—"}
+                              </p>
                               <p className="text-xs text-muted-foreground">{file.currency}</p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -993,12 +997,15 @@ export default function HistoricalPricingPage() {
 
         {/* View Dialog */}
         <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[85vh]">
+          <DialogContent className="max-w-6xl max-h-[90vh]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Eye className="w-5 h-5" />
                 {selectedFile?.project_name || "جاري التحميل..."}
               </DialogTitle>
+              {selectedFile && (
+                <p className="text-sm text-muted-foreground">{selectedFile.file_name}</p>
+              )}
             </DialogHeader>
 
             {isLoadingFileItems ? (
@@ -1006,44 +1013,129 @@ export default function HistoricalPricingPage() {
                 <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-primary" />
                 <p className="text-muted-foreground">جاري تحميل البنود...</p>
               </div>
-            ) : selectedFile && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="p-3 bg-muted rounded-lg text-center">
-                    <p className="font-bold">{selectedFile.items_count}</p>
-                    <p className="text-xs text-muted-foreground">عدد البنود</p>
-                  </div>
-                  <div className="p-3 bg-muted rounded-lg text-center">
-                    <p className="font-bold">{selectedFile.total_value.toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground">القيمة الإجمالية ({selectedFile.currency})</p>
-                  </div>
-                  <div className="p-3 bg-muted rounded-lg text-center">
-                    <p className="font-bold">
-                      {selectedFile.project_date 
-                        ? new Date(selectedFile.project_date).toLocaleDateString("ar-SA")
-                        : "-"
-                      }
-                    </p>
-                    <p className="text-xs text-muted-foreground">تاريخ المشروع</p>
-                  </div>
-                </div>
+            ) : selectedFile && (() => {
+              const normalizedItems = normalizeHistoricalItems(selectedFile.items);
+              const computedTotal = safeTotalValue(normalizedItems);
+              const zeroItems = normalizedItems.filter(i => i.unit_price === 0 && i.quantity === 0);
+              const pricedItems = normalizedItems.filter(i => i.unit_price > 0);
+              const avgUnitPrice = pricedItems.length > 0 
+                ? pricedItems.reduce((s, i) => s + i.unit_price, 0) / pricedItems.length 
+                : 0;
+              const stdDev = pricedItems.length > 1
+                ? Math.sqrt(pricedItems.reduce((s, i) => s + Math.pow(i.unit_price - avgUnitPrice, 2), 0) / pricedItems.length)
+                : 0;
+              const hasHighVariance = avgUnitPrice > 0 && stdDev / avgUnitPrice > 0.5;
 
-                {selectedFile.notes && (
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <p className="text-sm text-muted-foreground">{selectedFile.notes}</p>
-                  </div>
-                )}
+              // Auto-fix corrupt DB total
+              if (selectedFile.total_value && Math.abs(computedTotal - selectedFile.total_value) > 1 && 
+                  (!Number.isFinite(selectedFile.total_value) || selectedFile.total_value > 1e15)) {
+                supabase.from("historical_pricing_files")
+                  .update({ total_value: computedTotal })
+                  .eq("id", selectedFile.id)
+                  .then(() => console.log('Auto-corrected total_value for', selectedFile.id));
+              }
 
-                <HistoricalItemsTable
-                  items={normalizeHistoricalItems(selectedFile.items)}
-                  onItemsChange={(updatedItems) => {
-                    setSelectedFile({ ...selectedFile, items: updatedItems, items_count: updatedItems.length });
-                  }}
-                  fileId={selectedFile.id}
-                  projectName={selectedFile.project_name}
-                />
-              </div>
-            )}
+              return (
+                <ScrollArea className="max-h-[calc(90vh-200px)]">
+                  <div className="space-y-4 px-1">
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-center">
+                        <Database className="w-4 h-4 text-blue-600 mx-auto mb-1" />
+                        <p className="font-bold text-lg">{normalizedItems.length}</p>
+                        <p className="text-xs text-muted-foreground">عدد البنود</p>
+                      </div>
+                      <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-center">
+                        <BarChart3 className="w-4 h-4 text-green-600 mx-auto mb-1" />
+                        <p className="font-bold text-lg">{computedTotal.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">القيمة الإجمالية ({selectedFile.currency})</p>
+                      </div>
+                      <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg text-center">
+                        <Calendar className="w-4 h-4 text-purple-600 mx-auto mb-1" />
+                        <p className="font-bold text-sm">
+                          {selectedFile.project_date 
+                            ? new Date(selectedFile.project_date).toLocaleDateString("ar-SA", { year: 'numeric', month: 'long' })
+                            : "-"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">تاريخ المشروع</p>
+                      </div>
+                      <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg text-center">
+                        <MapPin className="w-4 h-4 text-orange-600 mx-auto mb-1" />
+                        <p className="font-bold text-sm">
+                          {selectedFile.project_location 
+                            ? LOCATIONS.find(l => l.value === selectedFile.project_location)?.label || selectedFile.project_location 
+                            : "-"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">الموقع</p>
+                      </div>
+                    </div>
+
+                    {selectedFile.notes && (
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <p className="text-sm text-muted-foreground">{selectedFile.notes}</p>
+                      </div>
+                    )}
+
+                    <HistoricalItemsTable
+                      items={normalizedItems}
+                      onItemsChange={(updatedItems) => {
+                        setSelectedFile({ ...selectedFile, items: updatedItems, items_count: updatedItems.length });
+                      }}
+                      fileId={selectedFile.id}
+                      projectName={selectedFile.project_name}
+                    />
+
+                    {/* Suggestions Section */}
+                    <div className="space-y-2 pt-2">
+                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-500" />
+                        اقتراحات
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {zeroItems.length > 0 && (
+                          <div className="p-3 border border-yellow-500/30 bg-yellow-500/5 rounded-lg">
+                            <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                              {zeroItems.length} بند بدون أسعار
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              يوجد {zeroItems.length} بند ({Math.round(zeroItems.length / normalizedItems.length * 100)}%) بدون كمية أو سعر. يُنصح بمراجعتها أو حذف غير المطلوبة.
+                            </p>
+                          </div>
+                        )}
+                        {hasHighVariance && (
+                          <div className="p-3 border border-red-500/30 bg-red-500/5 rounded-lg">
+                            <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                              تفاوت كبير في الأسعار
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              الانحراف المعياري لسعر الوحدة ({Math.round(stdDev).toLocaleString()}) يتجاوز 50% من المتوسط ({Math.round(avgUnitPrice).toLocaleString()}). تحقق من وحدات القياس.
+                            </p>
+                          </div>
+                        )}
+                        <div className="p-3 border border-blue-500/30 bg-blue-500/5 rounded-lg">
+                          <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                            استخدم هذه الأسعار في مشاريعك
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            يمكنك تطبيق أسعار هذا الملف على مشاريع جديدة عبر أداة "التسعير التاريخي الشامل" في صفحة تفاصيل المشروع.
+                          </p>
+                        </div>
+                        {files.length > 1 && (
+                          <div className="p-3 border border-green-500/30 bg-green-500/5 rounded-lg">
+                            <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                              قارن مع {files.length - 1} مشاريع أخرى
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              لديك {files.length - 1} مشاريع أخرى محفوظة. استخدم تبويب "الإحصائيات" لمقارنة الأسعار بينها.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </ScrollArea>
+              );
+            })()}
 
             <DialogFooter>
               <Button 

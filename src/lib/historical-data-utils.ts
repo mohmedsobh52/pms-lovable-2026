@@ -379,3 +379,14 @@ export function createEmptyItem(): NormalizedHistoricalItem {
 export function calculateTotal(quantity: number, unitPrice: number): number {
   return Math.round(quantity * unitPrice * 100) / 100;
 }
+
+/**
+ * Safely compute total value from items, filtering out corrupt/overflow numbers
+ */
+export function safeTotalValue(items: NormalizedHistoricalItem[]): number {
+  return items.reduce((sum, item) => {
+    const tp = item.total_price || 0;
+    if (!Number.isFinite(tp) || tp > 1e15 || tp < -1e15) return sum;
+    return sum + tp;
+  }, 0);
+}

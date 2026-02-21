@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
-import { NormalizedHistoricalItem, createEmptyItem, calculateTotal } from "@/lib/historical-data-utils";
+import { NormalizedHistoricalItem, createEmptyItem, calculateTotal, safeTotalValue } from "@/lib/historical-data-utils";
 
 interface HistoricalItemsTableProps {
   items: NormalizedHistoricalItem[];
@@ -46,10 +46,7 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
     [filteredItems, tablePage]
   );
 
-  const totalValue = useMemo(() => 
-    items.reduce((sum, item) => sum + (item.total_price || 0), 0),
-    [items]
-  );
+  const totalValue = useMemo(() => safeTotalValue(items), [items]);
 
   // Zero-value warning stats
   const zeroValueCount = useMemo(() => 
