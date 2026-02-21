@@ -43,6 +43,7 @@ interface SaveProjectButtonProps {
   getItemCalculatedCosts: (itemId: string) => CalculatedCosts & { aiSuggestedRate?: number };
   fileName?: string;
   isArabic?: boolean;
+  savedProjectId?: string;
 }
 
 export function SaveProjectButton({
@@ -53,6 +54,7 @@ export function SaveProjectButton({
   getItemCalculatedCosts,
   fileName,
   isArabic = false,
+  savedProjectId,
 }: SaveProjectButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -63,7 +65,7 @@ export function SaveProjectButton({
   const { user } = useAuth();
 
   // Helper function to save new project
-  const saveNewProject = async () => {
+  const saveNewProject = async (nameOverride?: string) => {
     if (!user) return;
 
     // Calculate total value from items
@@ -80,7 +82,7 @@ export function SaveProjectButton({
       .from('project_data' as any)
       .insert({
         user_id: user.id,
-        name: projectName.trim(),
+        name: (nameOverride || projectName).trim(),
         file_name: fileName,
         analysis_data: { items, summary },
         wbs_data: wbsData,
@@ -98,7 +100,7 @@ export function SaveProjectButton({
       .from('saved_projects')
       .insert([{
         user_id: user.id,
-        name: projectName.trim(),
+        name: (nameOverride || projectName).trim(),
         file_name: fileName || null,
         analysis_data: { items, summary } as any,
         wbs_data: wbsData as any,
@@ -178,6 +180,99 @@ export function SaveProjectButton({
     setIsOpen(false);
   };
 
+  // Update existing project directly
+  const updateExistingProject = async (projectId: string) => {
+    if (!user) return;
+
+    const totalValue = items.reduce((sum, item) => {
+      const calcCosts = getItemCalculatedCosts(item.item_number);
+      const effectivePrice = calcCosts.calculatedUnitPrice > 0 
+        ? calcCosts.calculatedUnitPrice 
+        : (item.unit_price || 0);
+      return sum + (effectivePrice * item.quantity);
+    }, 0);
+
+    // Update project_data
+    await supabase
+      .from('project_data' as any)
+      .update({
+        analysis_data: { items, summary },
+        wbs_data: wbsData,
+        total_value: totalValue,
+        currency: summary?.currency || 'SAR',
+        items_count: items.length,
+        updated_at: new Date().toISOString(),
+      } as any)
+      .eq('id', projectId);
+
+    // Delete old items and costs
+    await supabase
+      .from('project_items' as any)
+      .delete()
+      .eq('project_id', projectId);
+
+    // Re-insert items
+    const itemsToInsert = items.map((item, index) => {
+      const calcCosts = getItemCalculatedCosts(item.item_number);
+      const effectivePrice = calcCosts.calculatedUnitPrice > 0 
+        ? calcCosts.calculatedUnitPrice 
+        : (item.unit_price || 0);
+      return {
+        project_id: projectId,
+        item_number: item.item_number,
+        description: item.description,
+        unit: item.unit,
+        quantity: item.quantity,
+        unit_price: effectivePrice,
+        total_price: effectivePrice * item.quantity,
+        category: item.category,
+        notes: item.notes,
+        sort_order: index,
+      };
+    });
+
+    const { data: insertedItems, error: itemsError } = await supabase
+      .from('project_items' as any)
+      .insert(itemsToInsert as any)
+      .select('id, item_number');
+
+    if (itemsError) throw itemsError;
+
+    // Re-insert costs
+    const dbItems = insertedItems as unknown as Array<{ id: string; item_number: string }> | null;
+    if (dbItems && dbItems.length > 0) {
+      const costsToInsert = dbItems.map(dbItem => {
+        const costData = getItemCostData(dbItem.item_number);
+        const calcCosts = getItemCalculatedCosts(dbItem.item_number);
+        return {
+          project_item_id: dbItem.id,
+          general_labor: costData.generalLabor || 0,
+          equipment_operator: costData.equipmentOperator || 0,
+          overhead: costData.overhead || 0,
+          admin: costData.admin || 0,
+          insurance: costData.insurance || 0,
+          contingency: costData.contingency || 0,
+          profit_margin: costData.profitMargin || 10,
+          materials: costData.materials || 0,
+          equipment: costData.equipment || 0,
+          subcontractor: costData.subcontractor || 0,
+          ai_suggested_rate: costData.aiSuggestedRate,
+          calculated_unit_price: calcCosts.calculatedUnitPrice,
+        };
+      });
+
+      await supabase
+        .from('item_costs' as any)
+        .insert(costsToInsert as any);
+    }
+
+    toast({
+      title: "تم تحديث المشروع بنجاح",
+      description: `تم تحديث "${projectName}" مع ${items.length} بند`,
+    });
+    setIsOpen(false);
+  };
+
   const handleSave = async () => {
     if (!user) {
       toast({
@@ -200,6 +295,12 @@ export function SaveProjectButton({
     setIsSaving(true);
 
     try {
+      // If editing an existing project, update directly
+      if (savedProjectId) {
+        await updateExistingProject(savedProjectId);
+        return;
+      }
+
       // Check for duplicate project name in project_data table
       const { data: existingProjects } = await supabase
         .from("project_data" as any)
@@ -208,7 +309,6 @@ export function SaveProjectButton({
         .ilike("name", projectName.trim());
 
       if (existingProjects && existingProjects.length > 0) {
-        // Show duplicate confirmation dialog
         const project = existingProjects[0] as unknown as { id: string; name: string };
         setDuplicateProject(project);
         setDuplicateDialogOpen(true);
@@ -216,7 +316,6 @@ export function SaveProjectButton({
         return;
       }
 
-      // No duplicate, proceed with save
       await saveNewProject();
     } catch (error: any) {
       console.error("Error saving project:", error);
@@ -237,34 +336,52 @@ export function SaveProjectButton({
     setIsSaving(true);
 
     try {
-      // Delete existing project items first (due to foreign key)
       await supabase
         .from('project_items' as any)
         .delete()
         .eq('project_id', duplicateProject.id);
 
-      // Delete from project_data
       await supabase
         .from('project_data' as any)
         .delete()
         .eq('id', duplicateProject.id);
 
-      // Delete from saved_projects by name
       await supabase
         .from('saved_projects')
         .delete()
         .eq('user_id', user.id)
         .ilike('name', duplicateProject.name);
 
-      // Save new project with same name
       await saveNewProject();
-
       setDuplicateProject(null);
     } catch (error: any) {
       console.error("Error overwriting project:", error);
       toast({
         title: "فشل الاستبدال",
         description: error.message || "حدث خطأ أثناء استبدال المشروع",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveWithNewName = async () => {
+    const timestamp = new Date().toLocaleTimeString("ar-SA", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const newName = `${projectName.trim()} (${timestamp})`;
+    setProjectName(newName);
+    setDuplicateDialogOpen(false);
+    setDuplicateProject(null);
+    setIsSaving(true);
+    try {
+      await saveNewProject(newName);
+    } catch (error: any) {
+      toast({
+        title: "فشل الحفظ",
+        description: error.message,
         variant: "destructive",
       });
     } finally {
@@ -356,17 +473,26 @@ export function SaveProjectButton({
               يوجد مشروع بنفس الاسم
             </AlertDialogTitle>
             <AlertDialogDescription>
-              يوجد مشروع محفوظ باسم "{duplicateProject?.name}". هل تريد استبداله بالمشروع الجديد؟
+              يوجد مشروع محفوظ باسم "{duplicateProject?.name}". يمكنك استبداله بالبيانات الجديدة أو حفظه باسم مختلف.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-row-reverse gap-2">
-            <AlertDialogCancel onClick={() => setDuplicateProject(null)}>
+          <AlertDialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
+            <AlertDialogCancel onClick={() => setDuplicateProject(null)} disabled={isSaving}>
               إلغاء
             </AlertDialogCancel>
             <AlertDialogAction 
-              onClick={handleOverwrite} 
-              className="bg-destructive hover:bg-destructive/90"
+              onClick={handleSaveWithNewName}
+              disabled={isSaving}
+              className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
             >
+              حفظ باسم جديد
+            </AlertDialogAction>
+            <AlertDialogAction 
+              onClick={handleOverwrite} 
+              disabled={isSaving}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin ml-2" /> : null}
               استبدال القديم
             </AlertDialogAction>
           </AlertDialogFooter>
