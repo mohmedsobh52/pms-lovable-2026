@@ -1,93 +1,92 @@
 
 
-# إصلاح أخطاء صفحة Time Schedule وتحسين الأداء والشكل
+# إصلاح القيمة الإجمالية الخاطئة نهائياً + تحسين الأداء والشكل
 
-## الأخطاء المكتشفة
+## المشكلة الجذرية
 
-### 1. خطأ "Missing key prop" في ScheduleIntegration
-في السطر 540 من `ScheduleIntegration.tsx`، يتم استخدام Fragment فارغ `<>` داخل `.map()` بدون خاصية `key`. يجب تغييره إلى `<Fragment key={idx}>`.
+الإصلاحات السابقة تعتمد على مقارنة `total_price` مع `quantity * unit_price`. لكن عندما تكون الكمية أو سعر الوحدة = 0 (كثير من البنود المستخرجة قديماً)، تكون القيمة المحسوبة = 0، فلا يعمل التحقق المتبادل. النتيجة: قيم `total_price` التالفة (مثلاً مليارات) تمر من الفلتر وتتراكم لتعطي 240 كوينتيليون.
 
-### 2. عدم تمرير `projectId` إلى ProjectTimeline
-في `AnalysisResults.tsx` (سطر 2755)، يتم استدعاء `<ProjectTimeline wbsData={wbsData.wbs} />` بدون تمرير `projectId` و `projectName`، مما يمنع حفظ التقديرات الزمنية في قاعدة البيانات.
+## الحل
 
-### 3. زر "Generate WBS First" لا ينتقل لتبويب WBS
-الزر يستدعي `onGenerateWBS` مباشرة لكن لا ينتقل المستخدم إلى تبويب WBS لرؤية النتيجة، ثم يحتاج العودة يدوياً لتبويب Time Schedule.
+### 1. إصلاح `safeTotalValue` في `historical-data-utils.ts`
 
-### 4. أداء ضعيف - استيراد XLSX غير ضروري عند التحميل الأول
-`ProjectTimeline` يستورد `XLSX` من exceljs-utils في كل تحميل، مما يبطئ العرض الأولي.
-
-## الحلول المقترحة
-
-### الملف 1: `src/components/ScheduleIntegration.tsx`
-- تغيير `<>` إلى `<Fragment key={idx}>` في سطر 540
-- إضافة `import { Fragment }` من React
-
-### الملف 2: `src/components/AnalysisResults.tsx`
-- تمرير `projectId={savedProjectId}` و `projectName={fileName}` إلى `<ProjectTimeline>`
-- تحسين زر "Generate WBS First" ليقوم أولاً بإنشاء WBS ثم ينتقل تلقائياً لتبويب WBS
-
-### الملف 3: `src/components/ProjectTimeline.tsx`
-- تحويل استيراد XLSX إلى dynamic import داخل دالة `exportToExcel` فقط
-- تحسين الشكل العام:
-  - إضافة تأثيرات حركية للأشرطة الزمنية
-  - تحسين ألوان بطاقات الإحصائيات
-  - إضافة حالة فارغة أكثر جاذبية مع رسوم متحركة
-  - تحسين استجابة الشاشة على الأجهزة الصغيرة
-
-## التفاصيل التقنية
-
-### إصلاح Missing Key (ScheduleIntegration.tsx)
+إضافة حد أعلى مطلق لكل بند مفرد. لا يوجد بند واحد في مشروع بناء يتجاوز 100 مليون ريال. إذا تجاوز البند هذا الحد **ولم يكن لديه** كمية وسعر وحدة يدعمانه، يتم تجاهله:
 
 ```text
-السطر 540:
-الحالي:  <>
-الجديد:  <Fragment key={idx}>
-
-وإغلاقه المقابل:
-الحالي:  </>
-الجديد:  </Fragment>
+safeTotalValue:
+- إذا كان tp > 1e8 (100 مليون) والقيمة المحسوبة = 0 => تجاهل البند
+- إذا كان tp > 1e12 => تجاهل البند (كما هو حالياً)
+- إذا كان computed > 0 وtp/computed > 100 => استخدم computed
 ```
 
-### تمرير projectId (AnalysisResults.tsx)
+### 2. إصلاح `normalizeHistoricalItems`
 
-```text
-السطر 2755:
-الحالي:
-  <ProjectTimeline wbsData={wbsData.wbs} />
+نفس المنطق: إذا كان `total_price` كبير جداً (> 1e8) ولا يوجد `quantity * unit_price` يدعمه، استخدم 0 بدلاً من القيمة التالفة.
 
-الجديد:
-  <ProjectTimeline 
-    wbsData={wbsData.wbs} 
-    projectId={savedProjectId}
-    projectName={fileName || "المشروع"}
-  />
-```
+### 3. تحديث العرض في View Dialog
 
-### Dynamic Import لـ XLSX (ProjectTimeline.tsx)
+- عرض `computedTotal` بتنسيق `formatLargeNumber` (موجود حالياً ويعمل)
+- إضافة مؤشر بصري إذا تم تصحيح القيمة تلقائياً
+- تحسين بطاقات الإحصائيات بإضافة تأثيرات hover
 
-```text
-الحالي (سطر 14):
-  import { XLSX } from "@/lib/exceljs-utils";
+### 4. تحسين قسم الاقتراحات
 
-الجديد:
-  // إزالة الاستيراد الثابت
-
-  // داخل exportToExcel:
-  const { XLSX } = await import("@/lib/exceljs-utils");
-```
-
-### تحسين الشكل (ProjectTimeline.tsx)
-
-- إضافة تدرجات لونية لأشرطة Gantt بدلاً من ألوان مسطحة
-- تحسين حالة "لا يوجد جدول زمني" بأيقونة متحركة وأزرار أوضح
-- تحسين بطاقات الإحصائيات بتأثير hover
-- تقليل الحد الأدنى لعرض الجدول من 800px إلى 600px لتحسين العرض على الشاشات الصغيرة
+- إضافة اقتراح "إصلاح جميع الملفات" عند وجود ملفات بقيم تالفة
+- إضافة رابط مباشر لأداة التسعير الشامل
+- تحسين الأيقونات والألوان
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/ScheduleIntegration.tsx` | إصلاح missing key prop |
-| `src/components/AnalysisResults.tsx` | تمرير projectId/projectName للجدول الزمني |
-| `src/components/ProjectTimeline.tsx` | Dynamic import + تحسين الشكل والأداء |
+| `src/lib/historical-data-utils.ts` | إصلاح safeTotalValue + normalizeHistoricalItems بإضافة حد مطلق |
+| `src/pages/HistoricalPricingPage.tsx` | تحسين الشكل + اقتراحات + مؤشر تصحيح تلقائي |
+
+## التفاصيل التقنية
+
+### إصلاح safeTotalValue (السبب الجذري)
+
+```text
+الحالي:
+  const tp = item.total_price || 0;
+  if (!Number.isFinite(tp) || tp > 1e12 || tp < -1e12) return sum;
+  const computed = (item.quantity || 0) * (item.unit_price || 0);
+  const safeTP = (computed > 0 && tp > 0 && tp / computed > 100) ? computed : tp;
+
+المشكلة: عندما computed = 0، القيمة التالفة (مثلاً 10 مليار) تمر لأن الشرط computed > 0 خاطئ
+
+الجديد:
+  const tp = item.total_price || 0;
+  if (!Number.isFinite(tp) || tp > 1e12 || tp < -1e12) return sum;
+  const computed = (item.quantity || 0) * (item.unit_price || 0);
+  let safeTP = tp;
+  // إذا لا يوجد qty*price يدعم القيمة وهي كبيرة جداً، تجاهلها
+  if (computed <= 0 && tp > 1e8) safeTP = 0;
+  else if (computed > 0 && tp > 0 && tp / computed > 100) safeTP = computed;
+  return sum + safeTP;
+```
+
+### إصلاح normalizeHistoricalItems
+
+```text
+الحالي (سطر 354-357):
+  if (computed > 0 && totalPrice > 0 && (totalPrice / computed > 100 || computed / totalPrice > 100)) {
+    safeTotalPrice = computed;
+  }
+
+الجديد:
+  if (computed > 0 && totalPrice > 0 && (totalPrice / computed > 100 || computed / totalPrice > 100)) {
+    safeTotalPrice = computed;
+  } else if (computed <= 0 && totalPrice > 1e8) {
+    // بند بدون كمية/سعر لكن total_price ضخم => قيمة تالفة
+    safeTotalPrice = 0;
+  }
+```
+
+### تحسين View Dialog
+
+- إضافة مؤشر "تم التصحيح التلقائي" عند اختلاف computedTotal عن selectedFile.total_value
+- تحسين بطاقات الإحصائيات بتأثير hover scale
+- إضافة اقتراح "إصلاح جميع الملفات التالفة دفعة واحدة" مع عداد الملفات المتأثرة
+- إضافة زر مباشر للانتقال إلى التسعير الشامل في الاقتراحات
 
