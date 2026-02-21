@@ -179,12 +179,15 @@ button:active,
 
 .navigation-bar-safe {
   position: relative;
-  z-index: 50;
+  z-index: 70;
   pointer-events: auto !important;
+  isolation: isolate;
 }
 
 .navigation-bar-safe button,
 .navigation-bar-safe a {
+  position: relative;
+  z-index: 71 !important;
   pointer-events: auto !important;
   cursor: pointer !important;
 }
@@ -284,7 +287,7 @@ button.header-search-box > * {
 nav button,
 nav a {
   position: relative;
-  z-index: 56 !important;
+  z-index: 71 !important;
   pointer-events: auto !important;
   cursor: pointer !important;
 }
