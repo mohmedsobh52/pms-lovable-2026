@@ -744,7 +744,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
             </CardContent>
           </Card>
 
-          {/* Pie Chart */}
+          {/* Pie Chart - Optimized */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
@@ -753,47 +753,105 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[350px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={displayResult.cost_analysis?.map((item, idx) => ({
-                        name: item.item_description?.substring(0, 25) + (item.item_description?.length > 25 ? '...' : ''),
-                        value: item.total_cost || 0,
-                        fullName: item.item_description,
-                        itemNumber: items[idx]?.item_number || idx + 1,
-                      })) || []}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={120}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(1)}%)`}
-                      labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
-                    >
-                      {displayResult.cost_analysis?.map((_, idx) => {
-                        const colors = [
-                          'hsl(221, 83%, 53%)', 'hsl(142, 71%, 45%)', 'hsl(24, 95%, 53%)',
-                          'hsl(271, 81%, 56%)', 'hsl(340, 82%, 52%)', 'hsl(47, 96%, 53%)',
-                          'hsl(199, 89%, 48%)', 'hsl(0, 72%, 51%)', 'hsl(160, 60%, 45%)', 'hsl(291, 64%, 42%)',
-                        ];
-                        return (
-                          <Cell key={`cell-${idx}`} fill={colors[idx % colors.length]} stroke="hsl(var(--background))" strokeWidth={2} />
-                        );
-                      })}
-                    </Pie>
-                    <RechartsTooltip 
-                      formatter={(value: number) => [`${formatNumber(value)} ${currency}`, t('التكلفة', 'Cost')]}
-                      contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', padding: '8px 12px' }}
-                      labelStyle={{ color: 'hsl(var(--foreground))' }}
-                    />
-                    <Legend layout="horizontal" align="center" verticalAlign="bottom"
-                      formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+              {(() => {
+                const PIE_COLORS = [
+                  'hsl(221, 83%, 53%)', 'hsl(142, 71%, 45%)', 'hsl(24, 95%, 53%)',
+                  'hsl(271, 81%, 56%)', 'hsl(340, 82%, 52%)', 'hsl(47, 96%, 53%)',
+                  'hsl(199, 89%, 48%)', 'hsl(0, 72%, 51%)', 'hsl(160, 60%, 45%)', 'hsl(291, 64%, 42%)',
+                  'hsl(30, 80%, 55%)',
+                ];
+                const MAX_SLICES = 10;
+                const MIN_PERCENT = 0.03;
+
+                const rawItems = (displayResult.cost_analysis || []).map((item, idx) => ({
+                  name: item.item_description?.substring(0, 30) || `${t('بند', 'Item')} ${idx + 1}`,
+                  fullName: item.item_description || '',
+                  value: item.total_cost || 0,
+                  itemNumber: items[idx]?.item_number || `${idx + 1}`,
+                }));
+
+                const grandTotal = rawItems.reduce((s, i) => s + i.value, 0) || 1;
+                const sorted = [...rawItems].sort((a, b) => b.value - a.value);
+                
+                const topItems = sorted.slice(0, MAX_SLICES).filter(i => i.value / grandTotal >= MIN_PERCENT);
+                const othersItems = sorted.slice(topItems.length);
+                const othersValue = othersItems.reduce((s, i) => s + i.value, 0);
+
+                const pieData = [
+                  ...topItems,
+                  ...(othersValue > 0 ? [{
+                    name: t('أخرى', 'Others'),
+                    fullName: t(`${othersItems.length} بند آخر`, `${othersItems.length} other items`),
+                    value: othersValue,
+                    itemNumber: '',
+                  }] : []),
+                ];
+
+                const renderInnerLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+                  if (percent < 0.08) return null;
+                  const RADIAN = Math.PI / 180;
+                  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                  return (
+                    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" className="text-xs font-semibold" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                      {`${(percent * 100).toFixed(0)}%`}
+                    </text>
+                  );
+                };
+
+                const CustomPieTooltip = ({ active, payload }: any) => {
+                  if (!active || !payload?.length) return null;
+                  const d = payload[0].payload;
+                  const pct = ((d.value / grandTotal) * 100).toFixed(1);
+                  return (
+                    <div className="bg-popover border rounded-lg shadow-lg p-3 max-w-[250px]">
+                      {d.itemNumber && <p className="text-xs text-muted-foreground mb-1">{t('بند', 'Item')} {d.itemNumber}</p>}
+                      <p className="font-medium text-sm leading-tight mb-1">{d.fullName || d.name}</p>
+                      <p className="text-primary font-bold">{formatNumber(d.value)} {currency}</p>
+                      <p className="text-xs text-muted-foreground">{pct}% {t('من الإجمالي', 'of total')}</p>
+                    </div>
+                  );
+                };
+
+                const legendData = pieData.slice(0, 8).map((item, idx) => ({
+                  value: `${item.name} (${((item.value / grandTotal) * 100).toFixed(1)}%)`,
+                  color: PIE_COLORS[idx % PIE_COLORS.length],
+                }));
+
+                return (
+                  <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          cx="50%"
+                          cy="45%"
+                          innerRadius={65}
+                          outerRadius={130}
+                          paddingAngle={2}
+                          dataKey="value"
+                          labelLine={false}
+                          label={renderInnerLabel}
+                        >
+                          {pieData.map((_, idx) => (
+                            <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} stroke="hsl(var(--background))" strokeWidth={2} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip content={<CustomPieTooltip />} />
+                        <Legend
+                          layout="horizontal"
+                          align="center"
+                          verticalAlign="bottom"
+                          payload={legendData}
+                          wrapperStyle={{ paddingTop: '16px' }}
+                          formatter={(value) => <span className="text-xs">{value}</span>}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 
