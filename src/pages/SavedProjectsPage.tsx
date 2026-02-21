@@ -76,10 +76,7 @@ function getSafeProjectTotal(project: ProjectData | null | undefined): number {
 function formatLargeNumber(value: number, currency?: string): string {
   const suffix = currency ? ` ${currency}` : '';
   if (!Number.isFinite(value) || value < 0) return `—${suffix}`;
-  if (value >= 1e9) return `${(value / 1e9).toFixed(2)} B${suffix}`;
-  if (value >= 1e6) return `${(value / 1e6).toFixed(2)} M${suffix}`;
-  if (value >= 1e3) return `${value.toLocaleString()}${suffix}`;
-  return `${value.toFixed(2)}${suffix}`;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}${suffix}`;
 }
 
 function computeSafeTotalFromItems(items: ProjectItem[]): number {
