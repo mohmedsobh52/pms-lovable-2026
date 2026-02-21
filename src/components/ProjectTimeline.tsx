@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { XLSX } from "@/lib/exceljs-utils";
+// XLSX is dynamically imported in exportToExcel for performance
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -289,8 +289,9 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع", proje
   }, []);
 
   // Export to Excel
-  const exportToExcel = useCallback(() => {
+  const exportToExcel = useCallback(async () => {
     if (timelineData.length === 0 || !projectStartDate) return;
+    const { XLSX } = await import("@/lib/exceljs-utils");
     
     const data = timelineData.map(task => {
       const startDate = addDays(projectStartDate, task.startDay);
@@ -1002,31 +1003,31 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع", proje
 
           {/* Status Summary */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-success/10 border border-success/20">
-              <CheckCircle2 className="w-4 h-4 text-success" />
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-success/10 border border-success/20 hover:shadow-md hover:scale-[1.02] transition-all duration-200">
+              <CheckCircle2 className="w-5 h-5 text-success" />
               <div>
-                <p className="text-lg font-bold text-success">{projectStats.completed}</p>
+                <p className="text-xl font-bold text-success">{projectStats.completed}</p>
                 <p className="text-xs text-muted-foreground">مكتمل</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20">
-              <TrendingUp className="w-4 h-4 text-primary" />
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20 hover:shadow-md hover:scale-[1.02] transition-all duration-200">
+              <TrendingUp className="w-5 h-5 text-primary" />
               <div>
-                <p className="text-lg font-bold text-primary">{projectStats.inProgress}</p>
+                <p className="text-xl font-bold text-primary">{projectStats.inProgress}</p>
                 <p className="text-xs text-muted-foreground">قيد التنفيذ</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-muted border border-border">
-              <Clock className="w-4 h-4 text-muted-foreground" />
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-muted border border-border hover:shadow-md hover:scale-[1.02] transition-all duration-200">
+              <Clock className="w-5 h-5 text-muted-foreground" />
               <div>
-                <p className="text-lg font-bold">{projectStats.notStarted}</p>
+                <p className="text-xl font-bold">{projectStats.notStarted}</p>
                 <p className="text-xs text-muted-foreground">لم يبدأ</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-destructive/10 border border-destructive/20">
-              <AlertTriangle className="w-4 h-4 text-destructive" />
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20 hover:shadow-md hover:scale-[1.02] transition-all duration-200">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
               <div>
-                <p className="text-lg font-bold text-destructive">{projectStats.delayed}</p>
+                <p className="text-xl font-bold text-destructive">{projectStats.delayed}</p>
                 <p className="text-xs text-muted-foreground">متأخر</p>
               </div>
             </div>
@@ -1062,7 +1063,7 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع", proje
 
           {/* Chart */}
           <div className="overflow-x-auto">
-            <div className="min-w-[800px]">
+            <div className="min-w-[600px]">
               {/* Header Row */}
               <div className="flex border-b border-border">
                 <div className="w-48 shrink-0 p-2 font-medium text-sm bg-muted/50">
@@ -1244,13 +1245,18 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع", proje
                       
                       {isVisible && (
                         <div
-                          className="absolute top-1/2 -translate-y-1/2 h-6 rounded-full transition-all duration-300 hover:h-7 cursor-pointer group overflow-hidden"
+                          className="absolute top-1/2 -translate-y-1/2 h-6 rounded-full transition-all duration-300 hover:h-8 hover:shadow-lg cursor-pointer group overflow-hidden"
                           style={{
                             left: `${(visibleStart / visibleColumns) * 100 + (barStart / visibleColumns)}%`,
                             width: `${(spanCols / visibleColumns) * 100}%`,
-                            backgroundColor: task.status === "delayed" ? "hsl(var(--destructive))" : `${task.color}`,
-                            opacity: task.progress === 100 ? 1 : 0.7,
+                            background: task.status === "delayed" 
+                              ? "linear-gradient(135deg, hsl(var(--destructive)), hsl(var(--destructive) / 0.7))" 
+                              : task.isCritical
+                              ? `linear-gradient(135deg, hsl(0, 70%, 50%), hsl(0, 60%, 40%))`
+                              : `linear-gradient(135deg, ${task.color}, ${task.color}dd)`,
+                            opacity: task.progress === 100 ? 1 : 0.85,
                             minWidth: '20px',
+                            boxShadow: task.isCritical ? '0 2px 8px hsl(0 70% 50% / 0.3)' : undefined,
                           }}
                           title={`${task.title} - ${task.duration} يوم - ${task.progress}%`}
                         >
@@ -1262,7 +1268,7 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع", proje
                             />
                           )}
                           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span className="text-xs text-white font-medium">
+                            <span className="text-xs text-white font-medium drop-shadow-sm">
                               {showProgressMode ? `${task.progress}%` : `${task.duration} يوم`}
                             </span>
                           </div>
@@ -1313,22 +1319,22 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع", proje
 
           {/* Summary Stats */}
           <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 text-center">
+            <div className="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 text-center hover:shadow-md hover:scale-[1.02] transition-all duration-200">
               <Clock className="w-5 h-5 mx-auto mb-2 text-primary" />
               <p className="text-2xl font-bold text-primary">{totalDays}</p>
               <p className="text-sm text-muted-foreground">يوم</p>
             </div>
-            <div className="p-4 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 text-center">
+            <div className="p-4 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 text-center hover:shadow-md hover:scale-[1.02] transition-all duration-200">
               <Calendar className="w-5 h-5 mx-auto mb-2 text-accent" />
               <p className="text-2xl font-bold text-accent">{Math.ceil(totalDays / 7)}</p>
               <p className="text-sm text-muted-foreground">أسبوع</p>
             </div>
-            <div className="p-4 rounded-xl bg-gradient-to-br from-success/10 to-success/5 border border-success/20 text-center">
+            <div className="p-4 rounded-xl bg-gradient-to-br from-success/10 to-success/5 border border-success/20 text-center hover:shadow-md hover:scale-[1.02] transition-all duration-200">
               <Play className="w-5 h-5 mx-auto mb-2 text-success" />
               <p className="text-2xl font-bold text-success">{timelineData.filter(t => t.level === 1).length}</p>
               <p className="text-sm text-muted-foreground">مراحل رئيسية</p>
             </div>
-            <div className="p-4 rounded-xl bg-gradient-to-br from-warning/10 to-warning/5 border border-warning/20 text-center">
+            <div className="p-4 rounded-xl bg-gradient-to-br from-warning/10 to-warning/5 border border-warning/20 text-center hover:shadow-md hover:scale-[1.02] transition-all duration-200">
               <Target className="w-5 h-5 mx-auto mb-2 text-warning" />
               <p className="text-2xl font-bold text-warning">{projectStats?.totalProgress || 0}%</p>
               <p className="text-sm text-muted-foreground">إجمالي التقدم</p>
@@ -1339,12 +1345,24 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع", proje
 
       {/* Empty State */}
       {timelineData.length === 0 && !isGenerating && (
-        <div className="p-12 text-center">
-          <Calendar className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
-          <h4 className="font-display text-lg font-semibold mb-2">لا يوجد جدول زمني</h4>
-          <p className="text-sm text-muted-foreground mb-6">
-            اضغط على أحد الأزرار أعلاه لتوليد الجدول الزمني بناءً على WBS
+        <div className="p-16 text-center">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center animate-pulse">
+            <Calendar className="w-10 h-10 text-primary/60" />
+          </div>
+          <h4 className="font-display text-xl font-semibold mb-3">لا يوجد جدول زمني</h4>
+          <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
+            اضغط على أحد الأزرار أعلاه لتوليد الجدول الزمني تلقائياً بناءً على هيكل تجزئة العمل (WBS)
           </p>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={generateBasicTimeline} variant="outline" className="gap-2">
+              <Zap className="w-4 h-4" />
+              توليد سريع
+            </Button>
+            <Button onClick={generateAITimeline} disabled={isGenerating} className="gap-2 btn-gradient">
+              <Brain className="w-4 h-4" />
+              تحليل ذكي
+            </Button>
+          </div>
         </div>
       )}
 

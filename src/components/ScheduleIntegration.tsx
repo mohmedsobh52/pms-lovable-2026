@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -537,9 +537,9 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
               </TableHeader>
               <TableBody>
                 {result.cost_loaded_schedule.map((activity, idx) => (
-                  <>
+                  <Fragment key={idx}>
                     <TableRow 
-                      key={idx} 
+                      
                       className="cursor-pointer hover:bg-muted/30"
                       onClick={() => toggleRow(idx)}
                     >
@@ -628,7 +628,7 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>
