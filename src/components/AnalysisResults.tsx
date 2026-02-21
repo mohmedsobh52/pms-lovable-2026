@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain, Pencil, History } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain, Pencil, History, Loader2 } from "lucide-react";
 import { DualHorizontalScrollBar } from "./DualHorizontalScrollBar";
 import { TableControls, BOQ_TABLE_COLUMNS } from "./TableControls";
 import {
@@ -149,6 +149,8 @@ interface AnalysisResultsProps {
   onApplyRate?: (itemNumber: string, newRate: number) => void;
   fileName?: string;
   savedProjectId?: string;
+  onGenerateWBS?: () => void;
+  isGeneratingWBS?: boolean;
 }
 
 // Cost range definitions
@@ -158,7 +160,7 @@ const getCostRange = (price: number): string => {
   return "high";
 };
 
-export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId }: AnalysisResultsProps) {
+export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId, onGenerateWBS, isGeneratingWBS }: AnalysisResultsProps) {
   const { isArabic } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -2579,7 +2581,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
           </div>
         )}
 
-        {activeTab === "wbs" && wbsData?.wbs && (
+        {activeTab === "wbs" && wbsData?.wbs && wbsData.wbs.length > 0 && (
           <div className="space-y-6">
             {/* WBS Flow Diagram - New Visual */}
             <WBSFlowDiagram wbsData={wbsData.wbs} />
@@ -2608,12 +2610,45 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                   </div>
                   {item.items.length > 0 && (
                     <p className="text-sm text-muted-foreground mt-2">
-                      العناصر: {item.items.join(", ")}
+                      {isArabic ? "العناصر" : "Items"}: {item.items.join(", ")}
                     </p>
                   )}
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {activeTab === "wbs" && (!wbsData?.wbs || wbsData.wbs.length === 0) && (
+          <div className="text-center py-16 space-y-4">
+            <Layers className="w-16 h-16 mx-auto text-muted-foreground/30" />
+            <h3 className="text-lg font-semibold text-foreground">
+              {isArabic ? "لا يوجد هيكل تجزئة عمل (WBS)" : "No Work Breakdown Structure (WBS)"}
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              {isArabic 
+                ? "يمكنك إنشاء هيكل تجزئة العمل تلقائياً من بنود المشروع الموجودة باستخدام الذكاء الاصطناعي"
+                : "You can auto-generate a WBS from existing project items using AI"}
+            </p>
+            {onGenerateWBS && (
+              <Button 
+                onClick={onGenerateWBS} 
+                disabled={isGeneratingWBS}
+                className="mt-4"
+              >
+                {isGeneratingWBS ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {isArabic ? "جاري الإنشاء..." : "Generating..."}
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    {isArabic ? "إنشاء هيكل العمل تلقائياً" : "Auto-generate WBS"}
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         )}
 
@@ -2716,8 +2751,42 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
           </div>
         )}
 
-        {activeTab === "timeline" && wbsData?.wbs && (
+        {activeTab === "timeline" && wbsData?.wbs && wbsData.wbs.length > 0 && (
           <ProjectTimeline wbsData={wbsData.wbs} />
+        )}
+
+        {activeTab === "timeline" && (!wbsData?.wbs || wbsData.wbs.length === 0) && (
+          <div className="text-center py-16 space-y-4">
+            <CalendarDays className="w-16 h-16 mx-auto text-muted-foreground/30" />
+            <h3 className="text-lg font-semibold text-foreground">
+              {isArabic ? "لا يوجد جدول زمني" : "No Timeline Available"}
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              {isArabic 
+                ? "الجدول الزمني يعتمد على هيكل تجزئة العمل (WBS). قم بإنشاء WBS أولاً من تبويب هيكل العمل"
+                : "Timeline depends on WBS data. Generate a WBS first from the WBS tab"}
+            </p>
+            {onGenerateWBS && (
+              <Button 
+                onClick={onGenerateWBS} 
+                disabled={isGeneratingWBS}
+                variant="outline"
+                className="mt-4"
+              >
+                {isGeneratingWBS ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {isArabic ? "جاري الإنشاء..." : "Generating..."}
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    {isArabic ? "إنشاء هيكل العمل أولاً" : "Generate WBS First"}
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         )}
 
         {activeTab === "integration" && data.items && (

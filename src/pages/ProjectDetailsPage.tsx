@@ -233,6 +233,77 @@ export default function ProjectDetailsPage() {
     return { totalItems, pricedItems, confirmedItems, unpricedItems, pricingPercentage, totalValue };
   }, [items]);
 
+  // Extract WBS data from project
+  const projectWbsData = useMemo(() => {
+    if (!project) return undefined;
+    const analysisData = project.analysis_data as any;
+    // Source 1: saved_projects.wbs_data (if saved project)
+    if ((project as any).wbs_data) {
+      return (project as any).wbs_data;
+    }
+    // Source 2: analysis_data.wbs
+    if (analysisData?.wbs && analysisData.wbs.length > 0) {
+      return { wbs: analysisData.wbs, analysis_type: "wbs" };
+    }
+    return undefined;
+  }, [project]);
+
+  // WBS generation state
+  const [isGeneratingWBS, setIsGeneratingWBS] = useState(false);
+  const [generatedWbsData, setGeneratedWbsData] = useState<any>(undefined);
+
+  const handleGenerateWBS = useCallback(async () => {
+    if (!items.length || !user) return;
+    setIsGeneratingWBS(true);
+    try {
+      const itemDescriptions = items
+        .filter(i => !i.is_section)
+        .map(i => `${i.item_number}: ${i.description} (${i.unit}, qty: ${i.quantity})`)
+        .join("\n");
+
+      const { data: result, error } = await supabase.functions.invoke("analyze-boq", {
+        body: {
+          text: itemDescriptions,
+          analysis_type: "create_wbs",
+          language: isArabic ? "ar" : "en",
+        },
+      });
+
+      if (error) throw error;
+
+      if (result?.wbs) {
+        const wbsResult = { wbs: result.wbs, analysis_type: "wbs" };
+        setGeneratedWbsData(wbsResult);
+
+        // Save to project
+        if (projectId) {
+          const table = projectSource === "saved_projects" ? "saved_projects" : "project_data";
+          const currentAnalysis = (project?.analysis_data as any) || {};
+          await supabase.from(table).update({
+            analysis_data: { ...currentAnalysis, wbs: result.wbs },
+          }).eq("id", projectId);
+        }
+
+        toast({
+          title: isArabic ? "تم إنشاء هيكل العمل" : "WBS Generated",
+          description: isArabic ? "تم إنشاء هيكل تجزئة العمل بنجاح" : "Work Breakdown Structure created successfully",
+        });
+      }
+    } catch (error: any) {
+      console.error("WBS generation error:", error);
+      toast({
+        title: isArabic ? "خطأ في إنشاء WBS" : "Error generating WBS",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingWBS(false);
+    }
+  }, [items, user, isArabic, projectId, projectSource, project, toast]);
+
+  // Effective WBS data (generated > project)
+  const effectiveWbsData = generatedWbsData || projectWbsData;
+
   // Transform project_items to AnalysisData format for AnalysisResults component
   const projectAnalysisData = useMemo(() => {
     if (!project || items.length === 0) return null;
@@ -1016,8 +1087,11 @@ export default function ProjectDetailsPage() {
             {projectAnalysisData ? (
               <AnalysisResults
                 data={projectAnalysisData}
+                wbsData={effectiveWbsData}
                 fileName={(project as any).file_name || project.name}
                 savedProjectId={projectId}
+                onGenerateWBS={handleGenerateWBS}
+                isGeneratingWBS={isGeneratingWBS}
                 onApplyRate={async (itemNumber: string, newRate: number) => {
                   const item = items.find(i => i.item_number === itemNumber);
                   if (!item) return;
