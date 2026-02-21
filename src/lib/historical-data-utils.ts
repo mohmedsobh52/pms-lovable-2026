@@ -354,6 +354,9 @@ export function normalizeHistoricalItems(rawItems: any[], headers?: string[]): N
     let safeTotalPrice = totalPrice;
     if (computed > 0 && totalPrice > 0 && (totalPrice / computed > 100 || computed / totalPrice > 100)) {
       safeTotalPrice = computed;
+    } else if (computed <= 0 && totalPrice > 1e8) {
+      // Item without qty/price but huge total_price => corrupted value
+      safeTotalPrice = 0;
     }
 
     return {
@@ -401,9 +404,11 @@ export function safeTotalValue(items: NormalizedHistoricalItem[]): number {
   return items.reduce((sum, item) => {
     const tp = item.total_price || 0;
     if (!Number.isFinite(tp) || tp > 1e12 || tp < -1e12) return sum;
-    // Additional check: compare with qty * unit_price
     const computed = (item.quantity || 0) * (item.unit_price || 0);
-    const safeTP = (computed > 0 && tp > 0 && tp / computed > 100) ? computed : tp;
+    let safeTP = tp;
+    // If no qty*price supports the value and it's excessively large, ignore it
+    if (computed <= 0 && tp > 1e8) safeTP = 0;
+    else if (computed > 0 && tp > 0 && tp / computed > 100) safeTP = computed;
     return sum + safeTP;
   }, 0);
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2, Download, FileImage, RefreshCw, LogIn, ChevronLeft, ChevronRight, AlertTriangle, TrendingUp, TrendingDown, FileBarChart, Lightbulb, DollarSign, ArrowUpDown } from "lucide-react";
+import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2, Download, FileImage, RefreshCw, LogIn, ChevronLeft, ChevronRight, AlertTriangle, TrendingUp, TrendingDown, FileBarChart, Lightbulb, DollarSign, ArrowUpDown, Wrench, ExternalLink, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -858,26 +858,30 @@ export default function HistoricalPricingPage() {
           <TabsContent value="files" className="space-y-4 mt-4">
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
+              <Card className="hover:shadow-md transition-all hover:scale-[1.02]">
                 <CardContent className="p-4 text-center">
+                  <Database className="w-5 h-5 text-primary mx-auto mb-1" />
                   <p className="text-3xl font-bold text-primary">{totalFiles}</p>
                   <p className="text-sm text-muted-foreground">ملف تاريخي</p>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="hover:shadow-md transition-all hover:scale-[1.02]">
                 <CardContent className="p-4 text-center">
+                  <FileSpreadsheet className="w-5 h-5 text-blue-600 mx-auto mb-1" />
                   <p className="text-3xl font-bold text-blue-600">{totalItems.toLocaleString()}</p>
                   <p className="text-sm text-muted-foreground">بند (هذه الصفحة)</p>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="hover:shadow-md transition-all hover:scale-[1.02]">
                 <CardContent className="p-4 text-center">
+                  <ShieldCheck className="w-5 h-5 text-green-600 mx-auto mb-1" />
                   <p className="text-3xl font-bold text-green-600">{verifiedCount}</p>
                   <p className="text-sm text-muted-foreground">ملف موثق</p>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="hover:shadow-md transition-all hover:scale-[1.02]">
                 <CardContent className="p-4 text-center">
+                  <MapPin className="w-5 h-5 text-orange-600 mx-auto mb-1" />
                   <p className="text-3xl font-bold text-orange-600">
                     {new Set(files.map(f => f.project_location).filter(Boolean)).size}
                   </p>
@@ -1122,21 +1126,31 @@ export default function HistoricalPricingPage() {
               return (
                 <ScrollArea className="max-h-[calc(90vh-200px)]">
                   <div className="space-y-4 px-1">
+                    {/* Auto-correction indicator */}
+                    {selectedFile.total_value && computedTotal > 0 && Math.abs(computedTotal - selectedFile.total_value) > 1 && selectedFile.total_value > computedTotal * 10 && (
+                      <div className="p-3 border border-amber-500/40 bg-amber-500/10 rounded-lg flex items-center gap-2 text-sm">
+                        <Wrench className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                        <span className="text-amber-700 dark:text-amber-400">
+                          تم التصحيح التلقائي: القيمة المخزنة ({formatLargeNumber(selectedFile.total_value)}) → القيمة الصحيحة ({formatLargeNumber(computedTotal)})
+                        </span>
+                      </div>
+                    )}
+
                     {/* Stats Cards */}
                     <div className="grid grid-cols-4 gap-3">
-                      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-center">
+                      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-center hover:shadow-md transition-all hover:scale-[1.03] cursor-default">
                         <Database className="w-4 h-4 text-blue-600 mx-auto mb-1" />
                         <p className="font-bold text-lg">{normalizedItems.length}</p>
                         <p className="text-xs text-muted-foreground">عدد البنود</p>
                       </div>
-                      <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-center">
+                      <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-center hover:shadow-md transition-all hover:scale-[1.03] cursor-default">
                         <DollarSign className="w-4 h-4 text-green-600 mx-auto mb-1" />
                         <p className="font-bold text-lg" title={computedTotal.toLocaleString()}>
                           {formatLargeNumber(computedTotal)}
                         </p>
                         <p className="text-xs text-muted-foreground">القيمة الإجمالية ({selectedFile.currency})</p>
                       </div>
-                      <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg text-center">
+                      <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg text-center hover:shadow-md transition-all hover:scale-[1.03] cursor-default">
                         <Calendar className="w-4 h-4 text-purple-600 mx-auto mb-1" />
                         <p className="font-bold text-sm">
                           {selectedFile.project_date 
@@ -1145,7 +1159,7 @@ export default function HistoricalPricingPage() {
                         </p>
                         <p className="text-xs text-muted-foreground">تاريخ المشروع</p>
                       </div>
-                      <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg text-center">
+                      <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg text-center hover:shadow-md transition-all hover:scale-[1.03] cursor-default">
                         <MapPin className="w-4 h-4 text-orange-600 mx-auto mb-1" />
                         <p className="font-bold text-sm">
                           {selectedFile.project_location 
@@ -1261,6 +1275,38 @@ export default function HistoricalPricingPage() {
                             </p>
                           </div>
                         )}
+                        {/* Fix all corrupted files suggestion */}
+                        {(() => {
+                          const corruptFiles = files.filter(f => f.total_value && f.total_value > 1e12);
+                          if (corruptFiles.length > 0) {
+                            return (
+                              <div className="p-3 border border-red-500/30 bg-red-500/5 rounded-lg">
+                                <p className="text-sm font-medium text-red-700 dark:text-red-400 flex items-center gap-1.5">
+                                  <Wrench className="w-4 h-4" />
+                                  إصلاح {corruptFiles.length} ملف بقيم تالفة
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  توجد ملفات بقيم إجمالية غير صحيحة. اضغط لإصلاحها دفعة واحدة.
+                                </p>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="mt-2 gap-1 text-xs h-7"
+                                  onClick={async () => {
+                                    for (const f of corruptFiles) {
+                                      await fixFileTotal(f);
+                                    }
+                                    toast({ title: `✅ تم إصلاح ${corruptFiles.length} ملف` });
+                                  }}
+                                >
+                                  <RefreshCw className="w-3 h-3" />
+                                  إصلاح الكل
+                                </Button>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                         <div className="p-3 border border-blue-500/30 bg-blue-500/5 rounded-lg">
                           <p className="text-sm font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
                             <DollarSign className="w-4 h-4" />
@@ -1269,6 +1315,12 @@ export default function HistoricalPricingPage() {
                           <p className="text-xs text-muted-foreground mt-1">
                             طبّق أسعار هذا الملف عبر أداة "التسعير التاريخي" في تفاصيل المشروع.
                           </p>
+                          <Link to="/projects">
+                            <Button size="sm" variant="outline" className="mt-2 gap-1 text-xs h-7">
+                              <ExternalLink className="w-3 h-3" />
+                              الانتقال للمشاريع
+                            </Button>
+                          </Link>
                         </div>
                         {files.length > 1 && (
                           <div className="p-3 border border-violet-500/30 bg-violet-500/5 rounded-lg">
