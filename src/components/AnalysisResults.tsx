@@ -1414,6 +1414,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
             sidebarCollapsed ? "w-12" : "w-52"
           )}
           dir="ltr"
+          style={{ position: 'relative', zIndex: 70 }}
         >
           {/* Collapse Toggle Button */}
           <div className="flex items-center justify-between p-2 border-b border-border">
