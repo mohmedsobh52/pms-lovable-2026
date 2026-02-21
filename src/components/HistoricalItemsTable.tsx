@@ -189,7 +189,7 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
         className={`cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 min-h-[24px] flex items-center group ${!readOnly ? '' : 'cursor-default'}`}
         onClick={() => !readOnly && startEdit(item.id, field, value)}
       >
-        <span className={`text-xs truncate ${isDescription ? 'max-w-[300px]' : 'max-w-[120px]'}`}>{displayValue}</span>
+        <span className={`text-xs ${isDescription ? 'whitespace-pre-wrap break-words' : 'truncate max-w-[120px]'}`}>{displayValue}</span>
         {!readOnly && (
           <Edit3 className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 mr-1 flex-shrink-0" />
         )}
@@ -266,8 +266,8 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[60px]">م</TableHead>
-                <TableHead className="text-xs whitespace-nowrap px-2 min-w-[200px]">Description</TableHead>
-                <TableHead className="text-xs whitespace-nowrap px-2 min-w-[200px]">وصف البند</TableHead>
+                <TableHead className="text-xs whitespace-nowrap px-2 min-w-[280px]">Description</TableHead>
+                <TableHead className="text-xs whitespace-nowrap px-2 min-w-[280px]">وصف البند</TableHead>
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[60px]">الوحدة</TableHead>
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[80px]">الكمية</TableHead>
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[90px]">سعر الوحدة</TableHead>
