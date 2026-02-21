@@ -1,78 +1,80 @@
 
 
-# إصلاح خطأ RLS عند رفع BOQ + تحسين الأداء
+# تحسين رفع ملفات BOQ - السحب والإفلات + إشعارات التقدم
 
-## المشكلة
+## التحسينات المطلوبة
 
-عند رفع ملف BOQ وحفظ البنود في جدول `project_items`، يظهر خطأ:
-> "new row violates row-level security policy for table project_items"
+### 1. السحب والإفلات المحسّن مع معاينة فورية
 
-**السبب**: سياسة RLS تستخدم الدالة `user_owns_project(project_id)` التي تتحقق من وجود المشروع في `project_data` أو `saved_projects`. الخطأ يحدث عندما:
-1. المشروع مُنشأ في `saved_projects` لكن `project_items` تحتاج أن يكون في `project_data` أيضاً
-2. المستخدم غير مُوثّق (لا يوجد `auth.uid()`)
-3. المشروع غير موجود في أي من الجدولين
+الملف `BOQUploadDialog.tsx` يستخدم حالياً مكوّن `FileUpload` الذي يدعم السحب والإفلات لكن بدون معاينة فورية للملف. التحسينات:
 
-## الحل
+- إضافة معاينة فورية للملف بعد السحب (عدد الصفحات للـ PDF، عدد الأوراق للـ Excel)
+- إضافة تأثيرات بصرية عند السحب فوق منطقة الرفع (حدود متوهجة + أيقونة متحركة)
+- عرض نوع الملف وحجمه بشكل أوضح مع أيقونات ملونة
+- بدء التحليل تلقائياً بعد إفلات الملف (اختياري مع خيار إلغاء)
 
-### 1. الملف: `src/components/project-details/BOQUploadDialog.tsx`
+#### الملف: `src/components/project-details/BOQUploadDialog.tsx`
 
-**إضافة التحقق من التوثيق قبل الحفظ:**
-- التحقق من وجود `user` قبل محاولة الحفظ
-- إذا كان المشروع في `saved_projects` فقط، إنشاء سجل مقابل في `project_data` تلقائياً (أو التأكد من وجوده)
-- تحسين رسالة الخطأ لتكون واضحة للمستخدم
+- إضافة state جديد `isDragOver` للتحكم بتأثيرات السحب
+- إضافة `onDragOver`, `onDragLeave`, `onDrop` مباشرة على `DialogContent`
+- عند إفلات ملف، عرض معاينة سريعة (حجم، نوع، اسم) ثم بدء التحليل تلقائياً
+- إضافة منطقة سحب كبيرة بتصميم جذاب
 
-**إضافة منطق ضمان وجود المشروع:**
+### 2. إشعارات تقدم محسّنة مع شريط متحرك
+
+#### الملف: `src/components/project-details/BOQUploadDialog.tsx`
+
+- تحسين شريط التقدم بتدرج لوني متحرك (gradient animation)
+- إضافة خطوات مرئية واضحة (استخراج النص > تحليل > حفظ) مع علامات صح لكل خطوة مكتملة
+- عرض النسبة المئوية بجانب الشريط
+- إضافة تقدير الوقت المتبقي
+
+التصميم المقترح للخطوات:
 
 ```text
-// قبل حفظ البنود، تأكد من وجود المشروع في project_data
-const ensureProjectExists = async (projectId: string) => {
-  const { data: exists } = await supabase
-    .from('project_data')
-    .select('id')
-    .eq('id', projectId)
-    .maybeSingle();
-  
-  if (!exists) {
-    // تحقق من saved_projects
-    const { data: saved } = await supabase
-      .from('saved_projects')
-      .select('*')
-      .eq('id', projectId)
-      .maybeSingle();
-    
-    if (saved) {
-      // أنشئ سجل في project_data
-      await supabase.from('project_data').insert({
-        id: projectId,
-        user_id: user.id,
-        name: saved.name,
-        analysis_data: saved.analysis_data,
-        // ...
-      });
-    }
-  }
-};
+[1. قراءة الملف] -----> [2. استخراج البنود] -----> [3. حفظ البنود]
+     (done)                 (in progress)              (pending)
 ```
 
-**تحسين معالجة الخطأ:**
-- عرض رسالة خطأ واضحة بدلاً من الرسالة التقنية
-- إضافة إعادة المحاولة تلقائياً بعد إنشاء سجل المشروع
+- كل خطوة تظهر بلون مختلف حسب حالتها:
+  - مكتملة: أخضر مع علامة صح
+  - جارية: أزرق مع حركة دوران
+  - منتظرة: رمادي
 
-### 2. الملف: `src/pages/ProjectDetailsPage.tsx`
+### 3. تحسينات بصرية إضافية
 
-**إضافة ضمان المزامنة بين الجدولين:**
-- عند تحميل مشروع من `saved_projects`، التأكد من وجود سجل مقابل في `project_data` لدعم عمليات `project_items`
+- إضافة animation للأيقونة عند نجاح الرفع (bounce effect)
+- تحسين ألوان شريط التقدم بتدرج من الأزرق للأخضر كلما اقتربت من الاكتمال
+- إضافة toast notification عند اكتمال كل مرحلة (ليس فقط في النهاية)
 
-### 3. تحسين الأداء والشكل في `BOQUploadDialog`
+## التفاصيل التقنية
 
-- إضافة شريط تقدم واضح أثناء التحليل
-- تحسين عرض حالة الملف المرفوع
-- إضافة رسائل حالة أفضل للمستخدم
+### الملف: `src/components/project-details/BOQUploadDialog.tsx`
+
+#### التغييرات الرئيسية:
+
+1. **State جديدة:**
+   - `isDragOver: boolean` - لتأثير السحب
+   - `currentStep: number` - الخطوة الحالية (1-3)
+   - `completedSteps: number[]` - الخطوات المكتملة
+
+2. **دوال جديدة:**
+   - `handleDragOver(e)` / `handleDragLeave(e)` / `handleDrop(e)` - معالجة السحب والإفلات مباشرة على Dialog
+   - `getFilePreviewInfo(file)` - معاينة سريعة للملف
+
+3. **تحديث `handleAnalyze`:**
+   - تقسيم المعالجة لخطوات واضحة مع تحديث `currentStep`
+   - إضافة toast لكل مرحلة مكتملة
+
+4. **تحسين UI:**
+   - منطقة سحب بتصميم محسّن مع حدود متقطعة وأيقونة كبيرة
+   - مؤشر خطوات (stepper) يعرض المرحلة الحالية
+   - شريط تقدم بتدرج لوني متحرك
+   - نسبة مئوية واضحة
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/project-details/BOQUploadDialog.tsx` | إضافة التحقق من التوثيق، ضمان وجود المشروع، تحسين الأخطاء والشكل |
-| `src/pages/ProjectDetailsPage.tsx` | إضافة مزامنة المشروع بين الجدولين عند التحميل |
+| `src/components/project-details/BOQUploadDialog.tsx` | سحب وإفلات محسّن، معاينة فورية، خطوات تقدم مرئية، تحسينات بصرية |
 
