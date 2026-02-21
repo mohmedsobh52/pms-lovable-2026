@@ -529,6 +529,28 @@ export default function HistoricalPricingPage() {
   const totalItems = files.reduce((sum, f) => sum + f.items_count, 0);
   const verifiedCount = files.filter(f => f.is_verified).length;
 
+  const fixFileTotal = async (file: HistoricalFileMeta) => {
+    try {
+      const { data, error } = await supabase
+        .from("historical_pricing_files")
+        .select("items")
+        .eq("id", file.id)
+        .single();
+      if (error) throw error;
+      const normalized = normalizeHistoricalItems(Array.isArray(data?.items) ? data.items : []);
+      const correctTotal = safeTotalValue(normalized);
+      await supabase.from("historical_pricing_files")
+        .update({ total_value: correctTotal })
+        .eq("id", file.id);
+      setFiles(prev => prev.map(f => 
+        f.id === file.id ? { ...f, total_value: correctTotal } : f
+      ));
+      toast({ title: "✅ تم إصلاح القيمة الإجمالية" });
+    } catch (err: any) {
+      toast({ title: "خطأ", description: err.message, variant: "destructive" });
+    }
+  };
+
   // Login gate
   if (!user && !isLoading) {
     return (
@@ -976,9 +998,20 @@ export default function HistoricalPricingPage() {
                               <p className="text-xs text-muted-foreground">بند</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-lg font-bold" title={file.total_value?.toLocaleString()}>
-                                {formatLargeNumber(file.total_value || 0)}
-                              </p>
+                              {(file.total_value && file.total_value > 1e12) ? (
+                                <div className="flex items-center gap-1">
+                                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                                  <span className="text-xs text-amber-600">قيمة تحتاج إصلاح</span>
+                                  <Button size="sm" variant="ghost" className="h-6 px-2"
+                                    onClick={(e) => { e.stopPropagation(); fixFileTotal(file); }}>
+                                    <RefreshCw className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <p className="text-lg font-bold" title={file.total_value?.toLocaleString()}>
+                                  {formatLargeNumber(file.total_value || 0)}
+                                </p>
+                              )}
                               <p className="text-xs text-muted-foreground">{file.currency}</p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -1073,11 +1106,17 @@ export default function HistoricalPricingPage() {
 
               // Auto-fix corrupt DB total
               if (selectedFile.total_value && Math.abs(computedTotal - selectedFile.total_value) > 1 && 
-                  (!Number.isFinite(selectedFile.total_value) || selectedFile.total_value > 1e15)) {
+                  (!Number.isFinite(selectedFile.total_value) || selectedFile.total_value > 1e12 || 
+                   (computedTotal > 0 && selectedFile.total_value / computedTotal > 100))) {
                 supabase.from("historical_pricing_files")
                   .update({ total_value: computedTotal })
                   .eq("id", selectedFile.id)
-                  .then(() => console.log('Auto-corrected total_value for', selectedFile.id));
+                  .then(() => {
+                    setFiles(prev => prev.map(f => 
+                      f.id === selectedFile.id ? { ...f, total_value: computedTotal } : f
+                    ));
+                    console.log('Auto-corrected total_value for', selectedFile.id);
+                  });
               }
 
               return (
