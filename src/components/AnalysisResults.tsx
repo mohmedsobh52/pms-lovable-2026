@@ -1671,6 +1671,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 items={data.items || []}
                 onApplyPrices={(prices) => prices.forEach(p => updateAIRate(p.itemNumber, p.price))}
                 currency={data.summary?.currency || "SAR"}
+                currentProjectId={savedProjectId}
               />
             </div>
 
