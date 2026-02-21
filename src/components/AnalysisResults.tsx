@@ -2761,66 +2761,72 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
       </div>
     </div>
 
-      {/* Quick Price Dialog */}
-      <QuickPriceDialog
-        isOpen={!!quickPriceItem}
-        onClose={() => setQuickPriceItem(null)}
-        item={quickPriceItem}
-        onApplyPrice={async (price: number) => {
-          if (quickPriceItem) {
-            updateAIRate(quickPriceItem.item_number, price);
-            toast({
-              title: isArabic ? "تم تطبيق السعر" : "Price applied",
-              description: price.toLocaleString(),
-            });
-          }
-        }}
-        isArabic={isArabic}
-        currency={data.summary?.currency || "SAR"}
-      />
-
-      {/* Detailed Price Dialog */}
-      <DetailedPriceDialog
-        isOpen={!!detailedPriceItem}
-        onClose={() => setDetailedPriceItem(null)}
-        item={detailedPriceItem}
-        currency={data.summary?.currency || "SAR"}
-        onSave={() => setDetailedPriceItem(null)}
-        onApplyPrice={(unitPrice) => {
-          if (detailedPriceItem) {
-            updateAIRate(detailedPriceItem.item_number, unitPrice);
-            toast({
-              title: isArabic ? "تم تطبيق السعر" : "Price applied",
-              description: unitPrice.toLocaleString(),
-            });
-            setDetailedPriceItem(null);
-          }
-        }}
-      />
-
-      {/* Edit Item Dialog */}
-      <EditItemDialog
-        isOpen={!!editItem}
-        onClose={() => setEditItem(null)}
-        item={editItem}
-        onSave={async (updatedItem) => {
-          if (editItem && data.items) {
-            const itemIndex = data.items.findIndex(
-              (i: any) => i.item_number === editItem.item_number
-            );
-            if (itemIndex !== -1) {
-              data.items[itemIndex] = {
-                ...data.items[itemIndex],
-                ...updatedItem,
-              };
+      {/* Quick Price Dialog - conditional render to prevent Portal blocking */}
+      {quickPriceItem && (
+        <QuickPriceDialog
+          isOpen={true}
+          onClose={() => setQuickPriceItem(null)}
+          item={quickPriceItem}
+          onApplyPrice={async (price: number) => {
+            if (quickPriceItem) {
+              updateAIRate(quickPriceItem.item_number, price);
+              toast({
+                title: isArabic ? "تم تطبيق السعر" : "Price applied",
+                description: price.toLocaleString(),
+              });
             }
-          }
-          toast({
-            title: isArabic ? "تم حفظ التغييرات" : "Changes saved",
-          });
-          setEditItem(null);
-        }}
-      />
+          }}
+          isArabic={isArabic}
+          currency={data.summary?.currency || "SAR"}
+        />
+      )}
+
+      {/* Detailed Price Dialog - conditional render */}
+      {detailedPriceItem && (
+        <DetailedPriceDialog
+          isOpen={true}
+          onClose={() => setDetailedPriceItem(null)}
+          item={detailedPriceItem}
+          currency={data.summary?.currency || "SAR"}
+          onSave={() => setDetailedPriceItem(null)}
+          onApplyPrice={(unitPrice) => {
+            if (detailedPriceItem) {
+              updateAIRate(detailedPriceItem.item_number, unitPrice);
+              toast({
+                title: isArabic ? "تم تطبيق السعر" : "Price applied",
+                description: unitPrice.toLocaleString(),
+              });
+              setDetailedPriceItem(null);
+            }
+          }}
+        />
+      )}
+
+      {/* Edit Item Dialog - conditional render */}
+      {editItem && (
+        <EditItemDialog
+          isOpen={true}
+          onClose={() => setEditItem(null)}
+          item={editItem}
+          onSave={async (updatedItem) => {
+            if (editItem && data.items) {
+              const itemIndex = data.items.findIndex(
+                (i: any) => i.item_number === editItem.item_number
+              );
+              if (itemIndex !== -1) {
+                data.items[itemIndex] = {
+                  ...data.items[itemIndex],
+                  ...updatedItem,
+                };
+              }
+            }
+            toast({
+              title: isArabic ? "تم حفظ التغييرات" : "Changes saved",
+            });
+            setEditItem(null);
+          }}
+        />
+      )}
     </>
 
   );

@@ -1,45 +1,50 @@
 /* ============================================
-   GLOBAL PERFORMANCE OPTIMIZATION
-   Remove all Radix UI animations for instant response
+   DIALOG CUSTOM STYLES
+   Simplified z-index strategy & pointer-events fix
    ============================================ */
 
-/* Force instant appearance/disappearance for all Radix components */
+/* Force instant appearance/disappearance for Radix components */
 [data-radix-popper-content-wrapper] {
   animation-duration: 0ms !important;
 }
 
-/* Instant open state */
 [data-state="open"] {
   animation-duration: 0ms !important;
 }
 
-/* Instant close - animation only, NO pointer-events blocking on generic selector */
 [data-state="closed"] {
   animation-duration: 0ms !important;
-  /* REMOVED: pointer-events: none - was blocking DialogTrigger buttons */
-  /* REMOVED: opacity: 0 - was hiding DialogTrigger buttons */
 }
 
-/* Dialog Overlay - Instant pointer-events removal on close */
+/* ============================================
+   DIALOG OVERLAY & CONTENT - CLOSED STATE
+   Critical: prevent closed dialogs from blocking clicks
+   ============================================ */
+
 [data-radix-dialog-overlay][data-state="closed"],
 [data-radix-dialog-overlay]:not([data-state="open"]) {
-  animation-duration: 0ms !important;
   pointer-events: none !important;
   opacity: 0 !important;
   visibility: hidden !important;
 }
 
-/* Dialog Content - Fast exit */
 [data-radix-dialog-content][data-state="closed"],
 [data-radix-dialog-content]:not([data-state="open"]) {
-  animation-duration: 0ms !important;
   pointer-events: none !important;
   visibility: hidden !important;
 }
 
+/* Dialog open state z-index */
+[data-radix-dialog-overlay] {
+  z-index: 99 !important;
+}
+
+[data-radix-dialog-content] {
+  z-index: 100 !important;
+}
+
 /* ============================================
    BUTTON RESPONSIVENESS
-   Ensure all buttons respond instantly
    ============================================ */
 
 button,
@@ -54,456 +59,9 @@ button:active,
   transition: transform 50ms;
 }
 
-/* Interactive elements instant transition */
-.interactive-btn {
-  transition-duration: 50ms !important;
-}
-
-/* Safe z-index for tabs navigation - above dialog overlay */
-.tabs-navigation-safe {
-  position: relative;
-  z-index: 55;
-}
-
-/* Ensure TabsList has higher z-index than Dialog Overlay */
-[data-radix-tabs-list] {
-  position: relative;
-  z-index: 55;
-}
-
-/* Ensure TabsTrigger is always clickable */
-[data-radix-tabs-trigger] {
-  position: relative;
-  z-index: 56;
-  cursor: pointer;
-}
-
-/* Project actions section - ensure buttons are always clickable */
-.project-actions-section {
-  position: relative;
-  z-index: 60;
-  pointer-events: auto;
-}
-
-.project-actions-section button {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* Select dropdown - ensure it appears above everything including dialogs */
-[data-radix-select-content] {
-  z-index: 150 !important;
-}
-
-[data-radix-select-viewport] {
-  pointer-events: auto !important;
-}
-
-/* Ensure select items are clickable */
-[data-radix-select-item] {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* Ensure all tabs in tabs-navigation-safe are clickable */
-.tabs-navigation-safe > button,
-.tabs-navigation-safe [role="tab"] {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* Upload zone protection */
-.upload-zone,
-[class*="border-dashed"] {
-  position: relative;
-  z-index: 55;
-  pointer-events: auto !important;
-}
-
-.upload-zone label,
-[class*="border-dashed"] label {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-.upload-zone input[type="file"],
-[class*="border-dashed"] input[type="file"] {
-  pointer-events: auto !important;
-}
-
-/* DropdownMenu - ensure it appears above everything */
-[data-radix-dropdown-menu-content] {
-  z-index: 70 !important;
-  pointer-events: auto !important;
-}
-
-/* Ensure dropdown items are clickable */
-[data-radix-dropdown-menu-item] {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* DropdownMenu trigger in table rows */
-[data-radix-dropdown-menu-trigger] {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* Additional protection for dropdown item interaction */
-[data-radix-dropdown-menu-item]:hover {
-  background-color: hsl(var(--accent));
-  cursor: pointer !important;
-}
-
-[data-radix-dropdown-menu-content] * {
-  pointer-events: auto !important;
-}
-
 /* ============================================
-   ANALYSIS ACTION BUTTONS
-   Ensure analysis buttons are always responsive
-   ============================================ */
-
-.analysis-action-btn {
-  position: relative;
-  z-index: 60;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-.analysis-action-btn:active {
-  transform: scale(0.98);
-  transition: transform 50ms ease-out;
-}
-
-.analysis-action-btn:hover {
-  opacity: 0.9;
-}
-
-/* Dialog Content - Higher z-index for analysis dialogs */
-[data-radix-dialog-content] {
-  z-index: 100 !important;
-}
-
-[data-radix-dialog-overlay] {
-  z-index: 99 !important;
-}
-
-/* ============================================
-   SETTINGS FORM PROTECTION
-   Ensure form elements in Settings page are clickable
-   ============================================ */
-
-.settings-form-safe {
-  position: relative;
-  z-index: 10;
-  pointer-events: auto !important;
-}
-
-.settings-form-safe input,
-.settings-form-safe textarea,
-.settings-form-safe button,
-.settings-form-safe [data-radix-select-trigger] {
-  position: relative;
-  z-index: 20;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* Slider protection */
-[data-radix-slider-root] {
-  position: relative;
-  z-index: 20;
-  pointer-events: auto !important;
-}
-
-[data-radix-slider-thumb] {
-  pointer-events: auto !important;
-  cursor: grab !important;
-}
-
-[data-radix-slider-track] {
-  pointer-events: auto !important;
-}
-
-/* ============================================
-   TENDER TABS CARD HEADER PROTECTION
-   Ensure add buttons in tender tabs are always clickable
-   ============================================ */
-
-.tender-card-safe {
-  position: relative;
-  z-index: 10;
-}
-
-.tender-card-header {
-  position: relative;
-  z-index: 60;
-  pointer-events: auto !important;
-}
-
-.tender-card-header button {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-.tender-card-safe [data-radix-dialog-trigger],
-.tender-card-safe button:not([data-radix-dialog-content] button) {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* ============================================
-   DIALOG TRIGGER GLOBAL PROTECTION
-   ============================================ */
-
-/* All DialogTrigger buttons should be interactive */
-[data-radix-dialog-trigger] {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* Nested DialogTrigger in CardHeader */
-.tender-card-header [data-radix-dialog-trigger],
-.tender-card-header > * [data-radix-dialog-trigger] {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-}
-
-/* Card with Dialog inside */
-.card-with-dialog {
-  position: relative;
-  z-index: 10;
-}
-
-.card-with-dialog .card-header-actions {
-  position: relative;
-  z-index: 60;
-  pointer-events: auto !important;
-}
-
-.card-with-dialog .card-header-actions button,
-.card-with-dialog .card-header-actions [data-radix-dialog-trigger] {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* ============================================
-   REPORTS CARD PROTECTION
-   Ensure report action buttons are always clickable
-   ============================================ */
-
-.reports-card-safe {
-  position: relative;
-  z-index: 10;
-}
-
-.reports-card-safe button,
-.reports-card-safe .report-action-btn {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* Card actions container */
-.card-actions-safe {
-  position: relative;
-  z-index: 60;
-  pointer-events: auto !important;
-}
-
-.card-actions-safe button {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* ============================================
-   NAVIGATION BAR PROTECTION
-   Ensure navigation buttons are always clickable
-   ============================================ */
-
-.navigation-bar-safe {
-  position: relative;
-  z-index: 50;
-  pointer-events: auto !important;
-}
-
-.navigation-bar-safe button,
-.navigation-bar-safe a {
-  position: relative;
-  z-index: 51;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* ============================================
-   BREADCRUMB PROTECTION
-   Ensure breadcrumb links are always clickable
-   ============================================ */
-
-.breadcrumb-safe {
-  position: relative;
-  z-index: 45;
-  pointer-events: auto !important;
-}
-
-.breadcrumb-safe a,
-.breadcrumb-safe [role="link"] {
-  position: relative;
-  z-index: 46;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* ============================================
-   FORM CARD PROTECTION
-   Ensure form elements in cards are always interactive
-   ============================================ */
-
-.form-card-safe {
-  position: relative;
-  z-index: 10;
-}
-
-.form-card-safe [data-radix-select-trigger] {
-  position: relative;
-  z-index: 55;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-.form-card-safe input,
-.form-card-safe textarea {
-  position: relative;
-  z-index: 45;
-  pointer-events: auto !important;
-  cursor: text !important;
-}
-
-.form-card-safe input:focus,
-.form-card-safe textarea:focus {
-  z-index: 50;
-  outline: none;
-}
-
-.form-card-safe button:not([data-radix-select-trigger]):not([data-radix-popover-trigger]) {
-  position: relative;
-  z-index: 45;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-.form-card-safe label {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* ============================================
-   FORM ACTIONS PROTECTION
-   Ensure form submit buttons are always clickable
-   ============================================ */
-
-.form-actions-safe {
-  position: relative;
-  z-index: 60;
-  pointer-events: auto !important;
-}
-
-.form-actions-safe button {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* ============================================
-   HEADER SEARCH BOX PROTECTION
-   Ensure header search box is always clickable
-   ============================================ */
-
-/* ============================================
-   HEADER SEARCH BOX PROTECTION
-   Ensure header search box is always clickable
-   ============================================ */
-
-.header-search-box {
-  position: relative;
-  z-index: 56 !important; /* Higher than header (50) and other elements */
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* Ensure all child elements don't block clicks when using button element */
-.header-search-box > * {
-  pointer-events: none !important;
-}
-
-/* For button-based search boxes, re-enable pointer events on the button itself */
-button.header-search-box {
-  pointer-events: auto !important;
-}
-
-button.header-search-box > * {
-  pointer-events: none !important;
-}
-
-/* ============================================
-   ATTACHMENTS TAB ACTIONS PROTECTION
-   Ensure Fast Extraction button is always clickable
-   ============================================ */
-
-.attachments-actions-safe {
-  position: relative;
-  z-index: 65;
-  pointer-events: auto !important;
-}
-
-.attachments-actions-safe button {
-  position: relative;
-  z-index: 70;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-.attachments-actions-safe button:active {
-  transform: scale(0.98);
-  transition: transform 50ms ease-out;
-}
-
-/* ============================================
-   QUICK SHORTCUTS PROTECTION
-   Ensure quick shortcut buttons are always clickable
-   ============================================ */
-
-.quick-shortcuts-safe {
-  position: relative;
-  z-index: 55;
-  pointer-events: auto !important;
-}
-
-.quick-shortcuts-safe a,
-.quick-shortcuts-safe button {
-  position: relative;
-  z-index: 56;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* ============================================
-   GLOBAL TABS PROTECTION (FALLBACK)
-   Ensure all tabs are always clickable regardless of overlays
+   TABS PROTECTION
+   Ensure tabs are always clickable
    ============================================ */
 
 [role="tablist"] {
@@ -524,15 +82,195 @@ button.header-search-box > * {
   outline-offset: 2px;
 }
 
-/* Ensure tabpanel content is interactive */
 [role="tabpanel"] {
   position: relative;
   z-index: 10;
   pointer-events: auto !important;
 }
 
-.quick-shortcuts-safe a:active,
-.quick-shortcuts-safe button:active {
-  transform: scale(0.98);
-  transition: transform 50ms ease-out;
+.tabs-navigation-safe {
+  position: relative;
+  z-index: 55;
+}
+
+.tabs-navigation-safe > button,
+.tabs-navigation-safe [role="tab"] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* ============================================
+   SELECT & DROPDOWN PROTECTION
+   ============================================ */
+
+[data-radix-select-content] {
+  z-index: 150 !important;
+}
+
+[data-radix-select-viewport],
+[data-radix-select-item] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+[data-radix-dropdown-menu-content] {
+  z-index: 70 !important;
+  pointer-events: auto !important;
+}
+
+[data-radix-dropdown-menu-item],
+[data-radix-dropdown-menu-trigger] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+[data-radix-dropdown-menu-content] * {
+  pointer-events: auto !important;
+}
+
+/* ============================================
+   DIALOG TRIGGER PROTECTION
+   ============================================ */
+
+[data-radix-dialog-trigger] {
+  position: relative;
+  z-index: 65;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* ============================================
+   SAFE ZONE CLASSES
+   ============================================ */
+
+.project-actions-section {
+  position: relative;
+  z-index: 60;
+  pointer-events: auto;
+}
+
+.project-actions-section button {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.analysis-action-btn {
+  position: relative;
+  z-index: 60;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.upload-zone,
+[class*="border-dashed"] {
+  position: relative;
+  z-index: 55;
+  pointer-events: auto !important;
+}
+
+.upload-zone label,
+.upload-zone input[type="file"],
+[class*="border-dashed"] label,
+[class*="border-dashed"] input[type="file"] {
+  pointer-events: auto !important;
+}
+
+.navigation-bar-safe {
+  position: relative;
+  z-index: 50;
+  pointer-events: auto !important;
+}
+
+.navigation-bar-safe button,
+.navigation-bar-safe a {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.breadcrumb-safe {
+  position: relative;
+  z-index: 45;
+  pointer-events: auto !important;
+}
+
+.breadcrumb-safe a,
+.breadcrumb-safe [role="link"] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Settings & Form protection */
+.settings-form-safe {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto !important;
+}
+
+.settings-form-safe input,
+.settings-form-safe textarea,
+.settings-form-safe button,
+.settings-form-safe [data-radix-select-trigger] {
+  pointer-events: auto !important;
+}
+
+[data-radix-slider-root],
+[data-radix-slider-thumb],
+[data-radix-slider-track] {
+  pointer-events: auto !important;
+}
+
+/* Tender & Card protection */
+.tender-card-safe {
+  position: relative;
+  z-index: 10;
+}
+
+.tender-card-header {
+  position: relative;
+  z-index: 60;
+  pointer-events: auto !important;
+}
+
+.tender-card-header button {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.card-actions-safe,
+.form-actions-safe,
+.reports-card-safe,
+.attachments-actions-safe,
+.quick-shortcuts-safe {
+  position: relative;
+  pointer-events: auto !important;
+}
+
+.card-actions-safe button,
+.form-actions-safe button,
+.reports-card-safe button,
+.attachments-actions-safe button,
+.quick-shortcuts-safe button,
+.quick-shortcuts-safe a {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Header search box */
+.header-search-box {
+  position: relative;
+  z-index: 56 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.header-search-box > * {
+  pointer-events: none !important;
+}
+
+button.header-search-box {
+  pointer-events: auto !important;
+}
+
+button.header-search-box > * {
+  pointer-events: none !important;
 }
