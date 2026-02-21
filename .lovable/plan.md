@@ -1,134 +1,84 @@
 
 
-# إصلاح شامل لاستخراج البيانات التاريخية
+# إصلاح القيمة الإجمالية وتحسين العرض وإضافة اقتراحات
 
-## تشخيص المشكلة الجذرية
+## المشكلة
 
-بعد فحص الكود بالتفصيل، تم اكتشاف عدة مشاكل متداخلة:
-
-### المشكلة 1: فقدان أسماء الأعمدة الرقمية
-في `extractRawDataFromExcel` (سطر 866-869)، عند قراءة صف العناوين، إذا كان اسم العمود يشبه رقماً (مثل "1" أو "2")، يتم تحويله إلى رقم فيضيع اسمه ويصبح `Column_X`. هذا يؤثر على ربط الأعمدة لاحقاً.
-
-### المشكلة 2: البيانات المحفوظة سابقاً تالفة
-الملفات التي تم رفعها قبل إصلاح نظام الاستخراج محفوظة في قاعدة البيانات بقيم صفرية. عند عرضها، يتم تمرير البيانات لـ `normalizeHistoricalItems` التي تجد المفاتيح الصحيحة (`description`, `unit_price`) لكن قيمها فارغة/صفرية لأنها حُفظت هكذا.
-
-### المشكلة 3: عدم تطابق قوائم الأسماء البديلة
-`COLUMN_PATTERNS` في `excel-utils.ts` (تُستخدم لتقييم صفوف العناوين) و `COLUMN_MAPPINGS` في `historical-data-utils.ts` (تُستخدم لربط الأعمدة) بينهما اختلافات. يجب توحيدهما.
-
-### المشكلة 4: معاملة الأعمدة مثل "amount" كـ totalPrice فقط
-كلمة "amount" موجودة في كلا النمطين `quantity` و `totalPrice`، مما يسبب تضارباً في الربط.
+الصورة تُظهر أن القيمة الإجمالية لا تزال خاطئة "240,568,176,224,047,730,000 SAR" رغم الإصلاحات السابقة. السبب أن البنود المحفوظة في قاعدة البيانات تحتوي على قيم `total_price` تالفة لكنها أقل من حد الأمان الحالي (1e15). عندما يتم جمعها تنتج الرقم الضخم.
 
 ## الحلول
 
-### 1. حماية أسماء الأعمدة من التحويل الرقمي
+### 1. إصلاح حساب القيمة الإجمالية (الإصلاح الحقيقي)
 
-في `extractRawDataFromExcel`، صفوف العناوين (headers) يجب أن تبقى نصوصاً دائماً ولا تُحوّل لأرقام.
+التعديل على ملفين:
 
-### 2. إزالة "amount" من أنماط الكمية
+**`src/lib/historical-data-utils.ts`:**
+- في `normalizeHistoricalItems`: إضافة تحقق من صحة `total_price` بمقارنته مع `quantity * unit_price`. إذا كانت القيمة المحسوبة موجبة والقيمة المخزنة تختلف عنها بأكثر من 100 ضعف، يتم استخدام القيمة المحسوبة
+- في `safeTotalValue`: تخفيض حد الأمان من 1e15 إلى 1e12 (لا يوجد بند واحد بتريليون ريال)، وإضافة فحص إضافي: إذا كان `total_price` يختلف عن `quantity * unit_price` بأكثر من 100 ضعف، يتم استخدام `quantity * unit_price`
 
-"amount" يجب أن تبقى فقط في `totalPrice` لأنها عادة تعني "المبلغ" وليس "الكمية".
+**`src/pages/HistoricalPricingPage.tsx`:**
+- تحسين حجم حوار العرض وأداء العرض
 
-### 3. تحسين تطابق الأعمدة - أولوية المطابقة الدقيقة
+### 2. تحسين حجم الشاشة والأداء
 
-حالياً `matchColumnName` تستخدم `includes` مما يجعل عمود "item" يطابق "item_number" و"item description" معاً. الحل: المطابقة الدقيقة أولاً ثم `includes` كخيار ثانوي.
+- توسيع بطاقات الإحصائيات لتكون أكثر وضوحاً
+- تحسين تنسيق الأرقام الكبيرة (استخدام تنسيق مختصر: K, M, B)
+- إضافة عرض اسم الملف الأصلي بشكل أوضح
 
-### 4. إضافة زر "إعادة معالجة" للملفات المحفوظة
+### 3. تحسين قسم الاقتراحات
 
-بدلاً من محاولة إصلاح البيانات التالفة تلقائياً، يتم:
-- إضافة رسالة تنبيه عند فتح ملف محفوظ بقيم صفرية: "هذا الملف محفوظ بقيم ناقصة. يُنصح بحذفه وإعادة رفعه."
-- عرض زر "حذف وإعادة الرفع" مباشرة في حوار العرض
-
-### 5. إضافة سجل تشخيصي مرئي للمستخدم
-
-عند رفع ملف جديد، إضافة شريط يظهر:
-- عدد الأعمدة المربوطة بنجاح
-- أسماء الأعمدة التي لم يتم ربطها
-- نسبة البنود ذات البيانات الكاملة
+- إضافة أيقونات ملونة مميزة لكل اقتراح
+- إضافة اقتراح "تصدير تقرير مقارنة" للملفات المتعددة
+- إظهار ملخص سريع لأعلى وأقل الأسعار
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/lib/excel-utils.ts` | حماية headers من التحويل الرقمي + إزالة "amount" من quantity |
-| `src/lib/historical-data-utils.ts` | تحسين matchColumnName (مطابقة دقيقة أولاً) + إزالة "amount" من quantity |
-| `src/pages/HistoricalPricingPage.tsx` | إضافة تنبيه البيانات التالفة + شريط تشخيص الربط + زر إعادة الرفع |
+| `src/lib/historical-data-utils.ts` | إصلاح التحقق من total_price + تخفيض حد الأمان |
+| `src/pages/HistoricalPricingPage.tsx` | تحسين العرض + تنسيق الأرقام + اقتراحات محسنة |
 
 ## التفاصيل التقنية
 
-### حماية أسماء الأعمدة (excel-utils.ts)
+### إصلاح normalizeHistoricalItems
 
 ```text
-في extractRawDataFromExcel، سطر 842-845:
-
+في السطر 360:
 الحالي:
-  const headers = headerRow.map((h, idx) =>
-    (h != null && String(h).trim()) || `Column_${idx + 1}`
-  );
+  total_price: totalPrice > 0 ? totalPrice : quantity * unitPrice
 
 الجديد:
-  const headers = headerRow.map((h, idx) => {
-    if (h == null || String(h).trim() === '') return `Column_${idx + 1}`;
-    return String(h).trim(); // دائماً نص، حتى لو كان رقماً
-  });
+  // إذا كان total_price المخزن يختلف عن qty*unitPrice بأكثر من 100x، استخدم المحسوب
+  const computed = quantity * unitPrice;
+  let safeTotalPrice = totalPrice;
+  if (computed > 0 && totalPrice > 0 && (totalPrice / computed > 100 || computed / totalPrice > 100)) {
+    safeTotalPrice = computed;
+  }
+  total_price: safeTotalPrice > 0 ? safeTotalPrice : computed
 ```
 
-### تحسين matchColumnName (historical-data-utils.ts)
+### إصلاح safeTotalValue
 
 ```text
 الحالي:
-  normalized === alias || normalized.includes(alias)
+  if (!Number.isFinite(tp) || tp > 1e15 || tp < -1e15) return sum;
 
 الجديد:
-  // المرحلة 1: مطابقة دقيقة فقط
-  for (const [field, aliases] of COLUMN_MAPPINGS) {
-    if (aliases.some(a => normalized === a.toLowerCase())) return field;
-  }
-  // المرحلة 2: includes كخيار ثانوي
-  for (const [field, aliases] of COLUMN_MAPPINGS) {
-    if (aliases.some(a => normalized.includes(a.toLowerCase()))) return field;
-  }
+  if (!Number.isFinite(tp) || tp > 1e12 || tp < -1e12) return sum;
+  // فحص إضافي: مقارنة مع qty * unit_price
+  const computed = (item.quantity || 0) * (item.unit_price || 0);
+  const safeTP = (computed > 0 && tp > 0 && tp / computed > 100) ? computed : tp;
+  return sum + safeTP;
 ```
 
-### إزالة "amount" من أنماط الكمية
+### تنسيق الأرقام الكبيرة
 
 ```text
-في كلا الملفين:
-  quantity patterns: إزالة 'amount' (تبقى فقط في totalPrice)
-  
-في COLUMN_PATTERNS (excel-utils.ts):
-  quantity: إزالة 'amount'
-  
-في COLUMN_MAPPINGS (historical-data-utils.ts):
-  quantity: إزالة 'amount'
-```
-
-### تنبيه البيانات التالفة في حوار العرض
-
-```text
-في HistoricalPricingPage.tsx - View Dialog:
-
-بعد حساب zeroItems:
-  إذا كان zeroItems.length / normalizedItems.length > 0.8:
-    عرض بطاقة تحذير:
-    "هذا الملف يحتوي على بيانات ناقصة (تم حفظه قبل تحسين نظام الاستخراج).
-     يُنصح بحذفه وإعادة رفع الملف الأصلي للحصول على نتائج أفضل."
-    [زر: حذف هذا الملف]
-```
-
-### شريط تشخيص الربط عند الرفع
-
-```text
-في HistoricalPricingPage.tsx - Upload Dialog:
-
-بعد استخراج البنود:
-  const mappedCount = عدد الحقول المربوطة (description, unit, quantity, etc.)
-  const totalFields = 7 // العدد الكلي للحقول
-  const completenessRatio = بنود_كاملة / إجمالي_البنود
-  
-  عرض:
-  "تم ربط X من Y حقل | Z% من البنود تحتوي بيانات كاملة"
-  
-  إذا completenessRatio < 0.5:
-    تحذير أحمر: "جودة الاستخراج منخفضة - تحقق من تنسيق الملف"
+function formatLargeNumber(value: number, currency: string): string {
+  if (value >= 1e9) return (value / 1e9).toFixed(2) + ' B ' + currency;
+  if (value >= 1e6) return (value / 1e6).toFixed(2) + ' M ' + currency;
+  if (value >= 1e3) return value.toLocaleString() + ' ' + currency;
+  return value.toFixed(2) + ' ' + currency;
+}
 ```
 
