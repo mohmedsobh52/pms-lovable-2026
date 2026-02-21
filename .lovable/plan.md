@@ -1,114 +1,128 @@
 
 
-# تحسين أداء قاعدة البيانات التاريخية ومعالجة مشاكل الرفع والعرض
+# تحسين صفحة تفاصيل المشروع - التبويبات والربط التاريخي ودقة التسعير
 
 ## المشاكل المكتشفة
 
-### 1. مشكلة الملفات الكبيرة
-- `extractRawDataFromExcel` تحمل الملف بالكامل في الذاكرة دفعة واحدة
-- لا يوجد progress indicator أثناء القراءة
-- حد 1000 صف فقط بدون إعلام المستخدم بوجود صفوف إضافية
-- تخزين كل البنود في عمود JSONB واحد قد يفشل مع ملفات كبيرة جداً (حد Supabase payload ~6MB)
+### 1. التبويبات لا تعمل
+التبويبات الخمسة (نظرة عامة، جدول الكميات، تحليل متقدم، المستندات، الاعدادات) تستخدم `grid-cols-5` مع نصوص طويلة مما يسبب تكدس على الشاشات الصغيرة. بالاضافة لمشكلة z-index محتملة مع `ProjectHeader`.
 
-### 2. مشكلة عدم ظهور البيانات
-- `loadFiles()` لا تتعامل مع حالة عدم تسجيل الدخول بشكل واضح (تظهر "لا توجد ملفات" بدلاً من رسالة تسجيل الدخول)
-- لا يوجد retry عند فشل التحميل
-- لا يوجد تحقق من الاتصال بالشبكة
+### 2. عدم وجود ربط مع المشاريع التاريخية
+صفحة تفاصيل المشروع لا تربط بنود BOQ مع قاعدة البيانات التاريخية (`historical_pricing_files` و `saved_projects`) للمقارنة والتسعير.
 
-### 3. مشكلة الأداء العام
-- تحميل جميع الملفات مع بياناتها الكاملة (`items` JSONB) دفعة واحدة
-- لا يوجد pagination
+### 3. عدم وجود حقول المنطقة/المدينة
+الاعدادات تحتوي على حقل "موقع المشروع" كنص حر فقط، بدون محددات المنطقة والمدينة (كما في الصورة المرفقة).
 
 ---
 
-## الحلول المقترحة
+## الحلول
 
-### 1. تحسين `loadFiles()` - عدم تحميل البنود مع القائمة
+### 1. اصلاح التبويبات
 
-**الملف:** `src/pages/HistoricalPricingPage.tsx`
+**الملف:** `src/pages/ProjectDetailsPage.tsx`
 
-تغيير استعلام تحميل الملفات لاستبعاد عمود `items` الثقيل من القائمة الرئيسية، وتحميله فقط عند فتح ملف محدد:
+- تحويل `TabsList` من `grid-cols-5` الى `inline-flex` مع `overflow-x-auto` للسماح بالتمرير الافقي على الشاشات الصغيرة
+- اضافة `className="tabs-navigation-safe"` اضافي للتأكد من عمل التبويبات
+- تقصير نصوص التبويبات على الشاشات الصغيرة
 
-```typescript
-// بدلاً من select("*")
-const { data, error } = await supabase
-  .from("historical_pricing_files")
-  .select("id, file_name, project_name, project_location, project_date, currency, items_count, total_value, notes, is_verified, created_at")
-  .order("created_at", { ascending: false });
-```
+### 2. اضافة تبويب "التسعير التاريخي" في نظرة عامة المشروع
 
-وعند عرض ملف محدد، تحميل البنود بشكل منفصل:
+**الملف:** `src/components/project-details/ProjectOverviewTab.tsx`
 
-```typescript
-const handleViewFile = async (file) => {
-  const { data } = await supabase
-    .from("historical_pricing_files")
-    .select("items")
-    .eq("id", file.id)
-    .single();
-  setSelectedFile({ ...file, items: data?.items || [] });
-  setViewDialogOpen(true);
-};
-```
+- اضافة قسم جديد "مقارنة الاسعار التاريخية" يعرض ملخص المطابقة مع المشاريع السابقة
+- زر "مقارنة شاملة" يفتح `BulkHistoricalPricing` dialog
+- زر "بحث تاريخي" لبند محدد يفتح `HistoricalPriceLookup`
+- عرض عدد البنود المتطابقة مع مشاريع سابقة واحصائيات الاسعار
 
-### 2. معالجة الملفات الكبيرة مع Progress
+**الملف:** `src/components/project-details/ProjectBOQTab.tsx`
 
-**الملف:** `src/pages/HistoricalPricingPage.tsx`
+- اضافة زر "تسعير تاريخي" في شريط ادوات جدول الكميات
+- اضافة خيار "بحث تاريخي" في قائمة خيارات كل بند
 
-- اضافة شريط تقدم أثناء قراءة الملف
-- رفع حد الصفوف من 1000 الى 5000 مع تحذير للمستخدم
-- تقسيم البنود الكبيرة (اكثر من 2000 بند) إلى دفعات عند الحفظ
-- اضافة Web Worker timeout للملفات الكبيرة جداً
+### 3. اضافة حقول المنطقة والمدينة في الاعدادات
 
-### 3. اضافة رسالة تسجيل الدخول
+**الملف:** `src/components/project-details/types.ts`
 
-**الملف:** `src/pages/HistoricalPricingPage.tsx`
+- اضافة `region` و `city` الى `EditFormData`
+- اضافة قائمة المناطق والمدن (السعودية، الامارات، مصر، إلخ)
 
-عرض رسالة واضحة عندما يكون المستخدم غير مسجل الدخول بدلاً من "لا توجد ملفات":
+**الملف:** `src/components/project-details/ProjectSettingsTab.tsx`
 
-```typescript
-if (!user) {
-  return <LoginPrompt />;
-}
-```
+- استبدال حقل "الموقع" النصي بـ Select للمنطقة و Select للمدينة (كما في الصورة)
+- المدن تتغير تلقائياً بناءً على المنطقة المختارة
+- دعم المناطق: السعودية (الرياض، جدة، الدمام...)، مصر، الامارات، الكويت، قطر، البحرين، عمان
 
-### 4. اضافة Pagination للقائمة
+**الملف:** `src/pages/ProjectDetailsPage.tsx`
 
-**الملف:** `src/pages/HistoricalPricingPage.tsx`
+- تمرير `region` و `city` من `editForm` الى `ProjectSettingsTab`
+- حفظ المنطقة والمدينة في `analysis_data.project_info`
 
-- عرض 20 ملف في كل صفحة
-- أزرار التنقل بين الصفحات
-- عداد إجمالي الملفات
+### 4. تحسين دقة التسعير عبر الموقع
 
-### 5. اضافة Retry و Error Recovery
+**الملف:** `src/components/project-details/AutoPriceDialog.tsx`
 
-**الملف:** `src/pages/HistoricalPricingPage.tsx`
-
-- زر "إعادة المحاولة" عند فشل التحميل
-- إعادة محاولة تلقائية مرة واحدة عند فشل الشبكة
-- عرض حالة الاتصال
+- استخدام موقع المشروع (المنطقة/المدينة) لتحسين دقة مطابقة الاسعار
+- اعطاء اولوية للبنود من مشاريع في نفس المنطقة
 
 ---
 
 ## التفاصيل التقنية
 
+### تعديل types.ts
+
+```typescript
+// اضافة region و city
+export interface EditFormData {
+  name: string;
+  currency: string;
+  description: string;
+  project_type: string;
+  location: string;
+  region: string;
+  city: string;
+  client_name: string;
+  status: string;
+}
+
+// قائمة المناطق والمدن
+export const regions = [
+  { value: "SA", label: { ar: "المملكة العربية السعودية", en: "Saudi Arabia" } },
+  { value: "AE", label: { ar: "الإمارات", en: "UAE" } },
+  { value: "EG", label: { ar: "مصر", en: "Egypt" } },
+  // ...
+];
+
+export const citiesByRegion: Record<string, Array<{ value: string; label: { ar: string; en: string } }>> = {
+  SA: [
+    { value: "riyadh", label: { ar: "الرياض", en: "Riyadh" } },
+    { value: "jeddah", label: { ar: "جدة", en: "Jeddah" } },
+    // ...
+  ],
+  // ...
+};
+```
+
+### تعديل TabsList
+
+```typescript
+// من
+<TabsList className="grid w-full grid-cols-5 mb-6">
+
+// الى
+<TabsList className="flex w-full overflow-x-auto mb-6 tabs-navigation-safe">
+```
+
 ### الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/HistoricalPricingPage.tsx` | تحسين الاستعلامات، Progress bar، Pagination، Login gate، Retry |
-| `src/lib/excel-utils.ts` | رفع حد الصفوف مع تمرير progress callback |
+| `src/pages/ProjectDetailsPage.tsx` | اصلاح TabsList + تمرير region/city |
+| `src/components/project-details/types.ts` | اضافة region/city + قوائم المناطق |
+| `src/components/project-details/ProjectSettingsTab.tsx` | Select للمنطقة والمدينة |
+| `src/components/project-details/ProjectOverviewTab.tsx` | قسم المقارنة التاريخية |
+| `src/components/project-details/ProjectBOQTab.tsx` | زر التسعير التاريخي |
 
-### منطق الحفظ المحسّن للملفات الكبيرة
+### لا تغييرات على قاعدة البيانات
 
-عند حفظ ملف يحتوي على اكثر من 2000 بند:
-1. تقسيم البنود الى مجموعات (2000 بند لكل مجموعة)
-2. حفظ المجموعة الأولى مع بيانات المشروع
-3. عرض تحذير للمستخدم اذا تم تقليص البنود
-
-### تحسين تحميل القائمة
-
-- استبعاد عمود `items` من الاستعلام الرئيسي (يوفر 90%+ من حجم البيانات)
-- تحميل `items` فقط عند الحاجة (فتح ملف للعرض أو التصدير)
-- اضافة `.range(from, to)` للـ pagination
+البيانات الجديدة (region/city) تُخزن في `analysis_data.project_info` الموجود حالياً.
 
