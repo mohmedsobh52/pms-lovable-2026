@@ -1,67 +1,42 @@
 
 
-# إضافة فلتر الفئات + التبديل بين Pie Chart و Treemap
+# إصلاح القائمة المنسدلة داخل الحوارات
 
-## 1. فلتر البنود حسب الفئة
+## المشكلة
 
-إضافة شريط أزرار فوق رسم "توزيع التكاليف حسب البند" يتيح الفلترة حسب:
-- **الكل** (افتراضي) - جميع البنود
-- **مواد** - البنود التي تكلفة موادها هي الأعلى
-- **عمالة** - البنود التي تكلفة عمالتها هي الأعلى
-- **معدات** - البنود التي تكلفة معداتها هي الأعلى
+القائمة المنسدلة (Select) في حوار "تحليل المخاطر التلقائي" لا تعمل لأن:
 
-كل بند يُصنف تلقائياً حسب أعلى مكون تكلفة فيه (materials.total vs labor.total vs equipment.total).
+- في `dialog-custom.css` السطر 9: `[data-radix-popper-content-wrapper]` يفرض `z-index: 60`
+- محتوى الحوار (Dialog) يكون في `z-index: 100`
+- القائمة المنسدلة تظهر خلف الحوار (60 < 100) فلا يمكن رؤيتها أو النقر عليها
 
-## 2. التبديل بين Pie Chart و Treemap
+## الحل
 
-إضافة زرين تبديل بجوار عنوان البطاقة:
-- **Pie Chart** (العرض الحالي)
-- **Treemap** - عرض مستطيلات متناسبة مع حجم التكلفة، أوضح للبنود الكثيرة
-
-يستخدم Recharts `Treemap` المتوفر مع نفس بيانات الـ Pie Chart المحسّنة.
-
-## 3. التحقق من عدم تداخل النصوص
-
-التأكد من أن التحسينات السابقة (تجميع البنود الصغيرة في "أخرى"، إزالة التسميات الخارجية) تعمل بشكل صحيح.
+تعديل ملف `src/components/ui/dialog-custom.css` لرفع `z-index` الخاص بـ `[data-radix-popper-content-wrapper]` إلى 200 بحيث يظهر فوق أي حوار مفتوح.
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/CostAnalysis.tsx` | إضافة state للفلتر + state لنوع العرض + Treemap + أزرار التبديل |
+| `src/components/ui/dialog-custom.css` | تغيير z-index من 60 إلى 200 لـ `[data-radix-popper-content-wrapper]` |
 
 ## التفاصيل التقنية
 
-### تصنيف البنود تلقائياً
+### ترتيب الطبقات الحالي (المشكلة)
 
 ```text
-لكل بند في cost_analysis:
-  materials.total vs labor.total vs equipment.total
-  -> الأعلى يحدد الفئة
-  -> مثال: مواد=5000, عمالة=3000, معدات=1000 -> تصنيف "مواد"
+z-index 60  -> popper content wrapper (Select dropdown) -- مخفي خلف الحوار
+z-index 99  -> dialog overlay
+z-index 100 -> dialog content
+z-index 150 -> select content (CSS class) -- لكن العنصر الأب يحده عند 60
 ```
 
-### State الجديدة
+### ترتيب الطبقات بعد الإصلاح
 
 ```text
-const [chartType, setChartType] = useState<'pie' | 'treemap'>('pie');
-const [categoryFilter, setCategoryFilter] = useState<'all' | 'materials' | 'labor' | 'equipment'>('all');
+z-index 99  -> dialog overlay
+z-index 100 -> dialog content
+z-index 200 -> popper content wrapper (Select dropdown) -- يظهر فوق الحوار
 ```
 
-### واجهة الفلتر والتبديل
-
-```text
-+----------------------------------------------------------+
-| [Pie] [Treemap]    [الكل] [مواد] [عمالة] [معدات]         |
-|                                                          |
-|  (الرسم البياني حسب الاختيار)                              |
-+----------------------------------------------------------+
-```
-
-### Treemap
-
-- يستخدم `Treemap` من recharts مع `content` مخصص يعرض اسم البند والنسبة داخل كل مستطيل
-- نفس الألوان المستخدمة في Pie Chart
-- Tooltip مطابق للـ Pie Chart
-- البنود الصغيرة تُجمع في "أخرى" بنفس منطق الـ Pie
-
+هذا الإصلاح بسيط ولا يؤثر على باقي المكونات لأن popper content wrapper يُستخدم فقط للقوائم المنسدلة والـ tooltips التي يجب أن تظهر فوق كل شيء.
