@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2, Download, FileImage } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2, Download, FileImage, RefreshCw, LogIn, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,19 +27,23 @@ import { HistoricalPricingPDFReport } from "@/components/HistoricalPricingPDFRep
 import { ImportFromSavedProjects } from "@/components/ImportFromSavedProjects";
 import { HistoricalItemsTable } from "@/components/HistoricalItemsTable";
 import { normalizeHistoricalItems, NormalizedHistoricalItem } from "@/lib/historical-data-utils";
-interface HistoricalFile {
+
+interface HistoricalFileMeta {
   id: string;
   file_name: string;
   project_name: string;
   project_location: string | null;
   project_date: string | null;
   currency: string;
-  items: any[];
   items_count: number;
   total_value: number;
   notes: string | null;
   is_verified: boolean;
   created_at: string;
+}
+
+interface HistoricalFile extends HistoricalFileMeta {
+  items: any[];
 }
 
 interface RawDataItem {
@@ -56,16 +61,29 @@ const LOCATIONS = [
   { value: "Other", label: "أخرى" },
 ];
 
+const PAGE_SIZE = 20;
+const MAX_ITEMS_PER_SAVE = 2000;
+
 export default function HistoricalPricingPage() {
-  const [files, setFiles] = useState<HistoricalFile[]>([]);
+  const [files, setFiles] = useState<HistoricalFileMeta[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterLocation, setFilterLocation] = useState<string>("all");
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<HistoricalFile | null>(null);
+  const [isLoadingFileItems, setIsLoadingFileItems] = useState(false);
   const [activeTab, setActiveTab] = useState("files");
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalFiles, setTotalFiles] = useState(0);
+  
+  // Upload progress
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState("");
   
   // Upload form state
   const [projectName, setProjectName] = useState("");
@@ -79,35 +97,60 @@ export default function HistoricalPricingPage() {
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [pdfPagePreviews, setPdfPagePreviews] = useState<string[]>([]);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [itemsTruncated, setItemsTruncated] = useState(false);
+  const [originalRowCount, setOriginalRowCount] = useState<number | undefined>();
 
   const { toast } = useToast();
   const { user } = useAuth();
   const { isArabic } = useLanguage();
 
+  const totalPages = Math.ceil(totalFiles / PAGE_SIZE);
+
   useEffect(() => {
     if (user) {
       loadFiles();
+    } else {
+      setIsLoading(false);
     }
-  }, [user]);
+  }, [user, currentPage]);
 
-  const loadFiles = async () => {
+  const loadFiles = useCallback(async (retryCount = 0) => {
+    if (!user) return;
     try {
       setIsLoading(true);
+      setLoadError(null);
+      
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      
+      // First get count
+      const { count, error: countError } = await supabase
+        .from("historical_pricing_files")
+        .select("id", { count: "exact", head: true });
+      
+      if (countError) throw countError;
+      setTotalFiles(count || 0);
+      
+      // Then fetch metadata only (no items column)
       const { data, error } = await supabase
         .from("historical_pricing_files")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("id, file_name, project_name, project_location, project_date, currency, items_count, total_value, notes, is_verified, created_at")
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       
-      const formattedData = (data || []).map(file => ({
-        ...file,
-        items: Array.isArray(file.items) ? file.items : []
-      }));
-      
-      setFiles(formattedData);
+      setFiles((data || []) as HistoricalFileMeta[]);
     } catch (error: any) {
       console.error("Failed to load historical files:", error);
+      setLoadError(error.message || "فشل في تحميل الملفات التاريخية");
+      
+      // Auto-retry once on network error
+      if (retryCount === 0 && (error.message?.includes('fetch') || error.message?.includes('network'))) {
+        setTimeout(() => loadFiles(1), 2000);
+        return;
+      }
+      
       toast({
         title: "خطأ في التحميل",
         description: error.message || "فشل في تحميل الملفات التاريخية",
@@ -116,7 +159,7 @@ export default function HistoricalPricingPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, currentPage, toast]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -125,24 +168,41 @@ export default function HistoricalPricingPage() {
     try {
       setIsUploading(true);
       setUploadedFileName(file.name);
+      setUploadProgress(0);
+      setUploadStage("");
+      setItemsTruncated(false);
+      setOriginalRowCount(undefined);
       
       const isPDF = file.name.toLowerCase().endsWith('.pdf');
       
       if (isPDF) {
-        // Handle PDF with OCR
         await handlePDFUpload(file);
       } else {
-        // Handle Excel files - extract raw data then normalize
-        const result = await extractRawDataFromExcel(file);
+        // Handle Excel files with progress
+        const result = await extractRawDataFromExcel(file, (stage, progress, message) => {
+          setUploadProgress(progress);
+          setUploadStage(message || stage);
+        });
         
         if (result.rows && result.rows.length > 0) {
           const normalized = normalizeHistoricalItems(result.rows, result.headers);
           setUploadedItems(normalized);
           setUploadedHeaders(result.headers);
-          toast({
-            title: "✅ تم قراءة الملف",
-            description: `تم استخراج ${normalized.length} بند من الملف`,
-          });
+          
+          if (result.truncated) {
+            setItemsTruncated(true);
+            setOriginalRowCount(result.originalRowCount);
+            toast({
+              title: `⚠️ تم قراءة ${normalized.length} بند من أصل ${result.originalRowCount}`,
+              description: "تم تقليص البنود للحد الأقصى المسموح (5000 بند)",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "✅ تم قراءة الملف",
+              description: `تم استخراج ${normalized.length} بند من الملف`,
+            });
+          }
         } else {
           toast({
             title: "لا توجد بيانات",
@@ -160,6 +220,8 @@ export default function HistoricalPricingPage() {
       });
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
+      setUploadStage("");
     }
   };
 
@@ -170,7 +232,6 @@ export default function HistoricalPricingPage() {
         description: "قد يستغرق هذا بعض الوقت حسب حجم الملف",
       });
 
-      // Generate PDF page previews first
       try {
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
         
@@ -178,7 +239,7 @@ export default function HistoricalPricingPage() {
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const previews: string[] = [];
         
-        const numPages = Math.min(pdf.numPages, 5); // Preview first 5 pages
+        const numPages = Math.min(pdf.numPages, 5);
         for (let i = 1; i <= numPages; i++) {
           const page = await pdf.getPage(i);
           const viewport = page.getViewport({ scale: 0.5 });
@@ -202,7 +263,6 @@ export default function HistoricalPricingPage() {
         console.warn("Could not generate PDF previews:", previewError);
       }
 
-      // Convert file to base64 for extraction
       const arrayBuffer = await file.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       let binary = '';
@@ -214,7 +274,6 @@ export default function HistoricalPricingPage() {
         description: "استخدام الذكاء الاصطناعي لتحليل المستند",
       });
 
-      // Call edge function to process PDF
       const { data, error } = await supabase.functions.invoke('process-pdf-boq', {
         body: {
           pdfBase64,
@@ -250,7 +309,6 @@ export default function HistoricalPricingPage() {
     }
   };
 
-  // Export extracted data to Excel
   const handleExportToExcel = () => {
     if (uploadedItems.length === 0) return;
 
@@ -270,21 +328,37 @@ export default function HistoricalPricingPage() {
     });
   };
 
-  // Export saved file data to Excel
-  const handleExportSavedToExcel = (file: HistoricalFile) => {
-    if (!file.items || file.items.length === 0) return;
+  const handleExportSavedToExcel = async (file: HistoricalFileMeta) => {
+    // Load items on-demand for export
+    try {
+      const { data, error } = await supabase
+        .from("historical_pricing_files")
+        .select("items")
+        .eq("id", file.id)
+        .single();
+      
+      if (error) throw error;
+      
+      const items = Array.isArray(data?.items) ? data.items : [];
+      if (items.length === 0) {
+        toast({ title: "لا توجد بنود للتصدير", variant: "destructive" });
+        return;
+      }
 
-    const headers = Object.keys(file.items[0] || {});
-    const wb = createWorkbook();
-    addJsonSheet(wb, file.items, 'Data', { header: headers });
-    
-    const fileName = `${file.project_name.replace(/[^a-zA-Z0-9أ-ي]/g, '_')}.xlsx`;
-    downloadWorkbook(wb, fileName);
-    
-    toast({
-      title: "✅ تم التصدير",
-      description: `تم تصدير ${file.items.length} صف إلى Excel`,
-    });
+      const headers = Object.keys(items[0] || {});
+      const wb = createWorkbook();
+      addJsonSheet(wb, items as Record<string, unknown>[], 'Data', { header: headers });
+      
+      const fileName = `${file.project_name.replace(/[^a-zA-Z0-9أ-ي]/g, '_')}.xlsx`;
+      downloadWorkbook(wb, fileName);
+      
+      toast({
+        title: "✅ تم التصدير",
+        description: `تم تصدير ${items.length} صف إلى Excel`,
+      });
+    } catch (error: any) {
+      toast({ title: "خطأ في التصدير", description: error.message, variant: "destructive" });
+    }
   };
 
   const handleSaveFile = async () => {
@@ -316,8 +390,19 @@ export default function HistoricalPricingPage() {
     }
 
     try {
-      // Calculate total from normalized items
       const totalValue = uploadedItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+      
+      // Chunk items if too large (>2000 items)
+      const itemsToSave = uploadedItems.length > MAX_ITEMS_PER_SAVE 
+        ? uploadedItems.slice(0, MAX_ITEMS_PER_SAVE) 
+        : uploadedItems;
+      
+      if (uploadedItems.length > MAX_ITEMS_PER_SAVE) {
+        toast({
+          title: `⚠️ تم تقليص البنود إلى ${MAX_ITEMS_PER_SAVE}`,
+          description: `الملف يحتوي على ${uploadedItems.length} بند. سيتم حفظ أول ${MAX_ITEMS_PER_SAVE} بند لتجنب تجاوز حد التخزين.`,
+        });
+      }
 
       const { error } = await supabase
         .from("historical_pricing_files")
@@ -328,8 +413,8 @@ export default function HistoricalPricingPage() {
           project_location: projectLocation || null,
           project_date: projectDate || null,
           currency,
-          items: uploadedItems as any,
-          items_count: uploadedItems.length,
+          items: itemsToSave as any,
+          items_count: itemsToSave.length,
           total_value: totalValue,
           notes: notes.trim() || null,
           is_verified: isVerified,
@@ -339,7 +424,7 @@ export default function HistoricalPricingPage() {
 
       toast({
         title: "✅ تم الحفظ بنجاح",
-        description: `تم حفظ ${uploadedItems.length} بند في قاعدة البيانات التاريخية`,
+        description: `تم حفظ ${itemsToSave.length} بند في قاعدة البيانات التاريخية`,
       });
 
       // Reset form
@@ -352,9 +437,11 @@ export default function HistoricalPricingPage() {
       setUploadedItems([]);
       setUploadedHeaders([]);
       setUploadedFileName("");
+      setItemsTruncated(false);
+      setOriginalRowCount(undefined);
       setUploadDialogOpen(false);
       
-      // Reload files
+      setCurrentPage(1);
       loadFiles();
     } catch (error: any) {
       console.error("Save error:", error);
@@ -391,9 +478,34 @@ export default function HistoricalPricingPage() {
     }
   };
 
-  const handleViewFile = (file: HistoricalFile) => {
-    setSelectedFile(file);
-    setViewDialogOpen(true);
+  const handleViewFile = async (file: HistoricalFileMeta) => {
+    try {
+      setIsLoadingFileItems(true);
+      setViewDialogOpen(true);
+      
+      // Load items on-demand
+      const { data, error } = await supabase
+        .from("historical_pricing_files")
+        .select("items")
+        .eq("id", file.id)
+        .single();
+      
+      if (error) throw error;
+      
+      setSelectedFile({
+        ...file,
+        items: Array.isArray(data?.items) ? data.items : [],
+      });
+    } catch (error: any) {
+      toast({
+        title: "خطأ في تحميل البنود",
+        description: error.message,
+        variant: "destructive",
+      });
+      setViewDialogOpen(false);
+    } finally {
+      setIsLoadingFileItems(false);
+    }
   };
 
   const filteredFiles = files.filter(file => {
@@ -406,6 +518,31 @@ export default function HistoricalPricingPage() {
 
   const totalItems = files.reduce((sum, f) => sum + f.items_count, 0);
   const verifiedCount = files.filter(f => f.is_verified).length;
+
+  // Login gate
+  if (!user && !isLoading) {
+    return (
+      <PageLayout>
+        <div className="container mx-auto p-4 md:p-6" dir={isArabic ? "rtl" : "ltr"}>
+          <Card>
+            <CardContent className="py-16 text-center">
+              <LogIn className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h2 className="text-xl font-bold mb-2">يرجى تسجيل الدخول</h2>
+              <p className="text-muted-foreground mb-6">
+                يجب تسجيل الدخول للوصول إلى قاعدة البيانات التاريخية للأسعار
+              </p>
+              <Link to="/auth">
+                <Button className="gap-2">
+                  <LogIn className="w-4 h-4" />
+                  تسجيل الدخول
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout>
@@ -432,10 +569,10 @@ export default function HistoricalPricingPage() {
           <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
             <div className="flex items-center gap-2">
               <ImportFromSavedProjects 
-                onImportComplete={loadFiles}
+                onImportComplete={() => { setCurrentPage(1); loadFiles(); }}
                 existingProjectNames={files.map(f => f.project_name)}
               />
-              <HistoricalPricingPDFReport historicalFiles={files} />
+              <HistoricalPricingPDFReport historicalFiles={files as any} />
               <DialogTrigger asChild>
                 <Button className="gap-2">
                   <Plus className="w-4 h-4" />
@@ -466,26 +603,42 @@ export default function HistoricalPricingPage() {
                     />
                     <label htmlFor="file-upload" className="cursor-pointer">
                       {isUploading ? (
-                        <Loader2 className="w-12 h-12 mx-auto mb-2 text-primary animate-spin" />
+                        <div className="space-y-3">
+                          <Loader2 className="w-12 h-12 mx-auto text-primary animate-spin" />
+                          <Progress value={uploadProgress} className="w-full max-w-xs mx-auto" />
+                          <p className="text-sm text-muted-foreground">{uploadStage}</p>
+                        </div>
                       ) : (
                         <div className="flex items-center justify-center gap-2 mb-2">
                           <FileSpreadsheet className="w-10 h-10 text-green-600" />
                           <FileText className="w-10 h-10 text-red-600" />
                         </div>
                       )}
-                      <p className="text-sm text-muted-foreground">
-                        {isUploading ? "جاري المعالجة..." : "اضغط لاختيار ملف Excel أو PDF"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        xlsx, xls, csv, pdf
-                      </p>
-                      {uploadedFileName && (
+                      {!isUploading && (
+                        <>
+                          <p className="text-sm text-muted-foreground">
+                            اضغط لاختيار ملف Excel أو PDF
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            xlsx, xls, csv, pdf (حتى 5000 بند)
+                          </p>
+                        </>
+                      )}
+                      {uploadedFileName && !isUploading && (
                         <Badge variant="secondary" className="mt-2">
                           {uploadedFileName} ({uploadedItems.length} بند)
                         </Badge>
                       )}
                     </label>
                   </div>
+                  
+                  {/* Truncation warning */}
+                  {itemsTruncated && originalRowCount && (
+                    <div className="flex items-center gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-sm">
+                      <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0" />
+                      <span>تم استخراج {uploadedItems.length} بند من أصل {originalRowCount} بند. البنود الزائدة لم يتم تضمينها.</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Project Details */}
@@ -596,7 +749,7 @@ export default function HistoricalPricingPage() {
                   </div>
                 )}
 
-                {/* Preview Items - Normalized BOQ Table */}
+                {/* Preview Items */}
                 {uploadedItems.length > 0 && (
                   <div className="space-y-2">
                     <Label>معاينة وتعديل البنود ({uploadedItems.length} بند)</Label>
@@ -621,12 +774,12 @@ export default function HistoricalPricingPage() {
           </Dialog>
         </div>
 
-        {/* Tabs for Files and Statistics */}
+        {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="tabs-navigation-safe">
             <TabsTrigger value="files" className="gap-2">
               <Database className="w-4 h-4" />
-              الملفات ({files.length})
+              الملفات ({totalFiles})
             </TabsTrigger>
             <TabsTrigger value="stats" className="gap-2">
               <BarChart3 className="w-4 h-4" />
@@ -639,14 +792,14 @@ export default function HistoricalPricingPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card>
                 <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-bold text-primary">{files.length}</p>
+                  <p className="text-3xl font-bold text-primary">{totalFiles}</p>
                   <p className="text-sm text-muted-foreground">ملف تاريخي</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4 text-center">
                   <p className="text-3xl font-bold text-blue-600">{totalItems.toLocaleString()}</p>
-                  <p className="text-sm text-muted-foreground">بند إجمالي</p>
+                  <p className="text-sm text-muted-foreground">بند (هذه الصفحة)</p>
                 </CardContent>
               </Card>
               <Card>
@@ -665,132 +818,176 @@ export default function HistoricalPricingPage() {
               </Card>
             </div>
 
-        {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="بحث بالاسم أو الملف..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pr-10"
-            />
-          </div>
-          <Select value={filterLocation} onValueChange={setFilterLocation}>
-            <SelectTrigger className="w-[200px]">
-              <Filter className="w-4 h-4 ml-2" />
-              <SelectValue placeholder="فلترة بالموقع" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">جميع المواقع</SelectItem>
-              {LOCATIONS.map(loc => (
-                <SelectItem key={loc.value} value={loc.value}>
-                  {loc.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            {/* Filters */}
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="بحث بالاسم أو الملف..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pr-10"
+                />
+              </div>
+              <Select value={filterLocation} onValueChange={setFilterLocation}>
+                <SelectTrigger className="w-[200px]">
+                  <Filter className="w-4 h-4 ml-2" />
+                  <SelectValue placeholder="فلترة بالموقع" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">جميع المواقع</SelectItem>
+                  {LOCATIONS.map(loc => (
+                    <SelectItem key={loc.value} value={loc.value}>
+                      {loc.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        {/* Files List */}
-        {isLoading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p className="text-muted-foreground">جاري التحميل...</p>
-          </div>
-        ) : filteredFiles.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Database className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <p className="text-lg font-medium">لا توجد ملفات تاريخية</p>
-              <p className="text-muted-foreground mb-4">
-                {searchQuery ? "لا توجد نتائج مطابقة للبحث" : "ابدأ برفع ملفات BOQ المسعرة لتحسين دقة التحليل"}
-              </p>
-              {!searchQuery && (
-                <Button onClick={() => setUploadDialogOpen(true)} className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  رفع أول ملف
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {filteredFiles.map((file) => (
-              <Card key={file.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-primary/10 rounded-lg">
-                        <FileSpreadsheet className="w-6 h-6 text-primary" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{file.project_name}</h3>
-                          {file.is_verified && (
-                            <Badge variant="default" className="gap-1">
-                              <CheckCircle className="w-3 h-3" />
-                              موثق
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                          <span className="flex items-center gap-1">
-                            <FileSpreadsheet className="w-3 h-3" />
-                            {file.file_name}
-                          </span>
-                          {file.project_location && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {LOCATIONS.find(l => l.value === file.project_location)?.label || file.project_location}
-                            </span>
-                          )}
-                          {file.project_date && (
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {new Date(file.project_date).toLocaleDateString("ar-SA")}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-6">
-                      <div className="text-center">
-                        <p className="text-lg font-bold">{file.items_count}</p>
-                        <p className="text-xs text-muted-foreground">بند</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold">{file.total_value.toLocaleString()}</p>
-                        <p className="text-xs text-muted-foreground">{file.currency}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleExportSavedToExcel(file)}
-                          title="تصدير إلى Excel"
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleViewFile(file)}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDeleteFile(file.id)}>
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+            {/* Error state with retry */}
+            {loadError && !isLoading && (
+              <Card className="border-destructive">
+                <CardContent className="py-8 text-center">
+                  <AlertTriangle className="w-12 h-12 mx-auto mb-3 text-destructive" />
+                  <p className="font-medium mb-2">فشل في تحميل البيانات</p>
+                  <p className="text-sm text-muted-foreground mb-4">{loadError}</p>
+                  <Button onClick={() => loadFiles()} variant="outline" className="gap-2">
+                    <RefreshCw className="w-4 h-4" />
+                    إعادة المحاولة
+                  </Button>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        )}
+            )}
+
+            {/* Files List */}
+            {isLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p className="text-muted-foreground">جاري التحميل...</p>
+              </div>
+            ) : !loadError && filteredFiles.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Database className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-lg font-medium">لا توجد ملفات تاريخية</p>
+                  <p className="text-muted-foreground mb-4">
+                    {searchQuery ? "لا توجد نتائج مطابقة للبحث" : "ابدأ برفع ملفات BOQ المسعرة لتحسين دقة التحليل"}
+                  </p>
+                  {!searchQuery && (
+                    <Button onClick={() => setUploadDialogOpen(true)} className="gap-2">
+                      <Plus className="w-4 h-4" />
+                      رفع أول ملف
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : !loadError && (
+              <>
+                <div className="grid gap-4">
+                  {filteredFiles.map((file) => (
+                    <Card key={file.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 bg-primary/10 rounded-lg">
+                              <FileSpreadsheet className="w-6 h-6 text-primary" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold">{file.project_name}</h3>
+                                {file.is_verified && (
+                                  <Badge variant="default" className="gap-1">
+                                    <CheckCircle className="w-3 h-3" />
+                                    موثق
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                                <span className="flex items-center gap-1">
+                                  <FileSpreadsheet className="w-3 h-3" />
+                                  {file.file_name}
+                                </span>
+                                {file.project_location && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" />
+                                    {LOCATIONS.find(l => l.value === file.project_location)?.label || file.project_location}
+                                  </span>
+                                )}
+                                {file.project_date && (
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {new Date(file.project_date).toLocaleDateString("ar-SA")}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-6">
+                            <div className="text-center">
+                              <p className="text-lg font-bold">{file.items_count}</p>
+                              <p className="text-xs text-muted-foreground">بند</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-lg font-bold">{file.total_value.toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground">{file.currency}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleExportSavedToExcel(file)}
+                                title="تصدير إلى Excel"
+                              >
+                                <Download className="w-4 h-4" />
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => handleViewFile(file)}>
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => handleDeleteFile(file.id)}>
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-4 pt-4">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                      السابق
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      صفحة {currentPage} من {totalPages}
+                    </span>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                    >
+                      التالي
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="stats" className="mt-4">
-            <HistoricalPricingStats files={files} />
+            <HistoricalPricingStats files={files as any} />
           </TabsContent>
         </Tabs>
 
@@ -800,11 +997,16 @@ export default function HistoricalPricingPage() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Eye className="w-5 h-5" />
-                {selectedFile?.project_name}
+                {selectedFile?.project_name || "جاري التحميل..."}
               </DialogTitle>
             </DialogHeader>
 
-            {selectedFile && (
+            {isLoadingFileItems ? (
+              <div className="text-center py-12">
+                <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-primary" />
+                <p className="text-muted-foreground">جاري تحميل البنود...</p>
+              </div>
+            ) : selectedFile && (
               <div className="space-y-4">
                 <div className="grid grid-cols-3 gap-4">
                   <div className="p-3 bg-muted rounded-lg text-center">
@@ -848,6 +1050,7 @@ export default function HistoricalPricingPage() {
                 variant="outline" 
                 onClick={() => selectedFile && handleExportSavedToExcel(selectedFile)}
                 className="gap-2"
+                disabled={!selectedFile}
               >
                 <Download className="w-4 h-4" />
                 تصدير إلى Excel

@@ -766,9 +766,13 @@ export async function extractRawDataFromExcel(
   headers: string[];
   sheetNames: string[];
   totalRows: number;
+  truncated?: boolean;
+  originalRowCount?: number;
 }> {
+  onProgress?.('reading', 10, 'جاري قراءة الملف...');
   const buffer = await file.arrayBuffer();
   
+  onProgress?.('parsing', 30, 'جاري تحليل الملف...');
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
   
@@ -778,8 +782,11 @@ export async function extractRawDataFromExcel(
     return { rows: [], headers: [], sheetNames: [], totalRows: 0 };
   }
   
+  const MAX_ROWS = 5000;
   const worksheet = workbook.worksheets[0];
-  const data = worksheetToArray(worksheet, 1000);
+  
+  onProgress?.('extracting', 50, 'جاري استخراج البيانات...');
+  const data = worksheetToArray(worksheet, MAX_ROWS + 20); // extra for header detection
   
   if (data.length < 2) {
     return { rows: [], headers: [], sheetNames, totalRows: 0 };
@@ -803,7 +810,8 @@ export async function extractRawDataFromExcel(
   
   // Fast row extraction with Arabic number conversion
   const rows: Array<Record<string, unknown>> = [];
-  const dataEndIndex = Math.min(data.length, 1000);
+  const dataEndIndex = Math.min(data.length, MAX_ROWS + headerRowIndex + 1);
+  const totalDataRows = data.length - headerRowIndex - 1;
   
   for (let i = headerRowIndex + 1; i < dataEndIndex; i++) {
     const row = data[i];
@@ -836,15 +844,24 @@ export async function extractRawDataFromExcel(
     }
     
     if (hasData) rows.push(rowData);
+    
+    // Report progress every 500 rows
+    if (rows.length % 500 === 0) {
+      onProgress?.('extracting', 50 + Math.round((rows.length / Math.min(totalDataRows, MAX_ROWS)) * 40), `تم استخراج ${rows.length} صف...`);
+    }
   }
   
-  onProgress?.('formatting', 100, `تم استخراج ${rows.length} صف`);
+  const truncated = totalDataRows > MAX_ROWS;
+  
+  onProgress?.('formatting', 100, `تم استخراج ${rows.length} صف${truncated ? ` (من أصل ${totalDataRows})` : ''}`);
   
   return {
     rows,
     headers,
     sheetNames,
     totalRows: rows.length,
+    truncated,
+    originalRowCount: truncated ? totalDataRows : undefined,
   };
 }
 
