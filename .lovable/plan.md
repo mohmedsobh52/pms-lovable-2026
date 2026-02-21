@@ -1,115 +1,131 @@
 
-# تحسين شاشة إدارة المخاطر - الشكل والأداء وتسهيل تحديد المخاطر
 
-## ملخص التحسينات
+# ربط التحليل المتقدم بالبيانات التاريخية - تسعير مبني على المشاريع السابقة
 
-تحسين شامل لصفحة إدارة المخاطر من حيث الشكل البصري والأداء وتسهيل عملية تحديد وتقييم المخاطر.
+## الهدف
 
----
-
-## 1. تحسينات الشكل البصري
-
-### بطاقات الإحصائيات
-- تحويل البطاقات لتصميم gradient مع أيقونات أكبر وأوضح
-- إضافة نسبة المخاطر النشطة من الإجمالي
-- إضافة بطاقة جديدة "متوسط درجة الخطر" مع مؤشر لوني
-
-### مصفوفة المخاطر (Risk Matrix)
-- تحسين التصميم بإضافة أرقام داخل كل خلية حتى لو كانت صفر (عرض "0" بشفافية خفيفة)
-- إضافة tooltip عند hover على كل خلية يعرض أسماء المخاطر الموجودة فيها
-- تحسين الألوان بتدرج أوضح (أخضر فاتح -> أصفر -> برتقالي -> أحمر -> أحمر غامق)
-
-### الجدول
-- إضافة تلوين خلفي للصفوف حسب مستوى الخطر (أحمر فاتح = حرج، برتقالي فاتح = عالي، أصفر فاتح = متوسط، أخضر فاتح = منخفض)
-- إضافة أيقونة مستوى الخطر بجانب الدرجة
-- إضافة عمود "تاريخ التحديد" و"المسؤول"
-- تحسين أزرار الإجراءات بإضافة Tooltip
-
-### حالة الفراغ (Empty State)
-- تحسين شاشة "لا توجد مخاطر" بإضافة رسم توضيحي ونصوص إرشادية وزر إضافة سريع
+إضافة ميزة تسعير تلقائي مرتبط بالمشاريع المسعرة سابقاً (historical_pricing_files + saved_projects) مباشرة داخل شاشة التحليل المتقدم (AnalysisResults)، بحيث يمكن للمستخدم:
+1. البحث عن أسعار بنود مشابهة من مشاريع سابقة لكل بند
+2. تطبيق السعر التاريخي بنقرة واحدة
+3. مقارنة الأسعار الحالية بالأسعار التاريخية على مستوى المشروع
 
 ---
 
-## 2. تحسينات الأداء
+## التغييرات المطلوبة
 
-- استخدام `useMemo` لحسابات الإحصائيات والفلترة
-- استخدام `useCallback` للدوال (handleSave, handleDelete, fetchRisks)
-- إضافة Skeleton loading بدلاً من spinner بسيط
-- تغليف Dialog بـ conditional rendering لمنع Portal leaking
+### 1. إضافة خيار "تسعير تاريخي" في قائمة إجراءات كل بند (`AnalysisResults.tsx`)
 
----
+في القائمة المنسدلة لكل بند (بجانب "سعر سريع" و"سعر مفصل")، يُضاف خيار جديد "سعر تاريخي" يفتح Dialog يعرض:
+- البنود المشابهة من المشاريع السابقة مرتبة حسب نسبة التطابق
+- اسم المشروع وتاريخه وموقعه
+- السعر التاريخي مع مقارنة بالسعر الحالي (نسبة الفرق)
+- زر "تطبيق" لكل نتيجة
 
-## 3. تسهيل تحديد المخاطر
+### 2. إنشاء مكون جديد `HistoricalPriceLookup.tsx`
 
-### شريط بحث وفلاتر
-- إضافة شريط بحث للبحث بعنوان الخطر أو الوصف
-- إضافة فلتر حسب الفئة (تقني/مالي/جدول زمني/...)
-- إضافة فلتر حسب الحالة (محدد/مقيّم/قيد المعالجة/...)
-- إضافة فلتر حسب مستوى الخطر (حرج/عالي/متوسط/منخفض)
+مكون Dialog متخصص يبحث في البيانات التاريخية لبند محدد:
 
-### تحسين نموذج الإضافة
-- إضافة **قوالب مخاطر جاهزة** (Risk Templates) حسب الفئة:
-  - تقني: "تأخر في التسليم التقني"، "فشل في الاختبارات"
-  - مالي: "تجاوز الميزانية"، "تأخر المدفوعات"
-  - جدول زمني: "تأخر بداية المشروع"، "تأخر الموردين"
-  - إلخ...
-- عند اختيار قالب، يملأ العنوان والوصف والفئة والاحتمالية والتأثير تلقائياً
-- إضافة **عرض مرئي تفاعلي** لدرجة الخطر في النموذج (Progress bar ملون يتغير مع تغيير الاحتمالية والتأثير)
+- **المدخلات:** وصف البند، الوحدة، السعر الحالي
+- **المصادر:** `historical_pricing_files` + `saved_projects` (analysis_data.items)
+- **خوارزمية المطابقة:** مطابقة نصية (عربي/إنجليزي) + مطابقة الوحدة + ترجيح المشاريع الموثقة (is_verified)
+- **العرض:**
+  - جدول نتائج مرتبة حسب نسبة التطابق
+  - لكل نتيجة: اسم المشروع، الموقع، التاريخ، السعر، نسبة الفرق، badge التوثيق
+  - إحصائيات: المتوسط، الأدنى، الأعلى، عدد المطابقات
+  - زر "تطبيق السعر" لتطبيق سعر محدد أو المتوسط
 
-### ترتيب وعرض
-- إضافة خيار ترتيب الجدول حسب (الدرجة / الفئة / الحالة / التاريخ)
-- إضافة عداد "X مخاطر نشطة من Y إجمالي"
+### 3. إضافة زر "تسعير تاريخي شامل" في شريط الأدوات (`AnalysisResults.tsx`)
+
+زر في منطقة Price Analysis Buttons يفتح Dialog يقوم بـ:
+- مقارنة **كل بنود المشروع** بالبيانات التاريخية دفعة واحدة
+- عرض ملخص: عدد البنود التي وُجد لها تطابق، متوسط نسبة التطابق
+- خيار "تطبيق الكل" لتطبيق المتوسطات التاريخية على كل البنود غير المسعرة
+- خيار تحديد حد أدنى للتطابق (مثلاً 50%)
 
 ---
 
 ## التفاصيل التقنية
 
-### الملف: `src/components/RiskManagement.tsx`
+### الملف الجديد: `src/components/HistoricalPriceLookup.tsx`
 
-**التغييرات الرئيسية:**
-
-1. إضافة states جديدة:
 ```typescript
-const [searchQuery, setSearchQuery] = useState("");
-const [categoryFilter, setCategoryFilter] = useState("all");
-const [statusFilter, setStatusFilter] = useState("all");
-const [levelFilter, setLevelFilter] = useState("all");
-const [sortBy, setSortBy] = useState("score");
+// Props
+interface HistoricalPriceLookupProps {
+  isOpen: boolean;
+  onClose: () => void;
+  item: { item_number: string; description: string; unit: string; quantity: number; unit_price?: number };
+  onApplyPrice: (price: number) => void;
+  currency: string;
+}
 ```
 
-2. إضافة قوالب المخاطر الجاهزة:
+**منطق المطابقة:**
+- تحميل البيانات من `historical_pricing_files` و `saved_projects`
+- مطابقة بالكلمات المشتركة (عربي + إنجليزي) مع ترجيح الوحدة المتطابقة
+- ترتيب حسب: نسبة التطابق (60%) + توثيق المشروع (20%) + حداثة التاريخ (20%)
+- عرض أفضل 10 نتائج
+
+### الملف الجديد: `src/components/BulkHistoricalPricing.tsx`
+
 ```typescript
-const riskTemplates = [
-  { title: "تجاوز الميزانية", titleEn: "Budget Overrun", category: "financial", probability: "medium", impact: "high", description: "..." },
-  { title: "تأخر الموردين", titleEn: "Supplier Delay", category: "schedule", probability: "high", impact: "medium", description: "..." },
-  // ... المزيد
-];
+// Props
+interface BulkHistoricalPricingProps {
+  items: BOQItem[];
+  onApplyPrices: (prices: Array<{ itemNumber: string; price: number }>) => void;
+  currency: string;
+}
 ```
 
-3. استخدام `useMemo` للبيانات المفلترة:
+**العرض:**
+- شريط Progress للبحث
+- جدول: البند | أفضل تطابق | نسبة التطابق | السعر التاريخي | السعر الحالي | الفرق
+- خيارات: تطبيق الكل / تطبيق المحدد / تصدير المقارنة
+
+### التعديلات على: `src/components/AnalysisResults.tsx`
+
+1. **استيراد المكونات الجديدة:**
 ```typescript
-const filteredRisks = useMemo(() => {
-  return risks.filter(r => {
-    if (searchQuery && !r.risk_title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    if (categoryFilter !== "all" && r.category !== categoryFilter) return false;
-    if (statusFilter !== "all" && r.status !== statusFilter) return false;
-    if (levelFilter !== "all") { /* فلتر المستوى */ }
-    return true;
-  }).sort((a, b) => { /* ترتيب حسب sortBy */ });
-}, [risks, searchQuery, categoryFilter, statusFilter, levelFilter, sortBy]);
+import { HistoricalPriceLookup } from "./HistoricalPriceLookup";
+import { BulkHistoricalPricing } from "./BulkHistoricalPricing";
 ```
 
-4. تحسين البطاقات الإحصائية بخلفيات gradient وأيقونات
+2. **إضافة state:**
+```typescript
+const [historicalPriceItem, setHistoricalPriceItem] = useState<any>(null);
+```
 
-5. إضافة شريط البحث والفلاتر فوق الجدول
+3. **إضافة خيار في قائمة الإجراءات** (بعد "سعر مفصل"):
+```typescript
+<DropdownMenuItem onClick={() => setHistoricalPriceItem({...item})} className="gap-2 cursor-pointer">
+  <History className="w-4 h-4 text-amber-600" />
+  <span>{isArabic ? "سعر تاريخي" : "Historical Price"}</span>
+</DropdownMenuItem>
+```
 
-6. تحسين الجدول بتلوين الصفوف + Tooltips + أعمدة إضافية
+4. **إضافة زر شامل** في منطقة Price Analysis Buttons:
+```typescript
+<BulkHistoricalPricing 
+  items={data.items || []} 
+  onApplyPrices={(prices) => prices.forEach(p => updateAIRate(p.itemNumber, p.price))}
+  currency={data.summary?.currency || "SAR"}
+/>
+```
 
-7. إضافة زر "استخدام قالب" في Dialog الإضافة
-
-8. تحسين عرض درجة الخطر في النموذج بـ Progress bar تفاعلي
-
-9. تغليف Dialog بـ conditional rendering
+5. **إضافة Dialog في نهاية المكون** (conditional render):
+```typescript
+{historicalPriceItem && (
+  <HistoricalPriceLookup
+    isOpen={true}
+    onClose={() => setHistoricalPriceItem(null)}
+    item={historicalPriceItem}
+    onApplyPrice={(price) => {
+      updateAIRate(historicalPriceItem.item_number, price);
+      setHistoricalPriceItem(null);
+    }}
+    currency={data.summary?.currency || "SAR"}
+  />
+)}
+```
 
 ---
 
@@ -117,6 +133,11 @@ const filteredRisks = useMemo(() => {
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/RiskManagement.tsx` | بحث + فلاتر + قوالب + تحسين بصري + أداء |
+| `src/components/HistoricalPriceLookup.tsx` | ملف جديد - Dialog بحث تاريخي لبند واحد |
+| `src/components/BulkHistoricalPricing.tsx` | ملف جديد - تسعير تاريخي شامل لكل البنود |
+| `src/components/AnalysisResults.tsx` | إضافة خيار "سعر تاريخي" + زر التسعير الشامل |
 
 ## لا تغييرات على قاعدة البيانات
+
+البيانات التاريخية موجودة بالفعل في جدولي `historical_pricing_files` و `saved_projects`.
+
