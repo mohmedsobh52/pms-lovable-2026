@@ -1,111 +1,78 @@
 
 
-# إصلاح تبويب الحفظ
+# إصلاح خطأ RLS عند رفع BOQ + تحسين الأداء
 
 ## المشكلة
 
-عند الضغط على "حفظ" من داخل صفحة تفاصيل المشروع (تبويب التحليل المتقدم)، يظهر دائماً نافذة "يوجد مشروع بنفس الاسم" لأن المشروع موجود فعلاً في قاعدة البيانات. المشكلة الأساسية:
+عند رفع ملف BOQ وحفظ البنود في جدول `project_items`، يظهر خطأ:
+> "new row violates row-level security policy for table project_items"
 
-1. **`SaveProjectButton` لا يعرف أن المشروع موجود مسبقاً** - يحاول دائماً إنشاء مشروع جديد بدلاً من تحديث الموجود
-2. **لا يوجد خيار "حفظ باسم جديد"** في `SaveProjectButton` (تم إضافته فقط في `SaveProjectDialog` سابقاً)
-3. **نافذة التكرار لا تقدم حلاً مريحاً** - فقط "استبدال" أو "إلغاء"
+**السبب**: سياسة RLS تستخدم الدالة `user_owns_project(project_id)` التي تتحقق من وجود المشروع في `project_data` أو `saved_projects`. الخطأ يحدث عندما:
+1. المشروع مُنشأ في `saved_projects` لكن `project_items` تحتاج أن يكون في `project_data` أيضاً
+2. المستخدم غير مُوثّق (لا يوجد `auth.uid()`)
+3. المشروع غير موجود في أي من الجدولين
 
 ## الحل
 
-### الملف: `src/components/SaveProjectButton.tsx`
+### 1. الملف: `src/components/project-details/BOQUploadDialog.tsx`
 
-#### 1. إضافة prop جديد `savedProjectId`
+**إضافة التحقق من التوثيق قبل الحفظ:**
+- التحقق من وجود `user` قبل محاولة الحفظ
+- إذا كان المشروع في `saved_projects` فقط، إنشاء سجل مقابل في `project_data` تلقائياً (أو التأكد من وجوده)
+- تحسين رسالة الخطأ لتكون واضحة للمستخدم
 
-لتمرير معرّف المشروع الحالي حتى يعرف الزر أن المشروع موجود مسبقاً:
-
-```text
-interface SaveProjectButtonProps {
-  items: BOQItem[];
-  // ... existing props
-  savedProjectId?: string;  // جديد
-}
-```
-
-#### 2. تغيير سلوك الحفظ عند وجود `savedProjectId`
-
-إذا كان المشروع موجوداً مسبقاً (أي `savedProjectId` محدد)، يتم تحديثه مباشرة بدون التحقق من التكرار:
+**إضافة منطق ضمان وجود المشروع:**
 
 ```text
-const handleSave = async () => {
-  // ... validations
+// قبل حفظ البنود، تأكد من وجود المشروع في project_data
+const ensureProjectExists = async (projectId: string) => {
+  const { data: exists } = await supabase
+    .from('project_data')
+    .select('id')
+    .eq('id', projectId)
+    .maybeSingle();
   
-  if (savedProjectId) {
-    // المشروع موجود - حدّثه مباشرة
-    await updateExistingProject(savedProjectId);
-    return;
+  if (!exists) {
+    // تحقق من saved_projects
+    const { data: saved } = await supabase
+      .from('saved_projects')
+      .select('*')
+      .eq('id', projectId)
+      .maybeSingle();
+    
+    if (saved) {
+      // أنشئ سجل في project_data
+      await supabase.from('project_data').insert({
+        id: projectId,
+        user_id: user.id,
+        name: saved.name,
+        analysis_data: saved.analysis_data,
+        // ...
+      });
+    }
   }
-  
-  // مشروع جديد - تحقق من التكرار
-  // ... existing duplicate check logic
 };
 ```
 
-#### 3. إضافة دالة `updateExistingProject`
+**تحسين معالجة الخطأ:**
+- عرض رسالة خطأ واضحة بدلاً من الرسالة التقنية
+- إضافة إعادة المحاولة تلقائياً بعد إنشاء سجل المشروع
 
-```text
-const updateExistingProject = async (projectId: string) => {
-  // تحديث project_data
-  await supabase.from('project_data').update({
-    analysis_data: { items, summary },
-    wbs_data: wbsData,
-    total_value: totalValue,
-    updated_at: new Date().toISOString(),
-  }).eq('id', projectId);
-  
-  // تحديث project_items (حذف القديم + إدراج الجديد)
-  await supabase.from('project_items').delete().eq('project_id', projectId);
-  // ... insert updated items
-};
-```
+### 2. الملف: `src/pages/ProjectDetailsPage.tsx`
 
-#### 4. إضافة خيار "حفظ باسم جديد" في نافذة التكرار
+**إضافة ضمان المزامنة بين الجدولين:**
+- عند تحميل مشروع من `saved_projects`، التأكد من وجود سجل مقابل في `project_data` لدعم عمليات `project_items`
 
-نفس الميزة التي أُضيفت سابقاً في `SaveProjectDialog`:
+### 3. تحسين الأداء والشكل في `BOQUploadDialog`
 
-```text
-const handleSaveWithNewName = async () => {
-  const timestamp = new Date().toLocaleTimeString("ar-SA", {
-    hour: "2-digit", minute: "2-digit",
-  });
-  const newName = `${projectName.trim()} (${timestamp})`;
-  setProjectName(newName);
-  setDuplicateDialogOpen(false);
-  setDuplicateProject(null);
-  await saveNewProject();
-};
-```
-
-### الملف: `src/components/AnalysisResults.tsx`
-
-تمرير `savedProjectId` إلى `SaveProjectButton` في الموقعين:
-
-```text
-<SaveProjectButton
-  items={data.items || []}
-  wbsData={wbsData}
-  summary={data.summary}
-  getItemCostData={getItemCostData}
-  getItemCalculatedCosts={getItemCalculatedCosts}
-  fileName={fileName}
-  isArabic={isArabic}
-  savedProjectId={savedProjectId}  // جديد
-/>
-```
-
-## النتيجة المتوقعة
-
-- عند فتح مشروع موجود والضغط على "حفظ"، يتم التحديث مباشرة بدون أسئلة
-- عند حفظ مشروع جديد بنفس اسم مشروع موجود، تظهر 3 خيارات: "استبدال القديم" / "حفظ باسم جديد" / "إلغاء"
+- إضافة شريط تقدم واضح أثناء التحليل
+- تحسين عرض حالة الملف المرفوع
+- إضافة رسائل حالة أفضل للمستخدم
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/SaveProjectButton.tsx` | إضافة `savedProjectId` prop، دالة `updateExistingProject`، خيار "حفظ باسم جديد" |
-| `src/components/AnalysisResults.tsx` | تمرير `savedProjectId` إلى `SaveProjectButton` |
+| `src/components/project-details/BOQUploadDialog.tsx` | إضافة التحقق من التوثيق، ضمان وجود المشروع، تحسين الأخطاء والشكل |
+| `src/pages/ProjectDetailsPage.tsx` | إضافة مزامنة المشروع بين الجدولين عند التحميل |
 
