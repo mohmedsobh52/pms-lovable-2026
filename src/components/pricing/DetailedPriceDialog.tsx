@@ -39,10 +39,11 @@ interface DetailedPriceDialogProps {
   item: ProjectItem | null;
   currency: string;
   onSave: () => void;
+  onApplyPrice?: (unitPrice: number) => void;
 }
 
 // Memoized component to prevent React ref warnings with Radix UI Dialog
-function DetailedPriceDialogComponent({ isOpen, onClose, item, currency, onSave }: DetailedPriceDialogProps) {
+function DetailedPriceDialogComponent({ isOpen, onClose, item, currency, onSave, onApplyPrice }: DetailedPriceDialogProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("materials");
   const [overheadPercentage, setOverheadPercentage] = useState(10);
@@ -95,6 +96,17 @@ function DetailedPriceDialogComponent({ isOpen, onClose, item, currency, onSave 
 
   const handleSave = async () => {
     if (!item) return;
+
+    // If onApplyPrice is provided, apply price locally instead of saving to DB
+    if (onApplyPrice) {
+      onApplyPrice(calculations.unitPrice);
+      toast({
+        title: "تم تطبيق السعر",
+        description: `سعر الوحدة: ${formatNumber(calculations.unitPrice)} ${currency}`,
+      });
+      onClose();
+      return;
+    }
 
     setIsSaving(true);
     try {
