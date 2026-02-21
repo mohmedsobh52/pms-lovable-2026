@@ -1,80 +1,52 @@
 
 
-# تعديل اسم المشروع + تصدير Excel من قائمة المشاريع
+# إضافة عمود الوصف العربي في جدول BOQ
 
-## 1. تعديل اسم المشروع مباشرة من القائمة
+## الوضع الحالي
 
-### الملف: `src/pages/SavedProjectsPage.tsx`
+جدول BOQ في `AnalysisResults.tsx` يعرض عمود `Description` واحد فقط. البيانات قد تحتوي على حقل `description_ar` (الوصف العربي) لكنه لا يُعرض في الجدول.
 
-**إضافة حالة التعديل:**
-- `editingProjectId` و `editingName` لتتبع المشروع قيد التعديل
-- عند النقر على أيقونة التعديل، يتحول اسم المشروع إلى حقل إدخال (Input)
-- زر حفظ (علامة صح) وزر إلغاء (X)
+## التغيير المطلوب
 
-**منطق التحديث:**
-- فحص تكرار الاسم في `saved_projects` و `project_data` (باستثناء المشروع الحالي)
-- تحديث الاسم في كلا الجدولين بالتوازي
-- تحديث القائمة المحلية فوراً دون إعادة تحميل
-
-**التغيير في واجهة بطاقة المشروع (سطر ~714):**
-
-```text
-// بدلاً من عرض الاسم كنص ثابت فقط:
-// إذا كان المشروع في وضع التعديل → عرض Input + أزرار حفظ/إلغاء
-// وإلا → عرض الاسم مع أيقونة قلم صغيرة عند التحويم
-```
-
-## 2. تصدير المشروع إلى Excel
-
-### الملف: `src/pages/SavedProjectsPage.tsx`
-
-**إضافة دالة `handleExportToExcel(project)`:**
-- جلب `project_items` من قاعدة البيانات للمشروع المحدد
-- إنشاء ملف Excel باستخدام `exceljs-utils` (الموجود بالفعل)
-- ورقة واحدة تحتوي: رقم البند، الوصف، الوحدة، الكمية، سعر الوحدة، الإجمالي، الفئة
-- صف إجمالي في النهاية
-- تنزيل الملف باسم `${project.name}.xlsx`
-
-**إضافة زر التصدير في بطاقة المشروع (سطر ~794):**
-
-```text
-// زر Download جديد بجانب أزرار التحميل/العرض/الحذف
-<Button variant="outline" size="sm" onClick={() => handleExportToExcel(project)}>
-  <Download className="w-4 h-4" />
-</Button>
-```
-
-**تحديث ديالوج التفاصيل (سطر ~1023):**
-- ربط زر "تصدير إلى Excel" الموجود بالفعل بالدالة الجديدة بدلاً من التوجيه لصفحة المشروع
+عند وجود وصف عربي ووصف إنجليزي في البنود، يتم عرض كلاهما في الجدول - إما كعمودين منفصلين أو كعمود واحد يعرض الوصفين معاً (العربي تحت الإنجليزي).
 
 ## التفاصيل التقنية
 
-### دالة التعديل المباشر
+### الملف: `src/components/TableControls.tsx`
 
+- إضافة عمود جديد في `BOQ_TABLE_COLUMNS`:
 ```text
-handleSaveEdit(projectId, newName):
-  1. فحص الاسم الجديد (غير فارغ)
-  2. فحص التكرار في saved_projects + project_data (باستثناء المشروع الحالي)
-  3. إذا كان مكرراً → toast تحذيري
-  4. تحديث saved_projects.name + project_data.name بالتوازي
-  5. تحديث projects state محلياً
-  6. إلغاء وضع التعديل
+{ id: "description_ar", label: "Arabic Desc.", labelAr: "الوصف العربي" }
 ```
 
-### دالة التصدير
+### الملف: `src/components/AnalysisResults.tsx`
 
+**1. الكشف التلقائي عن وجود وصف عربي:**
+- إضافة `useMemo` يفحص إذا كان أي بند يحتوي على `description_ar` غير فارغ
+- إذا وُجد، يتم إضافة `description_ar` تلقائياً إلى `visibleColumns` عند التحميل الأول
+
+**2. إضافة عمود الوصف العربي في الجدول (header + body):**
+- **Header** (سطر ~2244): إضافة `<th>` جديد بعد عمود Description مباشرة بعنوان "الوصف العربي / Arabic Desc."
+- **Body** (سطر ~2362): إضافة `<td>` جديد يعرض `(item as any).description_ar` مع:
+  - نفس تنسيق عمود Description (break-words, leading-relaxed)
+  - اتجاه النص RTL لأنه عربي (`dir="rtl"`)
+  - دعم البحث (highlight) مثل عمود Description الإنجليزي
+  - عرض "-" إذا لم يكن هناك وصف عربي للبند
+
+**3. تحديث تصدير CSV المفلتر (سطر ~2139):**
+- إضافة عمود "Arabic Description" في التصدير
+
+### الملف: `src/components/AnalysisResults.tsx` - واجهة BOQItem
+
+- تحديث `interface BOQItem` (سطر 115-124) لإضافة:
 ```text
-handleExportToExcel(project):
-  1. جلب project_items من Supabase
-  2. إذا لم تكن موجودة → استخدام analysis_data.items كبديل
-  3. createWorkbook() + addJsonSheet() مع أعمدة: رقم، وصف، وحدة، كمية، سعر وحدة، إجمالي
-  4. إضافة صف إجمالي
-  5. downloadWorkbook(workbook, `${project.name}.xlsx`)
+description_ar?: string;
 ```
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/SavedProjectsPage.tsx` | تعديل مباشر للاسم + تصدير Excel + تحسين أزرار البطاقة |
+| `src/components/TableControls.tsx` | إضافة عمود `description_ar` في `BOQ_TABLE_COLUMNS` |
+| `src/components/AnalysisResults.tsx` | إضافة الحقل في الواجهة + الكشف التلقائي + عرض العمود في الجدول + تحديث التصدير |
 
