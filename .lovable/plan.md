@@ -1,108 +1,113 @@
 
 
-# ربط "Detailed Price" بشاشة التسعير التفصيلي (DetailedPriceDialog)
+# إضافة تبويب "Edit" في القائمة المنسدلة لبنود التحليل
 
-## المشكلة الحالية
+## الهدف
 
-عند الضغط على "Detailed Price" في القائمة المنسدلة، يُفتح حالياً `ItemCostEditor` (شاشة تحليل تكاليف الحفر). المطلوب فتح شاشة `DetailedPriceDialog` الكاملة التي تحتوي على:
-- تبويبات **المواد / العمالة / المعدات** مع إمكانية الإضافة من المكتبة
-- حقول **نسبة المصاريف العمومية** و**نسبة الربح**
-- حقل **ملاحظات**
-- زر **حفظ التسعير**
-
-## تحدي تقني
-
-`DetailedPriceDialog` مصمم للعمل مع جدول `project_items` في قاعدة البيانات (يحفظ مباشرة عبر Supabase باستخدام `item.id`). لكن في شاشة `AnalysisResults`، البنود تأتي من بيانات التحليل المحلية وليس من قاعدة البيانات.
-
-**الحل:** سنضيف prop اختياري `onApplyPrice` إلى `DetailedPriceDialog` بحيث:
-- إذا كان البند من قاعدة البيانات (له `id` حقيقي) — يحفظ في Supabase كالمعتاد
-- إذا تم تمرير `onApplyPrice` — يستدعيها بالسعر المحسوب بدلاً من الحفظ في قاعدة البيانات
+إضافة خيار "Edit" في القائمة المنسدلة (Dropdown) بين "Detailed Price" و "Clear Price" يفتح شاشة `EditItemDialog` الكاملة التي تحتوي على:
+- تبديل Section Header
+- رقم البند والوحدة
+- الوصف بالإنجليزية والعربية
+- الكمية
+- الفئة والفئة الفرعية
+- المواصفات
+- زر حفظ التغييرات
 
 ## التغييرات
 
-### 1. `src/components/pricing/DetailedPriceDialog.tsx`
+### الملف: `src/components/AnalysisResults.tsx`
 
-- إضافة prop اختياري:
+#### 1. استيراد EditItemDialog و أيقونة Edit
+
 ```typescript
-interface DetailedPriceDialogProps {
-  // ... الحالي
-  onApplyPrice?: (unitPrice: number) => void; // جديد
-}
+import EditItemDialog from "@/components/items/EditItemDialog";
+import { ..., Pencil, ... } from "lucide-react";
 ```
 
-- تعديل `handleSave`: إذا كان `onApplyPrice` موجوداً، يستدعيها بـ `calculations.unitPrice` بدلاً من الحفظ في Supabase:
+#### 2. إضافة state لتتبع البند المختار للتعديل
+
 ```typescript
-const handleSave = async () => {
-  if (!item) return;
-  
-  if (onApplyPrice) {
-    // وضع التحليل: تطبيق السعر محلياً
-    onApplyPrice(calculations.unitPrice);
-    toast({ title: "تم تطبيق السعر", description: "..." });
-    onClose();
-    return;
-  }
-  
-  // الحفظ في قاعدة البيانات (الوضع الحالي)
-  // ...
-};
+const [editItem, setEditItem] = useState<any>(null);
 ```
 
-### 2. `src/components/AnalysisResults.tsx`
+#### 3. إضافة خيار "Edit" في الـ Dropdown
 
-- **استيراد** `DetailedPriceDialog` بدلاً من استخدام `ItemCostEditor` في القائمة
-- **إضافة state:**
-```typescript
-const [detailedPriceItem, setDetailedPriceItem] = useState<any>(null);
-```
+بين "Detailed Price" و فاصل "Clear Price":
 
-- **تعديل خيار "Detailed Price" في الـ Dropdown:** بدلاً من `<div>` يحتوي على `<ItemCostEditor>`، يصبح `<DropdownMenuItem>` عادي يفتح الـ dialog:
 ```tsx
-<DropdownMenuItem onClick={() => {
-  setDetailedPriceItem({
-    id: item.item_number,
-    item_number: item.item_number,
-    description: item.description,
-    unit: item.unit,
-    quantity: item.quantity,
-    unit_price: item.unit_price || null,
-    total_price: item.total_price || null,
-  });
-}}>
-  <Edit className="w-4 h-4" />
-  <span>{isArabic ? "سعر مفصل" : "Detailed Price"}</span>
+<DropdownMenuSeparator />
+{/* Edit */}
+<DropdownMenuItem
+  onClick={() => {
+    setEditItem({
+      id: item.item_number,
+      item_number: item.item_number,
+      description: item.description,
+      description_ar: item.description_ar || null,
+      unit: item.unit,
+      quantity: item.quantity,
+      unit_price: item.unit_price || null,
+      total_price: item.total_price || null,
+      category: item.category || null,
+      subcategory: item.subcategory || null,
+      specifications: item.specifications || null,
+      is_section: item.is_section || false,
+    });
+  }}
+  className="gap-2 cursor-pointer"
+>
+  <Pencil className="w-4 h-4 text-blue-600" />
+  <span>{isArabic ? "تعديل" : "Edit"}</span>
 </DropdownMenuItem>
 ```
 
-- **إضافة الـ Dialog في نهاية الـ JSX:**
+#### 4. إضافة EditItemDialog في نهاية الـ JSX
+
 ```tsx
-<DetailedPriceDialog
-  isOpen={!!detailedPriceItem}
-  onClose={() => setDetailedPriceItem(null)}
-  item={detailedPriceItem}
-  currency={data.summary?.currency || "SAR"}
-  onSave={() => setDetailedPriceItem(null)}
-  onApplyPrice={(unitPrice) => {
-    if (detailedPriceItem) {
-      updateAIRate(detailedPriceItem.item_number, unitPrice);
-      toast({
-        title: isArabic ? "تم تطبيق السعر" : "Price applied",
-        description: unitPrice.toLocaleString(),
-      });
-      setDetailedPriceItem(null);
+<EditItemDialog
+  isOpen={!!editItem}
+  onClose={() => setEditItem(null)}
+  item={editItem}
+  onSave={async (updatedItem) => {
+    // تحديث البند محلياً في بيانات التحليل
+    if (editItem && data.items) {
+      const itemIndex = data.items.findIndex(
+        (i: any) => i.item_number === editItem.item_number
+      );
+      if (itemIndex !== -1) {
+        data.items[itemIndex] = {
+          ...data.items[itemIndex],
+          ...updatedItem,
+        };
+      }
     }
+    toast({
+      title: isArabic ? "تم حفظ التغييرات" : "Changes saved",
+    });
+    setEditItem(null);
   }}
 />
 ```
 
-- **إزالة** `ItemCostEditor` من الـ Dropdown (يبقى import فقط إذا مستخدم في مكان آخر)
+عند الحفظ، يتم تحديث البند مباشرة في مصفوفة `data.items` المحلية وإظهار رسالة نجاح.
+
+## ترتيب القائمة النهائي
+
+```text
+$ Quick Price
+= Detailed Price
+──────────
+/ Edit
+──────────
+x Clear Price
+──────────
+D Delete (أحمر)
+```
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/pricing/DetailedPriceDialog.tsx` | إضافة prop `onApplyPrice` اختياري + تعديل `handleSave` |
-| `src/components/AnalysisResults.tsx` | استبدال `ItemCostEditor` بـ `DetailedPriceDialog` في الـ Dropdown + state جديد |
+| `src/components/AnalysisResults.tsx` | استيراد `EditItemDialog` + `Pencil` + state `editItem` + خيار Edit في الـ Dropdown + الـ Dialog |
 
 ## لا تغييرات على قاعدة البيانات
-
