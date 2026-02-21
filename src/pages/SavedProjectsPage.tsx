@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { useNavigate, Link, useSearchParams, useLocation } from "react-router-dom";
 import {
   FolderOpen, Trash2, Loader2, Calendar, FileText, Search,
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
@@ -119,10 +119,15 @@ interface ProjectItem {
 
 export default function SavedProjectsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { isArabic, t } = useLanguage();
   const { toast } = useToast();
+  
+  // New project state from navigation
+  const newProjectState = location.state as { newProjectId?: string; newProjectName?: string } | null;
+  const [showNewProjectBanner, setShowNewProjectBanner] = useState(!!newProjectState?.newProjectId);
   
   const [projects, setProjects] = useState<ProjectData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -145,6 +150,13 @@ export default function SavedProjectsPage() {
                      urlTab === "analyze" ? "analyze" : "projects";
   const [activeTab, setActiveTab] = useState(initialTab);
   const [extractionMode, setExtractionMode] = useState(urlMode === "extraction");
+
+  // Clear navigation state after reading it
+  useEffect(() => {
+    if (newProjectState?.newProjectId) {
+      window.history.replaceState({}, document.title);
+    }
+  }, []);
 
   // Update tab when URL changes
   useEffect(() => {
@@ -511,10 +523,19 @@ export default function SavedProjectsPage() {
               </TabsTrigger>
               <TabsTrigger
                 value="analyze"
-                className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50"
+                className={cn(
+                  "gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50",
+                  showNewProjectBanner && "ring-2 ring-primary/50 animate-pulse"
+                )}
               >
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className={cn("w-4 h-4", showNewProjectBanner && "text-primary animate-bounce")} />
                 <span className="hidden sm:inline">{isArabic ? "تحليل BOQ" : "Analyze BOQ"}</span>
+                {showNewProjectBanner && (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                  </span>
+                )}
               </TabsTrigger>
               <TabsTrigger
                 value="reports"
@@ -824,12 +845,55 @@ export default function SavedProjectsPage() {
           </TabsContent>
 
           {/* Analyze BOQ Tab */}
-          <TabsContent value="analyze">
+          <TabsContent value="analyze" className="space-y-4">
+            {/* New Project Banner */}
+            {showNewProjectBanner && newProjectState?.newProjectName && (
+              <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/5 p-5">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+                <div className="relative flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-lg bg-primary/15 mt-0.5">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="font-semibold text-lg">
+                        {isArabic ? "🎉 تم إنشاء المشروع بنجاح!" : "🎉 Project Created Successfully!"}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {isArabic 
+                          ? `المشروع "${newProjectState.newProjectName}" جاهز. ارفع ملف BOQ الآن لبدء التحليل والتسعير.`
+                          : `Project "${newProjectState.newProjectName}" is ready. Upload your BOQ file now to start analysis and pricing.`}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                          <Upload className="w-3 h-3 mr-1" />
+                          {isArabic ? "PDF أو Excel" : "PDF or Excel"}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          {isArabic ? "تحليل ذكي" : "AI Analysis"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => setShowNewProjectBanner(false)}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             <BOQAnalyzerPanel
               key={draggedFile?.name ?? "default"}
               initialFile={draggedFile ?? undefined}
               onProjectSaved={(projectId) => {
                 setDraggedFile(null);
+                setShowNewProjectBanner(false);
                 fetchProjects();
                 setActiveTab("projects");
               }}
