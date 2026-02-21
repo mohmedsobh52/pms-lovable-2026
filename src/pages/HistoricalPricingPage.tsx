@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2, Download, FileImage, RefreshCw, LogIn, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Database, Upload, FileSpreadsheet, FileText, Trash2, Eye, Calendar, MapPin, CheckCircle, XCircle, Plus, Search, Filter, ArrowLeft, BarChart3, Loader2, Download, FileImage, RefreshCw, LogIn, ChevronLeft, ChevronRight, AlertTriangle, TrendingUp, TrendingDown, FileBarChart, Lightbulb, DollarSign, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,6 +63,16 @@ const LOCATIONS = [
 
 const PAGE_SIZE = 20;
 const MAX_ITEMS_PER_SAVE = 2000;
+
+// Format large numbers with readable suffixes
+function formatLargeNumber(value: number, currency?: string): string {
+  const suffix = currency ? ` ${currency}` : '';
+  if (!Number.isFinite(value) || value < 0) return `—${suffix}`;
+  if (value >= 1e9) return `${(value / 1e9).toFixed(2)} B${suffix}`;
+  if (value >= 1e6) return `${(value / 1e6).toFixed(2)} M${suffix}`;
+  if (value >= 1e3) return `${value.toLocaleString()}${suffix}`;
+  return `${value.toFixed(2)}${suffix}`;
+}
 
 export default function HistoricalPricingPage() {
   const [files, setFiles] = useState<HistoricalFileMeta[]>([]);
@@ -966,10 +976,8 @@ export default function HistoricalPricingPage() {
                               <p className="text-xs text-muted-foreground">بند</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-lg font-bold">
-                                {(Number.isFinite(file.total_value) && file.total_value < 1e15) 
-                                  ? file.total_value.toLocaleString() 
-                                  : "—"}
+                              <p className="text-lg font-bold" title={file.total_value?.toLocaleString()}>
+                                {formatLargeNumber(file.total_value || 0)}
                               </p>
                               <p className="text-xs text-muted-foreground">{file.currency}</p>
                             </div>
@@ -1083,8 +1091,10 @@ export default function HistoricalPricingPage() {
                         <p className="text-xs text-muted-foreground">عدد البنود</p>
                       </div>
                       <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-center">
-                        <BarChart3 className="w-4 h-4 text-green-600 mx-auto mb-1" />
-                        <p className="font-bold text-lg">{computedTotal.toLocaleString()}</p>
+                        <DollarSign className="w-4 h-4 text-green-600 mx-auto mb-1" />
+                        <p className="font-bold text-lg" title={computedTotal.toLocaleString()}>
+                          {formatLargeNumber(computedTotal)}
+                        </p>
                         <p className="text-xs text-muted-foreground">القيمة الإجمالية ({selectedFile.currency})</p>
                       </div>
                       <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg text-center">
@@ -1152,45 +1162,83 @@ export default function HistoricalPricingPage() {
                     {/* Suggestions Section */}
                     <div className="space-y-2 pt-2">
                       <h4 className="text-sm font-semibold flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-500" />
-                        اقتراحات
+                        <Lightbulb className="w-4 h-4 text-amber-500" />
+                        اقتراحات وتحليل سريع
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {/* Highest/Lowest price summary */}
+                        {pricedItems.length > 0 && (() => {
+                          const sorted = [...pricedItems].sort((a, b) => b.unit_price - a.unit_price);
+                          const highest = sorted[0];
+                          const lowest = sorted[sorted.length - 1];
+                          return (
+                            <>
+                              <div className="p-3 border border-emerald-500/30 bg-emerald-500/5 rounded-lg">
+                                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                                  <TrendingUp className="w-4 h-4" />
+                                  أعلى سعر وحدة
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                                  {highest.description || highest.description_ar || `بند ${highest.item_number}`}
+                                </p>
+                                <p className="text-sm font-bold mt-0.5">
+                                  {formatLargeNumber(highest.unit_price, selectedFile.currency)}
+                                </p>
+                              </div>
+                              <div className="p-3 border border-cyan-500/30 bg-cyan-500/5 rounded-lg">
+                                <p className="text-sm font-medium text-cyan-700 dark:text-cyan-400 flex items-center gap-1.5">
+                                  <TrendingDown className="w-4 h-4" />
+                                  أقل سعر وحدة
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                                  {lowest.description || lowest.description_ar || `بند ${lowest.item_number}`}
+                                </p>
+                                <p className="text-sm font-bold mt-0.5">
+                                  {formatLargeNumber(lowest.unit_price, selectedFile.currency)}
+                                </p>
+                              </div>
+                            </>
+                          );
+                        })()}
                         {zeroItems.length > 0 && (
                           <div className="p-3 border border-yellow-500/30 bg-yellow-500/5 rounded-lg">
-                            <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                            <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400 flex items-center gap-1.5">
+                              <AlertTriangle className="w-4 h-4" />
                               {zeroItems.length} بند بدون أسعار
                             </p>
                             <p className="text-xs text-muted-foreground mt-1">
-                              يوجد {zeroItems.length} بند ({Math.round(zeroItems.length / normalizedItems.length * 100)}%) بدون كمية أو سعر. يُنصح بمراجعتها أو حذف غير المطلوبة.
+                              ({Math.round(zeroItems.length / normalizedItems.length * 100)}%) بدون كمية أو سعر. يُنصح بمراجعتها.
                             </p>
                           </div>
                         )}
                         {hasHighVariance && (
                           <div className="p-3 border border-red-500/30 bg-red-500/5 rounded-lg">
-                            <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                            <p className="text-sm font-medium text-red-700 dark:text-red-400 flex items-center gap-1.5">
+                              <ArrowUpDown className="w-4 h-4" />
                               تفاوت كبير في الأسعار
                             </p>
                             <p className="text-xs text-muted-foreground mt-1">
-                              الانحراف المعياري لسعر الوحدة ({Math.round(stdDev).toLocaleString()}) يتجاوز 50% من المتوسط ({Math.round(avgUnitPrice).toLocaleString()}). تحقق من وحدات القياس.
+                              الانحراف المعياري ({Math.round(stdDev).toLocaleString()}) يتجاوز 50% من المتوسط ({Math.round(avgUnitPrice).toLocaleString()}).
                             </p>
                           </div>
                         )}
                         <div className="p-3 border border-blue-500/30 bg-blue-500/5 rounded-lg">
-                          <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                          <p className="text-sm font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+                            <DollarSign className="w-4 h-4" />
                             استخدم هذه الأسعار في مشاريعك
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            يمكنك تطبيق أسعار هذا الملف على مشاريع جديدة عبر أداة "التسعير التاريخي الشامل" في صفحة تفاصيل المشروع.
+                            طبّق أسعار هذا الملف عبر أداة "التسعير التاريخي" في تفاصيل المشروع.
                           </p>
                         </div>
                         {files.length > 1 && (
-                          <div className="p-3 border border-green-500/30 bg-green-500/5 rounded-lg">
-                            <p className="text-sm font-medium text-green-700 dark:text-green-400">
-                              قارن مع {files.length - 1} مشاريع أخرى
+                          <div className="p-3 border border-violet-500/30 bg-violet-500/5 rounded-lg">
+                            <p className="text-sm font-medium text-violet-700 dark:text-violet-400 flex items-center gap-1.5">
+                              <FileBarChart className="w-4 h-4" />
+                              تصدير تقرير مقارنة
                             </p>
                             <p className="text-xs text-muted-foreground mt-1">
-                              لديك {files.length - 1} مشاريع أخرى محفوظة. استخدم تبويب "الإحصائيات" لمقارنة الأسعار بينها.
+                              قارن أسعار {files.length} مشاريع محفوظة عبر تبويب "الإحصائيات".
                             </p>
                           </div>
                         )}

@@ -349,6 +349,13 @@ export function normalizeHistoricalItems(rawItems: any[], headers?: string[]): N
     const unitPrice = item.unit_price ?? 0;
     const totalPrice = item.total_price ?? (quantity * unitPrice);
 
+    // Cross-validate total_price: if stored value differs from computed by >100x, use computed
+    const computed = quantity * unitPrice;
+    let safeTotalPrice = totalPrice;
+    if (computed > 0 && totalPrice > 0 && (totalPrice / computed > 100 || computed / totalPrice > 100)) {
+      safeTotalPrice = computed;
+    }
+
     return {
       id: item.id!,
       item_number: item.item_number || String(index + 1),
@@ -357,7 +364,7 @@ export function normalizeHistoricalItems(rawItems: any[], headers?: string[]): N
       unit: item.unit || '',
       quantity,
       unit_price: unitPrice,
-      total_price: totalPrice > 0 ? totalPrice : quantity * unitPrice,
+      total_price: safeTotalPrice > 0 ? safeTotalPrice : computed,
       item_code: item.item_code || '',
     };
   });
@@ -393,7 +400,10 @@ export function calculateTotal(quantity: number, unitPrice: number): number {
 export function safeTotalValue(items: NormalizedHistoricalItem[]): number {
   return items.reduce((sum, item) => {
     const tp = item.total_price || 0;
-    if (!Number.isFinite(tp) || tp > 1e15 || tp < -1e15) return sum;
-    return sum + tp;
+    if (!Number.isFinite(tp) || tp > 1e12 || tp < -1e12) return sum;
+    // Additional check: compare with qty * unit_price
+    const computed = (item.quantity || 0) * (item.unit_price || 0);
+    const safeTP = (computed > 0 && tp > 0 && tp / computed > 100) ? computed : tp;
+    return sum + safeTP;
   }, 0);
 }
