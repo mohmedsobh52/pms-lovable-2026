@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain, Pencil } from "lucide-react";
 import { DualHorizontalScrollBar } from "./DualHorizontalScrollBar";
 import { TableControls, BOQ_TABLE_COLUMNS } from "./TableControls";
 import {
@@ -26,6 +26,7 @@ import { EnhancedPricingAnalysis } from "./EnhancedPricingAnalysis";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PDFCustomization, getSavedCompanyInfo, CompanyInfo } from "./PDFCustomization";
 import { ItemCostEditor } from "./ItemCostEditor";
+import EditItemDialog from "@/components/items/EditItemDialog";
 import { BulkApplyCostsDialog } from "./BulkApplyCostsDialog";
 import { SaveProjectButton } from "./SaveProjectButton";
 import { PriceComparisonReport } from "./PriceComparisonReport";
@@ -595,6 +596,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
    const [searchQuery, setSearchQuery] = useState("");
    const [quickPriceItem, setQuickPriceItem] = useState<any>(null);
    const [detailedPriceItem, setDetailedPriceItem] = useState<any>(null);
+   const [editItem, setEditItem] = useState<any>(null);
   const [unitFilter, setUnitFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [costRangeFilter, setCostRangeFilter] = useState<string>("all");
@@ -2439,6 +2441,30 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                                   <span>{isArabic ? "سعر مفصل" : "Detailed Price"}</span>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
+                                {/* Edit */}
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditItem({
+                                      id: item.item_number,
+                                      item_number: item.item_number,
+                                      description: item.description,
+                                      description_ar: (item as any).description_ar || null,
+                                      unit: item.unit,
+                                      quantity: item.quantity,
+                                      unit_price: item.unit_price || null,
+                                      total_price: item.total_price || null,
+                                      category: item.category || null,
+                                      subcategory: (item as any).subcategory || null,
+                                      specifications: (item as any).specifications || null,
+                                      is_section: (item as any).is_section || false,
+                                    });
+                                  }}
+                                  className="gap-2 cursor-pointer"
+                                >
+                                  <Pencil className="w-4 h-4 text-blue-600" />
+                                  <span>{isArabic ? "تعديل" : "Edit"}</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 {/* Clear Price */}
                                 <DropdownMenuItem
                                   onClick={() => {
@@ -2771,6 +2797,31 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
           }
         }}
       />
+
+      {/* Edit Item Dialog */}
+      <EditItemDialog
+        isOpen={!!editItem}
+        onClose={() => setEditItem(null)}
+        item={editItem}
+        onSave={async (updatedItem) => {
+          if (editItem && data.items) {
+            const itemIndex = data.items.findIndex(
+              (i: any) => i.item_number === editItem.item_number
+            );
+            if (itemIndex !== -1) {
+              data.items[itemIndex] = {
+                ...data.items[itemIndex],
+                ...updatedItem,
+              };
+            }
+          }
+          toast({
+            title: isArabic ? "تم حفظ التغييرات" : "Changes saved",
+          });
+          setEditItem(null);
+        }}
+      />
     </>
+
   );
 }
