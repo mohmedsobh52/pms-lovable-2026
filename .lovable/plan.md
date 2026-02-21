@@ -1,52 +1,79 @@
 
 
-# إضافة عمود الوصف العربي في جدول BOQ
+# حذف مشاريع دفعة واحدة + نسخ/استنساخ مشروع
 
-## الوضع الحالي
+## 1. حذف عدة مشاريع دفعة واحدة (Bulk Delete)
 
-جدول BOQ في `AnalysisResults.tsx` يعرض عمود `Description` واحد فقط. البيانات قد تحتوي على حقل `description_ar` (الوصف العربي) لكنه لا يُعرض في الجدول.
+### التغييرات في `src/pages/SavedProjectsPage.tsx`:
 
-## التغيير المطلوب
+**إضافة حالات جديدة:**
+- `selectedProjectIds: Set<string>` لتتبع المشاريع المحددة
+- `isBulkDeleting: boolean` لحالة التحميل أثناء الحذف الجماعي
 
-عند وجود وصف عربي ووصف إنجليزي في البنود، يتم عرض كلاهما في الجدول - إما كعمودين منفصلين أو كعمود واحد يعرض الوصفين معاً (العربي تحت الإنجليزي).
+**إضافة checkbox لكل بطاقة مشروع:**
+- خانة اختيار (Checkbox) في الزاوية العلوية اليسرى لكل بطاقة
+- خانة "تحديد الكل" في شريط الأدوات
+
+**شريط إجراءات جماعي:**
+- يظهر عند تحديد مشروع واحد أو أكثر
+- يعرض عدد المشاريع المحددة
+- زر "حذف المحدد" مع تأكيد عبر AlertDialog
+- زر "إلغاء التحديد"
+
+**دالة `handleBulkDelete`:**
+- حذف `project_items` ثم `project_data` ثم `saved_projects` لكل مشروع محدد
+- تحديث القائمة المحلية
+- إعادة تعيين التحديد
+
+---
+
+## 2. نسخ/استنساخ مشروع (Clone Project)
+
+### التغييرات في `src/pages/SavedProjectsPage.tsx`:
+
+**إضافة زر نسخ في بطاقة المشروع:**
+- زر جديد بأيقونة Copy بجانب أزرار التصدير والحذف
+
+**دالة `handleCloneProject(project)`:**
+1. توليد اسم جديد تلقائي: `"${project.name} - نسخة"` أو `"${project.name} - Copy"`
+2. فحص تكرار الاسم وإضافة رقم تسلسلي إذا لزم (نسخة 2، نسخة 3...)
+3. إنشاء سجل جديد في `project_data` بنفس `analysis_data` و `wbs_data`
+4. إنشاء سجل في `saved_projects` بنفس المعرف الجديد
+5. جلب `project_items` الأصلية وإنشاء نسخ منها مع `project_id` الجديد
+6. جلب `item_costs` المرتبطة ونسخها للبنود الجديدة
+7. إعادة تحميل القائمة
+
+---
 
 ## التفاصيل التقنية
 
-### الملف: `src/components/TableControls.tsx`
+### شريط الإجراءات الجماعي (Bulk Actions Bar)
 
-- إضافة عمود جديد في `BOQ_TABLE_COLUMNS`:
 ```text
-{ id: "description_ar", label: "Arabic Desc.", labelAr: "الوصف العربي" }
+عند selectedProjectIds.size > 0:
+  يظهر شريط ثابت أعلى قائمة المشاريع:
+  [✓ تحديد الكل] [X محدد] [🗑 حذف المحدد] [← إلغاء التحديد]
 ```
 
-### الملف: `src/components/AnalysisResults.tsx`
+### منطق الاستنساخ
 
-**1. الكشف التلقائي عن وجود وصف عربي:**
-- إضافة `useMemo` يفحص إذا كان أي بند يحتوي على `description_ar` غير فارغ
-- إذا وُجد، يتم إضافة `description_ar` تلقائياً إلى `visibleColumns` عند التحميل الأول
-
-**2. إضافة عمود الوصف العربي في الجدول (header + body):**
-- **Header** (سطر ~2244): إضافة `<th>` جديد بعد عمود Description مباشرة بعنوان "الوصف العربي / Arabic Desc."
-- **Body** (سطر ~2362): إضافة `<td>` جديد يعرض `(item as any).description_ar` مع:
-  - نفس تنسيق عمود Description (break-words, leading-relaxed)
-  - اتجاه النص RTL لأنه عربي (`dir="rtl"`)
-  - دعم البحث (highlight) مثل عمود Description الإنجليزي
-  - عرض "-" إذا لم يكن هناك وصف عربي للبند
-
-**3. تحديث تصدير CSV المفلتر (سطر ~2139):**
-- إضافة عمود "Arabic Description" في التصدير
-
-### الملف: `src/components/AnalysisResults.tsx` - واجهة BOQItem
-
-- تحديث `interface BOQItem` (سطر 115-124) لإضافة:
 ```text
-description_ar?: string;
+handleCloneProject(project):
+  1. baseName = project.name + (isArabic ? " - نسخة" : " - Copy")
+  2. التحقق من عدم تكرار الاسم (إضافة رقم إذا لزم)
+  3. إنشاء projectId جديد (UUID)
+  4. INSERT INTO project_data (id, name, analysis_data, wbs_data, ...)
+  5. INSERT INTO saved_projects (id, name, analysis_data, wbs_data, ...)
+  6. SELECT * FROM project_items WHERE project_id = originalId
+  7. لكل بند: INSERT INTO project_items مع project_id الجديد → حفظ mapping قديم→جديد
+  8. SELECT * FROM item_costs WHERE project_item_id IN (original item ids)
+  9. لكل تكلفة: INSERT INTO item_costs مع project_item_id الجديد (من mapping)
+  10. fetchProjects() لتحديث القائمة
 ```
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/TableControls.tsx` | إضافة عمود `description_ar` في `BOQ_TABLE_COLUMNS` |
-| `src/components/AnalysisResults.tsx` | إضافة الحقل في الواجهة + الكشف التلقائي + عرض العمود في الجدول + تحديث التصدير |
+| `src/pages/SavedProjectsPage.tsx` | Checkbox + شريط إجراءات جماعي + حذف دفعة واحدة + زر نسخ + دالة استنساخ |
 
