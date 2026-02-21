@@ -14,6 +14,7 @@ export interface ExcelExtractionResult {
 export interface ExcelBOQItem {
   itemNo?: string;
   description?: string;
+  descriptionAr?: string;
   unit?: string;
   quantity?: number;
   unitPrice?: number;
@@ -98,10 +99,12 @@ const COLUMN_PATTERNS = {
     'المواصفات', 'مواصفات', 'spec', 'specification', 'specifications',
     'description', 'details', 'scope', 'name', 'desc', 'item description', 
     'work description', 'work', 'activity', 'task',
-    'وصف', 'البيان', 'الوصف', 'شرح', 'تفاصيل', 'اسم البند', 'وصف البند',
-    'بيان الأعمال', 'بيان', 'العمل', 'التفاصيل', 'العنصر',
-    'الصنف', 'المادة', 'البيانات', 'اسم', 'وصف الأعمال',
-    'وصف العمل', 'الأعمال', 'النشاط', 'المهمة', 'بيان العمل', 'تفصيل'
+  ],
+  descriptionAr: [
+    'وصف البند', 'الوصف', 'البيان', 'الوصف العربي', 'بيان الأعمال',
+    'وصف', 'بيان', 'التفاصيل', 'الأعمال', 'شرح', 'تفاصيل', 'اسم البند',
+    'العمل', 'العنصر', 'الصنف', 'المادة', 'البيانات', 'اسم',
+    'وصف الأعمال', 'وصف العمل', 'النشاط', 'المهمة', 'بيان العمل', 'تفصيل',
   ],
   unit: [
     'unit', 'uom', 'unit of measure', 'u/m', 'measure', 'units',
@@ -166,6 +169,21 @@ function detectColumnMapping(headers: string[]): Record<string, number> {
       }
     }
   });
+
+  // Smart logic: if we found descriptionAr but not description, or vice versa
+  // If only one description column exists, treat it as both
+  if (mapping.descriptionAr !== undefined && mapping.description === undefined) {
+    // Only Arabic description found - also use as main description
+    mapping.description = mapping.descriptionAr;
+  } else if (mapping.description !== undefined && mapping.descriptionAr === undefined) {
+    // Only English description found - check if header is actually Arabic
+    const descHeader = headers[mapping.description] || '';
+    const isArabicHeader = /[\u0600-\u06FF]/.test(descHeader);
+    if (isArabicHeader) {
+      // The "description" column is actually Arabic, map it to both
+      mapping.descriptionAr = mapping.description;
+    }
+  }
   
   return mapping;
 }
@@ -444,6 +462,14 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
         item.description = descValue;
       }
     }
+
+    // For Arabic description, use the mapped column (if different from description)
+    if (columnMapping.descriptionAr !== undefined && columnMapping.descriptionAr >= 0) {
+      const descArValue = row[columnMapping.descriptionAr]?.toString()?.trim();
+      if (descArValue) {
+        item.descriptionAr = descArValue;
+      }
+    }
     
     // If description is still empty, try to find longest text in row
     if (!item.description) {
@@ -490,6 +516,15 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
     // Auto-calculate total if missing
     if (!item.totalPrice && item.quantity && item.unitPrice) {
       item.totalPrice = item.quantity * item.unitPrice;
+    }
+
+    // Smart Arabic detection: if description contains Arabic and no separate descriptionAr
+    if (item.description && !item.descriptionAr && /[\u0600-\u06FF]/.test(item.description)) {
+      item.descriptionAr = item.description;
+    }
+    // Fallback: if only descriptionAr exists without description
+    if (item.descriptionAr && !item.description) {
+      item.description = item.descriptionAr;
     }
 
     // Only add items that have meaningful data - expanded conditions

@@ -8,6 +8,7 @@ import { ExcelBOQItem, parseArabicNumber, convertArabicNumbers } from './excel-u
 export interface LocalAnalysisItem {
   item_number: string;
   description: string;
+  description_ar?: string;
   unit: string;
   quantity: number;
   unit_price: number;
@@ -174,6 +175,7 @@ export function convertExcelToAnalysisItems(excelItems: ExcelBOQItem[]): LocalAn
     const analysisItem: LocalAnalysisItem = {
       item_number: convertArabicNumbers(item.itemNo || `${index + 1}`),
       description,
+      description_ar: item.descriptionAr?.trim() || undefined,
       unit: normalizeUnit(item.unit),
       quantity,
       unit_price: unitPrice,
