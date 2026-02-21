@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   FileText,
   Plus,
@@ -67,7 +67,10 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ContractsPrintPreview } from "@/components/contracts/ContractsPrintPreview";
+import { usePagination } from "@/hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 
+// ============= TYPES =============
 interface RegisteredSubcontractor {
   id: string;
   name: string;
@@ -110,6 +113,7 @@ interface ContractManagementProps {
   projectId?: string;
 }
 
+// ============= CONSTANTS (outside component) =============
 const FIDIC_BOOKS = [
   { id: "fidic_red", colorClass: "from-red-500 to-red-700", borderClass: "border-red-500", bgClass: "bg-red-500", nameAr: "الكتاب الأحمر", nameEn: "Red Book", descAr: "المقاولات التقليدية - تصميم من صاحب العمل", descEn: "Traditional Construction - Employer's Design", icon: "🔴" },
   { id: "fidic_yellow", colorClass: "from-yellow-400 to-yellow-600", borderClass: "border-yellow-500", bgClass: "bg-yellow-500", nameAr: "الكتاب الأصفر", nameEn: "Yellow Book", descAr: "التصميم والبناء", descEn: "Design-Build", icon: "🟡" },
@@ -117,15 +121,226 @@ const FIDIC_BOOKS = [
   { id: "fidic_green", colorClass: "from-green-500 to-green-700", borderClass: "border-green-500", bgClass: "bg-green-500", nameAr: "الكتاب الأخضر", nameEn: "Green Book", descAr: "عقود قصيرة المدة", descEn: "Short Form Contracts", icon: "🟢" },
   { id: "fidic_gold", colorClass: "from-amber-500 to-amber-700", borderClass: "border-amber-500", bgClass: "bg-amber-500", nameAr: "الكتاب الذهبي", nameEn: "Gold Book", descAr: "التصميم والبناء والتشغيل DBO", descEn: "Design-Build-Operate (DBO)", icon: "🟠" },
   { id: "fidic_white", colorClass: "from-gray-300 to-gray-500", borderClass: "border-gray-400", bgClass: "bg-gray-400", nameAr: "الكتاب الأبيض", nameEn: "White Book", descAr: "الاستشارات الهندسية", descEn: "Consulting Services Agreement", icon: "⚪" },
-];
+] as const;
 
 const CONTRACT_TEMPLATES = [
   { id: "general", iconEmoji: "🏗️", nameAr: "عقد مقاولات عامة", nameEn: "General Contracting", descAr: "عقد مقاولات تقليدية شامل للمشاريع الإنشائية", descEn: "Traditional comprehensive construction contract", defaults: { contract_type: "fidic_red", retention_percentage: "10", advance_payment_percentage: "20", performance_bond_percentage: "5", variation_limit_percentage: "15" } },
   { id: "design_build", iconEmoji: "📐", nameAr: "عقد تصميم وبناء", nameEn: "Design & Build", descAr: "عقد متكامل يشمل التصميم والتنفيذ", descEn: "Integrated design and construction contract", defaults: { contract_type: "fidic_yellow", retention_percentage: "10", advance_payment_percentage: "15", performance_bond_percentage: "10", variation_limit_percentage: "10" } },
   { id: "consulting", iconEmoji: "📋", nameAr: "عقد استشارات هندسية", nameEn: "Consulting Agreement", descAr: "عقد خدمات استشارية وإشراف هندسي", descEn: "Engineering consulting and supervision services", defaults: { contract_type: "fidic_white", retention_percentage: "5", advance_payment_percentage: "10", performance_bond_percentage: "5", variation_limit_percentage: "20" } },
   { id: "operation", iconEmoji: "⚙️", nameAr: "عقد تشغيل وصيانة", nameEn: "O&M Contract", descAr: "عقد تشغيل وصيانة المنشآت والمرافق", descEn: "Facilities operation and maintenance contract", defaults: { contract_type: "fidic_gold", retention_percentage: "5", advance_payment_percentage: "10", performance_bond_percentage: "5", variation_limit_percentage: "10" } },
-];
+] as const;
 
+const CONTRACTOR_CATEGORIES = [
+  { value: "first", labelEn: "First Class", labelAr: "الفئة الأولى" },
+  { value: "second", labelEn: "Second Class", labelAr: "الفئة الثانية" },
+  { value: "third", labelEn: "Third Class", labelAr: "الفئة الثالثة" },
+  { value: "fourth", labelEn: "Fourth Class", labelAr: "الفئة الرابعة" },
+  { value: "fifth", labelEn: "Fifth Class", labelAr: "الفئة الخامسة" },
+  { value: "specialist", labelEn: "Specialist", labelAr: "متخصص" },
+] as const;
+
+const CONTRACT_TYPES = [
+  { value: "fidic_red", labelEn: "FIDIC Red Book (Construction)", labelAr: "فيديك الكتاب الأحمر (البناء)", color: "bg-red-500" },
+  { value: "fidic_yellow", labelEn: "FIDIC Yellow Book (Design-Build)", labelAr: "فيديك الكتاب الأصفر (التصميم والبناء)", color: "bg-yellow-500" },
+  { value: "fidic_silver", labelEn: "FIDIC Silver Book (EPC/Turnkey)", labelAr: "فيديك الكتاب الفضي (تسليم مفتاح)", color: "bg-gray-500" },
+  { value: "fidic_green", labelEn: "FIDIC Green Book (Short Form)", labelAr: "فيديك الكتاب الأخضر (النموذج القصير)", color: "bg-green-500" },
+  { value: "fidic_gold", labelEn: "FIDIC Gold Book (DBO)", labelAr: "فيديك الكتاب الذهبي (تصميم وبناء وتشغيل)", color: "bg-amber-500" },
+  { value: "fidic_white", labelEn: "FIDIC White Book (Consulting)", labelAr: "فيديك الكتاب الأبيض (استشارات)", color: "bg-gray-400" },
+  { value: "fixed_price", labelEn: "Fixed Price", labelAr: "سعر ثابت", color: "bg-blue-500" },
+  { value: "cost_plus", labelEn: "Cost Plus", labelAr: "التكلفة زائد", color: "bg-indigo-500" },
+  { value: "unit_price", labelEn: "Unit Price", labelAr: "سعر الوحدة", color: "bg-cyan-500" },
+  { value: "lump_sum", labelEn: "Lump Sum", labelAr: "مبلغ مقطوع", color: "bg-teal-500" },
+] as const;
+
+const CONTRACT_STATUSES = [
+  { value: "draft", labelEn: "Draft", labelAr: "مسودة", color: "bg-gray-500" },
+  { value: "pending", labelEn: "Pending Approval", labelAr: "بانتظار الموافقة", color: "bg-yellow-500" },
+  { value: "active", labelEn: "Active", labelAr: "نشط", color: "bg-green-500" },
+  { value: "on_hold", labelEn: "On Hold", labelAr: "معلق", color: "bg-orange-500" },
+  { value: "completed", labelEn: "Completed", labelAr: "مكتمل", color: "bg-blue-500" },
+  { value: "terminated", labelEn: "Terminated", labelAr: "منتهي", color: "bg-red-500" },
+] as const;
+
+const PROJECT_TYPES = [
+  { value: "residential", labelAr: "مباني سكنية", labelEn: "Residential Buildings" },
+  { value: "commercial", labelAr: "مباني تجارية", labelEn: "Commercial Buildings" },
+  { value: "infrastructure", labelAr: "بنية تحتية", labelEn: "Infrastructure" },
+  { value: "roads", labelAr: "طرق وجسور", labelEn: "Roads & Bridges" },
+  { value: "industrial", labelAr: "منشآت صناعية", labelEn: "Industrial Facilities" },
+  { value: "water", labelAr: "مشاريع مياه", labelEn: "Water Projects" },
+  { value: "power", labelAr: "محطات طاقة", labelEn: "Power Plants" },
+  { value: "renovation", labelAr: "ترميم", labelEn: "Renovation" },
+] as const;
+
+const TAB_ITEMS = [
+  { value: "create", labelAr: "إنشاء عقد", labelEn: "Create Contract", icon: "📝" },
+  { value: "fidic", labelAr: "FIDIC", labelEn: "FIDIC", icon: "📚" },
+  { value: "templates", labelAr: "القوالب", labelEn: "Templates", icon: "📋" },
+  { value: "features", labelAr: "الميزات", labelEn: "Features", icon: "⚡" },
+  { value: "contracts", labelAr: "العقود الحالية", labelEn: "Current Contracts", icon: "📖" },
+] as const;
+
+const FEATURES_LIST = [
+  { icon: Sparkles, titleAr: "توليد بالذكاء الاصطناعي", titleEn: "AI Content Generation", descAr: "توليد شروط الدفع ونطاق العمل تلقائياً", descEn: "Auto-generate payment terms & scope of work" },
+  { icon: Languages, titleAr: "دعم ثنائي اللغة", titleEn: "Bilingual Support", descAr: "حقول ثنائية اللغة عربي/إنجليزي", descEn: "Arabic/English bilingual fields" },
+  { icon: BookOpen, titleAr: "معايير FIDIC", titleEn: "FIDIC Standards", descAr: "دعم كامل لجميع كتب FIDIC الستة", descEn: "Full support for all 6 FIDIC books" },
+  { icon: Shield, titleAr: "إدارة الضمانات", titleEn: "Bond Management", descAr: "حساب تلقائي للضمانات والمحتجزات", descEn: "Auto-calculation of bonds & retention" },
+  { icon: TrendingUp, titleAr: "تتبع التقدم", titleEn: "Progress Tracking", descAr: "متابعة التقدم الزمني للعقود", descEn: "Time-based contract progress tracking" },
+  { icon: Printer, titleAr: "تقارير احترافية", titleEn: "Professional Reports", descAr: "طباعة وتصدير تقارير العقود", descEn: "Print & export contract reports" },
+] as const;
+
+const INITIAL_FORM_DATA = {
+  contract_number: "",
+  contract_title: "",
+  contract_type: "fidic_red",
+  status: "draft",
+  contractor_name: "",
+  contractor_license_number: "",
+  contractor_phone: "",
+  contractor_email: "",
+  contractor_address: "",
+  contractor_category: "first",
+  contract_value: "",
+  currency: "SAR",
+  start_date: "",
+  end_date: "",
+  contract_duration_months: "",
+  retention_percentage: "10",
+  advance_payment_percentage: "20",
+  performance_bond_percentage: "5",
+  performance_bond_value: "",
+  variation_limit_percentage: "15",
+  payment_terms: "",
+  scope_of_work: "",
+  notes: "",
+  employer_name_ar: "",
+  employer_name_en: "",
+  employer_address_ar: "",
+  employer_address_en: "",
+  employer_id: "",
+  employer_phone: "",
+  contractor_name_en: "",
+  contractor_address_en: "",
+};
+
+// ============= HELPER FUNCTIONS (outside component) =============
+const getContractProgress = (contract: Contract) => {
+  if (!contract.start_date || !contract.end_date) return 0;
+  const start = new Date(contract.start_date);
+  const end = new Date(contract.end_date);
+  const now = new Date();
+  const total = differenceInDays(end, start);
+  const elapsed = differenceInDays(now, start);
+  return Math.min(100, Math.max(0, (elapsed / total) * 100));
+};
+
+const getDaysRemaining = (contract: Contract) => {
+  if (!contract.end_date) return null;
+  return differenceInDays(new Date(contract.end_date), new Date());
+};
+
+const getContractTypeInfo = (type: string) => {
+  return CONTRACT_TYPES.find(t => t.value === type);
+};
+
+// ============= MEMOIZED SUB-COMPONENTS =============
+
+const BiLabel = React.memo(({ ar: arText, en: enText, isArabic }: { ar: string; en: string; isArabic: boolean }) => (
+  <div className="flex items-center justify-between gap-2">
+    <span className="text-primary font-semibold text-sm">{isArabic ? arText : enText}</span>
+    <span className="text-muted-foreground text-xs font-normal">{isArabic ? enText : arText}</span>
+  </div>
+));
+BiLabel.displayName = "BiLabel";
+
+const StatsBar = React.memo(({ stats, isArabic }: { stats: { totalContracts: number; activeContracts: number; totalValueFormatted: string; avgProgress: number }; isArabic: boolean }) => (
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-0 bg-white/10 backdrop-blur-sm">
+    {[
+      { value: stats.totalContracts, labelAr: "إجمالي العقود", labelEn: "Total Contracts" },
+      { value: stats.activeContracts, labelAr: "عقود نشطة", labelEn: "Active" },
+      { value: stats.totalValueFormatted, labelAr: "إجمالي القيمة", labelEn: "Total Value", isText: true },
+      { value: `${stats.avgProgress.toFixed(0)}%`, labelAr: "نسبة الإنجاز", labelEn: "Completion", isText: true },
+    ].map((stat, idx) => (
+      <div key={idx} className="text-center py-3 px-4 border-white/10 border-e last:border-e-0">
+        <div className="text-lg md:text-xl font-bold text-amber-400">{stat.value}</div>
+        <div className="text-xs text-white/80 mt-0.5">{isArabic ? stat.labelAr : stat.labelEn}</div>
+      </div>
+    ))}
+  </div>
+));
+StatsBar.displayName = "StatsBar";
+
+const ContractCard = React.memo(({ contract, isArabic, onView, onEdit, onDelete, formatCurrency }: {
+  contract: Contract;
+  isArabic: boolean;
+  onView: (c: Contract) => void;
+  onEdit: (c: Contract) => void;
+  onDelete: (id: string) => void;
+  formatCurrency: (value: number, currency: string) => string;
+}) => {
+  const status = CONTRACT_STATUSES.find(s => s.value === contract.status);
+  const contractType = getContractTypeInfo(contract.contract_type);
+  const progress = getContractProgress(contract);
+  const daysRemaining = getDaysRemaining(contract);
+  const category = CONTRACTOR_CATEGORIES.find(c => c.value === contract.contractor_category);
+
+  return (
+    <div className="p-4 rounded-xl border bg-card hover:shadow-lg transition-all">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <Badge variant="outline" className="text-xs">{contract.contract_number}</Badge>
+            <Badge className={cn("text-white text-xs", status?.color)}>{isArabic ? status?.labelAr : status?.labelEn}</Badge>
+            {contractType && contract.contract_type.startsWith("fidic_") && (
+              <Badge variant="secondary" className={cn("text-xs text-white", contractType.color)}>FIDIC</Badge>
+            )}
+          </div>
+          <h4 className="font-semibold">{contract.contract_title}</h4>
+          {contract.contractor_name && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+              <Building2 className="w-3 h-3" /><span>{contract.contractor_name}</span>
+              {category && <Badge variant="outline" className="text-xs">{isArabic ? category.labelAr : category.labelEn}</Badge>}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" onClick={() => onView(contract)}><Eye className="w-4 h-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => onEdit(contract)}><Edit className="w-4 h-4" /></Button>
+          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => onDelete(contract.id)}><Trash2 className="w-4 h-4" /></Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
+        {contract.contract_value && (
+          <div className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-muted-foreground" /><span className="font-medium">{formatCurrency(contract.contract_value, contract.currency)}</span></div>
+        )}
+        <div className="flex items-center gap-1"><FileText className="w-4 h-4 text-muted-foreground" /><span className="text-xs">{contractType?.[isArabic ? "labelAr" : "labelEn"]}</span></div>
+        {contract.start_date && (
+          <div className="flex items-center gap-1"><Calendar className="w-4 h-4 text-muted-foreground" /><span>{format(new Date(contract.start_date), "PP", { locale: isArabic ? ar : enUS })}</span></div>
+        )}
+        {daysRemaining !== null && (
+          <div className={cn("flex items-center gap-1", daysRemaining < 0 ? "text-red-600" : daysRemaining < 30 ? "text-orange-600" : "")}>
+            <Clock className="w-4 h-4" />
+            <span>{daysRemaining < 0 ? (isArabic ? `متأخر ${Math.abs(daysRemaining)} يوم` : `${Math.abs(daysRemaining)} days overdue`) : (isArabic ? `${daysRemaining} يوم متبقي` : `${daysRemaining} days left`)}</span>
+          </div>
+        )}
+      </div>
+
+      {contract.start_date && contract.end_date && (
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>{isArabic ? "التقدم الزمني" : "Time Progress"}</span>
+            <span>{progress.toFixed(0)}%</span>
+          </div>
+          <Progress value={progress} className="h-2" />
+        </div>
+      )}
+    </div>
+  );
+});
+ContractCard.displayName = "ContractCard";
+
+// ============= MAIN COMPONENT =============
 export function ContractManagement({ projectId }: ContractManagementProps) {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
@@ -133,11 +348,9 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
-  const [currentStep, setCurrentStep] = useState(1);
   const [activeTab, setActiveTab] = useState("create");
   
   const [searchTerm, setSearchTerm] = useState("");
@@ -146,87 +359,13 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [generatingField, setGeneratingField] = useState<string | null>(null);
   const [registeredSubcontractors, setRegisteredSubcontractors] = useState<RegisteredSubcontractor[]>([]);
+  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
 
-  // Bilingual form data
-  const [formData, setFormData] = useState({
-    contract_number: "",
-    contract_title: "",
-    contract_type: "fidic_red",
-    status: "draft",
-    contractor_name: "",
-    contractor_license_number: "",
-    contractor_phone: "",
-    contractor_email: "",
-    contractor_address: "",
-    contractor_category: "first",
-    contract_value: "",
-    currency: "SAR",
-    start_date: "",
-    end_date: "",
-    contract_duration_months: "",
-    retention_percentage: "10",
-    advance_payment_percentage: "20",
-    performance_bond_percentage: "5",
-    performance_bond_value: "",
-    variation_limit_percentage: "15",
-    payment_terms: "",
-    scope_of_work: "",
-    notes: "",
-    // Bilingual fields stored in notes JSON
-    employer_name_ar: "",
-    employer_name_en: "",
-    employer_address_ar: "",
-    employer_address_en: "",
-    employer_id: "",
-    employer_phone: "",
-    contractor_name_en: "",
-    contractor_address_en: "",
-  });
+  // Pagination
+  const pagination = usePagination({ pageSize: 10 });
 
-  const contractorCategories = [
-    { value: "first", labelEn: "First Class", labelAr: "الفئة الأولى" },
-    { value: "second", labelEn: "Second Class", labelAr: "الفئة الثانية" },
-    { value: "third", labelEn: "Third Class", labelAr: "الفئة الثالثة" },
-    { value: "fourth", labelEn: "Fourth Class", labelAr: "الفئة الرابعة" },
-    { value: "fifth", labelEn: "Fifth Class", labelAr: "الفئة الخامسة" },
-    { value: "specialist", labelEn: "Specialist", labelAr: "متخصص" },
-  ];
-
-  const contractTypes = [
-    { value: "fidic_red", labelEn: "FIDIC Red Book (Construction)", labelAr: "فيديك الكتاب الأحمر (البناء)", color: "bg-red-500" },
-    { value: "fidic_yellow", labelEn: "FIDIC Yellow Book (Design-Build)", labelAr: "فيديك الكتاب الأصفر (التصميم والبناء)", color: "bg-yellow-500" },
-    { value: "fidic_silver", labelEn: "FIDIC Silver Book (EPC/Turnkey)", labelAr: "فيديك الكتاب الفضي (تسليم مفتاح)", color: "bg-gray-500" },
-    { value: "fidic_green", labelEn: "FIDIC Green Book (Short Form)", labelAr: "فيديك الكتاب الأخضر (النموذج القصير)", color: "bg-green-500" },
-    { value: "fidic_gold", labelEn: "FIDIC Gold Book (DBO)", labelAr: "فيديك الكتاب الذهبي (تصميم وبناء وتشغيل)", color: "bg-amber-500" },
-    { value: "fidic_white", labelEn: "FIDIC White Book (Consulting)", labelAr: "فيديك الكتاب الأبيض (استشارات)", color: "bg-gray-400" },
-    { value: "fixed_price", labelEn: "Fixed Price", labelAr: "سعر ثابت", color: "bg-blue-500" },
-    { value: "cost_plus", labelEn: "Cost Plus", labelAr: "التكلفة زائد", color: "bg-indigo-500" },
-    { value: "unit_price", labelEn: "Unit Price", labelAr: "سعر الوحدة", color: "bg-cyan-500" },
-    { value: "lump_sum", labelEn: "Lump Sum", labelAr: "مبلغ مقطوع", color: "bg-teal-500" },
-  ];
-
-  const statuses = [
-    { value: "draft", labelEn: "Draft", labelAr: "مسودة", color: "bg-gray-500" },
-    { value: "pending", labelEn: "Pending Approval", labelAr: "بانتظار الموافقة", color: "bg-yellow-500" },
-    { value: "active", labelEn: "Active", labelAr: "نشط", color: "bg-green-500" },
-    { value: "on_hold", labelEn: "On Hold", labelAr: "معلق", color: "bg-orange-500" },
-    { value: "completed", labelEn: "Completed", labelAr: "مكتمل", color: "bg-blue-500" },
-    { value: "terminated", labelEn: "Terminated", labelAr: "منتهي", color: "bg-red-500" },
-  ];
-
-  const projectTypes = [
-    { value: "residential", labelAr: "مباني سكنية", labelEn: "Residential Buildings" },
-    { value: "commercial", labelAr: "مباني تجارية", labelEn: "Commercial Buildings" },
-    { value: "infrastructure", labelAr: "بنية تحتية", labelEn: "Infrastructure" },
-    { value: "roads", labelAr: "طرق وجسور", labelEn: "Roads & Bridges" },
-    { value: "industrial", labelAr: "منشآت صناعية", labelEn: "Industrial Facilities" },
-    { value: "water", labelAr: "مشاريع مياه", labelEn: "Water Projects" },
-    { value: "power", labelAr: "محطات طاقة", labelEn: "Power Plants" },
-    { value: "renovation", labelAr: "ترميم", labelEn: "Renovation" },
-  ];
-
-  // ============= All existing business logic preserved =============
-  const fetchContracts = async () => {
+  // ============= DATA FETCHING =============
+  const fetchContracts = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
@@ -246,14 +385,9 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchContracts();
-    fetchRegisteredSubcontractors();
   }, [user, projectId]);
 
-  const fetchRegisteredSubcontractors = async () => {
+  const fetchRegisteredSubcontractors = useCallback(async () => {
     if (!user) return;
     try {
       const { data } = await supabase
@@ -266,8 +400,14 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     } catch (error) {
       console.error("Error fetching subcontractors:", error);
     }
-  };
+  }, [user]);
 
+  useEffect(() => {
+    fetchContracts();
+    fetchRegisteredSubcontractors();
+  }, [fetchContracts, fetchRegisteredSubcontractors]);
+
+  // Auto-calculate duration
   useEffect(() => {
     if (formData.start_date && formData.end_date) {
       const start = new Date(formData.start_date);
@@ -277,6 +417,7 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     }
   }, [formData.start_date, formData.end_date]);
 
+  // Auto-calculate bond value
   useEffect(() => {
     if (formData.contract_value && formData.performance_bond_percentage) {
       const value = parseFloat(formData.contract_value);
@@ -288,6 +429,7 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     }
   }, [formData.contract_value, formData.performance_bond_percentage]);
 
+  // ============= MEMOIZED COMPUTATIONS =============
   const filteredContracts = useMemo(() => {
     return contracts.filter(contract => {
       const matchesSearch = searchTerm === "" || 
@@ -300,11 +442,47 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     });
   }, [contracts, searchTerm, statusFilter, typeFilter]);
 
-  const handleSave = async () => {
+  // Update pagination when filtered contracts change
+  useEffect(() => {
+    pagination.setTotalItems(filteredContracts.length);
+  }, [filteredContracts.length]);
+
+  const paginatedContracts = useMemo(() => {
+    return filteredContracts.slice(pagination.from, pagination.to + 1);
+  }, [filteredContracts, pagination.from, pagination.to]);
+
+  const stats = useMemo(() => {
+    const totalValue = filteredContracts.reduce((sum, c) => sum + (c.contract_value || 0), 0);
+    const activeContracts = filteredContracts.filter((c) => c.status === "active").length;
+    const completedContracts = filteredContracts.filter((c) => c.status === "completed").length;
+    const avgProgress = filteredContracts.length > 0
+      ? filteredContracts.reduce((sum, c) => sum + getContractProgress(c), 0) / filteredContracts.length
+      : 0;
+    return { totalValue, activeContracts, completedContracts, avgProgress };
+  }, [filteredContracts]);
+
+  // ============= MEMOIZED CALLBACKS =============
+  const formatCurrency = useCallback((value: number, currency: string) => {
+    return new Intl.NumberFormat(isArabic ? "ar-SA" : "en-US", {
+      style: "currency",
+      currency: currency === "SAR" ? "SAR" : currency,
+      maximumFractionDigits: 0,
+    }).format(value);
+  }, [isArabic]);
+
+  const totalValueFormatted = useMemo(() => formatCurrency(stats.totalValue, "SAR"), [formatCurrency, stats.totalValue]);
+
+  const statsBarData = useMemo(() => ({
+    totalContracts: contracts.length,
+    activeContracts: stats.activeContracts,
+    totalValueFormatted,
+    avgProgress: stats.avgProgress,
+  }), [contracts.length, stats.activeContracts, totalValueFormatted, stats.avgProgress]);
+
+  const handleSave = useCallback(async () => {
     if (!user || !formData.contract_number || !formData.contract_title) return;
     setSaving(true);
     try {
-      // Store bilingual employer/contractor data in notes as JSON
       const bilingualData = {
         employer_name_ar: formData.employer_name_ar,
         employer_name_en: formData.employer_name_en,
@@ -366,9 +544,9 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     } finally {
       setSaving(false);
     }
-  };
+  }, [user, formData, editingContract, projectId, isArabic, toast, fetchContracts]);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!user) return;
     try {
       const { error } = await supabase.from("contracts").delete().eq("id", id);
@@ -378,47 +556,14 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     } catch (error) {
       console.error("Error deleting contract:", error);
     }
-  };
+  }, [user, isArabic, toast, fetchContracts]);
 
-  const resetForm = () => {
-    setFormData({
-      contract_number: "",
-      contract_title: "",
-      contract_type: "fidic_red",
-      status: "draft",
-      contractor_name: "",
-      contractor_license_number: "",
-      contractor_phone: "",
-      contractor_email: "",
-      contractor_address: "",
-      contractor_category: "first",
-      contract_value: "",
-      currency: "SAR",
-      start_date: "",
-      end_date: "",
-      contract_duration_months: "",
-      retention_percentage: "10",
-      advance_payment_percentage: "20",
-      performance_bond_percentage: "5",
-      performance_bond_value: "",
-      variation_limit_percentage: "15",
-      payment_terms: "",
-      scope_of_work: "",
-      notes: "",
-      employer_name_ar: "",
-      employer_name_en: "",
-      employer_address_ar: "",
-      employer_address_en: "",
-      employer_id: "",
-      employer_phone: "",
-      contractor_name_en: "",
-      contractor_address_en: "",
-    });
+  const resetForm = useCallback(() => {
+    setFormData(INITIAL_FORM_DATA);
     setEditingContract(null);
-  };
+  }, []);
 
-  const openEditDialog = (contract: Contract) => {
-    // Parse bilingual data from notes
+  const openEditDialog = useCallback((contract: Contract) => {
     let bilingualData: any = {};
     let notesText = contract.notes || "";
     try {
@@ -466,48 +611,14 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
       contractor_address_en: bilingualData.contractor_address_en || "",
     });
     setActiveTab("create");
-  };
+  }, []);
 
-  const openViewDialog = (contract: Contract) => {
+  const openViewDialog = useCallback((contract: Contract) => {
     setViewingContract(contract);
     setIsViewDialogOpen(true);
-  };
+  }, []);
 
-  const getContractProgress = (contract: Contract) => {
-    if (!contract.start_date || !contract.end_date) return 0;
-    const start = new Date(contract.start_date);
-    const end = new Date(contract.end_date);
-    const now = new Date();
-    const total = differenceInDays(end, start);
-    const elapsed = differenceInDays(now, start);
-    return Math.min(100, Math.max(0, (elapsed / total) * 100));
-  };
-
-  const getDaysRemaining = (contract: Contract) => {
-    if (!contract.end_date) return null;
-    return differenceInDays(new Date(contract.end_date), new Date());
-  };
-
-  const getContractTypeInfo = (type: string) => {
-    return contractTypes.find(t => t.value === type);
-  };
-
-  const totalValue = filteredContracts.reduce((sum, c) => sum + (c.contract_value || 0), 0);
-  const activeContracts = filteredContracts.filter((c) => c.status === "active").length;
-  const completedContracts = filteredContracts.filter((c) => c.status === "completed").length;
-  const avgProgress = filteredContracts.length > 0
-    ? filteredContracts.reduce((sum, c) => sum + getContractProgress(c), 0) / filteredContracts.length
-    : 0;
-
-  const formatCurrency = (value: number, currency: string) => {
-    return new Intl.NumberFormat(isArabic ? "ar-SA" : "en-US", {
-      style: "currency",
-      currency: currency === "SAR" ? "SAR" : currency,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  const generateWithAI = async (field: 'payment_terms' | 'scope_of_work' | 'notes') => {
+  const generateWithAI = useCallback(async (field: 'payment_terms' | 'scope_of_work' | 'notes') => {
     setGeneratingField(field);
     try {
       const { data, error } = await supabase.functions.invoke('generate-contract-content', {
@@ -524,9 +635,9 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     } finally {
       setGeneratingField(null);
     }
-  };
+  }, [formData.contract_type, formData.contract_title, formData.contractor_category, isArabic, toast]);
 
-  const translateContent = async (field: 'payment_terms' | 'scope_of_work' | 'notes') => {
+  const translateContent = useCallback(async (field: 'payment_terms' | 'scope_of_work' | 'notes') => {
     const currentValue = formData[field];
     if (!currentValue) { toast({ title: isArabic ? "لا يوجد محتوى" : "No content", variant: "destructive" }); return; }
     setGeneratingField(field);
@@ -545,33 +656,25 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
     } finally {
       setGeneratingField(null);
     }
-  };
+  }, [formData, isArabic, toast]);
 
-  const applyTemplate = (template: typeof CONTRACT_TEMPLATES[0]) => {
+  const applyTemplate = useCallback((template: typeof CONTRACT_TEMPLATES[number]) => {
     setFormData(prev => ({
       ...prev,
       ...template.defaults,
     }));
     setActiveTab("create");
     toast({ title: isArabic ? `تم تطبيق قالب: ${template.nameAr}` : `Template applied: ${template.nameEn}` });
-  };
+  }, [isArabic, toast]);
 
-  const selectFIDIC = (bookId: string) => {
+  const selectFIDIC = useCallback((bookId: string) => {
     setFormData(prev => ({ ...prev, contract_type: bookId }));
     setActiveTab("create");
     toast({ title: isArabic ? "تم اختيار كتاب FIDIC" : "FIDIC book selected" });
-  };
-
-  // ============= Bilingual Label Helper =============
-  const BiLabel = ({ ar: arText, en: enText }: { ar: string; en: string }) => (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-primary font-semibold text-sm">{isArabic ? arText : enText}</span>
-      <span className="text-muted-foreground text-xs font-normal">{isArabic ? enText : arText}</span>
-    </div>
-  );
+  }, [isArabic, toast]);
 
   // AI buttons for text fields
-  const AIButtons = ({ field }: { field: 'payment_terms' | 'scope_of_work' | 'notes' }) => (
+  const AIButtons = useCallback(({ field }: { field: 'payment_terms' | 'scope_of_work' | 'notes' }) => (
     <div className="flex items-center gap-1">
       <Button type="button" variant="ghost" size="sm" onClick={() => generateWithAI(field)} disabled={generatingField !== null} className="h-7 gap-1 text-xs text-primary hover:text-primary/80">
         {generatingField === field ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
@@ -582,7 +685,7 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
         {isArabic ? "EN" : "عربي"}
       </Button>
     </div>
-  );
+  ), [generateWithAI, translateContent, generatingField, isArabic, formData]);
 
   // ============= RENDER =============
   return (
@@ -614,36 +717,17 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
             </Button>
           </div>
         </div>
-        {/* Stats Bar */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-0 bg-white/10 backdrop-blur-sm">
-          {[
-            { value: contracts.length, labelAr: "إجمالي العقود", labelEn: "Total Contracts", icon: FileText },
-            { value: activeContracts, labelAr: "عقود نشطة", labelEn: "Active", icon: CheckCircle },
-            { value: formatCurrency(totalValue, "SAR"), labelAr: "إجمالي القيمة", labelEn: "Total Value", icon: DollarSign, isText: true },
-            { value: `${avgProgress.toFixed(0)}%`, labelAr: "نسبة الإنجاز", labelEn: "Completion", icon: TrendingUp, isText: true },
-          ].map((stat, idx) => (
-            <div key={idx} className="text-center py-3 px-4 border-white/10 border-e last:border-e-0">
-              <div className="text-lg md:text-xl font-bold text-amber-400">{stat.isText ? stat.value : stat.value}</div>
-              <div className="text-xs text-white/80 mt-0.5">{isArabic ? stat.labelAr : stat.labelEn}</div>
-            </div>
-          ))}
-        </div>
+        <StatsBar stats={statsBarData} isArabic={isArabic} />
       </div>
 
       {/* Print Preview */}
-      <ContractsPrintPreview open={isPrintPreviewOpen} onOpenChange={setIsPrintPreviewOpen} contracts={filteredContracts} totalValue={totalValue} activeCount={activeContracts} />
+      <ContractsPrintPreview open={isPrintPreviewOpen} onOpenChange={setIsPrintPreviewOpen} contracts={filteredContracts} totalValue={stats.totalValue} activeCount={stats.activeContracts} />
 
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="bg-card border-b overflow-x-auto">
           <TabsList className="h-auto p-0 bg-transparent rounded-none w-full justify-start gap-0">
-            {[
-              { value: "create", labelAr: "إنشاء عقد", labelEn: "Create Contract", icon: "📝" },
-              { value: "fidic", labelAr: "FIDIC", labelEn: "FIDIC", icon: "📚" },
-              { value: "templates", labelAr: "القوالب", labelEn: "Templates", icon: "📋" },
-              { value: "features", labelAr: "الميزات", labelEn: "Features", icon: "⚡" },
-              { value: "contracts", labelAr: "العقود الحالية", labelEn: "Current Contracts", icon: "📖" },
-            ].map(tab => (
+            {TAB_ITEMS.map(tab => (
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
@@ -681,22 +765,22 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label><BiLabel ar="نوع المشروع" en="Project Type" /></Label>
+                    <Label><BiLabel ar="نوع المشروع" en="Project Type" isArabic={isArabic} /></Label>
                     <Select>
                       <SelectTrigger><SelectValue placeholder={isArabic ? "-- اختر --" : "-- Select --"} /></SelectTrigger>
                       <SelectContent>
-                        {projectTypes.map(p => (
+                        {PROJECT_TYPES.map(p => (
                           <SelectItem key={p.value} value={p.value}>{isArabic ? p.labelAr : p.labelEn}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="كتاب FIDIC" en="FIDIC Book" /></Label>
+                    <Label><BiLabel ar="كتاب FIDIC" en="FIDIC Book" isArabic={isArabic} /></Label>
                     <Select value={formData.contract_type} onValueChange={(v) => setFormData({ ...formData, contract_type: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {contractTypes.map(t => (
+                        {CONTRACT_TYPES.map(t => (
                           <SelectItem key={t.value} value={t.value}>
                             <div className="flex items-center gap-2">
                               <div className={cn("w-2.5 h-2.5 rounded-full", t.color)} />
@@ -708,26 +792,26 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="رقم العقد" en="Contract Number" /></Label>
+                    <Label><BiLabel ar="رقم العقد" en="Contract Number" isArabic={isArabic} /></Label>
                     <Input value={formData.contract_number} onChange={(e) => setFormData({ ...formData, contract_number: e.target.value })} placeholder={isArabic ? "مثال: CON-2024-001" : "e.g., CON-2024-001"} />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="عنوان العقد" en="Contract Title" /></Label>
+                    <Label><BiLabel ar="عنوان العقد" en="Contract Title" isArabic={isArabic} /></Label>
                     <Input value={formData.contract_title} onChange={(e) => setFormData({ ...formData, contract_title: e.target.value })} placeholder={isArabic ? "أدخل عنوان العقد" : "Enter contract title"} />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="تاريخ العقد" en="Contract Date" /></Label>
+                    <Label><BiLabel ar="تاريخ العقد" en="Contract Date" isArabic={isArabic} /></Label>
                     <Input type="date" value={formData.start_date} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="الحالة" en="Status" /></Label>
+                    <Label><BiLabel ar="الحالة" en="Status" isArabic={isArabic} /></Label>
                     <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {statuses.map(s => (
+                        {CONTRACT_STATUSES.map(s => (
                           <SelectItem key={s.value} value={s.value}>
                             <div className="flex items-center gap-2">
-                              <div className={cn("w-2 h-2 rounded-full", s.color)} />
+                              <div className={cn("w-2.5 h-2.5 rounded-full", s.color)} />
                               {isArabic ? s.labelAr : s.labelEn}
                             </div>
                           </SelectItem>
@@ -750,27 +834,27 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label><BiLabel ar="الاسم (عربي)" en="Name (Arabic)" /></Label>
+                    <Label><BiLabel ar="الاسم (عربي)" en="Name (Arabic)" isArabic={isArabic} /></Label>
                     <Input value={formData.employer_name_ar} onChange={(e) => setFormData({ ...formData, employer_name_ar: e.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="الاسم (إنجليزي)" en="Name (English)" /></Label>
+                    <Label><BiLabel ar="الاسم (إنجليزي)" en="Name (English)" isArabic={isArabic} /></Label>
                     <Input value={formData.employer_name_en} onChange={(e) => setFormData({ ...formData, employer_name_en: e.target.value })} dir="ltr" />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="رقم الهوية/السجل" en="ID/Registration" /></Label>
+                    <Label><BiLabel ar="رقم الهوية/السجل" en="ID/Registration" isArabic={isArabic} /></Label>
                     <Input value={formData.employer_id} onChange={(e) => setFormData({ ...formData, employer_id: e.target.value })} dir="ltr" />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="رقم الهاتف" en="Phone" /></Label>
+                    <Label><BiLabel ar="رقم الهاتف" en="Phone" isArabic={isArabic} /></Label>
                     <Input value={formData.employer_phone} onChange={(e) => setFormData({ ...formData, employer_phone: e.target.value })} dir="ltr" />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="العنوان (عربي)" en="Address (Arabic)" /></Label>
+                    <Label><BiLabel ar="العنوان (عربي)" en="Address (Arabic)" isArabic={isArabic} /></Label>
                     <Input value={formData.employer_address_ar} onChange={(e) => setFormData({ ...formData, employer_address_ar: e.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="العنوان (إنجليزي)" en="Address (English)" /></Label>
+                    <Label><BiLabel ar="العنوان (إنجليزي)" en="Address (English)" isArabic={isArabic} /></Label>
                     <Input value={formData.employer_address_en} onChange={(e) => setFormData({ ...formData, employer_address_en: e.target.value })} dir="ltr" />
                   </div>
                 </div>
@@ -806,40 +890,40 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label><BiLabel ar="اسم المقاول (عربي)" en="Name (Arabic)" /></Label>
+                    <Label><BiLabel ar="اسم المقاول (عربي)" en="Name (Arabic)" isArabic={isArabic} /></Label>
                     <Input value={formData.contractor_name} onChange={(e) => setFormData({ ...formData, contractor_name: e.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="اسم المقاول (إنجليزي)" en="Name (English)" /></Label>
+                    <Label><BiLabel ar="اسم المقاول (إنجليزي)" en="Name (English)" isArabic={isArabic} /></Label>
                     <Input value={formData.contractor_name_en} onChange={(e) => setFormData({ ...formData, contractor_name_en: e.target.value })} dir="ltr" />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="رقم الترخيص" en="License Number" /></Label>
+                    <Label><BiLabel ar="رقم الترخيص" en="License Number" isArabic={isArabic} /></Label>
                     <Input value={formData.contractor_license_number} onChange={(e) => setFormData({ ...formData, contractor_license_number: e.target.value })} dir="ltr" />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="رقم الهاتف" en="Phone" /></Label>
+                    <Label><BiLabel ar="رقم الهاتف" en="Phone" isArabic={isArabic} /></Label>
                     <Input value={formData.contractor_phone} onChange={(e) => setFormData({ ...formData, contractor_phone: e.target.value })} dir="ltr" />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="البريد الإلكتروني" en="Email" /></Label>
+                    <Label><BiLabel ar="البريد الإلكتروني" en="Email" isArabic={isArabic} /></Label>
                     <Input type="email" value={formData.contractor_email} onChange={(e) => setFormData({ ...formData, contractor_email: e.target.value })} dir="ltr" />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="تصنيف المقاول" en="Category" /></Label>
+                    <Label><BiLabel ar="تصنيف المقاول" en="Category" isArabic={isArabic} /></Label>
                     <Select value={formData.contractor_category} onValueChange={(v) => setFormData({ ...formData, contractor_category: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {contractorCategories.map(c => <SelectItem key={c.value} value={c.value}>{isArabic ? c.labelAr : c.labelEn}</SelectItem>)}
+                        {CONTRACTOR_CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{isArabic ? c.labelAr : c.labelEn}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="العنوان (عربي)" en="Address (Arabic)" /></Label>
+                    <Label><BiLabel ar="العنوان (عربي)" en="Address (Arabic)" isArabic={isArabic} /></Label>
                     <Input value={formData.contractor_address} onChange={(e) => setFormData({ ...formData, contractor_address: e.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="العنوان (إنجليزي)" en="Address (English)" /></Label>
+                    <Label><BiLabel ar="العنوان (إنجليزي)" en="Address (English)" isArabic={isArabic} /></Label>
                     <Input value={formData.contractor_address_en} onChange={(e) => setFormData({ ...formData, contractor_address_en: e.target.value })} dir="ltr" />
                   </div>
                 </div>
@@ -857,11 +941,11 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label><BiLabel ar="قيمة العقد" en="Contract Value" /></Label>
+                    <Label><BiLabel ar="قيمة العقد" en="Contract Value" isArabic={isArabic} /></Label>
                     <Input type="number" value={formData.contract_value} onChange={(e) => setFormData({ ...formData, contract_value: e.target.value })} placeholder="0" />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="العملة" en="Currency" /></Label>
+                    <Label><BiLabel ar="العملة" en="Currency" isArabic={isArabic} /></Label>
                     <Select value={formData.currency} onValueChange={(v) => setFormData({ ...formData, currency: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -874,11 +958,11 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="تاريخ الانتهاء" en="End Date" /></Label>
+                    <Label><BiLabel ar="تاريخ الانتهاء" en="End Date" isArabic={isArabic} /></Label>
                     <Input type="date" value={formData.end_date} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="مدة العقد (شهر)" en="Duration (months)" /></Label>
+                    <Label><BiLabel ar="مدة العقد (شهر)" en="Duration (months)" isArabic={isArabic} /></Label>
                     <Input value={formData.contract_duration_months} readOnly className="bg-muted/50" placeholder={isArabic ? "حساب تلقائي" : "Auto-calculated"} />
                   </div>
                 </div>
@@ -887,15 +971,15 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label><BiLabel ar="نسبة المحتجز (%)" en="Retention (%)" /></Label>
+                    <Label><BiLabel ar="نسبة المحتجز (%)" en="Retention (%)" isArabic={isArabic} /></Label>
                     <Input type="number" value={formData.retention_percentage} onChange={(e) => setFormData({ ...formData, retention_percentage: e.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="الدفعة المقدمة (%)" en="Advance Payment (%)" /></Label>
+                    <Label><BiLabel ar="الدفعة المقدمة (%)" en="Advance Payment (%)" isArabic={isArabic} /></Label>
                     <Input type="number" value={formData.advance_payment_percentage} onChange={(e) => setFormData({ ...formData, advance_payment_percentage: e.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label><BiLabel ar="ضمان الأداء (%)" en="Performance Bond (%)" /></Label>
+                    <Label><BiLabel ar="ضمان الأداء (%)" en="Performance Bond (%)" isArabic={isArabic} /></Label>
                     <Input type="number" value={formData.performance_bond_percentage} onChange={(e) => setFormData({ ...formData, performance_bond_percentage: e.target.value })} />
                   </div>
                 </div>
@@ -969,7 +1053,6 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                       isSelected ? "border-green-500 bg-green-50 dark:bg-green-950/20 shadow-xl" : "border-border bg-card hover:border-primary/50"
                     )}
                   >
-                    {/* Top Color Bar */}
                     <div className={cn("absolute top-0 left-0 right-0 h-2 bg-gradient-to-r", book.colorClass)} />
                     
                     {isSelected && (
@@ -1016,14 +1099,7 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
           {/* ============= FEATURES TAB ============= */}
           <TabsContent value="features" className="mt-0 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {[
-                { icon: Sparkles, titleAr: "توليد بالذكاء الاصطناعي", titleEn: "AI Content Generation", descAr: "توليد شروط الدفع ونطاق العمل تلقائياً", descEn: "Auto-generate payment terms & scope of work" },
-                { icon: Languages, titleAr: "دعم ثنائي اللغة", titleEn: "Bilingual Support", descAr: "حقول ثنائية اللغة عربي/إنجليزي", descEn: "Arabic/English bilingual fields" },
-                { icon: BookOpen, titleAr: "معايير FIDIC", titleEn: "FIDIC Standards", descAr: "دعم كامل لجميع كتب FIDIC الستة", descEn: "Full support for all 6 FIDIC books" },
-                { icon: Shield, titleAr: "إدارة الضمانات", titleEn: "Bond Management", descAr: "حساب تلقائي للضمانات والمحتجزات", descEn: "Auto-calculation of bonds & retention" },
-                { icon: TrendingUp, titleAr: "تتبع التقدم", titleEn: "Progress Tracking", descAr: "متابعة التقدم الزمني للعقود", descEn: "Time-based contract progress tracking" },
-                { icon: Printer, titleAr: "تقارير احترافية", titleEn: "Professional Reports", descAr: "طباعة وتصدير تقارير العقود", descEn: "Print & export contract reports" },
-              ].map((feature, idx) => (
+              {FEATURES_LIST.map((feature, idx) => (
                 <div key={idx} className="rounded-2xl border bg-card p-6 text-center hover:-translate-y-1 hover:shadow-lg transition-all">
                   <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-[hsl(217,72%,40%)] to-[hsl(222,47%,15%)] flex items-center justify-center">
                     <feature.icon className="w-7 h-7 text-white" />
@@ -1047,14 +1123,14 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                 <SelectTrigger className="w-full md:w-[180px]"><Filter className="w-4 h-4 mr-2" /><SelectValue placeholder={isArabic ? "الحالة" : "Status"} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{isArabic ? "جميع الحالات" : "All Statuses"}</SelectItem>
-                  {statuses.map(s => <SelectItem key={s.value} value={s.value}>{isArabic ? s.labelAr : s.labelEn}</SelectItem>)}
+                  {CONTRACT_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{isArabic ? s.labelAr : s.labelEn}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-full md:w-[200px]"><Filter className="w-4 h-4 mr-2" /><SelectValue placeholder={isArabic ? "النوع" : "Type"} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{isArabic ? "جميع الأنواع" : "All Types"}</SelectItem>
-                  {contractTypes.map(t => <SelectItem key={t.value} value={t.value}>{isArabic ? t.labelAr : t.labelEn}</SelectItem>)}
+                  {CONTRACT_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{isArabic ? t.labelAr : t.labelEn}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -1066,15 +1142,15 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                 <div className="text-xs text-muted-foreground">{isArabic ? "العقود المعروضة" : "Showing"}</div>
               </div>
               <div className="p-3 rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-                <div className="text-2xl font-bold text-green-600">{activeContracts}</div>
+                <div className="text-2xl font-bold text-green-600">{stats.activeContracts}</div>
                 <div className="text-xs text-muted-foreground">{isArabic ? "عقود نشطة" : "Active"}</div>
               </div>
               <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-                <div className="text-2xl font-bold text-blue-600">{completedContracts}</div>
+                <div className="text-2xl font-bold text-blue-600">{stats.completedContracts}</div>
                 <div className="text-xs text-muted-foreground">{isArabic ? "مكتملة" : "Completed"}</div>
               </div>
               <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                <div className="text-xl font-bold text-amber-600">{formatCurrency(totalValue, "SAR")}</div>
+                <div className="text-xl font-bold text-amber-600">{formatCurrency(stats.totalValue, "SAR")}</div>
                 <div className="text-xs text-muted-foreground">{isArabic ? "إجمالي القيمة" : "Total Value"}</div>
               </div>
             </div>
@@ -1093,67 +1169,35 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredContracts.map((contract) => {
-                  const status = statuses.find(s => s.value === contract.status);
-                  const contractType = getContractTypeInfo(contract.contract_type);
-                  const progress = getContractProgress(contract);
-                  const daysRemaining = getDaysRemaining(contract);
-                  const category = contractorCategories.find(c => c.value === contract.contractor_category);
-
-                  return (
-                    <div key={contract.id} className="p-4 rounded-xl border bg-card hover:shadow-lg transition-all">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <Badge variant="outline" className="text-xs">{contract.contract_number}</Badge>
-                            <Badge className={cn("text-white text-xs", status?.color)}>{isArabic ? status?.labelAr : status?.labelEn}</Badge>
-                            {contractType && contract.contract_type.startsWith("fidic_") && (
-                              <Badge variant="secondary" className={cn("text-xs text-white", contractType.color)}>FIDIC</Badge>
-                            )}
-                          </div>
-                          <h4 className="font-semibold">{contract.contract_title}</h4>
-                          {contract.contractor_name && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                              <Building2 className="w-3 h-3" /><span>{contract.contractor_name}</span>
-                              {category && <Badge variant="outline" className="text-xs">{isArabic ? category.labelAr : category.labelEn}</Badge>}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => openViewDialog(contract)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(contract)}><Edit className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(contract.id)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
-                        {contract.contract_value && (
-                          <div className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-muted-foreground" /><span className="font-medium">{formatCurrency(contract.contract_value, contract.currency)}</span></div>
-                        )}
-                        <div className="flex items-center gap-1"><FileText className="w-4 h-4 text-muted-foreground" /><span className="text-xs">{contractType?.[isArabic ? "labelAr" : "labelEn"]}</span></div>
-                        {contract.start_date && (
-                          <div className="flex items-center gap-1"><Calendar className="w-4 h-4 text-muted-foreground" /><span>{format(new Date(contract.start_date), "PP", { locale: isArabic ? ar : enUS })}</span></div>
-                        )}
-                        {daysRemaining !== null && (
-                          <div className={cn("flex items-center gap-1", daysRemaining < 0 ? "text-red-600" : daysRemaining < 30 ? "text-orange-600" : "")}>
-                            <Clock className="w-4 h-4" />
-                            <span>{daysRemaining < 0 ? (isArabic ? `متأخر ${Math.abs(daysRemaining)} يوم` : `${Math.abs(daysRemaining)} days overdue`) : (isArabic ? `${daysRemaining} يوم متبقي` : `${daysRemaining} days left`)}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {contract.start_date && contract.end_date && (
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>{isArabic ? "التقدم الزمني" : "Time Progress"}</span>
-                            <span>{progress.toFixed(0)}%</span>
-                          </div>
-                          <Progress value={progress} className="h-2" />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                {paginatedContracts.map((contract) => (
+                  <ContractCard
+                    key={contract.id}
+                    contract={contract}
+                    isArabic={isArabic}
+                    onView={openViewDialog}
+                    onEdit={openEditDialog}
+                    onDelete={handleDelete}
+                    formatCurrency={formatCurrency}
+                  />
+                ))}
+                
+                {/* Pagination Controls */}
+                {filteredContracts.length > 10 && (
+                  <PaginationControls
+                    currentPage={pagination.currentPage}
+                    totalPages={pagination.totalPages}
+                    totalItems={pagination.totalItems}
+                    pageSize={pagination.pageSize}
+                    from={pagination.from}
+                    to={pagination.to}
+                    hasNext={pagination.hasNext}
+                    hasPrevious={pagination.hasPrevious}
+                    onPageChange={pagination.goToPage}
+                    onPageSizeChange={pagination.setPageSize}
+                    onNextPage={pagination.nextPage}
+                    onPreviousPage={pagination.previousPage}
+                  />
+                )}
               </div>
             )}
           </TabsContent>
@@ -1171,8 +1215,8 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
               <div className="space-y-4 p-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="outline" className="text-sm">{viewingContract.contract_number}</Badge>
-                  <Badge className={cn("text-white", statuses.find(s => s.value === viewingContract.status)?.color)}>
-                    {isArabic ? statuses.find(s => s.value === viewingContract.status)?.labelAr : statuses.find(s => s.value === viewingContract.status)?.labelEn}
+                  <Badge className={cn("text-white", CONTRACT_STATUSES.find(s => s.value === viewingContract.status)?.color)}>
+                    {isArabic ? CONTRACT_STATUSES.find(s => s.value === viewingContract.status)?.labelAr : CONTRACT_STATUSES.find(s => s.value === viewingContract.status)?.labelEn}
                   </Badge>
                 </div>
                 <h3 className="text-xl font-semibold">{viewingContract.contract_title}</h3>
@@ -1181,7 +1225,7 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                   <h4 className="font-medium flex items-center gap-2"><Building2 className="w-4 h-4" />{isArabic ? "بيانات المقاول" : "Contractor Information"}</h4>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div><Label className="text-muted-foreground">{isArabic ? "الاسم" : "Name"}</Label><p className="font-medium">{viewingContract.contractor_name || "-"}</p></div>
-                    <div><Label className="text-muted-foreground">{isArabic ? "التصنيف" : "Category"}</Label><p className="font-medium">{contractorCategories.find(c => c.value === viewingContract.contractor_category)?.[isArabic ? "labelAr" : "labelEn"] || "-"}</p></div>
+                    <div><Label className="text-muted-foreground">{isArabic ? "التصنيف" : "Category"}</Label><p className="font-medium">{CONTRACTOR_CATEGORIES.find(c => c.value === viewingContract.contractor_category)?.[isArabic ? "labelAr" : "labelEn"] || "-"}</p></div>
                     {viewingContract.contractor_phone && <div><Label className="text-muted-foreground">{isArabic ? "الهاتف" : "Phone"}</Label><p className="font-medium">{viewingContract.contractor_phone}</p></div>}
                     {viewingContract.contractor_email && <div><Label className="text-muted-foreground">{isArabic ? "البريد" : "Email"}</Label><p className="font-medium">{viewingContract.contractor_email}</p></div>}
                   </div>
