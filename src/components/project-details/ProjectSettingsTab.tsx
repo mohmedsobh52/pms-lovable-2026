@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ProjectData, EditFormData, currencies, projectTypes } from "./types";
+import { ProjectData, EditFormData, currencies, projectTypes, regions, citiesByRegion } from "./types";
 
 interface ProjectSettingsTabProps {
   project: ProjectData;
@@ -39,8 +39,16 @@ export function ProjectSettingsTab({
   formatDate,
 }: ProjectSettingsTabProps) {
   const updateField = (field: keyof EditFormData, value: string) => {
-    onEditFormChange({ ...editForm, [field]: value });
+    if (field === 'region') {
+      onEditFormChange({ ...editForm, region: value, city: "" });
+    } else {
+      onEditFormChange({ ...editForm, [field]: value });
+    }
   };
+
+  const availableCities = citiesByRegion[editForm.region] || [];
+  const selectedRegionLabel = regions.find(r => r.value === editForm.region)?.label;
+  const selectedCityLabel = availableCities.find(c => c.value === editForm.city)?.label;
 
   return (
     <Card>
@@ -52,24 +60,12 @@ export function ProjectSettingsTab({
           </CardTitle>
           {isEditing ? (
             <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                onClick={onCancel}
-                className="gap-2"
-              >
+              <Button variant="outline" onClick={onCancel} className="gap-2">
                 <X className="w-4 h-4" />
                 {isArabic ? "إلغاء" : "Cancel"}
               </Button>
-              <Button 
-                onClick={onSave}
-                disabled={isSaving}
-                className="gap-2"
-              >
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
+              <Button onClick={onSave} disabled={isSaving} className="gap-2">
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 {isArabic ? "حفظ" : "Save"}
               </Button>
             </div>
@@ -105,42 +101,33 @@ export function ProjectSettingsTab({
               {isArabic ? "العملة" : "Currency"}
             </Label>
             {isEditing ? (
-              <Select
-                value={editForm.currency}
-                onValueChange={(val) => updateField('currency', val)}
-              >
+              <Select value={editForm.currency} onValueChange={(val) => updateField('currency', val)}>
                 <SelectTrigger id="currency">
                   <SelectValue placeholder={isArabic ? "اختر العملة" : "Select currency"} />
                 </SelectTrigger>
                 <SelectContent>
                   {currencies.map(curr => (
-                    <SelectItem key={curr.value} value={curr.value}>
-                      {curr.label}
-                    </SelectItem>
+                    <SelectItem key={curr.value} value={curr.value}>{curr.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             ) : (
               <Input 
                 value={currencies.find(c => c.value === editForm.currency)?.label || editForm.currency} 
-                readOnly 
-                className="bg-muted/50" 
+                readOnly className="bg-muted/50" 
               />
             )}
           </div>
         </div>
 
-        {/* Project Type */}
+        {/* Project Type and Status */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="projectType">
               {isArabic ? "نوع المشروع" : "Project Type"}
             </Label>
             {isEditing ? (
-              <Select
-                value={editForm.project_type}
-                onValueChange={(val) => updateField('project_type', val)}
-              >
+              <Select value={editForm.project_type} onValueChange={(val) => updateField('project_type', val)}>
                 <SelectTrigger id="projectType">
                   <SelectValue placeholder={isArabic ? "اختر النوع" : "Select type"} />
                 </SelectTrigger>
@@ -155,22 +142,17 @@ export function ProjectSettingsTab({
             ) : (
               <Input 
                 value={projectTypes.find(t => t.value === editForm.project_type)?.label[isArabic ? 'ar' : 'en'] || editForm.project_type} 
-                readOnly 
-                className="bg-muted/50" 
+                readOnly className="bg-muted/50" 
               />
             )}
           </div>
 
-          {/* Project Status */}
           <div className="space-y-2">
             <Label htmlFor="status">
               {isArabic ? "حالة المشروع" : "Project Status"}
             </Label>
             {isEditing ? (
-              <Select
-                value={editForm.status}
-                onValueChange={(val) => updateField('status', val)}
-              >
+              <Select value={editForm.status} onValueChange={(val) => updateField('status', val)}>
                 <SelectTrigger id="status">
                   <SelectValue placeholder={isArabic ? "اختر الحالة" : "Select status"} />
                 </SelectTrigger>
@@ -236,31 +218,85 @@ export function ProjectSettingsTab({
           ) : (
             <Textarea 
               value={editForm.description || (isArabic ? "لا يوجد وصف" : "No description")} 
-              readOnly 
-              className="bg-muted/50 resize-none" 
-              rows={3}
+              readOnly className="bg-muted/50 resize-none" rows={3}
             />
           )}
         </div>
 
-        {/* Location and Client */}
+        {/* Region and City */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="region">
+              {isArabic ? "الدولة / المنطقة" : "Country / Region"}
+            </Label>
+            {isEditing ? (
+              <Select value={editForm.region} onValueChange={(val) => updateField('region', val)}>
+                <SelectTrigger id="region">
+                  <SelectValue placeholder={isArabic ? "اختر الدولة" : "Select country"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {regions.map(r => (
+                    <SelectItem key={r.value} value={r.value}>
+                      {isArabic ? r.label.ar : r.label.en}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input 
+                value={selectedRegionLabel ? (isArabic ? selectedRegionLabel.ar : selectedRegionLabel.en) : (isArabic ? "غير محدد" : "Not specified")} 
+                readOnly className="bg-muted/50" 
+              />
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="city">
+              {isArabic ? "المدينة" : "City"}
+            </Label>
+            {isEditing ? (
+              <Select 
+                value={editForm.city} 
+                onValueChange={(val) => updateField('city', val)}
+                disabled={!editForm.region}
+              >
+                <SelectTrigger id="city">
+                  <SelectValue placeholder={isArabic ? "اختر المدينة" : "Select city"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCities.map(c => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {isArabic ? c.label.ar : c.label.en}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input 
+                value={selectedCityLabel ? (isArabic ? selectedCityLabel.ar : selectedCityLabel.en) : (isArabic ? "غير محدد" : "Not specified")} 
+                readOnly className="bg-muted/50" 
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Location (free text) and Client */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="location">
-              {isArabic ? "موقع المشروع" : "Project Location"}
+              {isArabic ? "العنوان التفصيلي" : "Detailed Address"}
             </Label>
             {isEditing ? (
               <Input 
                 id="location"
                 value={editForm.location} 
                 onChange={(e) => updateField('location', e.target.value)}
-                placeholder={isArabic ? "أدخل موقع المشروع" : "Enter project location"}
+                placeholder={isArabic ? "أدخل العنوان التفصيلي" : "Enter detailed address"}
               />
             ) : (
               <Input 
                 value={editForm.location || (isArabic ? "غير محدد" : "Not specified")} 
-                readOnly 
-                className="bg-muted/50" 
+                readOnly className="bg-muted/50" 
               />
             )}
           </div>
@@ -279,18 +315,15 @@ export function ProjectSettingsTab({
             ) : (
               <Input 
                 value={editForm.client_name || (isArabic ? "غير محدد" : "Not specified")} 
-                readOnly 
-                className="bg-muted/50" 
+                readOnly className="bg-muted/50" 
               />
             )}
           </div>
         </div>
         
-        {/* Last Updated - Read Only */}
+        {/* Last Updated */}
         <div className="space-y-2">
-          <Label>
-            {isArabic ? "آخر تحديث" : "Last Updated"}
-          </Label>
+          <Label>{isArabic ? "آخر تحديث" : "Last Updated"}</Label>
           <Input value={formatDate(project.updated_at)} readOnly className="bg-muted/50" />
         </div>
         
