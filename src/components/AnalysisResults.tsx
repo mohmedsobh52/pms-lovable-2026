@@ -47,6 +47,7 @@ import { RiskManagement } from "./RiskManagement";
 import { ContractManagement } from "./ContractManagement";
 import { CostBenefitAnalysis } from "./CostBenefitAnalysis";
 import { ProjectComparisonPDFExport } from "./ProjectComparisonPDFExport";
+import { QuickPriceDialog } from "@/components/project-details/QuickPriceDialog";
 import { EVMAlertSettings } from "./EVMAlertSettings";
 import { RiskDetailedReport } from "./RiskDetailedReport";
 import { ContractLinkage } from "./ContractLinkage";
@@ -590,7 +591,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   }, [getItemCostData]);
   
   // Search and filter states
-  const [searchQuery, setSearchQuery] = useState("");
+   const [searchQuery, setSearchQuery] = useState("");
+   const [quickPriceItem, setQuickPriceItem] = useState<any>(null);
   const [unitFilter, setUnitFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [costRangeFilter, setCostRangeFilter] = useState<string>("all");
@@ -1384,6 +1386,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   ];
 
   return (
+    <>
     <div className="glass-card overflow-hidden animate-slide-up">
       {/* Project Name and KPI Dashboard at the top */}
       <div className="p-4 border-b border-border bg-gradient-to-r from-primary/5 to-accent/5">
@@ -2399,9 +2402,16 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                                 {/* Quick Price */}
                                 <DropdownMenuItem
                                   onClick={() => {
-                                    const rate = item.unit_price && item.unit_price > 0 ? item.unit_price : 0;
-                                    updateAIRate(item.item_number, rate || 0);
-                                    toast({ title: isArabic ? "تم تطبيق السعر السريع" : "Quick price applied", description: rate > 0 ? rate.toLocaleString() : isArabic ? "لا يوجد سعر مرجعي" : "No reference price" });
+                                    setQuickPriceItem({
+                                      id: item.item_number,
+                                      item_number: item.item_number,
+                                      description: item.description,
+                                      unit: item.unit,
+                                      quantity: item.quantity,
+                                      unit_price: item.unit_price || null,
+                                      total_price: item.total_price || null,
+                                      category: null,
+                                    });
                                   }}
                                   className="gap-2 cursor-pointer"
                                 >
@@ -2725,5 +2735,24 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
         </div>
       </div>
     </div>
+
+      {/* Quick Price Dialog */}
+      <QuickPriceDialog
+        isOpen={!!quickPriceItem}
+        onClose={() => setQuickPriceItem(null)}
+        item={quickPriceItem}
+        onApplyPrice={async (price: number) => {
+          if (quickPriceItem) {
+            updateAIRate(quickPriceItem.item_number, price);
+            toast({
+              title: isArabic ? "تم تطبيق السعر" : "Price applied",
+              description: price.toLocaleString(),
+            });
+          }
+        }}
+        isArabic={isArabic}
+        currency={data.summary?.currency || "SAR"}
+      />
+    </>
   );
 }
