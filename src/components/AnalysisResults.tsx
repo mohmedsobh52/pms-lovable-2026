@@ -2752,7 +2752,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
         )}
 
         {activeTab === "timeline" && wbsData?.wbs && wbsData.wbs.length > 0 && (
-          <ProjectTimeline wbsData={wbsData.wbs} />
+          <ProjectTimeline wbsData={wbsData.wbs} projectId={savedProjectId} projectName={fileName || "المشروع"} />
         )}
 
         {activeTab === "timeline" && (!wbsData?.wbs || wbsData.wbs.length === 0) && (
