@@ -341,6 +341,66 @@ export type Database = {
         }
         Relationships: []
       }
+      contract_boq_items: {
+        Row: {
+          contract_id: string
+          created_at: string
+          description: string
+          id: string
+          item_number: string | null
+          notes: string | null
+          project_item_id: string | null
+          quantity: number | null
+          total_price: number | null
+          unit: string | null
+          unit_price: number | null
+          user_id: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          description: string
+          id?: string
+          item_number?: string | null
+          notes?: string | null
+          project_item_id?: string | null
+          quantity?: number | null
+          total_price?: number | null
+          unit?: string | null
+          unit_price?: number | null
+          user_id: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          item_number?: string | null
+          notes?: string | null
+          project_item_id?: string | null
+          quantity?: number | null
+          total_price?: number | null
+          unit?: string | null
+          unit_price?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_boq_items_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_boq_items_project_item_id_fkey"
+            columns: ["project_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contract_milestones: {
         Row: {
           completion_date: string | null
