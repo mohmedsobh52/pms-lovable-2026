@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain, Pencil } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain, Pencil, History } from "lucide-react";
 import { DualHorizontalScrollBar } from "./DualHorizontalScrollBar";
 import { TableControls, BOQ_TABLE_COLUMNS } from "./TableControls";
 import {
@@ -55,6 +55,8 @@ import { RiskDetailedReport } from "./RiskDetailedReport";
 import { ContractLinkage } from "./ContractLinkage";
 import { SummaryDashboard } from "./SummaryDashboard";
 import { CompanyLogoUpload, getStoredLogo } from "./CompanyLogoUpload";
+import { HistoricalPriceLookup } from "./HistoricalPriceLookup";
+import { BulkHistoricalPricing } from "./BulkHistoricalPricing";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
 import { useItemCodes } from "@/hooks/useItemCodes";
 import { useEditedPrices } from "@/hooks/useEditedPrices";
@@ -597,6 +599,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
    const [quickPriceItem, setQuickPriceItem] = useState<any>(null);
    const [detailedPriceItem, setDetailedPriceItem] = useState<any>(null);
    const [editItem, setEditItem] = useState<any>(null);
+   const [historicalPriceItem, setHistoricalPriceItem] = useState<any>(null);
   const [unitFilter, setUnitFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [costRangeFilter, setCostRangeFilter] = useState<string>("all");
@@ -1660,6 +1663,11 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 items={data.items || []}
                 onApplyRates={handleApplyAIRates}
               />
+              <BulkHistoricalPricing
+                items={data.items || []}
+                onApplyPrices={(prices) => prices.forEach(p => updateAIRate(p.itemNumber, p.price))}
+                currency={data.summary?.currency || "SAR"}
+              />
             </div>
 
             {/* Tools Dropdown */}
@@ -2440,6 +2448,22 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                                   <Calculator className="w-4 h-4 text-blue-600" />
                                   <span>{isArabic ? "سعر مفصل" : "Detailed Price"}</span>
                                 </DropdownMenuItem>
+                                {/* Historical Price */}
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setHistoricalPriceItem({
+                                      item_number: item.item_number,
+                                      description: item.description,
+                                      unit: item.unit,
+                                      quantity: item.quantity,
+                                      unit_price: item.unit_price || 0,
+                                    });
+                                  }}
+                                  className="gap-2 cursor-pointer"
+                                >
+                                  <History className="w-4 h-4 text-amber-600" />
+                                  <span>{isArabic ? "سعر تاريخي" : "Historical Price"}</span>
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 {/* Edit */}
                                 <DropdownMenuItem
@@ -2825,6 +2849,23 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
             });
             setEditItem(null);
           }}
+        />
+      )}
+      {/* Historical Price Lookup Dialog - conditional render */}
+      {historicalPriceItem && (
+        <HistoricalPriceLookup
+          isOpen={true}
+          onClose={() => setHistoricalPriceItem(null)}
+          item={historicalPriceItem}
+          onApplyPrice={(price) => {
+            updateAIRate(historicalPriceItem.item_number, price);
+            toast({
+              title: isArabic ? "تم تطبيق السعر التاريخي" : "Historical price applied",
+              description: price.toLocaleString(),
+            });
+            setHistoricalPriceItem(null);
+          }}
+          currency={data.summary?.currency || "SAR"}
         />
       )}
     </>
