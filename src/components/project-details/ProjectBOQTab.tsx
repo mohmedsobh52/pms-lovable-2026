@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Package, Search, Filter, Download, Trash2, Plus, Wand2, RefreshCw,
   ArrowUpDown, Hash, FileText, CheckCircle, MoreVertical, DollarSign,
-  Edit, XCircle, Loader2
+  Edit, XCircle, Loader2, History
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -331,6 +331,13 @@ export function ProjectBOQTab({
                             >
                               <DollarSign className="w-4 h-4" />
                               {isArabic ? "تسعير سريع" : "Quick Price"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => onDetailedPrice(item)}
+                              className="gap-2"
+                            >
+                              <History className="w-4 h-4" />
+                              {isArabic ? "بحث تاريخي" : "Historical Lookup"}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               onClick={() => onDetailedPrice(item)}

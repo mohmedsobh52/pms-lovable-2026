@@ -43,6 +43,8 @@ export interface EditFormData {
   description: string;
   project_type: string;
   location: string;
+  region: string;
+  city: string;
   client_name: string;
   status: string;
 }
@@ -94,5 +96,64 @@ export const projectTypes = [
   { value: "maintenance", label: { ar: "صيانة", en: "Maintenance" } },
   { value: "other", label: { ar: "أخرى", en: "Other" } },
 ];
+
+export const regions = [
+  { value: "SA", label: { ar: "المملكة العربية السعودية", en: "Saudi Arabia" } },
+  { value: "AE", label: { ar: "الإمارات العربية المتحدة", en: "UAE" } },
+  { value: "EG", label: { ar: "مصر", en: "Egypt" } },
+  { value: "KW", label: { ar: "الكويت", en: "Kuwait" } },
+  { value: "QA", label: { ar: "قطر", en: "Qatar" } },
+  { value: "BH", label: { ar: "البحرين", en: "Bahrain" } },
+  { value: "OM", label: { ar: "عمان", en: "Oman" } },
+  { value: "JO", label: { ar: "الأردن", en: "Jordan" } },
+  { value: "IQ", label: { ar: "العراق", en: "Iraq" } },
+];
+
+export const citiesByRegion: Record<string, Array<{ value: string; label: { ar: string; en: string } }>> = {
+  SA: [
+    { value: "riyadh", label: { ar: "الرياض", en: "Riyadh" } },
+    { value: "jeddah", label: { ar: "جدة", en: "Jeddah" } },
+    { value: "dammam", label: { ar: "الدمام", en: "Dammam" } },
+    { value: "makkah", label: { ar: "مكة المكرمة", en: "Makkah" } },
+    { value: "madinah", label: { ar: "المدينة المنورة", en: "Madinah" } },
+    { value: "khobar", label: { ar: "الخبر", en: "Khobar" } },
+    { value: "tabuk", label: { ar: "تبوك", en: "Tabuk" } },
+    { value: "abha", label: { ar: "أبها", en: "Abha" } },
+    { value: "neom", label: { ar: "نيوم", en: "NEOM" } },
+  ],
+  AE: [
+    { value: "dubai", label: { ar: "دبي", en: "Dubai" } },
+    { value: "abu_dhabi", label: { ar: "أبوظبي", en: "Abu Dhabi" } },
+    { value: "sharjah", label: { ar: "الشارقة", en: "Sharjah" } },
+    { value: "ajman", label: { ar: "عجمان", en: "Ajman" } },
+  ],
+  EG: [
+    { value: "cairo", label: { ar: "القاهرة", en: "Cairo" } },
+    { value: "alexandria", label: { ar: "الإسكندرية", en: "Alexandria" } },
+    { value: "giza", label: { ar: "الجيزة", en: "Giza" } },
+    { value: "new_capital", label: { ar: "العاصمة الإدارية", en: "New Capital" } },
+  ],
+  KW: [
+    { value: "kuwait_city", label: { ar: "مدينة الكويت", en: "Kuwait City" } },
+    { value: "hawalli", label: { ar: "حولي", en: "Hawalli" } },
+  ],
+  QA: [
+    { value: "doha", label: { ar: "الدوحة", en: "Doha" } },
+    { value: "lusail", label: { ar: "لوسيل", en: "Lusail" } },
+  ],
+  BH: [
+    { value: "manama", label: { ar: "المنامة", en: "Manama" } },
+  ],
+  OM: [
+    { value: "muscat", label: { ar: "مسقط", en: "Muscat" } },
+  ],
+  JO: [
+    { value: "amman", label: { ar: "عمّان", en: "Amman" } },
+  ],
+  IQ: [
+    { value: "baghdad", label: { ar: "بغداد", en: "Baghdad" } },
+    { value: "erbil", label: { ar: "أربيل", en: "Erbil" } },
+  ],
+};
 
 export const CHART_COLORS = ["#22c55e", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6"];

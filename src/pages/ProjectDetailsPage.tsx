@@ -88,6 +88,8 @@ export default function ProjectDetailsPage() {
     description: "",
     project_type: "construction",
     location: "",
+    region: "",
+    city: "",
     client_name: "",
     status: "draft"
   });
@@ -162,6 +164,8 @@ export default function ProjectDetailsPage() {
           description: analysisData?.project_info?.description || "",
           project_type: analysisData?.project_info?.type || "construction",
           location: analysisData?.project_info?.location || "",
+          region: analysisData?.project_info?.region || "",
+          city: analysisData?.project_info?.city || "",
           client_name: analysisData?.project_info?.client_name || "",
           status: analysisData?.project_info?.status || "draft",
         });
@@ -462,6 +466,8 @@ export default function ProjectDetailsPage() {
           type: editForm.project_type,
           description: editForm.description,
           location: editForm.location,
+          region: editForm.region,
+          city: editForm.city,
           client_name: editForm.client_name,
           status: editForm.status,
         }
@@ -781,6 +787,8 @@ export default function ProjectDetailsPage() {
       description: analysisData?.project_info?.description || "",
       project_type: analysisData?.project_info?.type || "construction",
       location: analysisData?.project_info?.location || "",
+      region: analysisData?.project_info?.region || "",
+      city: analysisData?.project_info?.city || "",
       client_name: analysisData?.project_info?.client_name || "",
       status: analysisData?.project_info?.status || "draft",
     });
@@ -906,21 +914,21 @@ export default function ProjectDetailsPage() {
         )}
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="tabs-navigation-safe">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
-            <TabsTrigger value="overview">
+          <TabsList className="flex w-full overflow-x-auto mb-6 tabs-navigation-safe">
+            <TabsTrigger value="overview" className="flex-shrink-0">
               {isArabic ? "نظرة عامة" : "Overview"}
             </TabsTrigger>
-            <TabsTrigger value="boq">
+            <TabsTrigger value="boq" className="flex-shrink-0">
               {isArabic ? "جدول الكميات" : "BOQ"}
             </TabsTrigger>
-            <TabsTrigger value="analysis" className="flex items-center gap-1">
+            <TabsTrigger value="analysis" className="flex items-center gap-1 flex-shrink-0">
               <Brain className="w-3.5 h-3.5" />
-              {isArabic ? "تحليل متقدم" : "Advanced Analysis"}
+              {isArabic ? "تحليل متقدم" : "Analysis"}
             </TabsTrigger>
-            <TabsTrigger value="documents">
+            <TabsTrigger value="documents" className="flex-shrink-0">
               {isArabic ? "المستندات" : "Documents"}
             </TabsTrigger>
-            <TabsTrigger value="settings">
+            <TabsTrigger value="settings" className="flex-shrink-0">
               {isArabic ? "الإعدادات" : "Settings"}
             </TabsTrigger>
           </TabsList>
