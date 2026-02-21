@@ -1433,7 +1433,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
 
           {/* Navigation Items */}
           <div className="p-2 flex-1">
-            <nav className="space-y-1">
+            <nav className="space-y-1 navigation-bar-safe">
               {tabs.map(tab => {
                 const isActive = activeTab === tab.id;
                 return (

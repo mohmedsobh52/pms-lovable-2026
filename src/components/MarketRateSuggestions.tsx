@@ -712,15 +712,17 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
             </Badge>
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-5xl max-h-[85vh] overflow-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              {isArabic ? "اقتراحات أسعار السوق بالذكاء الاصطناعي" : "AI Market Rate Suggestions"}
-            </DialogTitle>
-          </DialogHeader>
-          {dialogContent}
-        </DialogContent>
+        {isOpen && (
+          <DialogContent className="max-w-5xl max-h-[85vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                {isArabic ? "اقتراحات أسعار السوق بالذكاء الاصطناعي" : "AI Market Rate Suggestions"}
+              </DialogTitle>
+            </DialogHeader>
+            {dialogContent}
+          </DialogContent>
+        )}
       </Dialog>
       <ApplyRateDialog
         open={confirmDialogOpen}

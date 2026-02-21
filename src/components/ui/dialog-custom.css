@@ -276,3 +276,25 @@ button.header-search-box {
 button.header-search-box > * {
   pointer-events: none !important;
 }
+
+/* ============================================
+   SIDEBAR NAVIGATION PROTECTION
+   ============================================ */
+
+nav button,
+nav a {
+  position: relative;
+  z-index: 56 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* ============================================
+   CLOSED DIALOG PORTAL CLEANUP
+   Force remove closed dialog portals from interaction
+   ============================================ */
+
+[data-radix-portal]:has([data-state="closed"]) {
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
