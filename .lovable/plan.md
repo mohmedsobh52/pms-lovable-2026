@@ -1,62 +1,84 @@
 
 
-# اصلاح مشكلة التبويبات غير العاملة في شاشة التحليل المتقدم
+# تحسين شاشة تحليل التكاليف - الأداء والدقة والشكل
 
-## المشكلة
+## المشاكل الحالية
 
-التبويبات الجانبية (Items, WBS, Cost, Charts...) في شاشة التحليل المتقدم لا تستجيب للنقر. السبب هو أن حوارات Radix Dialog المغلقة (مثل MarketRateSuggestions و EnhancedPricingAnalysis) تترك طبقات overlay غير مرئية تحجب النقر على الأزرار.
+1. **تحليل 10 بنود فقط**: الكود يقطع البنود عند 10 (`items.slice(0, 10)`) مما يفقد بقية البنود
+2. **واجهة إنجليزية فقط**: العناوين والتسميات كلها بالإنجليزية رغم دعم العربية
+3. **لا يوجد مؤشر تقدم**: المستخدم لا يعرف حالة التحليل
+4. **لا يوجد تخزين مؤقت**: كل ضغطة تعيد التحليل من الصفر
+5. **دقة الحسابات**: النسب المئوية للتكاليف غير المباشرة ثابتة وليست مبنية على الكمية الفعلية
+6. **الشكل العام**: البطاقات والجداول بحاجة لتحسين بصري
 
-التبويبات الجانبية هي أزرار HTML عادية (`<button>`) وليست Radix Tab triggers، لذلك لا تستفيد من قواعد CSS الموجودة التي تحمي `[role="tab"]`.
+## التحسينات المطلوبة
 
-## الحل
+### 1. رفع حد البنود المحللة + تحليل على دفعات
 
-### 1. إضافة حماية CSS للتبويبات الجانبية
+- رفع الحد من 10 إلى 50 بند
+- إرسال البنود على دفعات (batches) من 15 بند لتجنب timeout
+- عرض شريط تقدم يوضح الدفعة الحالية
 
-اضافة قواعد CSS جديدة في `src/components/ui/dialog-custom.css` لحماية أزرار التنقل الجانبية:
+### 2. ترجمة كاملة للواجهة (عربي/إنجليزي)
 
-```css
-/* Sidebar navigation protection */
-nav button,
-nav a {
-  position: relative;
-  z-index: 56 !important;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-```
+- تحويل جميع العناوين: "Detailed Cost Analysis" -> "تحليل التكاليف التفصيلي"
+- الأزرار: "Analyze Costs" -> "تحليل التكاليف"
+- البطاقات: Materials/Labor/Equipment/Grand Total
+- الجداول: جميع الأعمدة والتذييلات
+- التفاصيل: Direct/Indirect/Profit/Recommendations
 
-### 2. إضافة class حماية على sidebar في AnalysisResults
+### 3. تحسين دقة الحسابات
 
-في `src/components/AnalysisResults.tsx`، إضافة class `navigation-bar-safe` على عنصر الـ sidebar `<nav>` لضمان أن الأزرار محمية من الحجب.
+- حساب `unit_price` بقسمة `total_cost` على الكمية الفعلية (وليس = total_cost)
+- تحسين `recalculateItemTotals` لحساب المقاول من الباطن
+- إضافة تدقيق: مقارنة سعر الوحدة المحسوب بالسعر الأصلي وعرض الفرق
 
-### 3. استخدام Conditional Rendering للحوارات الثقيلة
+### 4. تخزين مؤقت للنتائج
 
-تغيير MarketRateSuggestions و EnhancedPricingAnalysis لاستخدام conditional rendering بحيث لا يتم رندرة DialogContent إلا عند فتح الحوار فعلياً. هذا يمنع وجود overlay غير مرئي في DOM.
+- حفظ نتائج التحليل في `localStorage` مع hash للبنود
+- عند إعادة فتح الصفحة، تحميل النتائج المحفوظة تلقائياً
+- زر "مسح التخزين المؤقت" لإعادة التحليل
 
-في `src/components/MarketRateSuggestions.tsx`:
-- نقل `DialogContent` داخل شرط `{isOpen && <DialogContent>...</DialogContent>}`
+### 5. تحسينات بصرية
 
-في `src/components/EnhancedPricingAnalysis.tsx`:
-- نفس التغيير
-
-### 4. تعزيز قاعدة CSS لإخفاء overlay المغلق
-
-في `src/components/ui/dialog-custom.css`، تعزيز القاعدة الحالية:
-
-```css
-/* Force remove closed dialog portals from interaction */
-[data-radix-portal]:has([data-state="closed"]) {
-  pointer-events: none !important;
-  visibility: hidden !important;
-}
-```
+- إضافة أيقونات ملونة للبطاقات
+- تحسين جدول الملخص بألوان متدرجة للصفوف
+- إضافة tooltip لعرض الوصف الكامل
+- تحسين قسم التوصيات بأيقونات ملونة حسب النوع
+- إضافة زر تصدير PDF/Excel للتقرير
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/ui/dialog-custom.css` | إضافة قواعد حماية جديدة |
-| `src/components/AnalysisResults.tsx` | إضافة class حماية على nav |
-| `src/components/MarketRateSuggestions.tsx` | conditional rendering للحوار |
-| `src/components/EnhancedPricingAnalysis.tsx` | conditional rendering للحوار |
+| `src/components/CostAnalysis.tsx` | ترجمة + batching + تخزين مؤقت + تحسين حسابات + UI |
+| `supabase/functions/analyze-costs/index.ts` | تقليل حجم prompt + تحسين دقة الاستجابة |
+
+## التفاصيل التقنية
+
+### Batching في الفرونت
+
+```text
+items (50 بند)
+  -> batch 1 (15 بند) -> API call -> merge results
+  -> batch 2 (15 بند) -> API call -> merge results
+  -> batch 3 (15 بند) -> API call -> merge results
+  -> batch 4 (5 بنود) -> API call -> merge results
+-> عرض النتائج المدمجة
+```
+
+### تحسين حساب سعر الوحدة
+
+```text
+الحالي:  unit_price = total_cost (خطأ)
+الجديد:  unit_price = total_cost / quantity (صحيح)
+```
+
+### التخزين المؤقت
+
+```text
+key = hash(items.map(i => i.description + i.quantity).join('|'))
+value = { result, timestamp }
+TTL = 24 ساعة
+```
 
