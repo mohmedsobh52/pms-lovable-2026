@@ -26,6 +26,7 @@
   animation-duration: 0ms !important;
   pointer-events: none !important;
   opacity: 0 !important;
+  visibility: hidden !important;
 }
 
 /* Dialog Content - Fast exit */
@@ -33,6 +34,7 @@
 [data-radix-dialog-content]:not([data-state="open"]) {
   animation-duration: 0ms !important;
   pointer-events: none !important;
+  visibility: hidden !important;
 }
 
 /* ============================================
