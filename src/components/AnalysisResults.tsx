@@ -1548,6 +1548,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               getItemCalculatedCosts={getItemCalculatedCosts}
               fileName={fileName}
               isArabic={isArabic}
+              savedProjectId={savedProjectId}
             />
             
             {/* Export Dropdown */}
@@ -2179,6 +2180,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 getItemCalculatedCosts={getItemCalculatedCosts}
                 fileName={fileName}
                 isArabic={isArabic}
+                savedProjectId={savedProjectId}
               />
             </div>
 
