@@ -5,6 +5,7 @@ import { verifyAuth, corsHeaders } from "../_shared/auth.ts";
 interface BOQItem {
   item_no: string;
   description: string;
+  description_ar?: string | null;
   unit: string;
   quantity: number;
   rate: number;
@@ -333,6 +334,7 @@ const boqAnalysisTool = {
             properties: {
               item_no: { type: "string" },
               description: { type: "string" },
+              description_ar: { type: ["string", "null"], description: "Arabic description if available in the source document" },
               unit: { type: "string" },
               quantity: { type: "number" },
               rate: { type: "number" },
@@ -522,9 +524,10 @@ serve(async (req) => {
 
 **تعليمات الاستخراج:**
 1. استخرج كل بند بـ:
-   - item_no: رقم البند
-   - description: الوصف الكامل
-   - unit: الوحدة (م، م²، م³، كجم، عدد، طن، L.S)
+    - item_no: رقم البند
+    - description: الوصف (بالإنجليزية إذا متوفر، أو الوصف الأساسي)
+    - description_ar: الوصف العربي (إذا كان النص يحتوي على وصف عربي منفصل أو إذا كان الوصف بالعربية)
+    - unit: الوحدة (م، م²، م³، كجم، عدد، طن، L.S)
    - quantity: الكمية (رقم)
    - rate: سعر الوحدة (رقم)
    - amount: المبلغ الإجمالي (رقم)
@@ -551,7 +554,7 @@ serve(async (req) => {
       : `You are a Quantity Surveyor analyzing BOQ documents. Respond in ${outputLanguage}.
 
 EXTRACT ALL ITEMS with:
-- item_no, description, unit (normalized: m, m², m³, kg, pcs, ton, L.S), quantity, rate, amount
+- item_no, description, description_ar (Arabic description if present in source), unit (normalized: m, m², m³, kg, pcs, ton, L.S), quantity, rate, amount
 - section_trade: categorize into Site Preparation, Foundations, Concrete, Steel, Masonry, Roofing, MEP-Plumbing, MEP-Electrical, MEP-HVAC, Doors & Windows, Finishes, External Works, or Preliminaries
 
 VALIDATION: Check Amount ≈ Qty × Rate. Flag issues.

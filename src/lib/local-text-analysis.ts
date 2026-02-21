@@ -7,6 +7,7 @@
 export interface LocalTextItem {
   item_number: string;
   description: string;
+  description_ar?: string;
   unit: string;
   quantity: number;
   unit_price: number;
@@ -201,6 +202,12 @@ function extractItemsFromText(text: string): LocalTextItem[] {
       }
       
       item.validation = { isValid: issues.length === 0, issues };
+      
+      // Smart Arabic detection
+      if (item.description && /[\u0600-\u06FF]/.test(item.description)) {
+        item.description_ar = item.description;
+      }
+      
       items.push(item);
     }
   }
@@ -293,6 +300,11 @@ function extractItemsByLineAnalysis(text: string): LocalTextItem[] {
       isValid: totalPrice > 0, 
       issues: totalPrice <= 0 ? ['بيانات جزئية'] : [] 
     };
+    
+    // Smart Arabic detection
+    if (item.description && /[\u0600-\u06FF]/.test(item.description)) {
+      item.description_ar = item.description;
+    }
     
     items.push(item);
   }
