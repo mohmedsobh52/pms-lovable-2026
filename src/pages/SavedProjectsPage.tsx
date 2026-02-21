@@ -47,28 +47,36 @@ import {
 import { cn } from "@/lib/utils";
 
 // === Helper functions for safe total value display ===
+function sanitizeItemPrice(item: any): { quantity: number; unitPrice: number; totalPrice: number } {
+  const qty = parseFloat(item.quantity) || 0;
+  const up = parseFloat(item.unit_price) || 0;
+  const tp = parseFloat(item.total_price) || 0;
+  
+  // إذا كان سعر الوحدة غير معقول (أكبر من 10 مليون)، اعتبره فاسداً
+  const safeUp = (up > 0 && up < 1e7) ? up : 0;
+  const computed = qty * safeUp;
+  const safeTp = (tp > 0 && tp < 1e12) ? tp : 0;
+  
+  return {
+    quantity: qty,
+    unitPrice: safeUp,
+    totalPrice: computed > 0 ? computed : safeTp,
+  };
+}
+
 function getSafeProjectTotal(project: ProjectData | null | undefined): number {
   if (!project) return 0;
   const storedTotal = project.total_value || 0;
-  if (storedTotal > 0 && storedTotal < 1e10) return storedTotal;
+  if (storedTotal > 0 && storedTotal < 1e12) return storedTotal;
   
   const items = project.analysis_data?.items || [];
   if (items.length === 0) return 0;
   
   let total = 0;
   for (const item of items) {
-    const qty = parseFloat(item.quantity) || 0;
-    const price = parseFloat(item.unit_price) || 0;
-    const tp = parseFloat(item.total_price) || 0;
-    const computed = qty * price;
-    
-    if (computed > 0) {
-      total += computed;
-    } else if (tp > 0 && tp < 1e10) {
-      total += tp;
-    }
+    const safe = sanitizeItemPrice(item);
+    total += safe.totalPrice;
   }
-  
   return total;
 }
 
@@ -80,11 +88,8 @@ function formatLargeNumber(value: number, currency?: string): string {
 
 function computeSafeTotalFromItems(items: ProjectItem[]): number {
   return items.reduce((sum, item) => {
-    const computed = (item.quantity || 0) * (item.unit_price || 0);
-    const tp = item.total_price || 0;
-    if (computed > 0) return sum + computed;
-    if (tp > 0 && Number.isFinite(tp) && tp < 1e10) return sum + tp;
-    return sum;
+    const safe = sanitizeItemPrice(item);
+    return sum + safe.totalPrice;
   }, 0);
 }
 
@@ -196,11 +201,10 @@ export default function SavedProjectsPage() {
           items_count: analysisData?.items?.length || analysisData?.summary?.total_items || 0,
           total_value: (() => {
             const summaryTotal = analysisData?.summary?.total_value || 0;
-            if (summaryTotal > 0 && summaryTotal < 1e10) return summaryTotal;
+            if (summaryTotal > 0 && summaryTotal < 1e12) return summaryTotal;
             return (analysisData?.items || []).reduce((sum: number, item: any) => {
-              const computed = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-              const tp = parseFloat(item.total_price) || 0;
-              return sum + (computed > 0 ? computed : (tp > 0 && tp < 1e10 ? tp : 0));
+              const safe = sanitizeItemPrice(item);
+              return sum + safe.totalPrice;
             }, 0);
           })(),
           currency: analysisData?.summary?.currency || 'SAR',
@@ -212,6 +216,13 @@ export default function SavedProjectsPage() {
       // Add project_data if not already in map
       projectDataList.forEach((p: any) => {
         if (!projectMap.has(p.id)) {
+          const rawTotal = p.total_value || 0;
+          const items = p.analysis_data?.items || [];
+          // إذا كانت القيمة فاسدة، أعد الحساب مع تنظيف الأسعار
+          let safeTotal = rawTotal;
+          if (rawTotal >= 1e12 || rawTotal < 0) {
+            safeTotal = items.reduce((sum: number, item: any) => sum + sanitizeItemPrice(item).totalPrice, 0);
+          }
           projectMap.set(p.id, {
             id: p.id,
             name: p.name,
@@ -219,11 +230,12 @@ export default function SavedProjectsPage() {
             analysis_data: p.analysis_data,
             wbs_data: p.wbs_data,
             items_count: p.items_count || 0,
-            total_value: p.total_value || 0,
+            total_value: safeTotal,
             currency: p.currency || 'SAR',
             created_at: p.created_at,
             updated_at: p.updated_at,
-          });
+            _rawDbTotal: rawTotal, // حفظ القيمة الأصلية للمقارنة
+          } as any);
         }
       });
 
@@ -236,24 +248,44 @@ export default function SavedProjectsPage() {
       // تصحيح القيم الفاسدة في قاعدة البيانات (مرة واحدة)
       (async () => {
         for (const project of allProjects) {
-          const storedTotal = project.analysis_data?.summary?.total_value || 0;
-          if (storedTotal >= 1e10 || storedTotal < 0) {
-            const correctedTotal = project.total_value;
+          const summaryTotal = project.analysis_data?.summary?.total_value;
+          const rawDbTotal = (project as any)._rawDbTotal ?? project.total_value;
+          
+          // تحقق من أي مصدر فاسد
+          const isCorrupted = 
+            (summaryTotal !== undefined && summaryTotal !== null && (summaryTotal >= 1e12 || summaryTotal < 0)) ||
+            (rawDbTotal !== undefined && rawDbTotal !== null && (rawDbTotal >= 1e12 || rawDbTotal < 0));
+          
+          if (isCorrupted) {
+            const correctedTotal = project.total_value; // المحسوبة بأمان
+            // تنظيف أسعار البنود الفاسدة أيضاً
+            const cleanedItems = (project.analysis_data?.items || []).map((item: any) => {
+              const safe = sanitizeItemPrice(item);
+              return { ...item, unit_price: safe.unitPrice, total_price: safe.totalPrice };
+            });
+            
             const updatedAnalysis = {
               ...project.analysis_data,
+              items: cleanedItems,
               summary: {
                 ...(project.analysis_data?.summary || {}),
                 total_value: correctedTotal,
               },
             };
+            
+            // تحديث saved_projects
             await supabase
               .from('saved_projects')
               .update({ analysis_data: updatedAnalysis, updated_at: new Date().toISOString() })
               .eq('id', project.id);
+            
+            // تحديث project_data أيضاً
             await supabase
               .from('project_data')
               .update({ analysis_data: updatedAnalysis, total_value: correctedTotal, updated_at: new Date().toISOString() })
               .eq('id', project.id);
+            
+            console.log(`[DataRepair] Fixed corrupted project "${project.name}" (id: ${project.id}), rawTotal: ${rawDbTotal}, corrected: ${correctedTotal}`);
           }
         }
       })();
