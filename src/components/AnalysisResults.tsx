@@ -271,18 +271,16 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
 
   useEffect(() => {
     if (hasArabicDescriptions && !visibleColumns.includes("description_ar")) {
-      const saved = localStorage.getItem("boq_visible_columns");
-      if (!saved) {
-        setVisibleColumns(prev => {
-          const descIdx = prev.indexOf("description");
-          if (descIdx >= 0) {
-            const next = [...prev];
-            next.splice(descIdx + 1, 0, "description_ar");
-            return next;
-          }
-          return [...prev, "description_ar"];
-        });
-      }
+      // Always add description_ar when Arabic data is present, even if user had saved columns before
+      setVisibleColumns(prev => {
+        const descIdx = prev.indexOf("description");
+        if (descIdx >= 0) {
+          const next = [...prev];
+          next.splice(descIdx + 1, 0, "description_ar");
+          return next;
+        }
+        return [...prev, "description_ar"];
+      });
     }
   }, [hasArabicDescriptions]);
 
