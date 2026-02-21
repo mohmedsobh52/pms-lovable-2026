@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -7,14 +7,18 @@ import { PageLayout } from "@/components/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { 
   FileText, Plus, Building2, DollarSign, TrendingUp,
-  Trash2, Eye, Edit, Download
+  Trash2, Eye, Edit, Download, Search, Copy, CheckCircle2, Clock, FileCheck
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -73,6 +77,8 @@ const ProgressCertificatesPage = () => {
 
   const [filterProjectId, setFilterProjectId] = useState("");
   const [filterContractor, setFilterContractor] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [viewingCertificate, setViewingCertificate] = useState<Certificate | null>(null);
@@ -100,28 +106,33 @@ const ProgressCertificatesPage = () => {
     }
   };
 
-  const handleViewCertificate = async (cert: Certificate) => {
+  const handleViewCertificate = useCallback(async (cert: Certificate) => {
     setViewingCertificate(cert);
     const { data } = await supabase.from("progress_certificate_items").select("*").eq("certificate_id", cert.id).order("item_number");
     setViewItems((data || []) as CertificateItem[]);
     setShowViewDialog(true);
-  };
+  }, []);
 
-  const handleUpdateStatus = async (id: string, status: string) => {
+  const handleUpdateStatus = useCallback(async (id: string, status: string) => {
     const { error } = await supabase.from("progress_certificates").update({ status }).eq("id", id);
     if (!error) {
       setCertificates(prev => prev.map(c => c.id === id ? { ...c, status } : c));
       toast.success(isArabic ? "تم تحديث الحالة" : "Status updated");
     }
-  };
+  }, [isArabic]);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     const { error } = await supabase.from("progress_certificates").delete().eq("id", id);
     if (!error) {
       setCertificates(prev => prev.filter(c => c.id !== id));
       toast.success(isArabic ? "تم الحذف" : "Deleted");
     }
-  };
+  }, [isArabic]);
+
+  const handleCopyCertificate = useCallback((cert: Certificate) => {
+    navigate("/progress-certificates/new", { state: { copyFrom: cert } });
+    toast.info(isArabic ? "تم نسخ بيانات المستخلص" : "Certificate data copied");
+  }, [navigate, isArabic]);
 
   const handleExportPDF = async (cert: Certificate, items: CertificateItem[]) => {
     try {
@@ -167,23 +178,39 @@ const ProgressCertificatesPage = () => {
     } catch (error) { console.error('PDF export error:', error); toast.error(isArabic ? 'خطأ في التصدير' : 'Export error'); }
   };
 
-  const handleExportCertificatePDF = async (cert: Certificate) => {
+  const handleExportCertificatePDF = useCallback(async (cert: Certificate) => {
     const { data } = await supabase.from("progress_certificate_items").select("*").eq("certificate_id", cert.id).order("item_number");
     await handleExportPDF(cert, (data || []) as CertificateItem[]);
-  };
+  }, [isArabic]);
 
-  const filtered = certificates.filter(c => {
-    if (filterProjectId && filterProjectId !== "all" && c.project_id !== filterProjectId) return false;
-    if (filterContractor && filterContractor !== "all" && c.contractor_name !== filterContractor) return false;
-    return true;
-  });
+  // Project name lookup
+  const projectMap = useMemo(() => {
+    const map = new Map<string, string>();
+    projects.forEach(p => map.set(p.id, p.name));
+    return map;
+  }, [projects]);
 
-  const formatCurrency = (v: number) => {
+  const filtered = useMemo(() => {
+    return certificates.filter(c => {
+      if (statusFilter !== "all" && c.status !== statusFilter) return false;
+      if (filterProjectId && filterProjectId !== "all" && c.project_id !== filterProjectId) return false;
+      if (filterContractor && filterContractor !== "all" && c.contractor_name !== filterContractor) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return c.contractor_name.toLowerCase().includes(q) || 
+               String(c.certificate_number).includes(q) ||
+               (c.project_id && projectMap.get(c.project_id)?.toLowerCase().includes(q));
+      }
+      return true;
+    });
+  }, [certificates, statusFilter, filterProjectId, filterContractor, searchQuery, projectMap]);
+
+  const formatCurrency = useCallback((v: number) => {
     if (v == null) return '0.00';
     return new Intl.NumberFormat(isArabic ? 'ar-SA' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
-  };
+  }, [isArabic]);
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = useCallback((status: string) => {
     const map: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
       draft: { label: isArabic ? "مسودة" : "Draft", variant: "secondary" },
       submitted: { label: isArabic ? "مقدم" : "Submitted", variant: "outline" },
@@ -192,14 +219,34 @@ const ProgressCertificatesPage = () => {
     };
     const cfg = map[status] || map.draft;
     return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
+  }, [isArabic]);
+
+  const stats = useMemo(() => ({
+    totalNet: filtered.reduce((s, c) => s + (c.net_amount || 0), 0),
+    totalCurrent: filtered.reduce((s, c) => s + (c.current_work_done || 0), 0),
+    approvedCount: filtered.filter(c => c.status === 'approved' || c.status === 'paid').length,
+  }), [filtered]);
+
+  const getRowBg = (status: string) => {
+    switch (status) {
+      case 'approved': return 'bg-green-50/50 dark:bg-green-950/10';
+      case 'paid': return 'bg-emerald-50/50 dark:bg-emerald-950/10';
+      case 'submitted': return 'bg-yellow-50/50 dark:bg-yellow-950/10';
+      default: return '';
+    }
   };
 
-  const totalNet = filtered.reduce((s, c) => s + (c.net_amount || 0), 0);
-  const totalCurrent = filtered.reduce((s, c) => s + (c.current_work_done || 0), 0);
-  const approvedCount = filtered.filter(c => c.status === 'approved' || c.status === 'paid').length;
+  const statusTabs = [
+    { value: "all", label: isArabic ? "الكل" : "All", icon: FileText },
+    { value: "draft", label: isArabic ? "مسودة" : "Draft", icon: Clock },
+    { value: "submitted", label: isArabic ? "مقدم" : "Submitted", icon: Edit },
+    { value: "approved", label: isArabic ? "معتمد" : "Approved", icon: CheckCircle2 },
+    { value: "paid", label: isArabic ? "مدفوع" : "Paid", icon: DollarSign },
+  ];
 
   return (
     <PageLayout>
+      <TooltipProvider>
       <div className="container mx-auto p-4 md:p-6 space-y-6" dir={isArabic ? "rtl" : "ltr"}>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
@@ -222,10 +269,82 @@ const ProgressCertificatesPage = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" /><div><p className="text-sm text-muted-foreground">{isArabic ? "إجمالي المستخلصات" : "Total Certificates"}</p><p className="text-2xl font-bold">{filtered.length}</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><DollarSign className="h-5 w-5 text-green-600" /><div><p className="text-sm text-muted-foreground">{isArabic ? "إجمالي صافي" : "Total Net"}</p><p className="text-2xl font-bold">{formatCurrency(totalNet)}</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-blue-600" /><div><p className="text-sm text-muted-foreground">{isArabic ? "أعمال حالية" : "Current Work"}</p><p className="text-2xl font-bold">{formatCurrency(totalCurrent)}</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><Building2 className="h-5 w-5 text-purple-600" /><div><p className="text-sm text-muted-foreground">{isArabic ? "معتمدة/مدفوعة" : "Approved/Paid"}</p><p className="text-2xl font-bold">{approvedCount}</p></div></div></CardContent></Card>
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-primary/10"><FileText className="h-6 w-6 text-primary" /></div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">{isArabic ? "إجمالي المستخلصات" : "Total Certificates"}</p>
+                  <p className="text-2xl font-bold">{filtered.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-green-500/5 to-green-500/10 border-green-500/20">
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-green-500/10"><DollarSign className="h-6 w-6 text-green-600" /></div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">{isArabic ? "إجمالي صافي" : "Total Net"}</p>
+                  <p className="text-xl font-bold text-green-700 dark:text-green-400">{formatCurrency(stats.totalNet)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-blue-500/5 to-blue-500/10 border-blue-500/20">
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-500/10"><TrendingUp className="h-6 w-6 text-blue-600" /></div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">{isArabic ? "أعمال حالية" : "Current Work"}</p>
+                  <p className="text-xl font-bold text-blue-700 dark:text-blue-400">{formatCurrency(stats.totalCurrent)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-purple-500/5 to-purple-500/10 border-purple-500/20">
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-purple-500/10"><CheckCircle2 className="h-6 w-6 text-purple-600" /></div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">{isArabic ? "معتمدة/مدفوعة" : "Approved/Paid"}</p>
+                  <p className="text-2xl font-bold text-purple-700 dark:text-purple-400">{stats.approvedCount}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search + Status Filter */}
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={isArabic ? "بحث بالرقم أو اسم المقاول أو المشروع..." : "Search by number, contractor or project..."}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="ps-9"
+            />
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            {statusTabs.map(tab => {
+              const Icon = tab.icon;
+              const count = tab.value === "all" ? certificates.length : certificates.filter(c => c.status === tab.value).length;
+              return (
+                <Button
+                  key={tab.value}
+                  variant={statusFilter === tab.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter(tab.value)}
+                  className="gap-1.5"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {tab.label}
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 min-w-[18px]">{count}</Badge>
+                </Button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Filters */}
@@ -251,7 +370,19 @@ const ProgressCertificatesPage = () => {
           <CardHeader><CardTitle>{isArabic ? "قائمة المستخلصات" : "Certificates List"}</CardTitle></CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-center py-8 text-muted-foreground">{isArabic ? "جاري التحميل..." : "Loading..."}</p>
+              <div className="space-y-3">
+                {[1,2,3,4].map(i => (
+                  <div key={i} className="flex gap-4 items-center">
+                    <Skeleton className="h-5 w-12" />
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-5 w-16" />
+                    <Skeleton className="h-5 w-24" />
+                  </div>
+                ))}
+              </div>
             ) : filtered.length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">{isArabic ? "لا توجد مستخلصات" : "No certificates found"}</p>
             ) : (
@@ -260,30 +391,57 @@ const ProgressCertificatesPage = () => {
                   <TableRow>
                     <TableHead>{isArabic ? "رقم" : "#"}</TableHead>
                     <TableHead>{isArabic ? "المقاول" : "Contractor"}</TableHead>
+                    <TableHead>{isArabic ? "المشروع" : "Project"}</TableHead>
                     <TableHead>{isArabic ? "الفترة" : "Period"}</TableHead>
                     <TableHead>{isArabic ? "الأعمال الحالية" : "Current Work"}</TableHead>
                     <TableHead>{isArabic ? "صافي المستحق" : "Net Amount"}</TableHead>
+                    <TableHead>{isArabic ? "الإنجاز" : "Progress"}</TableHead>
                     <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
                     <TableHead>{isArabic ? "إجراءات" : "Actions"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map(cert => (
-                    <TableRow key={cert.id}>
+                  {filtered.map(cert => {
+                    const progressPct = cert.total_work_done > 0 && cert.current_work_done > 0
+                      ? Math.min(100, Math.round((cert.total_work_done / (cert.total_work_done + cert.current_work_done * 2)) * 100))
+                      : 0;
+                    return (
+                    <TableRow key={cert.id} className={getRowBg(cert.status)}>
                       <TableCell className="font-medium">{cert.certificate_number}</TableCell>
                       <TableCell>{cert.contractor_name}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {cert.project_id ? projectMap.get(cert.project_id) || '-' : '-'}
+                      </TableCell>
                       <TableCell className="text-xs">{cert.period_from && cert.period_to ? `${cert.period_from} → ${cert.period_to}` : '-'}</TableCell>
                       <TableCell>{formatCurrency(cert.current_work_done)}</TableCell>
                       <TableCell className="font-bold">{formatCurrency(cert.net_amount)}</TableCell>
+                      <TableCell className="w-[100px]">
+                        <Progress value={progressPct} className="h-2" />
+                        <span className="text-[10px] text-muted-foreground">{progressPct}%</span>
+                      </TableCell>
                       <TableCell>{getStatusBadge(cert.status)}</TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
-                          <Button size="sm" variant="ghost" onClick={() => handleViewCertificate(cert)}><Eye className="h-4 w-4" /></Button>
-                          <Button size="sm" variant="ghost" onClick={() => handleExportCertificatePDF(cert)}><Download className="h-4 w-4" /></Button>
+                        <div className="flex gap-0.5">
+                          <Tooltip><TooltipTrigger asChild>
+                            <Button size="sm" variant="ghost" onClick={() => handleViewCertificate(cert)}><Eye className="h-4 w-4" /></Button>
+                          </TooltipTrigger><TooltipContent>{isArabic ? "عرض" : "View"}</TooltipContent></Tooltip>
+                          
+                          <Tooltip><TooltipTrigger asChild>
+                            <Button size="sm" variant="ghost" onClick={() => handleExportCertificatePDF(cert)}><Download className="h-4 w-4" /></Button>
+                          </TooltipTrigger><TooltipContent>{isArabic ? "تصدير PDF" : "Export PDF"}</TooltipContent></Tooltip>
+                          
+                          <Tooltip><TooltipTrigger asChild>
+                            <Button size="sm" variant="ghost" onClick={() => handleCopyCertificate(cert)}><Copy className="h-4 w-4" /></Button>
+                          </TooltipTrigger><TooltipContent>{isArabic ? "نسخ مستخلص" : "Copy Certificate"}</TooltipContent></Tooltip>
+                          
                           {cert.status === 'draft' && (
                             <>
-                              <Button size="sm" variant="ghost" onClick={() => handleUpdateStatus(cert.id, 'submitted')}><Edit className="h-4 w-4" /></Button>
-                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(cert.id)}><Trash2 className="h-4 w-4" /></Button>
+                              <Tooltip><TooltipTrigger asChild>
+                                <Button size="sm" variant="ghost" onClick={() => handleUpdateStatus(cert.id, 'submitted')}><FileCheck className="h-4 w-4" /></Button>
+                              </TooltipTrigger><TooltipContent>{isArabic ? "تقديم" : "Submit"}</TooltipContent></Tooltip>
+                              <Tooltip><TooltipTrigger asChild>
+                                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(cert.id)}><Trash2 className="h-4 w-4" /></Button>
+                              </TooltipTrigger><TooltipContent>{isArabic ? "حذف" : "Delete"}</TooltipContent></Tooltip>
                             </>
                           )}
                           {cert.status === 'submitted' && <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(cert.id, 'approved')}>{isArabic ? "اعتماد" : "Approve"}</Button>}
@@ -291,74 +449,94 @@ const ProgressCertificatesPage = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}</TableBody>
+                    );
+                  })}</TableBody>
               </Table>
             )}
           </CardContent>
         </Card>
 
         {/* View Dialog */}
-        {showViewDialog && (
+        {showViewDialog && viewingCertificate && (
         <Dialog open={true} onOpenChange={(open) => { if (!open) setShowViewDialog(false); }}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogDescription className="sr-only">View certificate details</DialogDescription>
               <div className="flex items-center justify-between">
-                <DialogTitle>{isArabic ? `مستخلص رقم ${viewingCertificate?.certificate_number}` : `Certificate #${viewingCertificate?.certificate_number}`}</DialogTitle>
-                {viewingCertificate && (
-                  <Button variant="outline" size="sm" onClick={() => handleExportCertificatePDF(viewingCertificate)}>
-                    <Download className="h-4 w-4 mr-1" />{isArabic ? "تصدير PDF" : "Export PDF"}
-                  </Button>
-                )}
+                <DialogTitle>{isArabic ? `مستخلص رقم ${viewingCertificate.certificate_number}` : `Certificate #${viewingCertificate.certificate_number}`}</DialogTitle>
+                <Button variant="outline" size="sm" onClick={() => handleExportCertificatePDF(viewingCertificate)}>
+                  <Download className="h-4 w-4 mr-1" />{isArabic ? "تصدير PDF" : "Export PDF"}
+                </Button>
               </div>
             </DialogHeader>
-            {viewingCertificate && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div><span className="text-muted-foreground">{isArabic ? "المقاول:" : "Contractor:"}</span> <strong>{viewingCertificate.contractor_name}</strong></div>
-                  <div><span className="text-muted-foreground">{isArabic ? "الحالة:" : "Status:"}</span> {getStatusBadge(viewingCertificate.status)}</div>
-                  <div><span className="text-muted-foreground">{isArabic ? "الفترة:" : "Period:"}</span> {viewingCertificate.period_from} → {viewingCertificate.period_to}</div>
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{isArabic ? "رقم" : "#"}</TableHead>
-                      <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
-                      <TableHead>{isArabic ? "وحدة" : "Unit"}</TableHead>
-                      <TableHead>{isArabic ? "سابق" : "Prev"}</TableHead>
-                      <TableHead>{isArabic ? "حالي" : "Current"}</TableHead>
-                      <TableHead>{isArabic ? "إجمالي" : "Total"}</TableHead>
-                      <TableHead>{isArabic ? "المبلغ" : "Amount"}</TableHead>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-muted-foreground">{isArabic ? "المقاول:" : "Contractor:"}</span> <strong>{viewingCertificate.contractor_name}</strong></div>
+                <div><span className="text-muted-foreground">{isArabic ? "الحالة:" : "Status:"}</span> {getStatusBadge(viewingCertificate.status)}</div>
+                <div><span className="text-muted-foreground">{isArabic ? "الفترة:" : "Period:"}</span> {viewingCertificate.period_from} → {viewingCertificate.period_to}</div>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{isArabic ? "رقم" : "#"}</TableHead>
+                    <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
+                    <TableHead>{isArabic ? "وحدة" : "Unit"}</TableHead>
+                    <TableHead>{isArabic ? "الكمية" : "Qty"}</TableHead>
+                    <TableHead>{isArabic ? "سابق" : "Prev"}</TableHead>
+                    <TableHead>{isArabic ? "حالي" : "Current"}</TableHead>
+                    <TableHead>{isArabic ? "إجمالي" : "Total"}</TableHead>
+                    <TableHead>{isArabic ? "الإنجاز" : "Progress"}</TableHead>
+                    <TableHead>{isArabic ? "المبلغ" : "Amount"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {viewItems.map((item, idx) => {
+                    const pct = item.contract_quantity > 0 ? Math.round((item.total_quantity / item.contract_quantity) * 100) : 0;
+                    return (
+                    <TableRow key={idx}>
+                      <TableCell className="text-xs">{item.item_number}</TableCell>
+                      <TableCell className="text-xs">{item.description}</TableCell>
+                      <TableCell className="text-xs">{item.unit}</TableCell>
+                      <TableCell className="text-xs">{item.contract_quantity}</TableCell>
+                      <TableCell className="text-xs">{item.previous_quantity}</TableCell>
+                      <TableCell className="text-xs font-medium">{item.current_quantity}</TableCell>
+                      <TableCell className="text-xs">{item.total_quantity}</TableCell>
+                      <TableCell className="w-[80px]">
+                        <Progress value={Math.min(pct, 100)} className="h-1.5" />
+                        <span className="text-[10px] text-muted-foreground">{pct}%</span>
+                      </TableCell>
+                      <TableCell className="text-xs font-bold">{formatCurrency(item.current_amount)}</TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {viewItems.map((item, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell className="text-xs">{item.item_number}</TableCell>
-                        <TableCell className="text-xs">{item.description}</TableCell>
-                        <TableCell className="text-xs">{item.unit}</TableCell>
-                        <TableCell className="text-xs">{item.previous_quantity}</TableCell>
-                        <TableCell className="text-xs font-medium">{item.current_quantity}</TableCell>
-                        <TableCell className="text-xs">{item.total_quantity}</TableCell>
-                        <TableCell className="text-xs font-bold">{formatCurrency(item.current_amount)}</TableCell>
-                      </TableRow>
-                    ))}</TableBody>
-                </Table>
-                <Card className="bg-muted/50">
-                  <CardContent className="pt-4 space-y-2 text-sm">
-                    <div className="flex justify-between"><span>{isArabic ? "الأعمال الحالية" : "Current Work"}</span><span className="font-bold">{formatCurrency(viewingCertificate.current_work_done)}</span></div>
-                    <div className="flex justify-between text-destructive"><span>{isArabic ? "الاحتجاز" : "Retention"}</span><span>-{formatCurrency(viewingCertificate.retention_amount)}</span></div>
-                    {viewingCertificate.advance_deduction > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصم مقدم" : "Advance"}</span><span>-{formatCurrency(viewingCertificate.advance_deduction)}</span></div>}
-                    <Separator />
-                    <div className="flex justify-between text-lg font-bold"><span>{isArabic ? "صافي المستحق" : "Net Amount"}</span><span className="text-primary">{formatCurrency(viewingCertificate.net_amount)}</span></div>
+                    );
+                  })}</TableBody>
+              </Table>
+              {/* Financial Summary Cards */}
+              <div className="grid grid-cols-3 gap-3">
+                <Card className="bg-blue-50/50 dark:bg-blue-950/20 border-blue-200">
+                  <CardContent className="pt-3 pb-2 text-center">
+                    <p className="text-xs text-muted-foreground">{isArabic ? "الأعمال الحالية" : "Current Work"}</p>
+                    <p className="text-sm font-bold text-blue-700 dark:text-blue-400">{formatCurrency(viewingCertificate.current_work_done)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-red-50/50 dark:bg-red-950/20 border-red-200">
+                  <CardContent className="pt-3 pb-2 text-center">
+                    <p className="text-xs text-muted-foreground">{isArabic ? "الخصومات" : "Deductions"}</p>
+                    <p className="text-sm font-bold text-destructive">-{formatCurrency(viewingCertificate.retention_amount + viewingCertificate.advance_deduction + viewingCertificate.other_deductions)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-green-50/50 dark:bg-green-950/20 border-green-200">
+                  <CardContent className="pt-3 pb-2 text-center">
+                    <p className="text-xs text-muted-foreground">{isArabic ? "صافي المستحق" : "Net Amount"}</p>
+                    <p className="text-lg font-bold text-green-700 dark:text-green-400">{formatCurrency(viewingCertificate.net_amount)}</p>
                   </CardContent>
                 </Card>
               </div>
-            )}
+            </div>
           </DialogContent>
         </Dialog>
         )}
       </div>
+      </TooltipProvider>
     </PageLayout>
   );
 };

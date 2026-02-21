@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,15 +8,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   FileText, Building2, ArrowLeft,
-  Calendar, Percent, FileCheck, Link2, AlertCircle
+  Calendar, Percent, FileCheck, Link2, AlertCircle,
+  Search, CheckSquare, BarChart3, DollarSign, TrendingUp, AlertTriangle
 } from "lucide-react";
 
 interface CertificateItem {
@@ -67,6 +71,9 @@ const NewCertificatePage = () => {
   const [formItems, setFormItems] = useState<CertificateItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [itemSearch, setItemSearch] = useState("");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [fillPercentage, setFillPercentage] = useState("");
 
   const [availableContracts, setAvailableContracts] = useState<ContractOption[]>([]);
   const [previousCertsSummary, setPreviousCertsSummary] = useState<PreviousCertsSummary | null>(null);
@@ -78,6 +85,18 @@ const NewCertificatePage = () => {
   const totalWorkDone = currentWorkDone + previousWorkDone;
   const retentionAmount = (currentWorkDone * formRetention) / 100;
   const netAmount = currentWorkDone - retentionAmount - formAdvanceDeduction - formOtherDeductions;
+
+  const filledItemsCount = useMemo(() => formItems.filter(i => i.current_quantity > 0).length, [formItems]);
+  const totalContractValue = useMemo(() => formItems.reduce((s, i) => s + (i.contract_quantity * i.unit_price), 0), [formItems]);
+  const overallProgress = useMemo(() => totalContractValue > 0 ? Math.round((totalWorkDone / totalContractValue) * 100) : 0, [totalWorkDone, totalContractValue]);
+
+  const displayItems = useMemo(() => {
+    if (!itemSearch) return formItems;
+    const q = itemSearch.toLowerCase();
+    return formItems.filter(i => 
+      i.description.toLowerCase().includes(q) || i.item_number.includes(q)
+    );
+  }, [formItems, itemSearch]);
 
   useEffect(() => {
     if (user) fetchInitialData();
@@ -98,10 +117,10 @@ const NewCertificatePage = () => {
     if (subRes.data) setContractors(subRes.data);
   };
 
-  const formatCurrency = (v: number) => {
+  const formatCurrency = useCallback((v: number) => {
     if (v == null) return '0.00';
     return new Intl.NumberFormat(isArabic ? 'ar-SA' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
-  };
+  }, [isArabic]);
 
   const loadContractsForSelection = async (projectId: string, contractorName: string) => {
     if (!projectId || !contractorName) { setAvailableContracts([]); return; }
@@ -187,19 +206,47 @@ const NewCertificatePage = () => {
     if (formProjectId && name) { loadProjectItems(formProjectId, name); loadContractsForSelection(formProjectId, name); loadPreviousCertsSummary(formProjectId, name); }
   };
 
-  const updateItemQuantity = (index: number, qty: number) => {
+  const updateItemQuantity = useCallback((index: number, qty: number) => {
     setFormItems(prev => prev.map((item, i) => {
       if (i !== index) return item;
       const total = item.previous_quantity + qty;
       return { ...item, current_quantity: qty, total_quantity: total, current_amount: qty * item.unit_price };
     }));
-  };
+  }, []);
 
-  const handleCreateCertificate = async () => {
-    if (!user?.id || !formProjectId || !formContractor) {
+  const fillAllRemaining = useCallback(() => {
+    setFormItems(prev => prev.map(item => {
+      const remaining = Math.max(0, item.contract_quantity - item.previous_quantity);
+      return { ...item, current_quantity: remaining, total_quantity: item.contract_quantity, current_amount: remaining * item.unit_price };
+    }));
+    toast.success(isArabic ? "تم ملء جميع الكميات المتبقية" : "All remaining quantities filled");
+  }, [isArabic]);
+
+  const fillByPercentage = useCallback((pct: number) => {
+    setFormItems(prev => prev.map(item => {
+      const targetTotal = item.contract_quantity * pct / 100;
+      const qty = Math.round((targetTotal - item.previous_quantity) * 100) / 100;
+      const safeQty = Math.max(0, Math.min(qty, item.contract_quantity - item.previous_quantity));
+      return { ...item, current_quantity: safeQty, total_quantity: item.previous_quantity + safeQty, current_amount: safeQty * item.unit_price };
+    }));
+    toast.success(isArabic ? `تم التعبئة بنسبة ${pct}%` : `Filled at ${pct}%`);
+  }, [isArabic]);
+
+  const handleSaveClick = () => {
+    if (!formProjectId || !formContractor) {
       toast.error(isArabic ? "يرجى اختيار المشروع والمقاول" : "Select project and contractor");
       return;
     }
+    if (filledItemsCount === 0) {
+      toast.error(isArabic ? "يرجى تعبئة بند واحد على الأقل" : "Fill at least one item");
+      return;
+    }
+    setShowConfirmDialog(true);
+  };
+
+  const handleCreateCertificate = async () => {
+    if (!user?.id) return;
+    setShowConfirmDialog(false);
     setSaving(true);
     try {
       const { data: existing } = await supabase.from("progress_certificates").select("certificate_number")
@@ -364,41 +411,100 @@ const NewCertificatePage = () => {
 
           {/* Items Table */}
           {formItems.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-lg font-semibold">{isArabic ? "بنود المشروع" : "Project Items"}</Label>
-              <ScrollArea className="h-[300px] border rounded-md">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-lg font-semibold">{isArabic ? "بنود المشروع" : "Project Items"}</Label>
+                  <Badge variant="secondary" className="text-xs">
+                    {filledItemsCount} / {formItems.length} {isArabic ? "بند" : "items"}
+                  </Badge>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Button size="sm" variant="outline" onClick={fillAllRemaining} className="gap-1.5">
+                    <CheckSquare className="h-3.5 w-3.5" />
+                    {isArabic ? "ملء الكل" : "Fill All"}
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      placeholder="%"
+                      value={fillPercentage}
+                      onChange={e => setFillPercentage(e.target.value)}
+                      className="h-8 w-16 text-xs"
+                      min={0} max={100}
+                    />
+                    <Button size="sm" variant="outline" onClick={() => {
+                      const pct = parseFloat(fillPercentage);
+                      if (pct > 0 && pct <= 100) fillByPercentage(pct);
+                      else toast.error(isArabic ? "أدخل نسبة صحيحة" : "Enter valid %");
+                    }} className="gap-1">
+                      <Percent className="h-3.5 w-3.5" />
+                      {isArabic ? "ملء بنسبة" : "Fill %"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Item Search */}
+              <div className="relative">
+                <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={isArabic ? "بحث في البنود..." : "Search items..."}
+                  value={itemSearch}
+                  onChange={e => setItemSearch(e.target.value)}
+                  className="ps-9 h-8 text-xs"
+                />
+              </div>
+
+              <ScrollArea className="h-[350px] border rounded-md">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[80px]">{isArabic ? "رقم" : "#"}</TableHead>
+                      <TableHead className="w-[70px]">{isArabic ? "رقم" : "#"}</TableHead>
                       <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
-                      <TableHead className="w-[60px]">{isArabic ? "وحدة" : "Unit"}</TableHead>
-                      <TableHead className="w-[80px]">{isArabic ? "الكمية" : "Qty"}</TableHead>
-                      <TableHead className="w-[90px]">{isArabic ? "سعر" : "Price"}</TableHead>
-                      <TableHead className="w-[80px]">{isArabic ? "سابق" : "Prev"}</TableHead>
-                      <TableHead className="w-[100px]">{isArabic ? "حالي" : "Current"}</TableHead>
-                      <TableHead className="w-[80px]">{isArabic ? "إجمالي" : "Total"}</TableHead>
-                      <TableHead className="w-[100px]">{isArabic ? "المبلغ" : "Amount"}</TableHead>
+                      <TableHead className="w-[50px]">{isArabic ? "وحدة" : "Unit"}</TableHead>
+                      <TableHead className="w-[70px]">{isArabic ? "الكمية" : "Qty"}</TableHead>
+                      <TableHead className="w-[80px]">{isArabic ? "سعر" : "Price"}</TableHead>
+                      <TableHead className="w-[70px]">{isArabic ? "سابق" : "Prev"}</TableHead>
+                      <TableHead className="w-[90px]">{isArabic ? "حالي" : "Current"}</TableHead>
+                      <TableHead className="w-[70px]">{isArabic ? "متبقي" : "Remain"}</TableHead>
+                      <TableHead className="w-[80px]">{isArabic ? "الإنجاز" : "Progress"}</TableHead>
+                      <TableHead className="w-[90px]">{isArabic ? "المبلغ" : "Amount"}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {formItems.map((item, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell className="text-xs">{item.item_number}</TableCell>
-                        <TableCell className="text-xs max-w-[200px] truncate">{item.description}</TableCell>
-                        <TableCell className="text-xs">{item.unit}</TableCell>
-                        <TableCell className="text-xs">{item.contract_quantity}</TableCell>
-                        <TableCell className="text-xs">{item.unit_price.toFixed(2)}</TableCell>
-                        <TableCell className="text-xs">{item.previous_quantity}</TableCell>
-                        <TableCell>
-                          <Input type="number" className="h-7 text-xs w-[80px]" value={item.current_quantity || ""}
-                            onChange={e => updateItemQuantity(idx, parseFloat(e.target.value) || 0)}
-                            max={item.contract_quantity - item.previous_quantity} />
-                        </TableCell>
-                        <TableCell className="text-xs font-medium">{item.total_quantity}</TableCell>
-                        <TableCell className="text-xs font-bold">{formatCurrency(item.current_amount)}</TableCell>
-                      </TableRow>
-                    ))}
+                    {displayItems.map((item, _) => {
+                      const originalIdx = formItems.indexOf(item);
+                      const remaining = Math.max(0, item.contract_quantity - item.total_quantity);
+                      const pct = item.contract_quantity > 0 ? Math.round((item.total_quantity / item.contract_quantity) * 100) : 0;
+                      const isOver = item.total_quantity > item.contract_quantity;
+                      const isComplete = item.total_quantity >= item.contract_quantity && item.contract_quantity > 0;
+                      return (
+                        <TableRow key={originalIdx} className={isOver ? 'bg-red-50/70 dark:bg-red-950/20' : isComplete ? 'bg-green-50/30 dark:bg-green-950/10' : ''}>
+                          <TableCell className="text-xs">{item.item_number}</TableCell>
+                          <TableCell className="text-xs max-w-[180px] truncate">{item.description}</TableCell>
+                          <TableCell className="text-xs">{item.unit}</TableCell>
+                          <TableCell className="text-xs">{item.contract_quantity}</TableCell>
+                          <TableCell className="text-xs">{item.unit_price.toFixed(2)}</TableCell>
+                          <TableCell className="text-xs">{item.previous_quantity}</TableCell>
+                          <TableCell>
+                            <Input type="number" className={`h-7 text-xs w-[75px] ${isOver ? 'border-destructive' : ''}`}
+                              value={item.current_quantity || ""}
+                              onChange={e => updateItemQuantity(originalIdx, parseFloat(e.target.value) || 0)}
+                              max={item.contract_quantity - item.previous_quantity} />
+                          </TableCell>
+                          <TableCell className={`text-xs ${isOver ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                            {isOver && <AlertTriangle className="h-3 w-3 inline mr-0.5" />}
+                            {remaining.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="w-[80px]">
+                            <Progress value={Math.min(pct, 100)} className="h-1.5" />
+                            <span className="text-[10px] text-muted-foreground">{pct}%</span>
+                          </TableCell>
+                          <TableCell className="text-xs font-bold">{formatCurrency(item.current_amount)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </ScrollArea>
@@ -432,20 +538,53 @@ const NewCertificatePage = () => {
             </div>
           </div>
 
-          {/* Summary */}
-          <Card className="bg-muted/50">
-            <CardContent className="pt-4 space-y-2">
-              <div className="flex justify-between"><span>{isArabic ? "الأعمال الحالية" : "Current Work Done"}</span><span className="font-bold">{formatCurrency(currentWorkDone)}</span></div>
-              <div className="flex justify-between"><span>{isArabic ? "الأعمال السابقة" : "Previous Work Done"}</span><span>{formatCurrency(previousWorkDone)}</span></div>
-              <div className="flex justify-between"><span>{isArabic ? "إجمالي الأعمال" : "Total Work Done"}</span><span>{formatCurrency(totalWorkDone)}</span></div>
-              <Separator />
-              <div className="flex justify-between text-destructive"><span>{isArabic ? "الاحتجاز" : "Retention"} ({formRetention}%)</span><span>-{formatCurrency(retentionAmount)}</span></div>
-              {formAdvanceDeduction > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصم دفعة مقدمة" : "Advance"}{advancePercentage > 0 ? ` (${advancePercentage}%)` : ''}</span><span>-{formatCurrency(formAdvanceDeduction)}</span></div>}
-              {formOtherDeductions > 0 && <div className="flex justify-between text-destructive"><span>{isArabic ? "خصومات أخرى" : "Other"}</span><span>-{formatCurrency(formOtherDeductions)}</span></div>}
-              <Separator />
-              <div className="flex justify-between text-lg font-bold"><span>{isArabic ? "صافي المستحق" : "Net Amount"}</span><span className="text-primary">{formatCurrency(netAmount)}</span></div>
-            </CardContent>
-          </Card>
+          {/* Overall Progress */}
+          {formItems.length > 0 && (
+            <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium flex items-center gap-1.5">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                    {isArabic ? "نسبة الإنجاز الكلية" : "Overall Progress"}
+                  </span>
+                  <span className="text-sm font-bold text-primary">{overallProgress}%</span>
+                </div>
+                <Progress value={Math.min(overallProgress, 100)} className="h-3" />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Enhanced Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Card className="bg-blue-50/50 dark:bg-blue-950/20 border-blue-200">
+              <CardContent className="pt-3 pb-2 text-center">
+                <TrendingUp className="h-4 w-4 mx-auto text-blue-600 mb-1" />
+                <p className="text-[10px] text-muted-foreground">{isArabic ? "الأعمال الحالية" : "Current Work"}</p>
+                <p className="text-sm font-bold text-blue-700 dark:text-blue-400">{formatCurrency(currentWorkDone)}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/50 border-muted-foreground/20">
+              <CardContent className="pt-3 pb-2 text-center">
+                <FileText className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
+                <p className="text-[10px] text-muted-foreground">{isArabic ? "الأعمال السابقة" : "Previous Work"}</p>
+                <p className="text-sm font-bold">{formatCurrency(previousWorkDone)}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-red-50/50 dark:bg-red-950/20 border-red-200">
+              <CardContent className="pt-3 pb-2 text-center">
+                <DollarSign className="h-4 w-4 mx-auto text-destructive mb-1" />
+                <p className="text-[10px] text-muted-foreground">{isArabic ? "الخصومات" : "Deductions"}</p>
+                <p className="text-sm font-bold text-destructive">-{formatCurrency(retentionAmount + formAdvanceDeduction + formOtherDeductions)}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-green-50/50 dark:bg-green-950/20 border-green-200">
+              <CardContent className="pt-3 pb-2 text-center">
+                <DollarSign className="h-4 w-4 mx-auto text-green-600 mb-1" />
+                <p className="text-[10px] text-muted-foreground">{isArabic ? "صافي المستحق" : "Net Amount"}</p>
+                <p className="text-lg font-bold text-green-700 dark:text-green-400">{formatCurrency(netAmount)}</p>
+              </CardContent>
+            </Card>
+          </div>
 
           <div>
             <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
@@ -456,10 +595,35 @@ const NewCertificatePage = () => {
         {/* Footer Actions */}
         <div className="flex justify-end gap-2 pt-4 border-t form-actions-safe">
           <Button variant="outline" onClick={() => navigate(-1)}>{isArabic ? "إلغاء" : "Cancel"}</Button>
-          <Button onClick={handleCreateCertificate} disabled={!formProjectId || !formContractor || saving}>
+          <Button onClick={handleSaveClick} disabled={!formProjectId || !formContractor || saving}>
             {saving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ المستخلص" : "Save Certificate")}
           </Button>
         </div>
+
+        {/* Confirm Save Dialog */}
+        {showConfirmDialog && (
+          <Dialog open={true} onOpenChange={open => { if (!open) setShowConfirmDialog(false); }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{isArabic ? "تأكيد حفظ المستخلص" : "Confirm Save Certificate"}</DialogTitle>
+                <DialogDescription>{isArabic ? "راجع ملخص المستخلص قبل الحفظ" : "Review certificate summary before saving"}</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">{isArabic ? "المقاول" : "Contractor"}</span><strong>{formContractor}</strong></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">{isArabic ? "بنود معبأة" : "Filled Items"}</span><strong>{filledItemsCount} / {formItems.length}</strong></div>
+                <Separator />
+                <div className="flex justify-between"><span>{isArabic ? "الأعمال الحالية" : "Current Work"}</span><strong>{formatCurrency(currentWorkDone)}</strong></div>
+                <div className="flex justify-between text-destructive"><span>{isArabic ? "الخصومات" : "Deductions"}</span><span>-{formatCurrency(retentionAmount + formAdvanceDeduction + formOtherDeductions)}</span></div>
+                <Separator />
+                <div className="flex justify-between text-lg font-bold"><span>{isArabic ? "صافي المستحق" : "Net Amount"}</span><span className="text-primary">{formatCurrency(netAmount)}</span></div>
+              </div>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>{isArabic ? "مراجعة" : "Review"}</Button>
+                <Button onClick={handleCreateCertificate}>{isArabic ? "تأكيد الحفظ" : "Confirm Save"}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </PageLayout>
   );
