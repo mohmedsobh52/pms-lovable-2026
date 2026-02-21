@@ -1,80 +1,119 @@
 
 
-# تحسين رفع ملفات BOQ - السحب والإفلات + إشعارات التقدم
+# ربط Bulk Historical Pricing بالمشاريع التاريخية المسجلة
 
-## التحسينات المطلوبة
+## المشكلة الحالية
 
-### 1. السحب والإفلات المحسّن مع معاينة فورية
+المكوّن `BulkHistoricalPricing` يبحث في مصدرين فقط:
+1. `historical_pricing_files` (جدول الملفات التاريخية)
+2. `saved_projects` (جدول المشاريع المحفوظة القديم)
 
-الملف `BOQUploadDialog.tsx` يستخدم حالياً مكوّن `FileUpload` الذي يدعم السحب والإفلات لكن بدون معاينة فورية للملف. التحسينات:
+لكنه **لا يبحث في**:
+- `project_data` + `project_items` (المشاريع المسجلة الحالية التي تحتوي على بنود مفصّلة ومسعّرة)
 
-- إضافة معاينة فورية للملف بعد السحب (عدد الصفحات للـ PDF، عدد الأوراق للـ Excel)
-- إضافة تأثيرات بصرية عند السحب فوق منطقة الرفع (حدود متوهجة + أيقونة متحركة)
-- عرض نوع الملف وحجمه بشكل أوضح مع أيقونات ملونة
-- بدء التحليل تلقائياً بعد إفلات الملف (اختياري مع خيار إلغاء)
+كما أن خوارزمية المطابقة بسيطة ولا تستفيد من الوصف العربي (`description_ar`) أو الفئة (`category`).
 
-#### الملف: `src/components/project-details/BOQUploadDialog.tsx`
+## الحل
 
-- إضافة state جديد `isDragOver` للتحكم بتأثيرات السحب
-- إضافة `onDragOver`, `onDragLeave`, `onDrop` مباشرة على `DialogContent`
-- عند إفلات ملف، عرض معاينة سريعة (حجم، نوع، اسم) ثم بدء التحليل تلقائياً
-- إضافة منطقة سحب كبيرة بتصميم جذاب
+### الملف: `src/components/BulkHistoricalPricing.tsx`
 
-### 2. إشعارات تقدم محسّنة مع شريط متحرك
+#### 1. إضافة مصدر بيانات ثالث: `project_data` + `project_items`
 
-#### الملف: `src/components/project-details/BOQUploadDialog.tsx`
-
-- تحسين شريط التقدم بتدرج لوني متحرك (gradient animation)
-- إضافة خطوات مرئية واضحة (استخراج النص > تحليل > حفظ) مع علامات صح لكل خطوة مكتملة
-- عرض النسبة المئوية بجانب الشريط
-- إضافة تقدير الوقت المتبقي
-
-التصميم المقترح للخطوات:
+استعلام البنود من `project_items` مع أسماء المشاريع من `project_data` (باستثناء المشروع الحالي):
 
 ```text
-[1. قراءة الملف] -----> [2. استخراج البنود] -----> [3. حفظ البنود]
-     (done)                 (in progress)              (pending)
+// Fetch project_items with project names (exclude current project)
+const { data: projectItems } = await supabase
+  .from("project_items")
+  .select("description, description_ar, unit, unit_price, quantity, category, project_id, project_data!inner(name)")
+  .gt("unit_price", 0)
+  .neq("is_section", true);
 ```
 
-- كل خطوة تظهر بلون مختلف حسب حالتها:
-  - مكتملة: أخضر مع علامة صح
-  - جارية: أزرق مع حركة دوران
-  - منتظرة: رمادي
+#### 2. تحسين خوارزمية المطابقة
 
-### 3. تحسينات بصرية إضافية
+- مطابقة `description_ar` بالإضافة إلى `description`
+- مكافأة إضافية عند تطابق `category`
+- وزن أعلى للمشاريع الموثقة (`is_verified`)
 
-- إضافة animation للأيقونة عند نجاح الرفع (bounce effect)
-- تحسين ألوان شريط التقدم بتدرج من الأزرق للأخضر كلما اقتربت من الاكتمال
-- إضافة toast notification عند اكتمال كل مرحلة (ليس فقط في النهاية)
+```text
+// Enhanced similarity with Arabic support
+const textScore = Math.max(
+  calculateTextSimilarity(boqItem.description, hi.desc),
+  calculateTextSimilarity(boqItem.description, hi.descAr || "")
+);
+const unitBonus = sameUnit ? 0.15 : 0;
+const categoryBonus = sameCategory ? 0.1 : 0;
+const verifiedBonus = hi.verified ? 0.05 : 0;
+const score = textScore * 0.7 + unitBonus + categoryBonus + verifiedBonus;
+```
+
+#### 3. إضافة prop `currentProjectId` لاستثناء المشروع الحالي
+
+```text
+interface BulkHistoricalPricingProps {
+  items: BOQItem[];
+  onApplyPrices: (prices: Array<{ itemNumber: string; price: number }>) => void;
+  currency: string;
+  currentProjectId?: string; // new - exclude from results
+}
+```
+
+#### 4. عرض مصدر البيانات في الجدول
+
+إضافة عمود "المصدر" يوضح من أين جاء السعر (تاريخي / مشروع محفوظ / مشروع حالي) مع badge ملون.
+
+#### 5. تحسين الشكل
+
+- إضافة أيقونة المصدر بجانب اسم المشروع
+- تلميحات (tooltips) على الأوصاف المقتطعة
+- عرض الفئة والوصف العربي عند توفرهما
+
+### الملف: `src/components/AnalysisResults.tsx`
+
+تمرير `currentProjectId` (من `savedProjectId`) إلى `BulkHistoricalPricing`:
+
+```text
+<BulkHistoricalPricing
+  items={data.items || []}
+  onApplyPrices={...}
+  currency={...}
+  currentProjectId={savedProjectId}
+/>
+```
 
 ## التفاصيل التقنية
 
-### الملف: `src/components/project-details/BOQUploadDialog.tsx`
+### تعديل `BulkMatch` interface
 
-#### التغييرات الرئيسية:
+```text
+interface BulkMatch {
+  // ... existing fields
+  source: "historical" | "saved" | "project"; // new
+  descriptionAr?: string; // new
+  category?: string; // new
+}
+```
 
-1. **State جديدة:**
-   - `isDragOver: boolean` - لتأثير السحب
-   - `currentStep: number` - الخطوة الحالية (1-3)
-   - `completedSteps: number[]` - الخطوات المكتملة
+### مصادر البيانات الثلاثة
 
-2. **دوال جديدة:**
-   - `handleDragOver(e)` / `handleDragLeave(e)` / `handleDrop(e)` - معالجة السحب والإفلات مباشرة على Dialog
-   - `getFilePreviewInfo(file)` - معاينة سريعة للملف
+```text
+المصدر 1: historical_pricing_files (ملفات تاريخية مرفوعة)
+المصدر 2: saved_projects (مشاريع محفوظة قديمة - analysis_data.items)
+المصدر 3: project_items + project_data (بنود المشاريع الحالية المسعّرة)
+```
 
-3. **تحديث `handleAnalyze`:**
-   - تقسيم المعالجة لخطوات واضحة مع تحديث `currentStep`
-   - إضافة toast لكل مرحلة مكتملة
+### ترتيب الأولوية
 
-4. **تحسين UI:**
-   - منطقة سحب بتصميم محسّن مع حدود متقطعة وأيقونة كبيرة
-   - مؤشر خطوات (stepper) يعرض المرحلة الحالية
-   - شريط تقدم بتدرج لوني متحرك
-   - نسبة مئوية واضحة
+عند وجود عدة تطابقات لنفس البند:
+1. بنود من مشاريع موثقة (`is_verified`) تحصل على أولوية أعلى
+2. بنود من `project_items` (مسعّرة تفصيلياً) تحصل على وزن إضافي
+3. أحدث المشاريع تحصل على أفضلية طفيفة
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/project-details/BOQUploadDialog.tsx` | سحب وإفلات محسّن، معاينة فورية، خطوات تقدم مرئية، تحسينات بصرية |
+| `src/components/BulkHistoricalPricing.tsx` | إضافة مصدر `project_items`، تحسين المطابقة، عرض المصدر |
+| `src/components/AnalysisResults.tsx` | تمرير `currentProjectId` |
 
