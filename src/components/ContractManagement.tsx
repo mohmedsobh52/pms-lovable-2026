@@ -67,6 +67,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ContractsPrintPreview } from "@/components/contracts/ContractsPrintPreview";
+import { ContractBOQTab } from "@/components/contracts/ContractBOQTab";
 import { usePagination } from "@/hooks/usePagination";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 
@@ -177,6 +178,7 @@ const TAB_ITEMS = [
   { value: "fidic", labelAr: "FIDIC", labelEn: "FIDIC", icon: "📚" },
   { value: "templates", labelAr: "القوالب", labelEn: "Templates", icon: "📋" },
   { value: "features", labelAr: "الميزات", labelEn: "Features", icon: "⚡" },
+  { value: "boq", labelAr: "بنود التسعير", labelEn: "BOQ Items", icon: "📦" },
   { value: "contracts", labelAr: "العقود الحالية", labelEn: "Current Contracts", icon: "📖" },
 ] as const;
 
@@ -1109,6 +1111,27 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
                 </div>
               ))}
             </div>
+          </TabsContent>
+
+          {/* ============= BOQ ITEMS TAB ============= */}
+          <TabsContent value="boq" className="mt-0 space-y-4">
+            {editingContract || viewingContract ? (
+              <ContractBOQTab
+                contractId={(editingContract || viewingContract)!.id}
+                projectId={projectId || null}
+                contractValue={(editingContract || viewingContract)!.contract_value}
+                currency={(editingContract || viewingContract)!.currency}
+              />
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="text-lg font-medium">{isArabic ? "اختر عقد أولاً" : "Select a contract first"}</p>
+                <p className="text-sm">{isArabic ? "افتح عقد من قائمة العقود الحالية لإدارة بنود التسعير" : "Open a contract from the contracts list to manage BOQ items"}</p>
+                <Button className="mt-4 gap-2" onClick={() => setActiveTab("contracts")}>
+                  {isArabic ? "عرض العقود" : "View Contracts"}
+                </Button>
+              </div>
+            )}
           </TabsContent>
 
           {/* ============= CONTRACTS LIST TAB ============= */}
