@@ -365,10 +365,17 @@ export function BOQAnalyzerPanel({ onProjectSaved, embedded = false, initialFile
       try {
         const localResult = performLocalExcelAnalysis(excelItems, selectedFile?.name);
         
-        const normalizedItems = localResult.items.map(item => ({
-          ...item,
-          remarks: item.validation?.issues.length ? item.validation.issues.join('; ') : undefined,
-        }));
+      const normalizedItems = localResult.items.map(item => {
+          let description_ar = item.description_ar || '';
+          if (!description_ar && item.description && /[\u0600-\u06FF]/.test(item.description)) {
+            description_ar = item.description;
+          }
+          return {
+            ...item,
+            description_ar,
+            remarks: item.validation?.issues.length ? item.validation.issues.join('; ') : undefined,
+          };
+        });
         
         const analysisResult = {
           items: normalizedItems,
@@ -463,6 +470,11 @@ export function BOQAnalyzerPanel({ onProjectSaved, embedded = false, initialFile
         const unitPrice = item.unit_price ?? item.rate ?? 0;
         const quantity = item.quantity ?? 1;
         const totalPrice = item.total_price ?? item.amount ?? (unitPrice * quantity);
+        const description = item.description || '';
+        let description_ar = item.description_ar || '';
+        if (!description_ar && description && /[\u0600-\u06FF]/.test(description)) {
+          description_ar = description;
+        }
         
         return {
           ...item,
@@ -472,6 +484,8 @@ export function BOQAnalyzerPanel({ onProjectSaved, embedded = false, initialFile
           total_price: totalPrice,
           category: item.category || 'غير مصنف',
           unit: item.unit || 'م',
+          description: description || description_ar,
+          description_ar,
         };
       }).filter((item: any) => item.item_number);
 

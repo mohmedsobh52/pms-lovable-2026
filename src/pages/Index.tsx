@@ -79,6 +79,16 @@ function normalizeAnalysisResult(result: any) {
     const quantity = item.quantity ?? item.qty ?? 1;
     const totalPrice = item.total_price ?? item.amount ?? item.total ?? item.totalPrice ?? (unitPrice * quantity);
     
+    // Smart Arabic description detection
+    const description = item.description || item.desc || item.item_description || '';
+    let description_ar = item.description_ar || '';
+    if (!description_ar && description && /[\u0600-\u06FF]/.test(description)) {
+      description_ar = description;
+    }
+    if (description_ar && !description) {
+      // fallback
+    }
+    
     return {
       ...item,
       item_number: item.item_number || item.item_no || item.itemNo || item.itemNumber || '',
@@ -87,7 +97,8 @@ function normalizeAnalysisResult(result: any) {
       total_price: totalPrice,
       category: item.category || item.section_trade || item.section || 'غير مصنف',
       unit: item.unit || item.uom || 'م',
-      description: item.description || item.desc || item.item_description || '',
+      description: description || description_ar,
+      description_ar,
     };
   }).filter((item: any) => item.item_number);
 
