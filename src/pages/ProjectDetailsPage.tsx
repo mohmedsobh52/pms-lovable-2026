@@ -746,36 +746,19 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  // Handle tab change - close any open dialogs first with delay to prevent overlay conflicts
+  // Handle tab change - close any open dialogs and switch tab immediately
   const handleTabChange = useCallback((newTab: string) => {
-    // Check if any dialog is open
-    const hadOpenDialog = showDetailedPriceDialog || showEditItemDialog || showQuickPriceDialog || showAddItemDialog;
+    // Close all open dialogs
+    setShowDetailedPriceDialog(false);
+    setSelectedItemForPricing(null);
+    setShowEditItemDialog(false);
+    setSelectedItemForEdit(null);
+    setShowQuickPriceDialog(null);
+    setShowAddItemDialog(false);
     
-    // Close all open dialogs before changing tabs
-    if (showDetailedPriceDialog) {
-      setShowDetailedPriceDialog(false);
-      setSelectedItemForPricing(null);
-    }
-    if (showEditItemDialog) {
-      setShowEditItemDialog(false);
-      setSelectedItemForEdit(null);
-    }
-    if (showQuickPriceDialog) {
-      setShowQuickPriceDialog(null);
-    }
-    if (showAddItemDialog) {
-      setShowAddItemDialog(false);
-    }
-    
-    // If a dialog was open, wait for it to close completely before changing tab
-    if (hadOpenDialog) {
-      setTimeout(() => {
-        setActiveTab(newTab);
-      }, 100);
-    } else {
-      setActiveTab(newTab);
-    }
-  }, [showDetailedPriceDialog, showEditItemDialog, showQuickPriceDialog, showAddItemDialog]);
+    // Switch tab immediately
+    setActiveTab(newTab);
+  }, []);
 
   // Use useCallback for stable handlers to prevent re-render issues with Radix UI
   const handleStartPricing = useCallback(() => {
