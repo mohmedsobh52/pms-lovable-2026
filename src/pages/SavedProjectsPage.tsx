@@ -232,6 +232,31 @@ export default function SavedProjectsPage() {
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       setProjects(allProjects);
+
+      // تصحيح القيم الفاسدة في قاعدة البيانات (مرة واحدة)
+      (async () => {
+        for (const project of allProjects) {
+          const storedTotal = project.analysis_data?.summary?.total_value || 0;
+          if (storedTotal >= 1e10 || storedTotal < 0) {
+            const correctedTotal = project.total_value;
+            const updatedAnalysis = {
+              ...project.analysis_data,
+              summary: {
+                ...(project.analysis_data?.summary || {}),
+                total_value: correctedTotal,
+              },
+            };
+            await supabase
+              .from('saved_projects')
+              .update({ analysis_data: updatedAnalysis, updated_at: new Date().toISOString() })
+              .eq('id', project.id);
+            await supabase
+              .from('project_data')
+              .update({ analysis_data: updatedAnalysis, total_value: correctedTotal, updated_at: new Date().toISOString() })
+              .eq('id', project.id);
+          }
+        }
+      })();
     } catch (error: any) {
       console.error("Error fetching projects:", error);
       toast({
