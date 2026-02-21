@@ -1,96 +1,53 @@
 
 
-# تحسين أداء وشكل شاشة AI Market Rate Suggestions لدقة تسعير أفضل
+# إصلاح مشكلة التبويبات غير المستجيبة
 
-## التحسينات المقترحة
+## السبب الجذري
 
-### 1. تحسين واجهة المستخدم (UI Improvements)
+المشكلة تكمن في أن مكونات الـ Dialog (QuickPriceDialog, DetailedPriceDialog, EditItemDialog) داخل `AnalysisResults.tsx` تُعرض دائماً في الصفحة حتى عندما تكون مغلقة. هذا يعني أن Radix UI ينشئ عناصر Portal غير مرئية تظل موجودة في الصفحة وتحجب النقر على التبويبات.
 
-#### شاشة MarketRateSuggestions
+بالإضافة لذلك، ملف `dialog-custom.css` أصبح معقداً جداً (538 سطر) مليء بقواعد z-index متضاربة تتعارض مع بعضها.
 
-- **إضافة شريط بحث** في جدول النتائج لتصفية البنود بسرعة
-- **إضافة عمود Min/Max Range** بجانب السعر المقترح لعرض نطاق الأسعار بوضوح
-- **إضافة ملخص إحصائي بصري** بعد التحليل يشمل:
-  - عدد البنود حسب المصدر (Library / Reference / AI) كـ badges ملونة
-  - نسبة الدقة المقدرة
-  - متوسط الانحراف
-- **تحسين عرض الجدول**: إضافة تلوين خلفي للصفوف حسب مستوى الثقة (أخضر فاتح = High، أصفر فاتح = Medium، أحمر فاتح = Low)
-- **إضافة Trend icon** بجانب الـ Variance لعرض اتجاه السعر بصرياً
-- **إضافة tooltip** على كل بند يعرض ملاحظات AI
-- **دعم ثنائي اللغة** كامل (حالياً بعض النصوص بالإنجليزية فقط)
+## الحل
 
-### 2. تحسين الأداء (Performance Improvements)
+### 1. `src/components/AnalysisResults.tsx`
 
-#### الـ Frontend (MarketRateSuggestions.tsx)
+تغليف الـ Dialogs الثلاثة بشرط عرض (conditional rendering) بحيث لا تُضاف للصفحة إلا عند الحاجة:
 
-- **إضافة محاكاة تقدم واقعية** أثناء التحليل (بدلاً من القفز من 0% إلى 100%)
-- **حفظ آخر نتائج تحليل** في `localStorage` لتجنب إعادة التحليل عند فتح الـ dialog مرة أخرى
-- **إضافة زر "Re-analyze"** لإعادة التحليل مع خيار تحديث الأسعار المتغيرة فقط
-
-#### الـ Backend (suggest-market-rates/index.ts)
-
-- **تحسين خوارزمية المطابقة** `findReferencePrice` بإضافة fuzzy matching أفضل للكلمات العربية
-- **زيادة حجم الـ batch** من 15 إلى 20 بند لتقليل عدد الطلبات
-- **إضافة تعليمات أوضح للـ AI** في الـ prompt لتحسين دقة الأسعار للمنطقة المحددة
-
-### 3. تحسين دقة التسعير (Accuracy Improvements)
-
-- **إضافة عمود "Price Range"** يعرض (Min - Max) بتنسيق واضح
-- **تمييز البنود ذات الانحراف العالي** (> 20%) بتنبيه بصري واضح مع اقتراح مراجعة
-- **إضافة مؤشر مصدر محسن** يعرض أيقونة + نص قصير بدلاً من أيقونة فقط
-
----
-
-## التفاصيل التقنية
-
-### الملف: `src/components/MarketRateSuggestions.tsx`
-
-**التغييرات الرئيسية:**
-
-1. إضافة state للبحث وحفظ النتائج:
-```typescript
-const [searchQuery, setSearchQuery] = useState("");
-const [cachedResults, setCachedResults] = useState<{
-  suggestions: MarketRateSuggestion[];
-  timestamp: number;
-  itemCount: number;
-} | null>(null);
+**قبل:**
+```tsx
+<QuickPriceDialog isOpen={!!quickPriceItem} ... />
+<DetailedPriceDialog isOpen={!!detailedPriceItem} ... />
+<EditItemDialog isOpen={!!editItem} ... />
 ```
 
-2. إضافة محاكاة تقدم واقعية عبر `useEffect` + `setInterval` أثناء التحليل
+**بعد:**
+```tsx
+{quickPriceItem && <QuickPriceDialog isOpen={true} ... />}
+{detailedPriceItem && <DetailedPriceDialog isOpen={true} ... />}
+{editItem && <EditItemDialog isOpen={true} ... />}
+```
 
-3. إضافة شريط بحث فوق الجدول مع تصفية `suggestions.filter(...)` على `item_number` و `description`
+هذا يضمن إزالة عناصر Portal من الصفحة تماماً عند إغلاق الـ Dialog.
 
-4. إضافة ملخص إحصائي بصري (بطاقات ملونة) بعد اكتمال التحليل:
-   - عدد مصادر Library (أخضر)
-   - عدد مصادر Reference (أزرق)
-   - عدد مصادر AI (بنفسجي)
-   - نسبة الدقة + متوسط الانحراف
+### 2. `src/components/ui/dialog-custom.css`
 
-5. تحسين الجدول:
-   - إضافة عمود Range يعرض `suggested_min - suggested_max`
-   - تلوين خلفي للصفوف حسب Confidence
-   - إضافة Trend icon بجانب Variance
-   - إضافة tooltip للملاحظات (notes)
+تبسيط وتنظيف ملف CSS:
+- إزالة القواعد المكررة والمتضاربة
+- توحيد استراتيجية z-index بشكل واضح
+- التأكد من أن عناصر الـ Dialog المغلقة لا تتداخل مع باقي العناصر
 
-6. دعم اللغة العربية الكامل لجميع النصوص
+### 3. `src/components/ui/dialog.tsx`
 
-7. حفظ/استرجاع النتائج من `localStorage`
-
-### الملف: `supabase/functions/suggest-market-rates/index.ts`
-
-**التغييرات:**
-
-1. زيادة حجم الـ batch من 15 إلى 20
-2. تحسين prompt الـ AI لتوضيح المنطقة الجغرافية
-3. تحسين fuzzy matching للكلمات العربية في `findReferencePrice`
+إضافة خاصية `data-state` handling محسنة للتأكد من إزالة pointer-events عند الإغلاق.
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/MarketRateSuggestions.tsx` | تحسين UI + أداء + بحث + caching + إحصائيات + دعم عربي |
-| `supabase/functions/suggest-market-rates/index.ts` | تحسين batch size + prompt + fuzzy matching |
+| `src/components/AnalysisResults.tsx` | تغليف الـ Dialogs بـ conditional rendering |
+| `src/components/ui/dialog-custom.css` | تبسيط وإزالة التضاربات |
+| `src/components/ui/dialog.tsx` | تحسين إدارة حالة الإغلاق |
 
 ## لا تغييرات على قاعدة البيانات
 
