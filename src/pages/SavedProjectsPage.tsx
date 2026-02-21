@@ -3,7 +3,8 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   FolderOpen, Trash2, Loader2, Calendar, FileText, Search,
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
-  SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload
+  SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload,
+  TrendingUp, AlertTriangle, ExternalLink, FileSpreadsheet, History
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,53 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+
+// === Helper functions for safe total value display ===
+function getSafeProjectTotal(project: ProjectData): number {
+  const storedTotal = project.total_value || 0;
+  if (storedTotal >= 0 && storedTotal < 1e10) return storedTotal;
+  
+  const items = project.analysis_data?.items || [];
+  if (items.length === 0) return 0;
+  
+  let total = 0;
+  for (const item of items) {
+    const qty = parseFloat(item.quantity) || 0;
+    const price = parseFloat(item.unit_price) || 0;
+    const tp = parseFloat(item.total_price) || 0;
+    const computed = qty * price;
+    
+    let safeTP = tp;
+    if (computed > 0 && tp > 0 && tp / computed > 100) safeTP = computed;
+    else if (computed <= 0 && tp > 1e8) safeTP = 0;
+    else if (!Number.isFinite(tp) || tp > 1e12) safeTP = computed > 0 ? computed : 0;
+    
+    total += safeTP;
+  }
+  
+  return total > 1e12 ? 0 : total;
+}
+
+function formatLargeNumber(value: number, currency?: string): string {
+  const suffix = currency ? ` ${currency}` : '';
+  if (!Number.isFinite(value) || value < 0) return `—${suffix}`;
+  if (value >= 1e9) return `${(value / 1e9).toFixed(2)} B${suffix}`;
+  if (value >= 1e6) return `${(value / 1e6).toFixed(2)} M${suffix}`;
+  if (value >= 1e3) return `${value.toLocaleString()}${suffix}`;
+  return `${value.toFixed(2)}${suffix}`;
+}
+
+function computeSafeTotalFromItems(items: ProjectItem[]): number {
+  return items.reduce((sum, item) => {
+    const tp = item.total_price || 0;
+    const computed = (item.quantity || 0) * (item.unit_price || 0);
+    let safe = tp;
+    if (computed > 0 && tp > 0 && tp / computed > 100) safe = computed;
+    else if (computed <= 0 && tp > 1e8) safe = 0;
+    if (!Number.isFinite(safe)) safe = 0;
+    return sum + safe;
+  }, 0);
+}
 
 interface ProjectData {
   id: string;
@@ -577,7 +625,7 @@ export default function SavedProjectsPage() {
             {filteredProjects.map((project) => (
               <div
                 key={project.id}
-                className="glass-card p-5 hover:border-primary/30 transition-all duration-200 group"
+                className="glass-card p-5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 group"
               >
                 {/* Header */}
                 <div className="flex items-start justify-between gap-2 mb-4">
@@ -596,21 +644,27 @@ export default function SavedProjectsPage() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="p-2 rounded-lg bg-primary/5">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                  <div className="p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+                    <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 mb-1">
                       <Package className="w-3 h-3" />
                       {isArabic ? "البنود" : "Items"}
                     </div>
                     <p className="font-semibold">{project.items_count || 0}</p>
                   </div>
-                  <div className="p-2 rounded-lg bg-primary/5">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                  <div className="p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                    <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 mb-1">
                       <DollarSign className="w-3 h-3" />
                       {isArabic ? "القيمة" : "Value"}
                     </div>
-                    <p className="font-semibold text-primary">
-                      {(project.total_value || 0).toLocaleString()} {project.currency || 'SAR'}
+                    <p className="font-semibold text-primary text-sm">
+                      {formatLargeNumber(getSafeProjectTotal(project), project.currency || 'SAR')}
                     </p>
+                    {(project.total_value || 0) > 1e10 && (
+                      <Badge variant="outline" className="text-amber-600 border-amber-300 text-[10px] mt-1">
+                        <AlertTriangle className="w-3 h-3 mr-1" />
+                        {isArabic ? "تم التصحيح" : "Corrected"}
+                      </Badge>
+                    )}
                   </div>
                 </div>
 
@@ -754,18 +808,32 @@ export default function SavedProjectsPage() {
               <>
                 {/* Summary */}
                 <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="p-3 rounded-lg bg-primary/5">
-                    <p className="text-xs text-muted-foreground">{isArabic ? "البنود" : "Items"}</p>
+                  <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/10">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Package className="w-4 h-4 text-blue-500" />
+                      <p className="text-xs text-muted-foreground">{isArabic ? "البنود" : "Items"}</p>
+                    </div>
                     <p className="font-semibold text-lg">{projectItems.length}</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-green-500/5">
-                    <p className="text-xs text-muted-foreground">{isArabic ? "القيمة الإجمالية" : "Total Value"}</p>
-                    <p className="font-semibold text-lg text-green-600">
-                      {(selectedProject?.total_value || 0).toLocaleString()} {selectedProject?.currency || 'SAR'}
+                  <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
+                    <div className="flex items-center gap-2 mb-1">
+                      <DollarSign className="w-4 h-4 text-emerald-500" />
+                      <p className="text-xs text-muted-foreground">{isArabic ? "القيمة الإجمالية" : "Total Value"}</p>
+                    </div>
+                    <p className="font-semibold text-lg text-emerald-600">
+                      {formatLargeNumber(
+                        projectItems.length > 0 
+                          ? (computeSafeTotalFromItems(projectItems) || getSafeProjectTotal(selectedProject!))
+                          : getSafeProjectTotal(selectedProject!),
+                        selectedProject?.currency || 'SAR'
+                      )}
                     </p>
                   </div>
-                  <div className="p-3 rounded-lg bg-accent/5">
-                    <p className="text-xs text-muted-foreground">{isArabic ? "تاريخ الإنشاء" : "Created"}</p>
+                  <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/10">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Calendar className="w-4 h-4 text-purple-500" />
+                      <p className="text-xs text-muted-foreground">{isArabic ? "تاريخ الإنشاء" : "Created"}</p>
+                    </div>
                     <p className="font-semibold">
                       {selectedProject && new Date(selectedProject.created_at).toLocaleDateString()}
                     </p>
@@ -801,6 +869,63 @@ export default function SavedProjectsPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Smart Suggestions */}
+                {projectItems.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">
+                      {isArabic ? "اقتراحات ذكية" : "Smart Suggestions"}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {/* Open for editing */}
+                      {projectItems.some(item => !item.unit_price || item.unit_price === 0) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 text-xs"
+                          onClick={() => {
+                            setSelectedProject(null);
+                            navigate(`/projects/${selectedProject?.id}`);
+                          }}
+                        >
+                          <Edit className="w-3 h-3" />
+                          {isArabic ? "فتح للتسعير" : "Open for Pricing"}
+                          <Badge variant="secondary" className="text-[10px] px-1">
+                            {projectItems.filter(i => !i.unit_price || i.unit_price === 0).length} {isArabic ? "بدون سعر" : "unpriced"}
+                          </Badge>
+                        </Button>
+                      )}
+                      {/* Export to Excel */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 text-xs"
+                        onClick={() => {
+                          setSelectedProject(null);
+                          navigate(`/projects/${selectedProject?.id}`);
+                        }}
+                      >
+                        <FileSpreadsheet className="w-3 h-3" />
+                        {isArabic ? "تصدير إلى Excel" : "Export to Excel"}
+                      </Button>
+                      {/* Historical comparison */}
+                      {projectItems.length >= 5 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 text-xs"
+                          onClick={() => {
+                            setSelectedProject(null);
+                            navigate('/historical-pricing');
+                          }}
+                        >
+                          <History className="w-3 h-3" />
+                          {isArabic ? "مقارنة تاريخية" : "Historical Compare"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
