@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import OnboardingModal from "@/components/OnboardingModal";
 import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Loader2, FolderOpen, Upload, X, Brain } from "lucide-react";
+import { Loader2, FolderOpen, Upload, X, Brain, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,7 @@ import {
   EditFormData 
 } from "@/components/project-details/types";
 import { AnalysisResults } from "@/components/AnalysisResults";
+import { ContractManagement } from "@/components/ContractManagement";
 
 export default function ProjectDetailsPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -941,6 +942,10 @@ export default function ProjectDetailsPage() {
             <TabsTrigger value="documents" className="flex-shrink-0">
               {isArabic ? "المستندات" : "Documents"}
             </TabsTrigger>
+            <TabsTrigger value="contracts" className="flex items-center gap-1 flex-shrink-0">
+              <FileText className="w-3.5 h-3.5" />
+              {isArabic ? "العقود" : "Contracts"}
+            </TabsTrigger>
             <TabsTrigger value="settings" className="flex-shrink-0">
               {isArabic ? "الإعدادات" : "Settings"}
             </TabsTrigger>
@@ -1056,6 +1061,10 @@ export default function ProjectDetailsPage() {
               formatFileSize={formatFileSize}
               formatDate={formatDate}
             />
+          </TabsContent>
+
+          <TabsContent value="contracts">
+            <ContractManagement projectId={projectId} />
           </TabsContent>
 
           <TabsContent value="settings">
