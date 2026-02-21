@@ -149,6 +149,29 @@ export default function ProjectDetailsPage() {
                           (savedAnalysisData?.items?.reduce?.((sum: number, item: any) => sum + (item.total_price || 0), 0)) || 0,
               items_count: savedAnalysisData?.items?.length || 0,
             };
+
+            // مزامنة: ضمان وجود سجل في project_data لدعم عمليات project_items (RLS)
+            try {
+              const { data: pdExists } = await supabase
+                .from("project_data")
+                .select("id")
+                .eq("id", projectId)
+                .maybeSingle();
+
+              if (!pdExists && user) {
+                await supabase.from("project_data").insert({
+                  id: projectId,
+                  user_id: user.id,
+                  name: savedProject.name || "Untitled",
+                  file_name: (savedProject as any).file_name || "",
+                  analysis_data: savedProject.analysis_data || {},
+                  total_value: projectData.total_value || 0,
+                  items_count: projectData.items_count || 0,
+                });
+              }
+            } catch (syncErr) {
+              console.warn("project_data sync skipped:", syncErr);
+            }
           }
         }
         
