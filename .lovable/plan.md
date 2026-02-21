@@ -1,84 +1,112 @@
 
 
-# إصلاح القيمة الإجمالية وتحسين العرض وإضافة اقتراحات
+# إصلاح القيمة الإجمالية الخاطئة في بطاقات الملفات التاريخية
 
-## المشكلة
+## المشكلة الحقيقية
 
-الصورة تُظهر أن القيمة الإجمالية لا تزال خاطئة "240,568,176,224,047,730,000 SAR" رغم الإصلاحات السابقة. السبب أن البنود المحفوظة في قاعدة البيانات تحتوي على قيم `total_price` تالفة لكنها أقل من حد الأمان الحالي (1e15). عندما يتم جمعها تنتج الرقم الضخم.
+الإصلاحات السابقة عالجت القيمة داخل حوار العرض فقط (View Dialog)، لكن **بطاقة الملف في القائمة** لا تزال تعرض `total_value` المخزن في قاعدة البيانات مباشرة (240 كوينتيليون). السبب:
 
-## الحلول
+1. قائمة الملفات تجلب البيانات بدون عمود `items` (لأسباب أداء)، فلا يمكن حساب `safeTotalValue` من البنود
+2. شرط الإصلاح التلقائي (auto-fix) يعمل فقط عند فتح حوار العرض، لكن المستخدم يرى القيمة الخاطئة قبل أن يفتح الحوار
+3. شرط الإصلاح يشترط `total_value > 1e15` لكن يجب أن يكون `> 1e12`
 
-### 1. إصلاح حساب القيمة الإجمالية (الإصلاح الحقيقي)
+## الحل (3 خطوات)
 
-التعديل على ملفين:
+### 1. تنظيف `total_value` عند عرض القائمة
 
-**`src/lib/historical-data-utils.ts`:**
-- في `normalizeHistoricalItems`: إضافة تحقق من صحة `total_price` بمقارنته مع `quantity * unit_price`. إذا كانت القيمة المحسوبة موجبة والقيمة المخزنة تختلف عنها بأكثر من 100 ضعف، يتم استخدام القيمة المحسوبة
-- في `safeTotalValue`: تخفيض حد الأمان من 1e15 إلى 1e12 (لا يوجد بند واحد بتريليون ريال)، وإضافة فحص إضافي: إذا كان `total_price` يختلف عن `quantity * unit_price` بأكثر من 100 ضعف، يتم استخدام `quantity * unit_price`
+في عرض بطاقة الملف، إذا كانت `total_value > 1e12` يتم عرض "قيمة غير صحيحة" مع علامة تحذير بدلاً من الرقم الضخم.
 
-**`src/pages/HistoricalPricingPage.tsx`:**
-- تحسين حجم حوار العرض وأداء العرض
+### 2. إصلاح تلقائي عند فتح حوار العرض
 
-### 2. تحسين حجم الشاشة والأداء
+تخفيف شرط auto-fix من `> 1e15` إلى `> 1e12`، وإضافة تحديث فوري لقائمة `files` في الذاكرة بعد الإصلاح حتى تظهر القيمة الصحيحة فوراً بدون إعادة تحميل.
 
-- توسيع بطاقات الإحصائيات لتكون أكثر وضوحاً
-- تحسين تنسيق الأرقام الكبيرة (استخدام تنسيق مختصر: K, M, B)
-- إضافة عرض اسم الملف الأصلي بشكل أوضح
+### 3. إضافة زر "إصلاح القيم" في القائمة
 
-### 3. تحسين قسم الاقتراحات
-
-- إضافة أيقونات ملونة مميزة لكل اقتراح
-- إضافة اقتراح "تصدير تقرير مقارنة" للملفات المتعددة
-- إظهار ملخص سريع لأعلى وأقل الأسعار
+إضافة زر صغير بجانب القيمة الخاطئة يقوم بتحميل بنود الملف وإعادة حساب القيمة الصحيحة وتحديث قاعدة البيانات.
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/lib/historical-data-utils.ts` | إصلاح التحقق من total_price + تخفيض حد الأمان |
-| `src/pages/HistoricalPricingPage.tsx` | تحسين العرض + تنسيق الأرقام + اقتراحات محسنة |
+| `src/pages/HistoricalPricingPage.tsx` | تنظيف العرض + إصلاح auto-fix + زر إصلاح |
 
 ## التفاصيل التقنية
 
-### إصلاح normalizeHistoricalItems
-
-```text
-في السطر 360:
-الحالي:
-  total_price: totalPrice > 0 ? totalPrice : quantity * unitPrice
-
-الجديد:
-  // إذا كان total_price المخزن يختلف عن qty*unitPrice بأكثر من 100x، استخدم المحسوب
-  const computed = quantity * unitPrice;
-  let safeTotalPrice = totalPrice;
-  if (computed > 0 && totalPrice > 0 && (totalPrice / computed > 100 || computed / totalPrice > 100)) {
-    safeTotalPrice = computed;
-  }
-  total_price: safeTotalPrice > 0 ? safeTotalPrice : computed
-```
-
-### إصلاح safeTotalValue
+### تنظيف عرض القيمة في البطاقة (سطر 978-982)
 
 ```text
 الحالي:
-  if (!Number.isFinite(tp) || tp > 1e15 || tp < -1e15) return sum;
+  <p className="text-lg font-bold" title={file.total_value?.toLocaleString()}>
+    {formatLargeNumber(file.total_value || 0)}
+  </p>
 
 الجديد:
-  if (!Number.isFinite(tp) || tp > 1e12 || tp < -1e12) return sum;
-  // فحص إضافي: مقارنة مع qty * unit_price
-  const computed = (item.quantity || 0) * (item.unit_price || 0);
-  const safeTP = (computed > 0 && tp > 0 && tp / computed > 100) ? computed : tp;
-  return sum + safeTP;
+  {file.total_value > 1e12 ? (
+    <div className="flex items-center gap-1">
+      <AlertTriangle className="w-4 h-4 text-amber-500" />
+      <span className="text-xs text-amber-600">قيمة تحتاج إصلاح</span>
+      <Button size="sm" variant="ghost" className="h-6 px-2"
+        onClick={(e) => { e.stopPropagation(); fixFileTotal(file); }}>
+        <RefreshCw className="w-3 h-3" />
+      </Button>
+    </div>
+  ) : (
+    <p className="text-lg font-bold">{formatLargeNumber(file.total_value || 0)}</p>
+  )}
 ```
 
-### تنسيق الأرقام الكبيرة
+### دالة fixFileTotal الجديدة
 
 ```text
-function formatLargeNumber(value: number, currency: string): string {
-  if (value >= 1e9) return (value / 1e9).toFixed(2) + ' B ' + currency;
-  if (value >= 1e6) return (value / 1e6).toFixed(2) + ' M ' + currency;
-  if (value >= 1e3) return value.toLocaleString() + ' ' + currency;
-  return value.toFixed(2) + ' ' + currency;
-}
+const fixFileTotal = async (file: HistoricalFileMeta) => {
+  // 1. تحميل بنود الملف من DB
+  const { data } = await supabase
+    .from("historical_pricing_files")
+    .select("items")
+    .eq("id", file.id)
+    .single();
+  
+  // 2. حساب القيمة الصحيحة
+  const normalized = normalizeHistoricalItems(data.items);
+  const correctTotal = safeTotalValue(normalized);
+  
+  // 3. تحديث DB
+  await supabase.from("historical_pricing_files")
+    .update({ total_value: correctTotal })
+    .eq("id", file.id);
+  
+  // 4. تحديث القائمة في الذاكرة فوراً
+  setFiles(prev => prev.map(f => 
+    f.id === file.id ? { ...f, total_value: correctTotal } : f
+  ));
+  
+  toast.success("تم إصلاح القيمة الإجمالية");
+};
 ```
 
+### تعديل شرط auto-fix (سطر 1075-1076)
+
+```text
+الحالي:
+  if (selectedFile.total_value && Math.abs(computedTotal - selectedFile.total_value) > 1 && 
+      (!Number.isFinite(selectedFile.total_value) || selectedFile.total_value > 1e15))
+
+الجديد:
+  if (selectedFile.total_value && Math.abs(computedTotal - selectedFile.total_value) > 1 && 
+      (!Number.isFinite(selectedFile.total_value) || selectedFile.total_value > 1e12 || 
+       (computedTotal > 0 && selectedFile.total_value / computedTotal > 100)))
+```
+
+وإضافة تحديث فوري لقائمة files بعد الإصلاح:
+
+```text
+supabase.from("historical_pricing_files")
+  .update({ total_value: computedTotal })
+  .eq("id", selectedFile.id)
+  .then(() => {
+    // تحديث القائمة فوراً
+    setFiles(prev => prev.map(f => 
+      f.id === selectedFile.id ? { ...f, total_value: computedTotal } : f
+    ));
+  });
+```
