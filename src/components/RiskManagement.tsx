@@ -9,6 +9,7 @@ import {
   X,
   TrendingUp,
   TrendingDown,
+  Brain,
   Loader2,
   Target,
   AlertCircle,
@@ -64,6 +65,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { AutoRiskAnalysis } from "@/components/AutoRiskAnalysis";
 
 interface Risk {
   id: string;
@@ -151,6 +153,7 @@ export function RiskManagement({ projectId }: RiskManagementProps) {
   const [levelFilter, setLevelFilter] = useState("all");
   const [sortBy, setSortBy] = useState("score");
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showAutoAnalysis, setShowAutoAnalysis] = useState(false);
   const [formData, setFormData] = useState({
     risk_title: "",
     risk_description: "",
@@ -368,6 +371,7 @@ export function RiskManagement({ projectId }: RiskManagementProps) {
   const formLevel = getRiskLevel(formScore);
 
   return (
+    <>
     <Card>
       <CardHeader className="border-b bg-gradient-to-r from-orange-500/10 to-red-500/10">
         <div className="flex items-center justify-between">
@@ -384,10 +388,16 @@ export function RiskManagement({ projectId }: RiskManagementProps) {
               </p>
             </div>
           </div>
-          <Button onClick={() => { resetForm(); setIsDialogOpen(true); }} className="gap-2">
-            <Plus className="w-4 h-4" />
-            {isArabic ? "إضافة خطر" : "Add Risk"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setShowAutoAnalysis(true)} className="gap-2">
+              <Brain className="w-4 h-4" />
+              {isArabic ? "تحليل تلقائي" : "AI Analysis"}
+            </Button>
+            <Button onClick={() => { resetForm(); setIsDialogOpen(true); }} className="gap-2">
+              <Plus className="w-4 h-4" />
+              {isArabic ? "إضافة خطر" : "Add Risk"}
+            </Button>
+          </div>
         </div>
       </CardHeader>
 
@@ -915,5 +925,13 @@ export function RiskManagement({ projectId }: RiskManagementProps) {
         </Dialog>
       )}
     </Card>
+
+    <AutoRiskAnalysis
+      open={showAutoAnalysis}
+      onOpenChange={setShowAutoAnalysis}
+      projectId={projectId}
+      onRisksSaved={fetchRisks}
+    />
+    </>
   );
 }
