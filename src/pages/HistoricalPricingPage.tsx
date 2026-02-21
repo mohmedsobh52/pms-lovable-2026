@@ -111,7 +111,7 @@ export default function HistoricalPricingPage() {
   const [originalRowCount, setOriginalRowCount] = useState<number | undefined>();
 
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isArabic } = useLanguage();
 
   const totalPages = Math.ceil(totalFiles / PAGE_SIZE);
@@ -136,7 +136,8 @@ export default function HistoricalPricingPage() {
       // First get count
       const { count, error: countError } = await supabase
         .from("historical_pricing_files")
-        .select("id", { count: "exact", head: true });
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id);
       
       if (countError) throw countError;
       setTotalFiles(count || 0);
@@ -145,6 +146,7 @@ export default function HistoricalPricingPage() {
       const { data, error } = await supabase
         .from("historical_pricing_files")
         .select("id, file_name, project_name, project_location, project_date, currency, items_count, total_value, notes, is_verified, created_at")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .range(from, to);
 
@@ -529,8 +531,11 @@ export default function HistoricalPricingPage() {
   const totalItems = files.reduce((sum, f) => sum + f.items_count, 0);
   const verifiedCount = files.filter(f => f.is_verified).length;
 
+  const [isFixing, setIsFixing] = useState(false);
+
   const fixFileTotal = async (file: HistoricalFileMeta) => {
     try {
+      setIsFixing(true);
       const { data, error } = await supabase
         .from("historical_pricing_files")
         .select("items")
@@ -540,19 +545,43 @@ export default function HistoricalPricingPage() {
       const normalized = normalizeHistoricalItems(Array.isArray(data?.items) ? data.items : []);
       const correctTotal = safeTotalValue(normalized);
       await supabase.from("historical_pricing_files")
-        .update({ total_value: correctTotal })
+        .update({ total_value: correctTotal, items_count: normalized.length })
         .eq("id", file.id);
       setFiles(prev => prev.map(f => 
-        f.id === file.id ? { ...f, total_value: correctTotal } : f
+        f.id === file.id ? { ...f, total_value: correctTotal, items_count: normalized.length } : f
       ));
       toast({ title: "✅ تم إصلاح القيمة الإجمالية" });
     } catch (err: any) {
       toast({ title: "خطأ", description: err.message, variant: "destructive" });
+    } finally {
+      setIsFixing(false);
     }
   };
 
+  // Auto-fix corrupt total when viewing a file
+  useEffect(() => {
+    if (!selectedFile || isLoadingFileItems) return;
+    const normalized = normalizeHistoricalItems(selectedFile.items);
+    const computedTotal = safeTotalValue(normalized);
+    if (selectedFile.total_value && 
+        Math.abs(computedTotal - selectedFile.total_value) > 1 &&
+        (!Number.isFinite(selectedFile.total_value) || selectedFile.total_value > 1e12 || 
+         (computedTotal > 0 && selectedFile.total_value / computedTotal > 100))) {
+      supabase.from("historical_pricing_files")
+        .update({ total_value: computedTotal, items_count: normalized.length })
+        .eq("id", selectedFile.id)
+        .then(() => {
+          setFiles(prev => prev.map(f => 
+            f.id === selectedFile.id ? { ...f, total_value: computedTotal, items_count: normalized.length } : f
+          ));
+          setSelectedFile(prev => prev ? { ...prev, total_value: computedTotal, items_count: normalized.length } : null);
+          console.log('Auto-corrected total_value for', selectedFile.id, 'from', selectedFile.total_value, 'to', computedTotal);
+        });
+    }
+  }, [selectedFile?.id, isLoadingFileItems]);
+
   // Login gate
-  if (!user && !isLoading) {
+  if (!user && !isLoading && !authLoading) {
     return (
       <PageLayout>
         <div className="container mx-auto p-4 md:p-6" dir={isArabic ? "rtl" : "ltr"}>
@@ -1108,20 +1137,7 @@ export default function HistoricalPricingPage() {
               const hasHighVariance = avgUnitPrice > 0 && stdDev / avgUnitPrice > 0.5;
               const isCorruptData = normalizedItems.length > 0 && zeroItems.length / normalizedItems.length > 0.8;
 
-              // Auto-fix corrupt DB total
-              if (selectedFile.total_value && Math.abs(computedTotal - selectedFile.total_value) > 1 && 
-                  (!Number.isFinite(selectedFile.total_value) || selectedFile.total_value > 1e12 || 
-                   (computedTotal > 0 && selectedFile.total_value / computedTotal > 100))) {
-                supabase.from("historical_pricing_files")
-                  .update({ total_value: computedTotal })
-                  .eq("id", selectedFile.id)
-                  .then(() => {
-                    setFiles(prev => prev.map(f => 
-                      f.id === selectedFile.id ? { ...f, total_value: computedTotal } : f
-                    ));
-                    console.log('Auto-corrected total_value for', selectedFile.id);
-                  });
-              }
+              // Auto-fix is now handled by useEffect above
 
               return (
                 <ScrollArea className="max-h-[calc(90vh-200px)]">
