@@ -173,6 +173,101 @@ function autoDetectNumericColumns(
   return augmentedMap;
 }
 
+// Known unit patterns for auto-detection
+const KNOWN_UNITS = [
+  'م', 'م2', 'م3', 'م.ط', 'طن', 'كجم', 'عدد', 'لتر', 'حبة', 'مقطوعية', 'ر.م', 'م.م',
+  'm', 'm2', 'm3', 'kg', 'ton', 'ls', 'no', 'pcs', 'set', 'lump sum', 'l.s', 'nos',
+  'ea', 'each', 'nr', 'trip', 'day', 'month', 'hr', 'sqm', 'cum', 'rm', 'lm',
+];
+
+/**
+ * Auto-detect text columns (description, unit) from data when column mapping fails
+ */
+function autoDetectTextColumns(
+  rawItems: any[],
+  headers: string[],
+  existingMap: Record<string, string>
+): Record<string, string> {
+  const mappedFields = new Set(Object.values(existingMap));
+  const needsDescription = !mappedFields.has('description') && !mappedFields.has('description_ar');
+  const needsUnit = !mappedFields.has('unit');
+
+  if (!needsDescription && !needsUnit) return existingMap;
+
+  const unmappedHeaders = headers.filter(h => !existingMap[h]);
+  const sampleSize = Math.min(rawItems.length, 20);
+  const augmentedMap = { ...existingMap };
+
+  if (needsDescription) {
+    // Find the column with longest average text length
+    let bestDescHeader = '';
+    let bestAvgLen = 0;
+
+    for (const header of unmappedHeaders) {
+      let totalLen = 0;
+      let count = 0;
+      for (let i = 0; i < sampleSize; i++) {
+        const val = rawItems[i]?.[header];
+        if (val != null && String(val).trim()) {
+          const str = String(val).trim();
+          // Skip pure numbers
+          if (!isNumericValue(val)) {
+            totalLen += str.length;
+            count++;
+          }
+        }
+      }
+      const avgLen = count > 0 ? totalLen / count : 0;
+      if (avgLen > bestAvgLen && avgLen > 5) {
+        bestAvgLen = avgLen;
+        bestDescHeader = header;
+      }
+    }
+
+    if (bestDescHeader) {
+      // Detect if it's Arabic text
+      const sampleVal = String(rawItems[0]?.[bestDescHeader] || '');
+      const isArabic = /[\u0600-\u06FF]/.test(sampleVal);
+      augmentedMap[bestDescHeader] = isArabic ? 'description_ar' : 'description';
+      console.log('Auto-detected description column:', bestDescHeader, '(avg length:', bestAvgLen, ')');
+    }
+  }
+
+  if (needsUnit) {
+    const unitLower = KNOWN_UNITS.map(u => u.toLowerCase());
+    let bestUnitHeader = '';
+    let bestUnitScore = 0;
+
+    for (const header of unmappedHeaders) {
+      if (augmentedMap[header]) continue; // already mapped
+      let matchCount = 0;
+      let totalCount = 0;
+      for (let i = 0; i < sampleSize; i++) {
+        const val = rawItems[i]?.[header];
+        if (val != null && String(val).trim()) {
+          totalCount++;
+          const str = String(val).trim().toLowerCase();
+          if (str.length <= 15 && unitLower.some(u => str === u || str.includes(u))) {
+            matchCount++;
+          }
+        }
+      }
+      const score = totalCount > 0 ? matchCount / totalCount : 0;
+      if (score > bestUnitScore && score >= 0.3) {
+        bestUnitScore = score;
+        bestUnitHeader = header;
+      }
+    }
+
+    if (bestUnitHeader) {
+      augmentedMap[bestUnitHeader] = 'unit';
+      console.log('Auto-detected unit column:', bestUnitHeader, '(match ratio:', bestUnitScore, ')');
+    }
+  }
+
+  return augmentedMap;
+}
+
 /**
  * Normalize raw historical items from varied column formats into a unified BOQ structure
  */
@@ -183,8 +278,16 @@ export function normalizeHistoricalItems(rawItems: any[], headers?: string[]): N
   const itemHeaders = headers || Object.keys(rawItems[0] || {});
   let columnMap = buildColumnMap(itemHeaders);
   
+  console.log('normalizeHistoricalItems - Headers:', itemHeaders);
+  console.log('normalizeHistoricalItems - Initial columnMap:', columnMap);
+  
   // Auto-detect numeric columns if quantity/unit_price/total_price are missing
   columnMap = autoDetectNumericColumns(rawItems, itemHeaders, columnMap);
+  
+  // Auto-detect text columns if description/unit are missing
+  columnMap = autoDetectTextColumns(rawItems, itemHeaders, columnMap);
+  
+  console.log('normalizeHistoricalItems - Final columnMap:', columnMap);
 
   return rawItems.map((raw, index) => {
     const item: Partial<NormalizedHistoricalItem> = {

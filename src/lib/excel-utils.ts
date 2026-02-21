@@ -792,16 +792,52 @@ export async function extractRawDataFromExcel(
     return { rows: [], headers: [], sheetNames, totalRows: 0 };
   }
   
-  // Quick header detection (first row with 3+ cells)
+  // Smart header detection - search up to 20 rows, score each candidate
   let headerRowIndex = 0;
-  const maxHeaderSearch = Math.min(5, data.length);
+  let bestHeaderScore = -1;
+  const maxHeaderSearch = Math.min(20, data.length);
+  
   for (let i = 0; i < maxHeaderSearch; i++) {
     const row = data[i];
-    if (row && row.filter(c => c != null && String(c).trim()).length >= 3) {
+    if (!row) continue;
+    const nonEmpty = row.filter(c => c != null && String(c).trim()).length;
+    if (nonEmpty < 3) continue;
+    
+    // Score this row by how many cells match known column patterns
+    const candidateHeaders = row.map(h => h != null ? String(h).trim() : '');
+    const candidateMapping = detectColumnMapping(candidateHeaders);
+    const score = Object.keys(candidateMapping).length;
+    
+    if (score > bestHeaderScore) {
+      bestHeaderScore = score;
       headerRowIndex = i;
-      break;
     }
   }
+  
+  // Fallback: if no column patterns matched, use isLikelyHeaderRow heuristic
+  if (bestHeaderScore <= 0) {
+    for (let i = 0; i < maxHeaderSearch; i++) {
+      const row = data[i];
+      if (!row) continue;
+      const nonEmpty = row.filter(c => c != null && String(c).trim()).length;
+      if (nonEmpty >= 3 && isLikelyHeaderRow(row)) {
+        headerRowIndex = i;
+        break;
+      }
+    }
+    // Last fallback: first row with 3+ cells
+    if (bestHeaderScore <= 0 && headerRowIndex === 0) {
+      for (let i = 0; i < maxHeaderSearch; i++) {
+        const row = data[i];
+        if (row && row.filter(c => c != null && String(c).trim()).length >= 3) {
+          headerRowIndex = i;
+          break;
+        }
+      }
+    }
+  }
+  
+  console.log('extractRawDataFromExcel - Header row index:', headerRowIndex, 'Score:', bestHeaderScore);
   
   const headerRow = data[headerRowIndex] || [];
   const headers = headerRow.map((h, idx) => 
