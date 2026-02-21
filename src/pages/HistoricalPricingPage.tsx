@@ -639,6 +639,42 @@ export default function HistoricalPricingPage() {
                       <span>تم استخراج {uploadedItems.length} بند من أصل {originalRowCount} بند. البنود الزائدة لم يتم تضمينها.</span>
                     </div>
                   )}
+                  
+                  {/* Diagnostic bar - extraction quality */}
+                  {uploadedItems.length > 0 && (() => {
+                    const fields = ['description', 'unit', 'quantity', 'unit_price', 'total_price', 'item_number', 'item_code'];
+                    const mappedFields = fields.filter(f => 
+                      uploadedItems.some(item => {
+                        const val = (item as any)[f];
+                        return val && val !== '' && val !== 0;
+                      })
+                    );
+                    const completeItems = uploadedItems.filter(item => 
+                      item.description && item.unit_price > 0 && item.quantity > 0
+                    );
+                    const completenessRatio = uploadedItems.length > 0 ? completeItems.length / uploadedItems.length : 0;
+                    const isLowQuality = completenessRatio < 0.5;
+                    
+                    return (
+                      <div className={`p-3 rounded-lg border text-sm ${isLowQuality ? 'border-destructive/50 bg-destructive/10' : 'border-primary/30 bg-primary/5'}`}>
+                        <div className="flex items-center gap-4 flex-wrap">
+                          <span className="flex items-center gap-1">
+                            <CheckCircle className={`w-4 h-4 ${isLowQuality ? 'text-destructive' : 'text-primary'}`} />
+                            تم ربط <strong>{mappedFields.length}</strong> من {fields.length} حقل
+                          </span>
+                          <span className="text-muted-foreground">|</span>
+                          <span>
+                            <strong>{Math.round(completenessRatio * 100)}%</strong> من البنود تحتوي بيانات كاملة
+                          </span>
+                        </div>
+                        {isLowQuality && (
+                          <p className="text-xs text-destructive mt-1">
+                            ⚠️ جودة الاستخراج منخفضة - تحقق من تنسيق الملف أو جرب ملف Excel بدلاً من PDF
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Project Details */}
@@ -1025,6 +1061,7 @@ export default function HistoricalPricingPage() {
                 ? Math.sqrt(pricedItems.reduce((s, i) => s + Math.pow(i.unit_price - avgUnitPrice, 2), 0) / pricedItems.length)
                 : 0;
               const hasHighVariance = avgUnitPrice > 0 && stdDev / avgUnitPrice > 0.5;
+              const isCorruptData = normalizedItems.length > 0 && zeroItems.length / normalizedItems.length > 0.8;
 
               // Auto-fix corrupt DB total
               if (selectedFile.total_value && Math.abs(computedTotal - selectedFile.total_value) > 1 && 
@@ -1069,6 +1106,33 @@ export default function HistoricalPricingPage() {
                         <p className="text-xs text-muted-foreground">الموقع</p>
                       </div>
                     </div>
+
+                    {/* Corrupt Data Warning */}
+                    {isCorruptData && (
+                      <div className="p-4 border border-destructive/50 bg-destructive/10 rounded-lg flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-destructive">
+                            بيانات ناقصة - يُنصح بإعادة الرفع
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {Math.round(zeroItems.length / normalizedItems.length * 100)}% من البنود بدون بيانات. هذا الملف تم حفظه قبل تحسين نظام الاستخراج. يُنصح بحذفه وإعادة رفع الملف الأصلي للحصول على نتائج أفضل.
+                          </p>
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            className="mt-2 gap-2"
+                            onClick={() => {
+                              handleDeleteFile(selectedFile.id);
+                              setViewDialogOpen(false);
+                            }}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            حذف هذا الملف وإعادة الرفع
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
                     {selectedFile.notes && (
                       <div className="p-3 bg-muted/50 rounded-lg">

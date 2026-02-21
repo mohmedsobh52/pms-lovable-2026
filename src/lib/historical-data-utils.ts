@@ -17,7 +17,7 @@ const COLUMN_MAPPINGS: Record<string, string[]> = {
   description: ['description', 'desc', 'item description', 'الوصف الانجليزي', 'english description', 'desc.', 'item desc', 'بند', 'العمل', 'نوع العمل', 'work description', 'scope', 'البند', 'scope of work', 'works', 'activity', 'task'],
   description_ar: ['وصف البند', 'الوصف', 'البيان', 'الوصف العربي', 'وصف', 'بيان الأعمال', 'بيان', 'التفاصيل', 'تفصيل', 'الأعمال', 'وصف الأعمال', 'وصف العمل', 'تفاصيل البند'],
   unit: ['unit', 'الوحدة', 'وحدة', 'uom', 'الوحده', 'وحدة القياس', 'unit of measure'],
-  quantity: ['quantity', 'الكمية', 'qty', 'الكميه', 'كمية', 'amount', 'qty.', 'عدد', 'الأعداد', 'count', 'الكمية المطلوبة', 'الكميات', 'المقدار'],
+  quantity: ['quantity', 'الكمية', 'qty', 'الكميه', 'كمية', 'qty.', 'عدد', 'الأعداد', 'count', 'الكمية المطلوبة', 'الكميات', 'المقدار'],
   unit_price: ['price', 'سعر الوحدة', 'unit_price', 'unit price', 'سعر', 'rate', 'unit rate', 'سعر الوحده', 'السعر', 'ثمن الوحدة', 'cost', 'unit cost', 'سعر الوحدة الواحدة', 'فئة السعر', 'الفئة'],
   total_price: ['total', 'الإجمالي', 'الاجمالي', 'total_price', 'المبلغ', 'القيمة', 'إجمالي', 'اجمالي', 'total price', 'المبلغ الإجمالي', 'المبلغ الكلي', 'القيمة الإجمالية', 'sub total', 'subtotal', 'قيمة', 'المجموع', 'total amount', 'total cost'],
   item_code: ['item code', 'كود البند', 'item_code', 'code', 'الكود', 'كود', 'رمز البند', 'wbs', 'wbs code'],
@@ -41,13 +41,20 @@ function convertArabicNumerals(str: string): string {
 export function matchColumnName(columnName: string): string | null {
   const normalized = columnName.trim().toLowerCase().replace(/[\s_-]+/g, ' ');
   
+  // Phase 1: Exact match only (highest priority)
   for (const [field, aliases] of Object.entries(COLUMN_MAPPINGS)) {
-    for (const alias of aliases) {
-      if (normalized === alias.toLowerCase() || normalized.includes(alias.toLowerCase())) {
-        return field;
-      }
+    if (aliases.some(a => normalized === a.toLowerCase())) {
+      return field;
     }
   }
+  
+  // Phase 2: includes as fallback
+  for (const [field, aliases] of Object.entries(COLUMN_MAPPINGS)) {
+    if (aliases.some(a => normalized.includes(a.toLowerCase()))) {
+      return field;
+    }
+  }
+  
   return null;
 }
 
