@@ -1,146 +1,115 @@
 
-
-# تحسين شاشة المستخلصات - الشكل والأداء وسهولة الاستخدام
+# تحسين شاشة إدارة المخاطر - الشكل والأداء وتسهيل تحديد المخاطر
 
 ## ملخص التحسينات
 
-تحسين شامل لصفحتي المستخلصات (القائمة + إنشاء مستخلص جديد) من حيث الشكل البصري والأداء وتسهيل العمل.
+تحسين شامل لصفحة إدارة المخاطر من حيث الشكل البصري والأداء وتسهيل عملية تحديد وتقييم المخاطر.
 
 ---
 
-## 1. تحسينات صفحة قائمة المستخلصات (`ProgressCertificatesPage.tsx`)
+## 1. تحسينات الشكل البصري
 
-### تحسين البطاقات الإحصائية
-- إضافة ألوان خلفية متدرجة لكل بطاقة (أخضر للصافي، أزرق للأعمال الحالية، بنفسجي للمعتمدة)
-- إضافة أيقونات أكبر مع تأثيرات بصرية
-- إضافة نسبة التغيير مقارنة بآخر مستخلص
+### بطاقات الإحصائيات
+- تحويل البطاقات لتصميم gradient مع أيقونات أكبر وأوضح
+- إضافة نسبة المخاطر النشطة من الإجمالي
+- إضافة بطاقة جديدة "متوسط درجة الخطر" مع مؤشر لوني
 
-### تحسين الجدول
-- إضافة عمود **اسم المشروع** بجانب اسم المقاول
-- تلوين صفوف الجدول حسب الحالة (أخضر فاتح = معتمد، أصفر = مقدم، رمادي = مسودة)
-- إضافة **شريط بحث** للبحث في المستخلصات بالرقم أو اسم المقاول
-- إضافة **Progress Bar** يعرض نسبة اكتمال الأعمال بالنسبة لقيمة العقد
-- تحسين أزرار الإجراءات بإضافة Tooltip يشرح كل زر
-- إضافة **فلتر حسب الحالة** (مسودة/مقدم/معتمد/مدفوع) كـ tabs أو أزرار
+### مصفوفة المخاطر (Risk Matrix)
+- تحسين التصميم بإضافة أرقام داخل كل خلية حتى لو كانت صفر (عرض "0" بشفافية خفيفة)
+- إضافة tooltip عند hover على كل خلية يعرض أسماء المخاطر الموجودة فيها
+- تحسين الألوان بتدرج أوضح (أخضر فاتح -> أصفر -> برتقالي -> أحمر -> أحمر غامق)
 
-### تحسين الأداء
-- استخدام `useMemo` للبيانات المفلترة والإحصائيات
-- إضافة `useCallback` للدوال المتكررة
-- إضافة skeleton loading بدلاً من نص "جاري التحميل"
+### الجدول
+- إضافة تلوين خلفي للصفوف حسب مستوى الخطر (أحمر فاتح = حرج، برتقالي فاتح = عالي، أصفر فاتح = متوسط، أخضر فاتح = منخفض)
+- إضافة أيقونة مستوى الخطر بجانب الدرجة
+- إضافة عمود "تاريخ التحديد" و"المسؤول"
+- تحسين أزرار الإجراءات بإضافة Tooltip
 
-### تحسين Dialog العرض
-- إضافة **Progress Bar** للبنود يعرض نسبة الإنجاز من كمية العقد
-- تحسين تخطيط الملخص المالي بألوان وأيقونات
-- إضافة زر **نسخ** للمستخلص لإنشاء مستخلص جديد بنفس البيانات
+### حالة الفراغ (Empty State)
+- تحسين شاشة "لا توجد مخاطر" بإضافة رسم توضيحي ونصوص إرشادية وزر إضافة سريع
 
 ---
 
-## 2. تحسينات صفحة إنشاء مستخلص جديد (`NewCertificatePage.tsx`)
+## 2. تحسينات الأداء
 
-### تحسين جدول البنود
-- إضافة **Progress Bar مصغر** بجانب كل بند يعرض نسبة الإنجاز (سابق + حالي) / كمية العقد
-- تلوين الصف بالأحمر إذا تجاوزت الكمية الإجمالية كمية العقد
-- إضافة **زر "ملء الكل"** لملء الكمية المتبقية تلقائياً لجميع البنود
-- إضافة **زر "ملء بنسبة %"** يسمح بإدخال نسبة مئوية وتطبيقها على كل البنود
-- إضافة عمود **"المتبقي"** يعرض الكمية المتبقية لكل بند
-- إضافة بحث/فلتر في جدول البنود
+- استخدام `useMemo` لحسابات الإحصائيات والفلترة
+- استخدام `useCallback` للدوال (handleSave, handleDelete, fetchRisks)
+- إضافة Skeleton loading بدلاً من spinner بسيط
+- تغليف Dialog بـ conditional rendering لمنع Portal leaking
 
-### تحسين الملخص المالي
-- عرض الملخص كبطاقات ملونة بدلاً من قائمة نصية
-- إضافة **نسبة الإنجاز الكلية** كـ Progress Bar كبير
-- إضافة مقارنة بصرية بين الأعمال الحالية والسابقة (Chart صغير)
+---
 
-### تحسين تجربة المستخدم
-- إضافة **تحقق ذكي** (validation) قبل الحفظ مع رسائل واضحة
-- إضافة **تأكيد قبل الحفظ** يعرض ملخص المستخلص
-- إضافة مؤشر تعبئة البنود (X من Y بند تم تعبئته)
+## 3. تسهيل تحديد المخاطر
+
+### شريط بحث وفلاتر
+- إضافة شريط بحث للبحث بعنوان الخطر أو الوصف
+- إضافة فلتر حسب الفئة (تقني/مالي/جدول زمني/...)
+- إضافة فلتر حسب الحالة (محدد/مقيّم/قيد المعالجة/...)
+- إضافة فلتر حسب مستوى الخطر (حرج/عالي/متوسط/منخفض)
+
+### تحسين نموذج الإضافة
+- إضافة **قوالب مخاطر جاهزة** (Risk Templates) حسب الفئة:
+  - تقني: "تأخر في التسليم التقني"، "فشل في الاختبارات"
+  - مالي: "تجاوز الميزانية"، "تأخر المدفوعات"
+  - جدول زمني: "تأخر بداية المشروع"، "تأخر الموردين"
+  - إلخ...
+- عند اختيار قالب، يملأ العنوان والوصف والفئة والاحتمالية والتأثير تلقائياً
+- إضافة **عرض مرئي تفاعلي** لدرجة الخطر في النموذج (Progress bar ملون يتغير مع تغيير الاحتمالية والتأثير)
+
+### ترتيب وعرض
+- إضافة خيار ترتيب الجدول حسب (الدرجة / الفئة / الحالة / التاريخ)
+- إضافة عداد "X مخاطر نشطة من Y إجمالي"
 
 ---
 
 ## التفاصيل التقنية
 
-### الملف: `src/pages/ProgressCertificatesPage.tsx`
+### الملف: `src/components/RiskManagement.tsx`
 
-**التغييرات:**
+**التغييرات الرئيسية:**
 
-1. إضافة state للبحث وفلتر الحالة:
+1. إضافة states جديدة:
 ```typescript
 const [searchQuery, setSearchQuery] = useState("");
+const [categoryFilter, setCategoryFilter] = useState("all");
 const [statusFilter, setStatusFilter] = useState("all");
+const [levelFilter, setLevelFilter] = useState("all");
+const [sortBy, setSortBy] = useState("score");
 ```
 
-2. تغليف الحسابات بـ `useMemo`:
+2. إضافة قوالب المخاطر الجاهزة:
 ```typescript
-const filtered = useMemo(() => {
-  return certificates.filter(c => {
-    if (statusFilter !== "all" && c.status !== statusFilter) return false;
-    if (filterProjectId && filterProjectId !== "all" && c.project_id !== filterProjectId) return false;
-    if (filterContractor && filterContractor !== "all" && c.contractor_name !== filterContractor) return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return c.contractor_name.toLowerCase().includes(q) || 
-             String(c.certificate_number).includes(q);
-    }
+const riskTemplates = [
+  { title: "تجاوز الميزانية", titleEn: "Budget Overrun", category: "financial", probability: "medium", impact: "high", description: "..." },
+  { title: "تأخر الموردين", titleEn: "Supplier Delay", category: "schedule", probability: "high", impact: "medium", description: "..." },
+  // ... المزيد
+];
+```
+
+3. استخدام `useMemo` للبيانات المفلترة:
+```typescript
+const filteredRisks = useMemo(() => {
+  return risks.filter(r => {
+    if (searchQuery && !r.risk_title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (categoryFilter !== "all" && r.category !== categoryFilter) return false;
+    if (statusFilter !== "all" && r.status !== statusFilter) return false;
+    if (levelFilter !== "all") { /* فلتر المستوى */ }
     return true;
-  });
-}, [certificates, statusFilter, filterProjectId, filterContractor, searchQuery]);
+  }).sort((a, b) => { /* ترتيب حسب sortBy */ });
+}, [risks, searchQuery, categoryFilter, statusFilter, levelFilter, sortBy]);
 ```
 
-3. تحسين بطاقات الإحصائيات بخلفيات ملونة وأيقونات محسنة
+4. تحسين البطاقات الإحصائية بخلفيات gradient وأيقونات
 
-4. إضافة شريط بحث + أزرار فلتر الحالة
+5. إضافة شريط البحث والفلاتر فوق الجدول
 
-5. إضافة Tooltip لأزرار الإجراءات
+6. تحسين الجدول بتلوين الصفوف + Tooltips + أعمدة إضافية
 
-6. إضافة Skeleton loading
+7. إضافة زر "استخدام قالب" في Dialog الإضافة
 
-7. ربط اسم المشروع بكل مستخلص عبر join محلي مع `projects`
+8. تحسين عرض درجة الخطر في النموذج بـ Progress bar تفاعلي
 
-8. إضافة زر "نسخ مستخلص" في القائمة
-
-### الملف: `src/pages/NewCertificatePage.tsx`
-
-**التغييرات:**
-
-1. إضافة أزرار التعبئة السريعة:
-```typescript
-const fillAllRemaining = () => {
-  setFormItems(prev => prev.map(item => {
-    const remaining = item.contract_quantity - item.previous_quantity;
-    return { ...item, current_quantity: remaining, total_quantity: item.contract_quantity, 
-             current_amount: remaining * item.unit_price };
-  }));
-};
-
-const fillByPercentage = (pct: number) => {
-  setFormItems(prev => prev.map(item => {
-    const qty = Math.round((item.contract_quantity * pct / 100 - item.previous_quantity) * 100) / 100;
-    const safeQty = Math.max(0, Math.min(qty, item.contract_quantity - item.previous_quantity));
-    return { ...item, current_quantity: safeQty, total_quantity: item.previous_quantity + safeQty,
-             current_amount: safeQty * item.unit_price };
-  }));
-};
-```
-
-2. إضافة عمود "المتبقي" + Progress Bar مصغر لكل بند
-
-3. إضافة بحث في البنود:
-```typescript
-const [itemSearch, setItemSearch] = useState("");
-const displayItems = useMemo(() => 
-  formItems.filter(i => !itemSearch || 
-    i.description.toLowerCase().includes(itemSearch.toLowerCase()) ||
-    i.item_number.includes(itemSearch)
-  ), [formItems, itemSearch]);
-```
-
-4. إضافة تلوين الصفوف (أحمر إذا تجاوز، أخضر إذا مكتمل)
-
-5. إضافة dialog تأكيد قبل الحفظ مع ملخص
-
-6. تحسين الملخص المالي ببطاقات ملونة + Progress Bar للإنجاز الكلي
-
-7. إضافة عداد البنود المعبأة
+9. تغليف Dialog بـ conditional rendering
 
 ---
 
@@ -148,8 +117,6 @@ const displayItems = useMemo(() =>
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/ProgressCertificatesPage.tsx` | بحث + فلتر حالة + تحسين بطاقات + Skeleton + Tooltip + نسخ مستخلص |
-| `src/pages/NewCertificatePage.tsx` | ملء سريع + Progress Bars + بحث بنود + تأكيد حفظ + ملخص محسن |
+| `src/components/RiskManagement.tsx` | بحث + فلاتر + قوالب + تحسين بصري + أداء |
 
 ## لا تغييرات على قاعدة البيانات
-
