@@ -212,7 +212,12 @@ function normalizeText(text: string): string {
     .replace(/[أإآ]/g, 'ا')
     .replace(/[ى]/g, 'ي')
     .replace(/[ة]/g, 'ه')
-    .replace(/[\s\-_,،.]+/g, ' ')
+    .replace(/[ؤ]/g, 'و')
+    .replace(/[ئ]/g, 'ي')
+    .replace(/[ء]/g, '')
+    .replace(/ال/g, '')
+    .replace(/[\s\-_,،.;:()]+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -223,15 +228,32 @@ function fuzzyMatch(text1: string, text2: string): number {
   if (n1 === n2) return 1;
   if (n1.includes(n2) || n2.includes(n1)) return 0.85;
   
-  const words1 = n1.split(' ').filter(w => w.length > 2);
-  const words2 = n2.split(' ').filter(w => w.length > 2);
+  const words1 = n1.split(' ').filter(w => w.length > 1);
+  const words2 = n2.split(' ').filter(w => w.length > 1);
   
   let matches = 0;
   for (const w1 of words1) {
     for (const w2 of words2) {
-      if (w1 === w2 || w1.includes(w2) || w2.includes(w1)) {
-        matches++;
+      if (w1 === w2) {
+        matches += 1;
         break;
+      }
+      if (w1.includes(w2) || w2.includes(w1)) {
+        matches += 0.7;
+        break;
+      }
+      // Levenshtein-lite for Arabic typos (2-char tolerance for words > 4 chars)
+      if (w1.length > 4 && w2.length > 4) {
+        let diff = 0;
+        const minLen = Math.min(w1.length, w2.length);
+        for (let i = 0; i < minLen; i++) {
+          if (w1[i] !== w2[i]) diff++;
+        }
+        diff += Math.abs(w1.length - w2.length);
+        if (diff <= 2) {
+          matches += 0.5;
+          break;
+        }
       }
     }
   }
@@ -521,24 +543,27 @@ async function processBatch(
       return null;
     }).filter(Boolean).join('\n');
 
-    const systemPrompt = `You are an expert construction cost estimator in Saudi Arabia with 20+ years of experience.
+    const systemPrompt = `You are an expert construction cost estimator specializing in the Middle East and Gulf region with 20+ years of experience.
 Your estimates must be ACCURATE and based on real 2024-2025 market data for ${location}.
 
 CRITICAL CONSTRAINTS:
-1. Your prices MUST be realistic for Saudi Arabia market
-2. Consider current material costs, labor rates, and regional variations
-3. If uncertain, provide conservative estimates within typical ranges
+1. Your prices MUST be realistic for the ${location} market specifically
+2. Consider current material costs, labor rates, supply chain factors, and regional variations within the country
+3. Account for city-specific pricing differences (e.g., Riyadh vs Jeddah vs remote areas)
+4. If uncertain, provide conservative estimates within typical ranges
+5. Currency is SAR (Saudi Riyal) unless otherwise specified
+6. Consider recent inflation, VAT (15%), and municipality fees where applicable
 
-${referenceContext ? `REFERENCE PRICE RANGES (use these as guides):
+${referenceContext ? `REFERENCE PRICE RANGES (use these as calibration guides, adjust for ${location}):
 ${referenceContext}` : ''}
 
 Analyze each BOQ item and provide:
-- suggested_min: Conservative lower bound
-- suggested_max: Upper bound with contingency
-- suggested_avg: Most likely market rate
-- confidence: "High" if common item, "Medium" if specialized, "Low" if uncertain
-- trend: "Increasing", "Stable", or "Decreasing" based on market conditions
-- notes: Brief 10-word max justification`;
+- suggested_min: Conservative lower bound for ${location}
+- suggested_max: Upper bound with contingency for ${location}
+- suggested_avg: Most likely current market rate for ${location}
+- confidence: "High" if common item with well-known pricing, "Medium" if specialized, "Low" if uncertain
+- trend: "Increasing", "Stable", or "Decreasing" based on 2024-2025 market conditions in the region
+- notes: Brief 10-word max justification with key pricing factor`;
 
     const userPrompt = `Analyze these BOQ items for ${location}, Saudi Arabia (prices in SAR):
 
@@ -729,7 +754,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const BATCH_SIZE = 15;
+    const BATCH_SIZE = 20;
     const allSuggestions: MarketRateSuggestion[] = [];
     let totalAI = 0, totalRef = 0, totalLib = 0;
     const totalBatches = Math.ceil(items.length / BATCH_SIZE);
