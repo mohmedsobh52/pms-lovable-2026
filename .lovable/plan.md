@@ -1,38 +1,26 @@
 
 
-# اصلاح مشكلة عدم عمل تبويب "تثبيت الأعمدة" (Pin Columns)
+# اصلاح زر "Back" في شاشة المشاريع
 
 ## المشكلة
 
-عند فتح قائمة "Pin Columns"، لا تعمل أزرار Switch بداخلها. السبب هو تعارض في قيم z-index:
+في ملف `ProjectHeader.tsx`، القسمان الرئيسيان يستخدمان نفس الـ z-index:
+- الـ Header (يحتوي على زر Back): `z-[60]` (سطر 46)
+- قسم عنوان المشروع أسفله: `z-[60]` (سطر 97)
 
-- الـ PopoverContent يستخدم `z-index: 50`
-- لكن CSS المخصص يفرض `z-index: 56 !important` على عناصر التبويب `[role="tab"]`
-- هذا يجعل عناصر التبويب تغطي محتوى الـ Popover وتمنع التفاعل مع Switch
+عند التمرير، قسم العنوان يغطي الـ Header ويمنع النقر على زر Back.
 
 ## الحل
 
-### الملف: `src/components/ui/dialog-custom.css`
-
-اضافة قاعدة CSS لرفع z-index الخاص بـ Popover portal wrapper فوق مستوى التبويبات:
-
-```css
-[data-radix-popper-content-wrapper] {
-  z-index: 60 !important;
-  pointer-events: auto !important;
-}
-```
-
-### الملف: `src/components/ui/popover.tsx`
-
-رفع z-index الافتراضي للـ PopoverContent من `z-50` الى `z-[60]` ليكون فوق مستوى التبويبات.
+تخفيض z-index لقسم عنوان المشروع من `z-[60]` الى `z-[40]` حتى لا يتداخل مع الـ Header.
 
 ## التفاصيل التقنية
 
-| الملف | التغيير |
-|-------|---------|
-| `src/components/ui/dialog-custom.css` | اضافة قاعدة z-index للـ popper wrapper |
-| `src/components/ui/popover.tsx` | رفع z-index الافتراضي من 50 الى 60 |
+### الملف: `src/components/project-details/ProjectHeader.tsx`
 
-اصلاح بسيط في ملفين فقط، بدون تأثير على باقي المكونات.
+| السطر | التغيير |
+|-------|---------|
+| 97 | تغيير `z-[60]` الى `z-[40]` في div عنوان المشروع |
+
+تغيير بسيط في سطر واحد فقط.
 
