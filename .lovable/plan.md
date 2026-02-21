@@ -1,113 +1,96 @@
 
 
-# إضافة تبويب "Edit" في القائمة المنسدلة لبنود التحليل
+# تحسين أداء وشكل شاشة AI Market Rate Suggestions لدقة تسعير أفضل
 
-## الهدف
+## التحسينات المقترحة
 
-إضافة خيار "Edit" في القائمة المنسدلة (Dropdown) بين "Detailed Price" و "Clear Price" يفتح شاشة `EditItemDialog` الكاملة التي تحتوي على:
-- تبديل Section Header
-- رقم البند والوحدة
-- الوصف بالإنجليزية والعربية
-- الكمية
-- الفئة والفئة الفرعية
-- المواصفات
-- زر حفظ التغييرات
+### 1. تحسين واجهة المستخدم (UI Improvements)
 
-## التغييرات
+#### شاشة MarketRateSuggestions
 
-### الملف: `src/components/AnalysisResults.tsx`
+- **إضافة شريط بحث** في جدول النتائج لتصفية البنود بسرعة
+- **إضافة عمود Min/Max Range** بجانب السعر المقترح لعرض نطاق الأسعار بوضوح
+- **إضافة ملخص إحصائي بصري** بعد التحليل يشمل:
+  - عدد البنود حسب المصدر (Library / Reference / AI) كـ badges ملونة
+  - نسبة الدقة المقدرة
+  - متوسط الانحراف
+- **تحسين عرض الجدول**: إضافة تلوين خلفي للصفوف حسب مستوى الثقة (أخضر فاتح = High، أصفر فاتح = Medium، أحمر فاتح = Low)
+- **إضافة Trend icon** بجانب الـ Variance لعرض اتجاه السعر بصرياً
+- **إضافة tooltip** على كل بند يعرض ملاحظات AI
+- **دعم ثنائي اللغة** كامل (حالياً بعض النصوص بالإنجليزية فقط)
 
-#### 1. استيراد EditItemDialog و أيقونة Edit
+### 2. تحسين الأداء (Performance Improvements)
 
+#### الـ Frontend (MarketRateSuggestions.tsx)
+
+- **إضافة محاكاة تقدم واقعية** أثناء التحليل (بدلاً من القفز من 0% إلى 100%)
+- **حفظ آخر نتائج تحليل** في `localStorage` لتجنب إعادة التحليل عند فتح الـ dialog مرة أخرى
+- **إضافة زر "Re-analyze"** لإعادة التحليل مع خيار تحديث الأسعار المتغيرة فقط
+
+#### الـ Backend (suggest-market-rates/index.ts)
+
+- **تحسين خوارزمية المطابقة** `findReferencePrice` بإضافة fuzzy matching أفضل للكلمات العربية
+- **زيادة حجم الـ batch** من 15 إلى 20 بند لتقليل عدد الطلبات
+- **إضافة تعليمات أوضح للـ AI** في الـ prompt لتحسين دقة الأسعار للمنطقة المحددة
+
+### 3. تحسين دقة التسعير (Accuracy Improvements)
+
+- **إضافة عمود "Price Range"** يعرض (Min - Max) بتنسيق واضح
+- **تمييز البنود ذات الانحراف العالي** (> 20%) بتنبيه بصري واضح مع اقتراح مراجعة
+- **إضافة مؤشر مصدر محسن** يعرض أيقونة + نص قصير بدلاً من أيقونة فقط
+
+---
+
+## التفاصيل التقنية
+
+### الملف: `src/components/MarketRateSuggestions.tsx`
+
+**التغييرات الرئيسية:**
+
+1. إضافة state للبحث وحفظ النتائج:
 ```typescript
-import EditItemDialog from "@/components/items/EditItemDialog";
-import { ..., Pencil, ... } from "lucide-react";
+const [searchQuery, setSearchQuery] = useState("");
+const [cachedResults, setCachedResults] = useState<{
+  suggestions: MarketRateSuggestion[];
+  timestamp: number;
+  itemCount: number;
+} | null>(null);
 ```
 
-#### 2. إضافة state لتتبع البند المختار للتعديل
+2. إضافة محاكاة تقدم واقعية عبر `useEffect` + `setInterval` أثناء التحليل
 
-```typescript
-const [editItem, setEditItem] = useState<any>(null);
-```
+3. إضافة شريط بحث فوق الجدول مع تصفية `suggestions.filter(...)` على `item_number` و `description`
 
-#### 3. إضافة خيار "Edit" في الـ Dropdown
+4. إضافة ملخص إحصائي بصري (بطاقات ملونة) بعد اكتمال التحليل:
+   - عدد مصادر Library (أخضر)
+   - عدد مصادر Reference (أزرق)
+   - عدد مصادر AI (بنفسجي)
+   - نسبة الدقة + متوسط الانحراف
 
-بين "Detailed Price" و فاصل "Clear Price":
+5. تحسين الجدول:
+   - إضافة عمود Range يعرض `suggested_min - suggested_max`
+   - تلوين خلفي للصفوف حسب Confidence
+   - إضافة Trend icon بجانب Variance
+   - إضافة tooltip للملاحظات (notes)
 
-```tsx
-<DropdownMenuSeparator />
-{/* Edit */}
-<DropdownMenuItem
-  onClick={() => {
-    setEditItem({
-      id: item.item_number,
-      item_number: item.item_number,
-      description: item.description,
-      description_ar: item.description_ar || null,
-      unit: item.unit,
-      quantity: item.quantity,
-      unit_price: item.unit_price || null,
-      total_price: item.total_price || null,
-      category: item.category || null,
-      subcategory: item.subcategory || null,
-      specifications: item.specifications || null,
-      is_section: item.is_section || false,
-    });
-  }}
-  className="gap-2 cursor-pointer"
->
-  <Pencil className="w-4 h-4 text-blue-600" />
-  <span>{isArabic ? "تعديل" : "Edit"}</span>
-</DropdownMenuItem>
-```
+6. دعم اللغة العربية الكامل لجميع النصوص
 
-#### 4. إضافة EditItemDialog في نهاية الـ JSX
+7. حفظ/استرجاع النتائج من `localStorage`
 
-```tsx
-<EditItemDialog
-  isOpen={!!editItem}
-  onClose={() => setEditItem(null)}
-  item={editItem}
-  onSave={async (updatedItem) => {
-    // تحديث البند محلياً في بيانات التحليل
-    if (editItem && data.items) {
-      const itemIndex = data.items.findIndex(
-        (i: any) => i.item_number === editItem.item_number
-      );
-      if (itemIndex !== -1) {
-        data.items[itemIndex] = {
-          ...data.items[itemIndex],
-          ...updatedItem,
-        };
-      }
-    }
-    toast({
-      title: isArabic ? "تم حفظ التغييرات" : "Changes saved",
-    });
-    setEditItem(null);
-  }}
-/>
-```
+### الملف: `supabase/functions/suggest-market-rates/index.ts`
 
-عند الحفظ، يتم تحديث البند مباشرة في مصفوفة `data.items` المحلية وإظهار رسالة نجاح.
+**التغييرات:**
 
-## ترتيب القائمة النهائي
-
-```text
-$ Quick Price
-= Detailed Price
-──────────
-/ Edit
-──────────
-x Clear Price
-──────────
-D Delete (أحمر)
-```
+1. زيادة حجم الـ batch من 15 إلى 20
+2. تحسين prompt الـ AI لتوضيح المنطقة الجغرافية
+3. تحسين fuzzy matching للكلمات العربية في `findReferencePrice`
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/AnalysisResults.tsx` | استيراد `EditItemDialog` + `Pencil` + state `editItem` + خيار Edit في الـ Dropdown + الـ Dialog |
+| `src/components/MarketRateSuggestions.tsx` | تحسين UI + أداء + بحث + caching + إحصائيات + دعم عربي |
+| `supabase/functions/suggest-market-rates/index.ts` | تحسين batch size + prompt + fuzzy matching |
 
 ## لا تغييرات على قاعدة البيانات
+
