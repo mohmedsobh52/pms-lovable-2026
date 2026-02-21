@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Calculator, TrendingUp, Users, Package, Wrench, Building2, AlertCircle, Sparkles, Loader2, Edit2, Save, X, Check, PieChart as PieChartIcon, Trash2, RefreshCw, ArrowUpDown, Lightbulb, Shield, DollarSign } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Calculator, TrendingUp, Users, Package, Wrench, Building2, AlertCircle, Sparkles, Loader2, Edit2, Save, X, Check, PieChart as PieChartIcon, Trash2, RefreshCw, ArrowUpDown, Lightbulb, Shield, DollarSign, FileDown, FileSpreadsheet, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -9,7 +9,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 
 interface BOQItem {
   item_number: string;
@@ -391,6 +395,197 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
     return <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
   };
 
+  // --- Comparison Data ---
+  const comparisonData = useMemo(() => {
+    if (!displayResult?.cost_analysis) return [];
+    return displayResult.cost_analysis
+      .map((item, idx) => {
+        const originalPrice = items[idx]?.unit_price || 0;
+        const aiPrice = item.unit_price || 0;
+        if (originalPrice <= 0) return null;
+        const diff = ((aiPrice - originalPrice) / originalPrice) * 100;
+        return {
+          name: (items[idx]?.item_number || `${idx + 1}`) + '',
+          fullDesc: item.item_description?.substring(0, 30) || '',
+          originalPrice,
+          aiPrice,
+          diff,
+        };
+      })
+      .filter(Boolean) as Array<{ name: string; fullDesc: string; originalPrice: number; aiPrice: number; diff: number }>;
+  }, [displayResult, items]);
+
+  const comparisonStats = useMemo(() => {
+    if (comparisonData.length === 0) return null;
+    const totalOriginal = comparisonData.reduce((s, d) => s + d.originalPrice, 0);
+    const totalAI = comparisonData.reduce((s, d) => s + d.aiPrice, 0);
+    const avgDiff = comparisonData.reduce((s, d) => s + d.diff, 0) / comparisonData.length;
+    const higher = comparisonData.filter(d => d.diff > 0).length;
+    const lower = comparisonData.filter(d => d.diff < 0).length;
+    const potentialSavings = comparisonData.reduce((s, d) => s + (d.diff < 0 ? (d.originalPrice - d.aiPrice) : 0), 0);
+    return { totalOriginal, totalAI, avgDiff, higher, lower, potentialSavings, totalDiffPercent: totalOriginal > 0 ? ((totalAI - totalOriginal) / totalOriginal) * 100 : 0 };
+  }, [comparisonData]);
+
+  // --- Export PDF ---
+  const exportToPDF = () => {
+    if (!displayResult) return;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Title
+    doc.setFontSize(16);
+    doc.text(isArabic ? 'تقرير تحليل التكاليف' : 'Cost Analysis Report', pageWidth / 2, 20, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text(new Date().toLocaleDateString(isArabic ? 'ar-SA' : 'en-US'), pageWidth / 2, 28, { align: 'center' });
+
+    // Summary table
+    doc.setFontSize(12);
+    doc.text(isArabic ? 'ملخص التكاليف' : 'Cost Summary', 14, 38);
+    
+    autoTable(doc, {
+      startY: 42,
+      head: [[isArabic ? 'الفئة' : 'Category', isArabic ? 'المبلغ' : 'Amount', '%']],
+      body: [
+        [isArabic ? 'المواد' : 'Materials', formatNumber(displayResult.summary?.total_materials || 0), ((displayResult.summary?.total_materials || 0) / (displayResult.summary?.grand_total || 1) * 100).toFixed(1) + '%'],
+        [isArabic ? 'العمالة' : 'Labor', formatNumber(displayResult.summary?.total_labor || 0), ((displayResult.summary?.total_labor || 0) / (displayResult.summary?.grand_total || 1) * 100).toFixed(1) + '%'],
+        [isArabic ? 'المعدات' : 'Equipment', formatNumber(displayResult.summary?.total_equipment || 0), ((displayResult.summary?.total_equipment || 0) / (displayResult.summary?.grand_total || 1) * 100).toFixed(1) + '%'],
+        [isArabic ? 'غير مباشرة' : 'Indirect', formatNumber(displayResult.summary?.total_indirect_costs || 0), ((displayResult.summary?.total_indirect_costs || 0) / (displayResult.summary?.grand_total || 1) * 100).toFixed(1) + '%'],
+        [isArabic ? 'أرباح' : 'Profit', formatNumber(displayResult.summary?.total_profit || 0), ((displayResult.summary?.total_profit || 0) / (displayResult.summary?.grand_total || 1) * 100).toFixed(1) + '%'],
+      ],
+      foot: [[isArabic ? 'الإجمالي' : 'Grand Total', formatNumber(displayResult.summary?.grand_total || 0), '100%']],
+      styles: { fontSize: 9, halign: 'center' },
+      headStyles: { fillColor: [59, 130, 246] },
+      footStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold' },
+    });
+
+    // Items detail table
+    const finalY = (doc as any).lastAutoTable?.finalY || 100;
+    doc.setFontSize(12);
+    doc.text(isArabic ? 'تفاصيل البنود' : 'Items Detail', 14, finalY + 10);
+
+    autoTable(doc, {
+      startY: finalY + 14,
+      head: [[
+        isArabic ? 'رقم' : '#',
+        isArabic ? 'الوصف' : 'Description',
+        isArabic ? 'الكمية' : 'Qty',
+        isArabic ? 'سعر الوحدة' : 'Unit Price',
+        isArabic ? 'الإجمالي' : 'Total',
+        isArabic ? 'الفرق%' : 'Diff%',
+      ]],
+      body: displayResult.cost_analysis?.map((item, idx) => {
+        const origPrice = items[idx]?.unit_price || 0;
+        const diff = origPrice > 0 ? ((item.unit_price - origPrice) / origPrice * 100).toFixed(1) : '-';
+        return [
+          items[idx]?.item_number || idx + 1,
+          (item.item_description || '').substring(0, 40),
+          items[idx]?.quantity || 1,
+          formatNumber(item.unit_price),
+          formatNumber(item.total_cost),
+          typeof diff === 'string' ? diff : diff + '%',
+        ];
+      }) || [],
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [59, 130, 246] },
+      columnStyles: { 1: { cellWidth: 50 } },
+    });
+
+    // Page numbers
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`${i} / ${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+    }
+
+    doc.save(`cost-analysis-${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast({ title: t('تم التصدير', 'Exported'), description: t('تم حفظ تقرير PDF', 'PDF report saved') });
+  };
+
+  // --- Export Excel ---
+  const exportToExcel = async () => {
+    if (!displayResult) return;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'PMS Cost Analysis';
+    
+    // Sheet 1: Summary
+    const ws1 = wb.addWorksheet(isArabic ? 'الملخص' : 'Summary');
+    ws1.columns = [
+      { header: isArabic ? 'الفئة' : 'Category', key: 'cat', width: 25 },
+      { header: isArabic ? 'المبلغ' : 'Amount', key: 'amount', width: 20 },
+      { header: '%', key: 'pct', width: 12 },
+    ];
+    const gt = displayResult.summary?.grand_total || 1;
+    const summaryRows = [
+      { cat: isArabic ? 'المواد' : 'Materials', amount: displayResult.summary?.total_materials || 0, pct: ((displayResult.summary?.total_materials || 0) / gt * 100).toFixed(1) + '%' },
+      { cat: isArabic ? 'العمالة' : 'Labor', amount: displayResult.summary?.total_labor || 0, pct: ((displayResult.summary?.total_labor || 0) / gt * 100).toFixed(1) + '%' },
+      { cat: isArabic ? 'المعدات' : 'Equipment', amount: displayResult.summary?.total_equipment || 0, pct: ((displayResult.summary?.total_equipment || 0) / gt * 100).toFixed(1) + '%' },
+      { cat: isArabic ? 'غير مباشرة' : 'Indirect', amount: displayResult.summary?.total_indirect_costs || 0, pct: ((displayResult.summary?.total_indirect_costs || 0) / gt * 100).toFixed(1) + '%' },
+      { cat: isArabic ? 'أرباح' : 'Profit', amount: displayResult.summary?.total_profit || 0, pct: ((displayResult.summary?.total_profit || 0) / gt * 100).toFixed(1) + '%' },
+      { cat: isArabic ? 'الإجمالي' : 'Grand Total', amount: displayResult.summary?.grand_total || 0, pct: '100%' },
+    ];
+    summaryRows.forEach(r => ws1.addRow(r));
+    // Style header
+    ws1.getRow(1).eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '3B82F6' } };
+      cell.font = { bold: true, color: { argb: 'FFFFFF' } };
+    });
+    // Style total row
+    const lastRow = ws1.getRow(ws1.rowCount);
+    lastRow.eachCell(cell => {
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EEF2FF' } };
+    });
+
+    // Sheet 2: Details
+    const ws2 = wb.addWorksheet(isArabic ? 'التفاصيل' : 'Details');
+    ws2.columns = [
+      { header: isArabic ? 'رقم البند' : 'Item #', key: 'num', width: 12 },
+      { header: isArabic ? 'الوصف' : 'Description', key: 'desc', width: 40 },
+      { header: isArabic ? 'الكمية' : 'Qty', key: 'qty', width: 10 },
+      { header: isArabic ? 'مواد' : 'Materials', key: 'mat', width: 15 },
+      { header: isArabic ? 'عمالة' : 'Labor', key: 'lab', width: 15 },
+      { header: isArabic ? 'معدات' : 'Equipment', key: 'eq', width: 15 },
+      { header: isArabic ? 'مباشرة' : 'Direct', key: 'direct', width: 15 },
+      { header: isArabic ? 'غير مباشرة' : 'Indirect', key: 'indirect', width: 15 },
+      { header: isArabic ? 'ربح' : 'Profit', key: 'profit', width: 12 },
+      { header: isArabic ? 'الإجمالي' : 'Total', key: 'total', width: 15 },
+      { header: isArabic ? 'سعر الوحدة' : 'Unit Price', key: 'up', width: 15 },
+      { header: isArabic ? 'الفرق%' : 'Diff%', key: 'diff', width: 10 },
+    ];
+    displayResult.cost_analysis?.forEach((item, idx) => {
+      const origPrice = items[idx]?.unit_price || 0;
+      const diff = origPrice > 0 ? ((item.unit_price - origPrice) / origPrice * 100).toFixed(1) + '%' : '-';
+      ws2.addRow({
+        num: items[idx]?.item_number || idx + 1,
+        desc: item.item_description || '',
+        qty: items[idx]?.quantity || 1,
+        mat: item.materials?.total || 0,
+        lab: item.labor?.total || 0,
+        eq: item.equipment?.total || 0,
+        direct: item.total_direct || 0,
+        indirect: item.total_indirect || 0,
+        profit: item.profit_amount || 0,
+        total: item.total_cost || 0,
+        up: item.unit_price || 0,
+        diff,
+      });
+    });
+    ws2.getRow(1).eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '3B82F6' } };
+      cell.font = { bold: true, color: { argb: 'FFFFFF' } };
+    });
+    // Number formatting
+    ['mat', 'lab', 'eq', 'direct', 'indirect', 'profit', 'total', 'up'].forEach(key => {
+      const colIdx = ws2.columns.findIndex(c => c.key === key) + 1;
+      if (colIdx > 0) ws2.getColumn(colIdx).numFmt = '#,##0.00';
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `cost-analysis-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast({ title: t('تم التصدير', 'Exported'), description: t('تم حفظ تقرير Excel', 'Excel report saved') });
+  };
+
   return (
     <div className="space-y-6">
       {/* Controls */}
@@ -477,8 +672,16 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
       {/* Analysis Results */}
       {displayResult && (
         <div className="space-y-6 animate-slide-up">
-          {/* Finalize Button */}
-          <div className="flex justify-end">
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={exportToPDF} className="gap-2">
+              <FileDown className="w-4 h-4" />
+              {t("تصدير PDF", "Export PDF")}
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-2">
+              <FileSpreadsheet className="w-4 h-4" />
+              {t("تصدير Excel", "Export Excel")}
+            </Button>
             <Button onClick={finalizeAnalysis} variant="default" className="gap-2">
               <Check className="w-4 h-4" />
               {t("اعتماد التحليل", "Finalize Analysis")}
@@ -593,6 +796,78 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
               </div>
             </CardContent>
           </Card>
+
+          {/* AI vs Original Price Comparison */}
+          {comparisonData.length > 0 && comparisonStats && (
+            <>
+              {/* Comparison Stats Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card className="border-blue-500/20">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground mb-1">{t('إجمالي أصلي', 'Original Total')}</p>
+                    <p className="text-lg font-bold text-blue-600">{formatNumber(comparisonStats.totalOriginal)}</p>
+                    <p className="text-xs text-muted-foreground">{currency}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-purple-500/20">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground mb-1">{t('إجمالي AI', 'AI Total')}</p>
+                    <p className="text-lg font-bold text-purple-600">{formatNumber(comparisonStats.totalAI)}</p>
+                    <p className="text-xs text-muted-foreground">{currency} ({comparisonStats.totalDiffPercent > 0 ? '+' : ''}{comparisonStats.totalDiffPercent.toFixed(1)}%)</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-green-500/20">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground mb-1">{t('بنود أقل تكلفة', 'Lower Cost Items')}</p>
+                    <p className="text-lg font-bold text-green-600">{comparisonStats.lower}</p>
+                    <p className="text-xs text-muted-foreground">{t('وفر محتمل', 'Potential Savings')}: {formatNumber(comparisonStats.potentialSavings)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-red-500/20">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground mb-1">{t('بنود أعلى تكلفة', 'Higher Cost Items')}</p>
+                    <p className="text-lg font-bold text-red-600">{comparisonStats.higher}</p>
+                    <p className="text-xs text-muted-foreground">{t('متوسط الفرق', 'Avg Diff')}: {comparisonStats.avgDiff > 0 ? '+' : ''}{comparisonStats.avgDiff.toFixed(1)}%</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Comparison BarChart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    {t('مقارنة سعر الوحدة: أصلي vs ذكاء اصطناعي', 'Unit Price Comparison: Original vs AI')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[350px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={comparisonData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                        <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                        <RechartsTooltip
+                          formatter={(value: number, name: string) => [
+                            `${formatNumber(value)} ${currency}`,
+                            name === 'originalPrice' ? t('السعر الأصلي', 'Original Price') : t('سعر AI', 'AI Price'),
+                          ]}
+                          labelFormatter={(label) => {
+                            const item = comparisonData.find(d => d.name === label);
+                            return item ? `${t('بند', 'Item')} ${label}: ${item.fullDesc}` : label;
+                          }}
+                          contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                        />
+                        <Legend formatter={(value) => value === 'originalPrice' ? t('السعر الأصلي', 'Original') : t('سعر AI', 'AI Price')} />
+                        <Bar dataKey="originalPrice" fill="hsl(221, 83%, 53%)" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="aiPrice" fill="hsl(271, 81%, 56%)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
 
           {/* Items Summary Table */}
           <Card>
