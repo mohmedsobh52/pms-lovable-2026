@@ -1,80 +1,41 @@
 
 
-# إضافة التحكم في عرض أعمدة الوصف مع Wrap Text
+# عرض القيمة الإجمالية كاملة بدون اختصار (M)
 
 ## المشكلة
 
-من الصورة المرفقة، النص العربي الطويل يأخذ مساحة رأسية كبيرة جداً لأن العمود ضيق والنص يتكسر على أسطر كثيرة. المستخدم يريد التحكم في عرض العمود مع ضمان التفاف النص (Wrap Text).
+الدالة `formatLargeNumber` في `src/pages/SavedProjectsPage.tsx` (سطر 80) تختصر القيم بالملايين إلى صيغة "64.91 M SAR" بدلاً من عرض الرقم الكامل "64,910,000 SAR".
 
 ## الحل
 
-### الملف: `src/components/HistoricalItemsTable.tsx`
+### الملف: `src/pages/SavedProjectsPage.tsx`
 
-#### 1. إضافة state للتحكم في عرض أعمدة الوصف
-
-إضافة حالة `descColWidth` مع 3 خيارات (صغير / متوسط / كبير) وأزرار تبديل في شريط الأدوات.
+تعديل الدالة `formatLargeNumber` لإزالة اختصار الملايين (M) والمليارات (B) وعرض الرقم كاملاً مع فواصل الآلاف:
 
 ```text
-const [descColWidth, setDescColWidth] = useState<'sm' | 'md' | 'lg'>('md');
-
-const descWidthClass = {
-  sm: 'min-w-[200px] max-w-[250px]',
-  md: 'min-w-[300px] max-w-[400px]',
-  lg: 'min-w-[450px] max-w-[600px]',
-};
-```
-
-#### 2. إضافة أزرار التحكم في شريط الأدوات (بعد سطر 225)
-
-إضافة مجموعة أزرار صغيرة للتبديل بين أحجام العمود:
-
-```text
-<div className="flex items-center gap-1 border rounded-md px-1">
-  <span className="text-[10px] text-muted-foreground">عرض الوصف:</span>
-  <Button variant={descColWidth === 'sm' ? 'secondary' : 'ghost'} size="sm" className="h-6 text-[10px] px-2"
-    onClick={() => setDescColWidth('sm')}>صغير</Button>
-  <Button variant={descColWidth === 'md' ? 'secondary' : 'ghost'} size="sm" className="h-6 text-[10px] px-2"
-    onClick={() => setDescColWidth('md')}>متوسط</Button>
-  <Button variant={descColWidth === 'lg' ? 'secondary' : 'ghost'} size="sm" className="h-6 text-[10px] px-2"
-    onClick={() => setDescColWidth('lg')}>كبير</Button>
-</div>
-```
-
-#### 3. تطبيق العرض على أعمدة الوصف (سطر 269-270)
-
-```text
-// الحالي:
-<TableHead className="text-xs whitespace-nowrap px-2 min-w-[280px]">Description</TableHead>
-<TableHead className="text-xs whitespace-nowrap px-2 min-w-[280px]">وصف البند</TableHead>
+// الحالي (سطر 76-83):
+function formatLargeNumber(value: number, currency?: string): string {
+  const suffix = currency ? ` ${currency}` : '';
+  if (!Number.isFinite(value) || value < 0) return `—${suffix}`;
+  if (value >= 1e9) return `${(value / 1e9).toFixed(2)} B${suffix}`;
+  if (value >= 1e6) return `${(value / 1e6).toFixed(2)} M${suffix}`;
+  if (value >= 1e3) return `${value.toLocaleString()}${suffix}`;
+  return `${value.toFixed(2)}${suffix}`;
+}
 
 // الجديد:
-<TableHead className={`text-xs whitespace-nowrap px-2 ${descWidthClass[descColWidth]}`}>Description</TableHead>
-<TableHead className={`text-xs whitespace-nowrap px-2 ${descWidthClass[descColWidth]}`}>وصف البند</TableHead>
+function formatLargeNumber(value: number, currency?: string): string {
+  const suffix = currency ? ` ${currency}` : '';
+  if (!Number.isFinite(value) || value < 0) return `—${suffix}`;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}${suffix}`;
+}
 ```
 
-#### 4. تطبيق العرض على خلايا الوصف (سطر 292-293)
-
-```text
-// الحالي:
-<TableCell className="px-2">{renderCell(item, 'description')}</TableCell>
-<TableCell className="px-2">{renderCell(item, 'description_ar')}</TableCell>
-
-// الجديد:
-<TableCell className={`px-2 ${descWidthClass[descColWidth]}`}>{renderCell(item, 'description')}</TableCell>
-<TableCell className={`px-2 ${descWidthClass[descColWidth]}`}>{renderCell(item, 'description_ar')}</TableCell>
-```
-
-#### 5. ضمان Wrap Text في خلايا الوصف (سطر 192)
-
-النص الحالي يستخدم `whitespace-pre-wrap break-words` وهو صحيح. سيتم إضافة `word-break: break-all` كخيار احتياطي للنصوص الطويلة بدون مسافات:
-
-```text
-<span className={`text-xs ${isDescription ? 'whitespace-pre-wrap break-words leading-relaxed' : 'truncate max-w-[120px]'}`}>
-```
+النتيجة: بدلاً من "64.91 M SAR" سيظهر "64,910,000 SAR".
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/HistoricalItemsTable.tsx` | إضافة state + أزرار تحكم + تطبيق العرض الديناميكي |
+| `src/pages/SavedProjectsPage.tsx` | تعديل formatLargeNumber لعرض الرقم كاملاً |
 
