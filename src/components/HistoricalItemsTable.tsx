@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
-import { Plus, Trash2, Save, Download, Search, Edit3, Check, X } from "lucide-react";
+import { Plus, Trash2, Save, Download, Search, Edit3, Check, X, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
@@ -13,16 +14,19 @@ import { NormalizedHistoricalItem, createEmptyItem, calculateTotal } from "@/lib
 interface HistoricalItemsTableProps {
   items: NormalizedHistoricalItem[];
   onItemsChange: (items: NormalizedHistoricalItem[]) => void;
-  fileId?: string; // If provided, saves directly to DB
+  fileId?: string;
   projectName?: string;
   readOnly?: boolean;
 }
+
+const ITEMS_PER_PAGE = 50;
 
 export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName, readOnly = false }: HistoricalItemsTableProps) {
   const [editingCell, setEditingCell] = useState<{ rowId: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [tablePage, setTablePage] = useState(1);
   const { toast } = useToast();
 
   const filteredItems = useMemo(() => {
@@ -36,10 +40,23 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
     );
   }, [items, searchQuery]);
 
+  const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
+  const paginatedItems = useMemo(() => 
+    filteredItems.slice((tablePage - 1) * ITEMS_PER_PAGE, tablePage * ITEMS_PER_PAGE),
+    [filteredItems, tablePage]
+  );
+
   const totalValue = useMemo(() => 
     items.reduce((sum, item) => sum + (item.total_price || 0), 0),
     [items]
   );
+
+  // Zero-value warning stats
+  const zeroValueCount = useMemo(() => 
+    items.filter(item => item.quantity === 0 && item.unit_price === 0).length,
+    [items]
+  );
+  const zeroRatio = items.length > 0 ? zeroValueCount / items.length : 0;
 
   const startEdit = (rowId: string, field: string, currentValue: any) => {
     if (readOnly) return;
@@ -133,10 +150,16 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
     toast({ title: "✅ تم التصدير", description: `تم تصدير ${items.length} بند` });
   };
 
+  const formatNumber = (value: number): string => {
+    if (value === 0) return '-';
+    return value.toLocaleString();
+  };
+
   const renderCell = (item: NormalizedHistoricalItem, field: keyof NormalizedHistoricalItem) => {
     const isEditing = editingCell?.rowId === item.id && editingCell?.field === field;
     const value = item[field];
     const isNumeric = field === 'quantity' || field === 'unit_price' || field === 'total_price';
+    const isDescription = field === 'description' || field === 'description_ar';
 
     if (isEditing) {
       return (
@@ -161,22 +184,39 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
     }
 
     const displayValue = isNumeric
-      ? (value as number)?.toLocaleString() || '0'
+      ? formatNumber(value as number)
       : String(value || '-');
 
-    return (
+    const cellContent = (
       <div
         className={`cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 min-h-[24px] flex items-center group ${!readOnly ? '' : 'cursor-default'}`}
         onClick={() => !readOnly && startEdit(item.id, field, value)}
-        title={!readOnly ? "اضغط للتعديل" : undefined}
       >
-        <span className="text-xs truncate max-w-[200px]">{displayValue}</span>
+        <span className={`text-xs truncate ${isDescription ? 'max-w-[300px]' : 'max-w-[120px]'}`}>{displayValue}</span>
         {!readOnly && (
           <Edit3 className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 mr-1 flex-shrink-0" />
         )}
       </div>
     );
+
+    // Add tooltip for description fields
+    if (isDescription && String(value || '').length > 30) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>{cellContent}</TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[400px] text-xs">
+              <p className="whitespace-pre-wrap">{String(value)}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    return cellContent;
   };
+
+  const isZeroRow = (item: NormalizedHistoricalItem) => item.quantity === 0 && item.unit_price === 0;
 
   return (
     <div className="space-y-3">
@@ -192,7 +232,7 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
             <Input
               placeholder="بحث..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setTablePage(1); }}
               className="h-8 text-xs pr-7 w-[150px]"
             />
           </div>
@@ -212,15 +252,25 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
         </div>
       </div>
 
+      {/* Zero-value warning */}
+      {zeroRatio > 0.5 && items.length > 0 && (
+        <div className="flex items-center gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-sm">
+          <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0" />
+          <span>
+            تحذير: {zeroValueCount} من {items.length} بند ({Math.round(zeroRatio * 100)}%) بدون قيم رقمية. تحقق من ربط أعمدة الملف بالحقول الصحيحة.
+          </span>
+        </div>
+      )}
+
       {/* Table */}
-      <ScrollArea className="h-[350px] border rounded-lg">
+      <ScrollArea className="h-[450px] border rounded-lg">
         <div className="min-w-max">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[60px]">م</TableHead>
-                <TableHead className="text-xs whitespace-nowrap px-2">Description</TableHead>
-                <TableHead className="text-xs whitespace-nowrap px-2">وصف البند</TableHead>
+                <TableHead className="text-xs whitespace-nowrap px-2 min-w-[200px]">Description</TableHead>
+                <TableHead className="text-xs whitespace-nowrap px-2 min-w-[200px]">وصف البند</TableHead>
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[60px]">الوحدة</TableHead>
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[80px]">الكمية</TableHead>
                 <TableHead className="text-xs whitespace-nowrap px-2 w-[90px]">سعر الوحدة</TableHead>
@@ -232,15 +282,15 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredItems.length === 0 ? (
+              {paginatedItems.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={readOnly ? 8 : 9} className="text-center text-muted-foreground text-xs py-8">
                     {searchQuery ? "لا توجد نتائج مطابقة" : "لا توجد بنود"}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredItems.map((item) => (
-                  <TableRow key={item.id}>
+                paginatedItems.map((item) => (
+                  <TableRow key={item.id} className={isZeroRow(item) ? 'bg-yellow-500/5' : ''}>
                     <TableCell className="px-2">{renderCell(item, 'item_number')}</TableCell>
                     <TableCell className="px-2">{renderCell(item, 'description')}</TableCell>
                     <TableCell className="px-2">{renderCell(item, 'description_ar')}</TableCell>
@@ -248,7 +298,7 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
                     <TableCell className="px-2">{renderCell(item, 'quantity')}</TableCell>
                     <TableCell className="px-2">{renderCell(item, 'unit_price')}</TableCell>
                     <TableCell className="px-2">
-                      <span className="text-xs font-medium">{(item.total_price ?? 0).toLocaleString()}</span>
+                      <span className="text-xs font-medium">{formatNumber(item.total_price ?? 0)}</span>
                     </TableCell>
                     <TableCell className="px-2">{renderCell(item, 'item_code')}</TableCell>
                     {!readOnly && (
@@ -270,6 +320,34 @@ export function HistoricalItemsTable({ items, onItemsChange, fileId, projectName
           </Table>
         </div>
       </ScrollArea>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>عرض {((tablePage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(tablePage * ITEMS_PER_PAGE, filteredItems.length)} من {filteredItems.length}</span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setTablePage(p => Math.max(1, p - 1))}
+              disabled={tablePage <= 1}
+            >
+              <ChevronRight className="w-3 h-3" />
+            </Button>
+            <span className="px-2">{tablePage} / {totalPages}</span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setTablePage(p => Math.min(totalPages, p + 1))}
+              disabled={tablePage >= totalPages}
+            >
+              <ChevronLeft className="w-3 h-3" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

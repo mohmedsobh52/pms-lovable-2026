@@ -11,17 +11,29 @@ export interface NormalizedHistoricalItem {
   item_code: string;
 }
 
-// Column name mapping table
+// Column name mapping table - expanded with more Arabic/English aliases
 const COLUMN_MAPPINGS: Record<string, string[]> = {
-  item_number: ['item', 'no', 'no.', '#', 'م', 'رقم البند', 'item_number', 'البند', 'item no', 'item_no', 'رقم', 'serial', 'sn', 's/n', 'رقم البند'],
-  description: ['description', 'desc', 'item description', 'الوصف الانجليزي', 'english description', 'desc.', 'item desc'],
-  description_ar: ['وصف البند', 'الوصف', 'البيان', 'الوصف العربي', 'وصف', 'بيان الأعمال', 'بيان'],
-  unit: ['unit', 'الوحدة', 'وحدة', 'uom', 'الوحده'],
-  quantity: ['quantity', 'الكمية', 'qty', 'الكميه', 'كمية', 'amount', 'qty.'],
-  unit_price: ['price', 'سعر الوحدة', 'unit_price', 'unit price', 'سعر', 'rate', 'unit rate', 'سعر الوحده'],
-  total_price: ['total', 'الإجمالي', 'الاجمالي', 'total_price', 'المبلغ', 'القيمة', 'إجمالي', 'اجمالي', 'total price', 'amount', 'المبلغ الإجمالي'],
-  item_code: ['item code', 'كود البند', 'item_code', 'code', 'الكود', 'كود'],
+  item_number: ['item', 'no', 'no.', '#', 'م', 'رقم البند', 'item_number', 'البند', 'item no', 'item_no', 'رقم', 'serial', 'sn', 's/n', 'رقم البند', 'مسلسل', 'تسلسل', 'seq', 'line', 'line no'],
+  description: ['description', 'desc', 'item description', 'الوصف الانجليزي', 'english description', 'desc.', 'item desc', 'بند', 'العمل', 'نوع العمل', 'work description', 'scope', 'البند', 'scope of work', 'works', 'activity', 'task'],
+  description_ar: ['وصف البند', 'الوصف', 'البيان', 'الوصف العربي', 'وصف', 'بيان الأعمال', 'بيان', 'التفاصيل', 'تفصيل', 'الأعمال', 'وصف الأعمال', 'وصف العمل', 'تفاصيل البند'],
+  unit: ['unit', 'الوحدة', 'وحدة', 'uom', 'الوحده', 'وحدة القياس', 'unit of measure'],
+  quantity: ['quantity', 'الكمية', 'qty', 'الكميه', 'كمية', 'amount', 'qty.', 'عدد', 'الأعداد', 'count', 'الكمية المطلوبة', 'الكميات', 'المقدار'],
+  unit_price: ['price', 'سعر الوحدة', 'unit_price', 'unit price', 'سعر', 'rate', 'unit rate', 'سعر الوحده', 'السعر', 'ثمن الوحدة', 'cost', 'unit cost', 'سعر الوحدة الواحدة', 'فئة السعر', 'الفئة'],
+  total_price: ['total', 'الإجمالي', 'الاجمالي', 'total_price', 'المبلغ', 'القيمة', 'إجمالي', 'اجمالي', 'total price', 'المبلغ الإجمالي', 'المبلغ الكلي', 'القيمة الإجمالية', 'sub total', 'subtotal', 'قيمة', 'المجموع', 'total amount', 'total cost'],
+  item_code: ['item code', 'كود البند', 'item_code', 'code', 'الكود', 'كود', 'رمز البند', 'wbs', 'wbs code'],
 };
+
+// Arabic/Eastern numeral conversion
+function convertArabicNumerals(str: string): string {
+  const arabicNumerals = '٠١٢٣٤٥٦٧٨٩';
+  const easternNumerals = '۰۱۲۳۴۵۶۷۸۹';
+  let result = str;
+  for (let i = 0; i < 10; i++) {
+    result = result.replace(new RegExp(arabicNumerals[i], 'g'), String(i));
+    result = result.replace(new RegExp(easternNumerals[i], 'g'), String(i));
+  }
+  return result;
+}
 
 /**
  * Match a column name from the file to a normalized field name
@@ -51,14 +63,29 @@ function generateId(): string {
 }
 
 /**
- * Parse a numeric value from various formats
+ * Parse a numeric value from various formats including Arabic/Eastern numerals
  */
 function parseNumeric(value: any): number {
   if (typeof value === 'number') return value;
   if (value === null || value === undefined || value === '') return 0;
-  const cleaned = String(value).replace(/[,،\s]/g, '').replace(/[^\d.\-]/g, '');
+  let str = String(value);
+  // Convert Arabic/Eastern numerals
+  str = convertArabicNumerals(str);
+  const cleaned = str.replace(/[,،\s]/g, '').replace(/[^\d.\-]/g, '');
   const parsed = parseFloat(cleaned);
   return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * Check if a value looks numeric
+ */
+function isNumericValue(value: any): boolean {
+  if (typeof value === 'number') return true;
+  if (value === null || value === undefined || value === '') return false;
+  let str = String(value);
+  str = convertArabicNumerals(str);
+  const cleaned = str.replace(/[,،\s]/g, '').replace(/[^\d.\-]/g, '');
+  return cleaned.length > 0 && !isNaN(parseFloat(cleaned));
 }
 
 /**
@@ -79,6 +106,74 @@ function buildColumnMap(headers: string[]): Record<string, string> {
 }
 
 /**
+ * Auto-detect numeric columns from data when column mapping fails
+ */
+function autoDetectNumericColumns(
+  rawItems: any[], 
+  headers: string[], 
+  existingMap: Record<string, string>
+): Record<string, string> {
+  const mappedFields = new Set(Object.values(existingMap));
+  const needsQuantity = !mappedFields.has('quantity');
+  const needsUnitPrice = !mappedFields.has('unit_price');
+  const needsTotalPrice = !mappedFields.has('total_price');
+  
+  if (!needsQuantity && !needsUnitPrice && !needsTotalPrice) return existingMap;
+  
+  const unmappedHeaders = headers.filter(h => !existingMap[h]);
+  const sampleSize = Math.min(rawItems.length, 20);
+  
+  interface ColumnStats {
+    header: string;
+    numericRatio: number;
+    avgValue: number;
+    values: number[];
+  }
+  
+  const numericColumns: ColumnStats[] = [];
+  
+  for (const header of unmappedHeaders) {
+    let numericCount = 0;
+    const values: number[] = [];
+    
+    for (let i = 0; i < sampleSize; i++) {
+      const val = rawItems[i]?.[header];
+      if (isNumericValue(val)) {
+        numericCount++;
+        values.push(parseNumeric(val));
+      }
+    }
+    
+    const ratio = sampleSize > 0 ? numericCount / sampleSize : 0;
+    if (ratio >= 0.5) {
+      const avg = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+      numericColumns.push({ header, numericRatio: ratio, avgValue: avg, values });
+    }
+  }
+  
+  // Sort by average value to guess: smallest avg = quantity, medium = unit_price, largest = total_price
+  numericColumns.sort((a, b) => a.avgValue - b.avgValue);
+  
+  const augmentedMap = { ...existingMap };
+  let idx = 0;
+  
+  if (needsQuantity && idx < numericColumns.length) {
+    augmentedMap[numericColumns[idx].header] = 'quantity';
+    idx++;
+  }
+  if (needsUnitPrice && idx < numericColumns.length) {
+    augmentedMap[numericColumns[idx].header] = 'unit_price';
+    idx++;
+  }
+  if (needsTotalPrice && idx < numericColumns.length) {
+    augmentedMap[numericColumns[idx].header] = 'total_price';
+    idx++;
+  }
+  
+  return augmentedMap;
+}
+
+/**
  * Normalize raw historical items from varied column formats into a unified BOQ structure
  */
 export function normalizeHistoricalItems(rawItems: any[], headers?: string[]): NormalizedHistoricalItem[] {
@@ -86,7 +181,10 @@ export function normalizeHistoricalItems(rawItems: any[], headers?: string[]): N
 
   // Get headers from first item if not provided
   const itemHeaders = headers || Object.keys(rawItems[0] || {});
-  const columnMap = buildColumnMap(itemHeaders);
+  let columnMap = buildColumnMap(itemHeaders);
+  
+  // Auto-detect numeric columns if quantity/unit_price/total_price are missing
+  columnMap = autoDetectNumericColumns(rawItems, itemHeaders, columnMap);
 
   return rawItems.map((raw, index) => {
     const item: Partial<NormalizedHistoricalItem> = {

@@ -580,7 +580,7 @@ export default function HistoricalPricingPage() {
                 </Button>
               </DialogTrigger>
             </div>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Upload className="w-5 h-5" />
