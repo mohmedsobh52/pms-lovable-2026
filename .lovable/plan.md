@@ -1,51 +1,49 @@
 
 
-# إصلاح خطأ "Partial extraction" وضمان ظهور النص العربي
+# تطبيق شاشة "Upload BOQ File" داخل تبويب Analysis
 
-## السبب الجذري
+## الوضع الحالي
 
-رغم إصلاح `workerSrc` ليستخدم `pdfjsLib.version` ديناميكياً، لا يزال هناك **رابطان آخران** في نفس الملف يشيران إلى الإصدار القديم `4.4.168`:
+عند عدم وجود بيانات تحليل في تبويب Analysis، يظهر حالياً نص بسيط مع أيقونة وزر صغير "Upload BOQ". المطلوب استبدال هذه الحالة الفارغة ببطاقة احترافية كما في الصورة المرفقة تحتوي على:
+- عنوان "Upload BOQ File" مع أيقونة
+- وصف "Upload a PDF or Excel file containing the Bill of Quantities for analysis"
+- منطقة سحب وإفلات بإطار منقط مع أيقونة رفع
+- نص "Drag file here or click to upload"
+- نص "Supports PDF and Excel files"
 
-```
-سطر 395: cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/cmaps/'
-سطر 397: standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/standard_fonts/'
-```
+## التعديل المطلوب
 
-هذان الرابطان مسؤولان عن تحميل خرائط الأحرف (CMaps) والخطوط القياسية. عند عدم تطابقهما مع الإصدار المثبت (`4.10.38`)، لا يتم تحميل خرائط الأحرف العربية بشكل صحيح، مما يؤدي إلى:
-- استخراج نص فارغ أو مشوه من صفحات PDF العربية
-- فشل `isValidText` في التحقق من النص
-- ظهور رسالة "Partial extraction"
+### ملف واحد: `src/pages/ProjectDetailsPage.tsx`
 
-## الحل
+**الأسطر 1139-1151** - استبدال الحالة الفارغة الحالية ببطاقة رفع ملفات متكاملة:
 
-### تعديل ملف واحد: `src/lib/pdf-utils.ts`
-
-**الأسطر 395-397** - تحديث `cMapUrl` و `standardFontDataUrl` لاستخدام `pdfjsLib.version` ديناميكياً:
-
-من:
+الحالة الحالية (نص بسيط + زر):
 ```typescript
-cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/cmaps/',
-cMapPacked: true,
-standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/standard_fonts/',
+<div className="text-center py-16 text-muted-foreground">
+  <Brain className="w-16 h-16 mx-auto mb-4 opacity-30" />
+  <p>...</p>
+  <Button onClick={() => setShowBOQUploadDialog(true)}>Upload BOQ</Button>
+</div>
 ```
 
-إلى:
-```typescript
-cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/cmaps/`,
-cMapPacked: true,
-standardFontDataUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`,
-```
+سيتم استبدالها ببطاقة احترافية تحتوي على:
+- بطاقة (Card) بعنوان وأيقونة `FileUp`
+- وصف توضيحي باللغتين
+- منطقة سحب وإفلات (drag & drop) بإطار منقط
+- أيقونة `Upload` في المنتصف
+- نص إرشادي "Drag file here or click to upload"
+- نص "Supports PDF and Excel files"
+- عند السحب أو النقر يتم فتح `BOQUploadDialog` الموجود فعلاً
 
-## الملفات المتأثرة
+البطاقة ستدعم:
+- السحب والإفلات المباشر (drag over يغير لون الإطار)
+- النقر لفتح dialog الرفع
+- عرض ثنائي اللغة (عربي/إنجليزي)
 
-| الملف | التغيير |
-|-------|---------|
-| `src/lib/pdf-utils.ts` | سطر 395 و 397: استخدام `pdfjsLib.version` بدل الإصدار الثابت |
+## التفاصيل التقنية
 
-## النتيجة المتوقعة
-
-- تحميل خرائط الأحرف العربية بنجاح
-- استخراج النص العربي بشكل صحيح من ملفات PDF
-- اختفاء رسالة "Partial extraction" عند وجود نص عربي قابل للقراءة
-- حل دائم لا يتأثر بتحديثات الحزمة مستقبلاً
+- لا حاجة لإضافة مكونات جديدة - التعديل في ملف واحد فقط
+- الاستفادة من `BOQUploadDialog` الموجود فعلاً للتعامل مع الرفع الفعلي
+- النقر على منطقة السحب والإفلات سيفتح الـ dialog مباشرة
+- التصميم يتبع نظام الألوان والتنسيق الحالي للتطبيق
 
