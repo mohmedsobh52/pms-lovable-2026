@@ -1,49 +1,51 @@
 
 
-# تطبيق شاشة "Upload BOQ File" داخل تبويب Analysis
+# إضافة BOQAnalyzerPanel داخل تبويب Analysis
 
-## الوضع الحالي
+## الهدف
 
-عند عدم وجود بيانات تحليل في تبويب Analysis، يظهر حالياً نص بسيط مع أيقونة وزر صغير "Upload BOQ". المطلوب استبدال هذه الحالة الفارغة ببطاقة احترافية كما في الصورة المرفقة تحتوي على:
-- عنوان "Upload BOQ File" مع أيقونة
-- وصف "Upload a PDF or Excel file containing the Bill of Quantities for analysis"
-- منطقة سحب وإفلات بإطار منقط مع أيقونة رفع
-- نص "Drag file here or click to upload"
-- نص "Supports PDF and Excel files"
+عند فتح مشروع محفوظ وعدم وجود بيانات تحليل، يظهر حالياً بطاقة "Upload BOQ File" فقط. المطلوب استبدالها بمكون `BOQAnalyzerPanel` الكامل (نفس المكون الموجود في تبويب "Analyze BOQ" بصفحة المشاريع المحفوظة) بحيث يتمكن المستخدم من تحليل ملف BOQ مباشرة من داخل صفحة تفاصيل المشروع.
 
 ## التعديل المطلوب
 
 ### ملف واحد: `src/pages/ProjectDetailsPage.tsx`
 
-**الأسطر 1139-1151** - استبدال الحالة الفارغة الحالية ببطاقة رفع ملفات متكاملة:
-
-الحالة الحالية (نص بسيط + زر):
+#### 1. إضافة import لمكون BOQAnalyzerPanel
 ```typescript
-<div className="text-center py-16 text-muted-foreground">
-  <Brain className="w-16 h-16 mx-auto mb-4 opacity-30" />
-  <p>...</p>
-  <Button onClick={() => setShowBOQUploadDialog(true)}>Upload BOQ</Button>
-</div>
+import { BOQAnalyzerPanel } from "@/components/BOQAnalyzerPanel";
 ```
 
-سيتم استبدالها ببطاقة احترافية تحتوي على:
-- بطاقة (Card) بعنوان وأيقونة `FileUp`
-- وصف توضيحي باللغتين
-- منطقة سحب وإفلات (drag & drop) بإطار منقط
-- أيقونة `Upload` في المنتصف
-- نص إرشادي "Drag file here or click to upload"
-- نص "Supports PDF and Excel files"
-- عند السحب أو النقر يتم فتح `BOQUploadDialog` الموجود فعلاً
+#### 2. استبدال بطاقة "Upload BOQ File" (الأسطر 1140-1174) بمكون BOQAnalyzerPanel
 
-البطاقة ستدعم:
-- السحب والإفلات المباشر (drag over يغير لون الإطار)
-- النقر لفتح dialog الرفع
-- عرض ثنائي اللغة (عربي/إنجليزي)
+الحالة الحالية: بطاقة رفع ملفات بسيطة.
 
-## التفاصيل التقنية
+الحالة الجديدة: تضمين `BOQAnalyzerPanel` بالكامل مع خاصية `embedded={true}` و `onProjectSaved` لإعادة تحميل بيانات المشروع بعد الحفظ.
 
-- لا حاجة لإضافة مكونات جديدة - التعديل في ملف واحد فقط
-- الاستفادة من `BOQUploadDialog` الموجود فعلاً للتعامل مع الرفع الفعلي
-- النقر على منطقة السحب والإفلات سيفتح الـ dialog مباشرة
-- التصميم يتبع نظام الألوان والتنسيق الحالي للتطبيق
+```typescript
+<BOQAnalyzerPanel 
+  embedded={true}
+  onProjectSaved={(savedProjectId) => {
+    // إعادة تحميل بيانات المشروع بعد الحفظ
+    fetchProjectData(); // أو الدالة المناسبة الموجودة فعلاً
+  }}
+/>
+```
 
+هذا يوفر للمستخدم كل إمكانيات تحليل BOQ:
+- رفع ملف PDF أو Excel
+- سحب وإفلات
+- إدخال نص يدوي
+- معاينة بيانات Excel
+- تحليل محلي وتحليل بالذكاء الاصطناعي
+- عرض النتائج وحفظ المشروع
+
+## الملفات المتأثرة
+
+| الملف | التغيير |
+|-------|---------|
+| `src/pages/ProjectDetailsPage.tsx` | إضافة import + استبدال بطاقة الرفع بـ BOQAnalyzerPanel |
+
+## النتيجة المتوقعة
+
+- عند عدم وجود بيانات تحليل في تبويب Analysis، يظهر BOQAnalyzerPanel الكامل
+- عند وجود بيانات تحليل، يظهر AnalysisResults كما هو حالياً (لا تغيير)
