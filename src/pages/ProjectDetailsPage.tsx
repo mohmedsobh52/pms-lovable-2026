@@ -334,17 +334,22 @@ export default function ProjectDetailsPage() {
     return {
       analysis_type: "boq",
       file_name: (project as any).file_name || project.name,
-      items: items.map(item => ({
-        item_number: item.item_number || "",
-        description: item.description || "",
-        unit: item.unit || "",
-        quantity: item.quantity || 0,
-        unit_price: item.unit_price || null,
-        total_price: item.total_price || null,
-        category: item.category || "General",
-        is_section: item.is_section || false,
-        notes: (item as any).notes || "",
-      })),
+      items: items.map(item => {
+        const desc = item.description || "";
+        const descAr = (item as any).description_ar || (desc && /[\u0600-\u06FF]/.test(desc) ? desc : "");
+        return {
+          item_number: item.item_number || "",
+          description: desc,
+          description_ar: descAr,
+          unit: item.unit || "",
+          quantity: item.quantity || 0,
+          unit_price: item.unit_price || null,
+          total_price: item.total_price || null,
+          category: item.category || "General",
+          is_section: item.is_section || false,
+          notes: (item as any).notes || "",
+        };
+      }),
       summary: {
         total_items: items.length,
         total_value: pricingStats.totalValue,

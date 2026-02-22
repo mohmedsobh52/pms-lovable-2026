@@ -222,16 +222,21 @@ export function BOQUploadDialog({
       if (!user) throw new Error(isArabic ? "يجب تسجيل الدخول أولاً" : "You must be logged in first");
       if (projectId) await ensureProjectInProjectData(projectId);
 
-      const rows = items.map((item: any, idx: number) => ({
-        project_id: projectId,
-        item_number: item.item_number || item.number || String(idx + 1),
-        description: item.description || item.desc || "",
-        unit: item.unit || "",
-        quantity: parseFloat(item.quantity) || 0,
-        unit_price: parseFloat(item.unit_price || item.rate || 0) || null,
-        total_price: parseFloat(item.total_price || item.amount || 0) || null,
-        sort_order: idx,
-      }));
+      const rows = items.map((item: any, idx: number) => {
+        const desc = item.description || item.desc || "";
+        const descAr = item.description_ar || item.descriptionAr || (desc && /[\u0600-\u06FF]/.test(desc) ? desc : null);
+        return {
+          project_id: projectId,
+          item_number: item.item_number || item.number || String(idx + 1),
+          description: desc,
+          description_ar: descAr,
+          unit: item.unit || "",
+          quantity: parseFloat(item.quantity) || 0,
+          unit_price: parseFloat(item.unit_price || item.rate || 0) || null,
+          total_price: parseFloat(item.total_price || item.amount || 0) || null,
+          sort_order: idx,
+        };
+      });
 
       const { error } = await supabase.from("project_items").insert(rows);
       if (error) {
