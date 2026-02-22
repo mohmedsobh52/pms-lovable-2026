@@ -266,7 +266,11 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
 
   // Auto-detect Arabic descriptions and add column if present
   const hasArabicDescriptions = useMemo(() => {
-    return data?.items?.some(item => (item as any).description_ar?.trim()) ?? false;
+    return data?.items?.some(item => {
+      const descAr = (item as any).description_ar;
+      return descAr && typeof descAr === 'string' && descAr.trim().length > 1 
+        && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(descAr);
+    }) ?? false;
   }, [data?.items]);
 
   useEffect(() => {
@@ -2396,7 +2400,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                           )} dir="rtl">
                             <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words">
                               {(() => {
-                                const text = (item as any).description_ar ? cleanText((item as any).description_ar) : "-";
+                                const descAr = (item as any).description_ar;
+                                const text = descAr && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(descAr) ? cleanText(descAr) : "-";
                                 if (text === "-" || !searchQuery.trim()) return text;
                                 const escaped = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                                 const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
