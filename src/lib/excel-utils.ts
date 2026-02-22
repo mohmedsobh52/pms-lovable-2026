@@ -96,14 +96,13 @@ const COLUMN_PATTERNS = {
     'رقم بند', 'بند رقم', 'م.', 'ر', 'السطر', 'التسلسلي', 'رقم مسلسل'
   ],
   description: [
-    'المواصفات', 'مواصفات', 'spec', 'specification', 'specifications',
     'description', 'details', 'scope', 'name', 'desc', 'item description', 
-    'work description', 'work', 'activity', 'task',
+    'work description', 'work', 'activity', 'task', 'spec', 'specification', 'specifications',
   ],
   descriptionAr: [
-    'وصف البند', 'الوصف', 'البيان', 'الوصف العربي', 'بيان الأعمال',
-    'وصف', 'بيان', 'التفاصيل', 'الأعمال', 'شرح', 'تفاصيل', 'اسم البند',
-    'العمل', 'العنصر', 'الصنف', 'المادة', 'البيانات', 'اسم',
+    'المواصفات', 'مواصفات', 'وصف البند', 'الوصف', 'البيان', 'الوصف العربي',
+    'بيان الأعمال', 'وصف', 'بيان', 'التفاصيل', 'الأعمال', 'شرح', 'تفاصيل',
+    'اسم البند', 'العمل', 'العنصر', 'الصنف', 'المادة', 'البيانات', 'اسم',
     'وصف الأعمال', 'وصف العمل', 'النشاط', 'المهمة', 'بيان العمل', 'تفصيل',
   ],
   unit: [
@@ -158,30 +157,65 @@ function matchesPattern(columnName: string, patterns: string[]): boolean {
 
 function detectColumnMapping(headers: string[]): Record<string, number> {
   const mapping: Record<string, number> = {};
+  const assignedIndices = new Set<number>();
   
-  headers.forEach((header, index) => {
-    if (!header) return;
+  // Priority order: check descriptionAr FIRST to prevent Arabic words from being caught by description
+  const fieldOrder = ['itemNo', 'descriptionAr', 'description', 'unit', 'quantity', 'unitPrice', 'totalPrice', 'notes'];
+  
+  for (const field of fieldOrder) {
+    const patterns = COLUMN_PATTERNS[field as keyof typeof COLUMN_PATTERNS];
+    if (!patterns) continue;
     
-    for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
-      if (matchesPattern(header, patterns) && mapping[field] === undefined) {
+    for (let index = 0; index < headers.length; index++) {
+      const header = headers[index];
+      if (!header || assignedIndices.has(index)) continue;
+      
+      if (matchesPattern(header, patterns)) {
         mapping[field] = index;
+        assignedIndices.add(index);
         break;
       }
     }
-  });
+  }
 
-  // Smart logic: if we found descriptionAr but not description, or vice versa
-  // If only one description column exists, treat it as both
+  // Smart logic for dual description columns
   if (mapping.descriptionAr !== undefined && mapping.description === undefined) {
-    // Only Arabic description found - also use as main description
-    mapping.description = mapping.descriptionAr;
+    // Found Arabic desc only - search for an English text column among unassigned headers
+    for (let i = 0; i < headers.length; i++) {
+      if (assignedIndices.has(i) || !headers[i]) continue;
+      const h = headers[i].trim();
+      // Check if header looks English (no Arabic chars) and text-like
+      if (h.length > 1 && !/[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(h)) {
+        if (matchesPattern(h, COLUMN_PATTERNS.description)) {
+          mapping.description = i;
+          assignedIndices.add(i);
+          break;
+        }
+      }
+    }
+    // If still no English description, use Arabic as fallback
+    if (mapping.description === undefined) {
+      mapping.description = mapping.descriptionAr;
+    }
   } else if (mapping.description !== undefined && mapping.descriptionAr === undefined) {
-    // Only English description found - check if header is actually Arabic
+    // Found English desc only - check if header is actually Arabic
     const descHeader = headers[mapping.description] || '';
     const isArabicHeader = /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(descHeader);
     if (isArabicHeader) {
-      // The "description" column is actually Arabic, map it to both
+      // The "description" column is actually Arabic
       mapping.descriptionAr = mapping.description;
+      // Try to find a separate English column
+      for (let i = 0; i < headers.length; i++) {
+        if (assignedIndices.has(i) || !headers[i]) continue;
+        const h = headers[i].trim();
+        if (h.length > 1 && !/[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(h)) {
+          if (matchesPattern(h, COLUMN_PATTERNS.description)) {
+            mapping.description = i;
+            assignedIndices.add(i);
+            break;
+          }
+        }
+      }
     }
   }
   

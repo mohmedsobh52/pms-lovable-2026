@@ -223,8 +223,18 @@ export function BOQUploadDialog({
       if (projectId) await ensureProjectInProjectData(projectId);
 
       const rows = items.map((item: any, idx: number) => {
-        const desc = item.description || item.desc || "";
-        const descAr = item.description_ar || item.descriptionAr || (desc && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(desc) ? desc : null);
+        const rawDesc = item.description || item.desc || "";
+        let descAr = item.description_ar || item.descriptionAr || null;
+        let desc = rawDesc;
+        
+        // If no separate Arabic desc, check if rawDesc itself is Arabic
+        if (!descAr && desc && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(desc)) {
+          descAr = desc;
+        }
+        
+        // If desc is purely Arabic and descAr is set to same value, 
+        // keep desc as-is (it might be the only description available)
+        
         return {
           project_id: projectId,
           item_number: item.item_number || item.number || String(idx + 1),
