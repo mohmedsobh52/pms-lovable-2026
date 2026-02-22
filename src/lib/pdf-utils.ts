@@ -392,9 +392,9 @@ export async function extractTextFromPDF(
     const pdf = await pdfjsLib.getDocument({ 
       data: arrayBuffer,
       // Enable better Unicode/Arabic support
-      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/cmaps/',
+      cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/cmaps/`,
       cMapPacked: true,
-      standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/standard_fonts/',
+      standardFontDataUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`,
     }).promise;
     
     const totalPages = pdf.numPages;
