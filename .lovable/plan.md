@@ -1,34 +1,52 @@
 
 
-# إصلاح عدم ظهور الوصف العربي - الإصلاحات المتبقية
+# إصلاح عدم ظهور الوصف العربي في صفحة المشروع
 
-## الثغرات المكتشفة والحلول
+## السبب الجذري
 
-### 1. `reExtractWithMapping` لا تستخرج `descriptionAr` (excel-utils.ts سطور 970-1077)
+تم اكتشاف 3 ثغرات تمنع ظهور الوصف العربي:
 
-بعد سطر 1009 (استخراج description)، سيتم إضافة:
-- استخراج `descriptionAr` من `customMapping.descriptionAr`
-- قبل push (سطر 1067): كشف ذكي - إذا كان description عربي ولا يوجد descriptionAr، ينسخ تلقائياً
+### 1. عند حفظ البنود في قاعدة البيانات (BOQUploadDialog)
+الملف `src/components/project-details/BOQUploadDialog.tsx` سطر 225-234:
+عند رفع ملف BOQ وحفظ البنود في جدول `project_items`، حقل `description_ar` لا يُرسل إطلاقاً رغم وجود العمود في قاعدة البيانات.
 
-### 2. `ExcelDataPreview` لا يعرض خيار الوصف العربي (ExcelDataPreview.tsx سطر 30-37)
+### 2. عند تحويل البيانات لعرضها (ProjectDetailsPage)
+الملف `src/pages/ProjectDetailsPage.tsx` سطر 337-347:
+عند تحويل `project_items` إلى `AnalysisData` لتمريره إلى مكون `AnalysisResults`، حقل `description_ar` غير موجود في الـ mapping.
 
-إضافة سطر جديد بعد description:
+### 3. عند تحميل المشروع من الصفحة الرئيسية (BOQItemsPage)
+الملف `src/pages/BOQItemsPage.tsx`:
+عند فتح مشروع محفوظ، يتم تحميل `analysis_data` مباشرة - هذا يعمل لأن `description_ar` موجود في `analysis_data`. لكن عند فتحه من `/projects/:id` تظهر المشكلة.
+
+## خطة الإصلاح
+
+### 1. إضافة `description_ar` عند حفظ البنود
+**الملف: `src/components/project-details/BOQUploadDialog.tsx`**
+
+في `saveItemsToProject` (سطر 225-234)، إضافة:
 ```
-{ key: 'descriptionAr', labelEn: 'Arabic Description', labelAr: 'الوصف العربي' }
+description_ar: item.description_ar || null,
+```
++ تطبيق الكشف الذكي: إذا كان `description` يحتوي على عربي ولا يوجد `description_ar`، يُنسخ تلقائياً.
+
+### 2. إضافة `description_ar` في تحويل البيانات
+**الملف: `src/pages/ProjectDetailsPage.tsx`**
+
+في `projectAnalysisData` (سطر 337-347)، إضافة:
+```
+description_ar: (item as any).description_ar || "",
 ```
 
-### 3. مسار النص المحلي في Index.tsx (سطر 616-626)
-
-إضافة `description_ar` صريحاً مع كشف ذكي:
+### 3. تطبيق الكشف الذكي عند التحويل
+في نفس الـ mapping بـ `ProjectDetailsPage.tsx`، إذا كان `description` يحتوي عربي ولا يوجد `description_ar`:
 ```
-description_ar: item.description_ar || (item.description && /[\u0600-\u06FF]/.test(item.description) ? item.description : ''),
+description_ar: (item as any).description_ar || 
+  (item.description && /[\u0600-\u06FF]/.test(item.description) ? item.description : ""),
 ```
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/lib/excel-utils.ts` | إضافة descriptionAr في reExtractWithMapping + كشف ذكي |
-| `src/components/ExcelDataPreview.tsx` | إضافة descriptionAr في COLUMN_FIELDS |
-| `src/pages/Index.tsx` | تأكيد صريح لـ description_ar في مسار التحليل المحلي |
-
+| `src/components/project-details/BOQUploadDialog.tsx` | إضافة `description_ar` + كشف ذكي عند الحفظ |
+| `src/pages/ProjectDetailsPage.tsx` | إضافة `description_ar` في تحويل البيانات |
