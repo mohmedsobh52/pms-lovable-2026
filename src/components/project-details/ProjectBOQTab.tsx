@@ -98,6 +98,7 @@ export function ProjectBOQTab({
   formatCurrency,
 }: ProjectBOQTabProps) {
   const effectiveItemsPerPage = itemsPerPage >= filteredItems.length ? filteredItems.length : itemsPerPage;
+  const hasArabicDescriptions = items.some(item => item.description_ar && item.description_ar.trim() !== '');
 
   return (
     <div className="space-y-4">
@@ -266,6 +267,9 @@ export function ProjectBOQTab({
                   </TableHead>
                   <TableHead className="w-[100px]">{isArabic ? "رقم البند" : "Item No."}</TableHead>
                   <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
+                  {hasArabicDescriptions && (
+                    <TableHead className="min-w-[250px]">الوصف العربي</TableHead>
+                  )}
                   <TableHead className="w-[80px]">{isArabic ? "الوحدة" : "Unit"}</TableHead>
                   <TableHead className="w-[100px] text-right">{isArabic ? "الكمية" : "Qty"}</TableHead>
                   <TableHead className="w-[120px] text-right">{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
@@ -277,7 +281,7 @@ export function ProjectBOQTab({
               <TableBody>
                 {filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={hasArabicDescriptions ? 10 : 9} className="text-center py-8 text-muted-foreground">
                       {isArabic ? "لا توجد بنود" : "No items found"}
                     </TableCell>
                   </TableRow>
@@ -297,6 +301,11 @@ export function ProjectBOQTab({
                       </TableCell>
                       <TableCell className="font-mono text-sm whitespace-nowrap">{item.item_number}</TableCell>
                       <TableCell className="min-w-[350px] max-w-[500px] whitespace-pre-wrap break-words text-sm leading-relaxed">{item.description || '-'}</TableCell>
+                      {hasArabicDescriptions && (
+                        <TableCell className="min-w-[250px] max-w-[400px] whitespace-pre-wrap break-words text-sm leading-relaxed" dir="rtl">
+                          {item.description_ar || '-'}
+                        </TableCell>
+                      )}
                       <TableCell>{item.unit || '-'}</TableCell>
                       <TableCell className="text-right">{item.quantity?.toLocaleString() || '-'}</TableCell>
                       <TableCell className="text-right">
