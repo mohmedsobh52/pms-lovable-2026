@@ -336,7 +336,7 @@ export default function ProjectDetailsPage() {
       file_name: (project as any).file_name || project.name,
       items: items.map(item => {
         const desc = item.description || "";
-        const descAr = (item as any).description_ar || (desc && /[\u0600-\u06FF]/.test(desc) ? desc : "");
+        const descAr = (item as any).description_ar || (desc && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(desc) ? desc : "");
         return {
           item_number: item.item_number || "",
           description: desc,

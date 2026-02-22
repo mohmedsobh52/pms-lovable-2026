@@ -367,7 +367,7 @@ export function BOQAnalyzerPanel({ onProjectSaved, embedded = false, initialFile
         
       const normalizedItems = localResult.items.map(item => {
           let description_ar = item.description_ar || '';
-          if (!description_ar && item.description && /[\u0600-\u06FF]/.test(item.description)) {
+          if (!description_ar && item.description && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(item.description)) {
             description_ar = item.description;
           }
           return {
@@ -472,7 +472,7 @@ export function BOQAnalyzerPanel({ onProjectSaved, embedded = false, initialFile
         const totalPrice = item.total_price ?? item.amount ?? (unitPrice * quantity);
         const description = item.description || '';
         let description_ar = item.description_ar || '';
-        if (!description_ar && description && /[\u0600-\u06FF]/.test(description)) {
+        if (!description_ar && description && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(description)) {
           description_ar = description;
         }
         

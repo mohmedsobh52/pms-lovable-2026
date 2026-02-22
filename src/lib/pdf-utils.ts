@@ -43,7 +43,7 @@ function cleanMojibake(text: string): string {
     }
     
     // Remove remaining Latin-1 supplement if they're not part of valid Arabic
-    const hasArabic = /[\u0600-\u06FF]/.test(text);
+    const hasArabic = /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text);
     if (!hasArabic) {
       cleaned = cleaned.replace(/[\u00C0-\u00FF]+/g, '');
     }
@@ -61,7 +61,7 @@ function isValidText(text: string): boolean {
   if (!text || text.length < 10) return false;
   
   // Count different character types
-  const arabicChars = (text.match(/[\u0600-\u06FF]/g) || []).length;
+  const arabicChars = (text.match(/[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
   const latinChars = (text.match(/[A-Za-z]/g) || []).length;
   const numbers = (text.match(/\d/g) || []).length;
   const corruptedChars = (text.match(/[\u0080-\u00FF]/g) || []).length;
@@ -124,8 +124,8 @@ async function extractPageText(pdf: any, pageNum: number): Promise<string> {
           pageText += "\n";
         } else if (pageText.length > 0 && !pageText.endsWith(" ") && !item.str.startsWith(" ")) {
           // Add space between words (but be careful with Arabic RTL)
-          const isArabicText = /[\u0600-\u06FF]/.test(item.str);
-          const prevIsArabic = /[\u0600-\u06FF]/.test(pageText.slice(-1));
+          const isArabicText = /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(item.str);
+          const prevIsArabic = /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(pageText.slice(-1));
           
           // Only add space if there's significant horizontal gap
           if (lastX !== -1 && Math.abs(currentX - lastX) > 5) {
@@ -596,7 +596,7 @@ export function validateExtractedText(text: string): {
   }
   
   // Check for Arabic text
-  const arabicPattern = /[\u0600-\u06FF]/;
+  const arabicPattern = /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
   const hasArabic = arabicPattern.test(text);
   
   // Check for numbers (quantities)
