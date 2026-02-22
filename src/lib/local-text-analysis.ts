@@ -156,6 +156,30 @@ const SIMPLE_PATTERNS = [
   /([\d٠-٩\.]+)\s*[-–\.]\s*(.{10,150})/g,
 ];
 
+// Split bilingual description (mixed Arabic + English in one field) into separate parts
+function splitBilingualDescription(text: string): { en: string; ar: string } | null {
+  if (!text || text.length < 10) return null;
+  
+  const arabicParts: string[] = [];
+  const englishParts: string[] = [];
+  
+  // Split by whitespace and classify each segment
+  const segments = text.split(/\s+/);
+  for (const seg of segments) {
+    if (/[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(seg)) {
+      arabicParts.push(seg);
+    } else if (/[a-zA-Z]/.test(seg)) {
+      englishParts.push(seg);
+    }
+  }
+  
+  // Only split if both languages have meaningful content (>2 words each)
+  if (arabicParts.length > 2 && englishParts.length > 2) {
+    return { en: englishParts.join(' '), ar: arabicParts.join(' ') };
+  }
+  return null;
+}
+
 function extractItemsFromText(text: string): LocalTextItem[] {
   const items: LocalTextItem[] = [];
   const seenKeys = new Set<string>();
@@ -203,9 +227,15 @@ function extractItemsFromText(text: string): LocalTextItem[] {
       
       item.validation = { isValid: issues.length === 0, issues };
       
-      // Smart Arabic detection
-      if (item.description && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(item.description)) {
-        item.description_ar = item.description;
+      // Smart Arabic detection + bilingual split
+      if (item.description) {
+        const bilingualSplit = splitBilingualDescription(item.description);
+        if (bilingualSplit) {
+          item.description = bilingualSplit.en;
+          item.description_ar = bilingualSplit.ar;
+        } else if (/[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(item.description)) {
+          item.description_ar = item.description;
+        }
       }
       
       items.push(item);
@@ -301,9 +331,15 @@ function extractItemsByLineAnalysis(text: string): LocalTextItem[] {
       issues: totalPrice <= 0 ? ['بيانات جزئية'] : [] 
     };
     
-    // Smart Arabic detection
-    if (item.description && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(item.description)) {
-      item.description_ar = item.description;
+    // Smart Arabic detection + bilingual split
+    if (item.description) {
+      const bilingualSplit = splitBilingualDescription(item.description);
+      if (bilingualSplit) {
+        item.description = bilingualSplit.en;
+        item.description_ar = bilingualSplit.ar;
+      } else if (/[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(item.description)) {
+        item.description_ar = item.description;
+      }
     }
     
     items.push(item);
