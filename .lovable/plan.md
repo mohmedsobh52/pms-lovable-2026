@@ -1,54 +1,58 @@
 
 
-# تحسين شاشة التحليل المتقدم بالذكاء الاصطناعي
+# إضافة عمود الوصف العربي في جدول الكميات (BOQ Table)
 
-## التحسينات المطلوبة
+## الهدف
 
-### 1. تحسين شكل الشاشة
-تحسين التباعد والتنسيق العام لمكون `EnhancedPricingAnalysis` ليكون أكثر وضوحاً واحترافية.
+عند وجود بنود تحتوي على `description_ar` (وصف عربي)، يتم إضافة عمود منفصل "الوصف العربي" بجانب عمود "Description" في جدول الكميات داخل تبويب BOQ بصفحة تفاصيل المشروع، كما هو موضح في الصورة المرفقة.
 
-### 2. إضافة زر "النزول لآخر الصفحة"
-إضافة زر عائم (Floating Action Button) أسفل قائمة النتائج للانتقال السريع لآخر القائمة، مع زر للعودة لأعلى.
+## التعديل المطلوب
 
-### 3. ربط قاعدة البيانات التاريخية بالتحليل
-- إضافة محلل "قاعدة البيانات التاريخية" كمصدر فعلي للتسعير
-- عند تفعيل محلل "database_comparator"، يتم جلب الأسعار التاريخية من Supabase (جداول `historical_pricing_files` و `saved_projects`) ودمجها مع نتائج التحليل بالذكاء الاصطناعي
-- إرسال البيانات التاريخية مع طلب التحليل ليأخذها الذكاء الاصطناعي في الحسبان
+### ملف واحد: `src/components/project-details/ProjectBOQTab.tsx`
 
-### 4. إضافة عمود الوصف بالعربي
-- إضافة حقل `description_ar` في واجهة `BOQItem` و `EnhancedSuggestion`
-- عرض الوصف العربي بجانب الوصف الإنجليزي في قائمة النتائج عند وجوده
-- تمرير `description_ar` من البنود المصدرية للتحليل
+#### 1. اكتشاف وجود بيانات عربية تلقائياً
 
-## التفاصيل التقنية
+إضافة متغير `hasArabicDescriptions` يفحص البنود ويحدد إذا كان أي بند يحتوي على `description_ar` غير فارغ:
 
-### الملف: `src/components/EnhancedPricingAnalysis.tsx`
+```typescript
+const hasArabicDescriptions = items.some(item => item.description_ar && item.description_ar.trim() !== '');
+```
 
-**1. تحديث الواجهات (interfaces):**
-- إضافة `description_ar?: string` في `BOQItem` و `EnhancedSuggestion`
+#### 2. إضافة عمود "الوصف العربي" في رأس الجدول (TableHeader)
 
-**2. إضافة زر التمرير:**
-- إضافة `useRef` لمنطقة التمرير (ScrollArea)
-- زر عائم `ArrowDown` للنزول لآخر القائمة و `ArrowUp` للعودة لأعلى
+بعد عمود "Description" (سطر 268)، يُضاف عمود جديد مشروطاً بوجود بيانات عربية:
 
-**3. ربط البيانات التاريخية:**
-- إضافة دالة `fetchHistoricalPrices` تجلب البيانات من Supabase عند بدء التحليل
-- تمرير البيانات التاريخية مع `body` طلب التحليل كحقل `historicalData`
-- تحديث edge function `enhanced-pricing-analysis` لاستقبال البيانات التاريخية ودمجها في prompt الذكاء الاصطناعي كمرجع إضافي
+```typescript
+<TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
+{hasArabicDescriptions && (
+  <TableHead className="min-w-[250px]">الوصف العربي</TableHead>
+)}
+```
 
-**4. عرض الوصف العربي:**
-- في كل عنصر نتيجة (suggestion row)، عرض `description_ar` تحت الوصف الإنجليزي بخط أصغر واتجاه RTL عند وجوده
+#### 3. إضافة خلية الوصف العربي في صفوف الجدول (TableBody)
 
-### الملف: `supabase/functions/enhanced-pricing-analysis/index.ts`
+بعد خلية الوصف الإنجليزي (سطر 299)، تُضاف خلية جديدة:
 
-- إضافة استقبال `historicalData` من الطلب
-- دمج الأسعار التاريخية في prompt الذكاء الاصطناعي كمرجع إضافي للمحلل "database_comparator"
-- إضافة `description_ar` في الاستجابة عند توفرها
+```typescript
+<TableCell className="min-w-[350px]...">{item.description || '-'}</TableCell>
+{hasArabicDescriptions && (
+  <TableCell className="min-w-[250px] max-w-[400px] whitespace-pre-wrap break-words text-sm leading-relaxed" dir="rtl">
+    {item.description_ar || '-'}
+  </TableCell>
+)}
+```
 
-## الملفات المتأثرة
+#### 4. تحديث colSpan للحالة الفارغة
 
-| الملف | التغيير |
-|-------|---------|
-| `src/components/EnhancedPricingAnalysis.tsx` | تحسين الشكل + زر تمرير + ربط تاريخي + وصف عربي |
-| `supabase/functions/enhanced-pricing-analysis/index.ts` | استقبال بيانات تاريخية + تمرير description_ar |
+تحديث `colSpan` في صف "لا توجد بنود" (سطر 280) ليأخذ العمود الإضافي في الحسبان:
+
+```typescript
+<TableCell colSpan={hasArabicDescriptions ? 10 : 9} className="text-center py-8">
+```
+
+## النتيجة المتوقعة
+
+- عند وجود وصف عربي في أي بند: يظهر عمود "الوصف العربي" بجانب عمود "Description" بنص RTL
+- عند عدم وجود وصف عربي: لا تغيير - الجدول يبقى كما هو بدون العمود الإضافي
+- العمود يظهر تلقائياً بدون تدخل من المستخدم
 
