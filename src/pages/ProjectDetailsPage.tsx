@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import OnboardingModal from "@/components/OnboardingModal";
 import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Loader2, FolderOpen, Upload, X, Brain, FileText } from "lucide-react";
+import { Loader2, FolderOpen, Upload, X, Brain, FileText, FileUp } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -1137,17 +1138,39 @@ export default function ProjectDetailsPage() {
                 }}
               />
             ) : (
-              <div className="text-center py-16 text-muted-foreground">
-                <Brain className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <p className="text-lg font-medium mb-2">
-                  {isArabic ? "لا توجد بنود للتحليل" : "No items to analyze"}
-                </p>
-                <p className="text-sm mb-6">
-                  {isArabic ? "ارفع ملف BOQ أولاً لعرض التحليل المتقدم" : "Upload a BOQ file first to view advanced analysis"}
-                </p>
-                <Button onClick={() => setShowBOQUploadDialog(true)}>
-                  {isArabic ? "رفع ملف BOQ" : "Upload BOQ"}
-                </Button>
+              <div className="flex items-center justify-center py-12">
+                <Card className="w-full max-w-lg">
+                  <CardHeader className="text-center">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <FileUp className="w-5 h-5 text-primary" />
+                      <CardTitle className="text-xl">
+                        {isArabic ? "رفع ملف BOQ" : "Upload BOQ File"}
+                      </CardTitle>
+                    </div>
+                    <CardDescription>
+                      {isArabic
+                        ? "ارفع ملف PDF أو Excel يحتوي على جدول الكميات للتحليل"
+                        : "Upload a PDF or Excel file containing the Bill of Quantities for analysis"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-10 text-center cursor-pointer transition-colors hover:border-primary/50 hover:bg-accent/30"
+                      onClick={() => setShowBOQUploadDialog(true)}
+                      onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-primary', 'bg-accent/50'); }}
+                      onDragLeave={(e) => { e.currentTarget.classList.remove('border-primary', 'bg-accent/50'); }}
+                      onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-primary', 'bg-accent/50'); setShowBOQUploadDialog(true); }}
+                    >
+                      <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {isArabic ? "اسحب الملف هنا أو انقر للرفع" : "Drag file here or click to upload"}
+                      </p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">
+                        {isArabic ? "يدعم ملفات PDF و Excel" : "Supports PDF and Excel files"}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
           </TabsContent>
