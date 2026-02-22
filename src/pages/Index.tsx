@@ -613,17 +613,22 @@ const Index = () => {
         // Check if local analysis was successful enough
         if (localTextResult.items.length >= 5 && !shouldUseAIForText(localTextResult)) {
           // Convert local text result to standard format
-          const normalizedItems = localTextResult.items.map(item => ({
-            ...item,
-            item_number: item.item_number,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            quantity: item.quantity,
-            description: item.description,
-            unit: item.unit,
-            category: item.category,
-            remarks: item.validation?.issues.length ? item.validation.issues.join('; ') : undefined,
-          }));
+          const normalizedItems = localTextResult.items.map(item => {
+            const desc = item.description || '';
+            const descAr = item.description_ar || (desc && /[\u0600-\u06FF]/.test(desc) ? desc : '');
+            return {
+              ...item,
+              item_number: item.item_number,
+              unit_price: item.unit_price,
+              total_price: item.total_price,
+              quantity: item.quantity,
+              description: desc,
+              description_ar: descAr,
+              unit: item.unit,
+              category: item.category,
+              remarks: item.validation?.issues.length ? item.validation.issues.join('; ') : undefined,
+            };
+          });
           
           const analysisResult = {
             items: normalizedItems,

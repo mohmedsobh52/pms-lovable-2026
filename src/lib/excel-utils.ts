@@ -1008,6 +1008,17 @@ export function reExtractWithMapping(
       }
     }
     
+    // Extract Arabic Description
+    if (customMapping.descriptionAr !== undefined && customMapping.descriptionAr >= 0) {
+      const val = row[customMapping.descriptionAr];
+      if (val !== undefined && val !== null) {
+        const descArText = val.toString().trim();
+        if (descArText) {
+          item.descriptionAr = descArText;
+        }
+      }
+    }
+    
     // Fallback: If no description found, search for longest text in row
     if (!item.description) {
       let longestText = '';
@@ -1060,6 +1071,15 @@ export function reExtractWithMapping(
     // Auto-calculate total if missing but qty and unit price exist
     if (!item.totalPrice && item.quantity && item.unitPrice) {
       item.totalPrice = item.quantity * item.unitPrice;
+    }
+    
+    // Smart Arabic detection: if description is Arabic and no descriptionAr, copy it
+    if (item.description && !item.descriptionAr && /[\u0600-\u06FF]/.test(item.description)) {
+      item.descriptionAr = item.description;
+    }
+    // Fallback: if descriptionAr exists but no description, use it
+    if (item.descriptionAr && !item.description) {
+      item.description = item.descriptionAr;
     }
     
     // Only add items that have meaningful data

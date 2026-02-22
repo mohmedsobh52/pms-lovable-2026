@@ -30,6 +30,7 @@ interface ExcelDataPreviewProps {
 const COLUMN_FIELDS = [
   { key: 'itemNo', labelEn: 'Item No.', labelAr: 'رقم البند' },
   { key: 'description', labelEn: 'Description', labelAr: 'الوصف' },
+  { key: 'descriptionAr', labelEn: 'Arabic Description', labelAr: 'الوصف العربي' },
   { key: 'unit', labelEn: 'Unit', labelAr: 'الوحدة' },
   { key: 'quantity', labelEn: 'Quantity', labelAr: 'الكمية' },
   { key: 'unitPrice', labelEn: 'Unit Price', labelAr: 'سعر الوحدة' },
