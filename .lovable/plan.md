@@ -1,37 +1,62 @@
 
+# إصلاح مشكلة ظهور نقطة حمراء بدلاً من النص العربي
 
-# إصلاح خطأ "Partial extraction" - عدم تطابق إصدار PDF.js
+## تحليل المشكلة
 
-## المشكلة
+عند تحليل ملف BOQ يحتوي على وصف إنجليزي فقط، يظهر عمود "الوصف العربي" بنقطة حمراء (●) بدلاً من أن يكون فارغاً أو مخفياً. السبب الجذري:
 
-عند محاولة استخراج النص من ملف PDF، يظهر الخطأ:
+1. **الذكاء الاصطناعي يُرجع قيمة غير صالحة في `description_ar`** - قد يكون حرف واحد أو رمز خاص أو نص غير عربي
+2. **`hasArabicDescriptions` (سطر 269)** يتحقق فقط من وجود قيمة غير فارغة بدون التأكد أنها فعلاً نص عربي
+3. **العرض في الخلية (سطر 2399)** يعرض أي قيمة موجودة دون التحقق من صلاحيتها كنص عربي
+
+## الحل (3 تعديلات في ملف واحد)
+
+### الملف: `src/components/AnalysisResults.tsx`
+
+#### 1. تشديد فحص `hasArabicDescriptions` (سطر 268-270)
+استبدال `.trim()` بفحص فعلي لوجود أحرف عربية:
+
+```typescript
+const hasArabicDescriptions = useMemo(() => {
+  return data?.items?.some(item => {
+    const descAr = (item as any).description_ar;
+    return descAr && typeof descAr === 'string' && descAr.trim().length > 1 
+      && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(descAr);
+  }) ?? false;
+}, [data?.items]);
 ```
-The API version "4.10.38" does not match the Worker version "4.4.168"
+
+هذا يضمن أن العمود يظهر فقط عندما يوجد نص عربي حقيقي (أحرف عربية فعلية وليس رموز أو أحرف لاتينية).
+
+#### 2. تحسين عرض الخلية (سطر 2399)
+إضافة نفس التحقق عند عرض محتوى الخلية:
+
+```typescript
+const descAr = (item as any).description_ar;
+const text = descAr && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(descAr) 
+  ? cleanText(descAr) : "-";
 ```
 
-السبب: حزمة `pdfjs-dist` المثبتة تم تحديثها تلقائياً إلى `4.10.38` (لأن `package.json` يحدد `^4.4.168`)، لكن رابط Worker في الكود لا يزال يشير يدوياً إلى الإصدار القديم `4.4.168`.
+#### 3. تنظيف `description_ar` عند استلام البيانات من AI في `BOQAnalyzerPanel.tsx` (سطر 474-488)
 
-## الحل
+إضافة تحقق إضافي بعد الكشف الذكي: إذا لم يحتوِ `description_ar` على أحرف عربية فعلية، يتم تفريغه:
 
-### تعديل ملف واحد: `src/lib/pdf-utils.ts`
-
-**السطر 5** - تحديث رابط Worker ليتطابق مع الإصدار المثبت:
-
-من:
+```typescript
+// بعد السطر 476
+if (description_ar && !/[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(description_ar)) {
+  description_ar = ''; // ليس نصاً عربياً حقيقياً
+}
 ```
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
-```
-
-إلى حل ديناميكي لا يتأثر بتحديثات الحزمة مستقبلاً:
-```
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-```
-
-هذا يستخدم `pdfjsLib.version` مباشرة مما يضمن التطابق دائماً بين API و Worker بغض النظر عن أي تحديث مستقبلي.
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/lib/pdf-utils.ts` | سطر 5: استخدام `pdfjsLib.version` بدل الإصدار الثابت |
+| `src/components/AnalysisResults.tsx` | تشديد فحص `hasArabicDescriptions` + تحسين عرض الخلية |
+| `src/components/BOQAnalyzerPanel.tsx` | تنظيف `description_ar` غير الصالح من نتائج AI |
 
+## النتيجة المتوقعة
+
+- إذا كان الملف يحتوي على وصف إنجليزي فقط: عمود "الوصف العربي" لن يظهر إطلاقاً
+- إذا كان الملف يحتوي على وصف عربي حقيقي: يظهر العمود بالنص الصحيح
+- لن تظهر نقاط حمراء أو رموز غير مفهومة بعد الآن
