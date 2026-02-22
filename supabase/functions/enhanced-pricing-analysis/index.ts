@@ -4,15 +4,27 @@ import { verifyAuth, corsHeaders } from "../_shared/auth.ts";
 interface BOQItem {
   item_number: string;
   description: string;
+  description_ar?: string;
   unit: string;
   quantity: number;
   unit_price?: number;
   total_price?: number;
 }
 
+interface HistoricalPriceRecord {
+  description: string;
+  description_ar?: string;
+  unit: string;
+  unit_price: number;
+  source: string;
+  date?: string;
+  currency?: string;
+}
+
 interface EnhancedPricingSuggestion {
   item_number: string;
   description: string;
+  description_ar?: string;
   current_price: number;
   analyzers: {
     name: string;
@@ -1523,7 +1535,8 @@ async function runAnalyzer(
   items: BOQItem[],
   location: string,
   apiKey: string,
-  model: string
+  model: string,
+  historicalData?: HistoricalPriceRecord[]
 ): Promise<{ analyzerId: string; results: any[] }> {
   const locationFactor = LOCATION_FACTORS[location] || 1.0;
   
@@ -1548,18 +1561,32 @@ async function runAnalyzer(
     };
   });
 
+  // Build historical data section for prompt
+  let historicalSection = "";
+  if (historicalData && historicalData.length > 0) {
+    const relevantHistorical = historicalData.slice(0, 100).map(h => 
+      `- ${h.description} | Unit: ${h.unit} | Price: ${h.unit_price} SAR | Source: ${h.source}`
+    ).join("\n");
+    historicalSection = `\n\nHISTORICAL PRICING DATA (from user's previous projects - use as additional reference):
+${relevantHistorical}
+
+Use these historical prices as additional validation. If a BOQ item closely matches a historical record, factor it into your price suggestion.`;
+  }
+
   const userPrompt = `CRITICAL: Analyze these BOQ items for ${location}, Saudi Arabia with 95%+ accuracy target.
   
 Location factor: ${locationFactor} (applied to base Riyadh prices)
 
 Items with reference price ranges:
 ${JSON.stringify(itemsSummary, null, 2)}
+${historicalSection}
 
 STRICT REQUIREMENTS:
 1. If reference_range is provided, your suggested_price MUST be within min-max range
 2. Confidence MUST be 90%+ only if price is within reference range
 3. Include material, labor, equipment, overhead, and profit
 4. All prices in SAR per unit
+5. If historical pricing data is provided, use it as additional validation reference
 
 For each item return:
 - item_number: exactly as provided
@@ -1784,6 +1811,7 @@ function aggregateResults(
     return {
       item_number: item.item_number,
       description: item.description,
+      description_ar: item.description_ar || undefined,
       current_price: currentPrice,
       analyzers: analyzersData,
       final_suggested_price: Math.round(finalPrice * 100) / 100,
@@ -1819,13 +1847,15 @@ serve(async (req) => {
       location = "Riyadh",
       model = "google/gemini-2.5-flash",
       analyzers = ["construction_expert", "market_analyst", "quantity_surveyor", "database_comparator"],
-      weights
+      weights,
+      historicalData
     }: { 
       items: BOQItem[]; 
       location: string;
       model?: string;
       analyzers?: string[];
       weights?: Record<string, number>;
+      historicalData?: HistoricalPriceRecord[];
     } = await req.json();
 
     if (!items || items.length === 0) {
@@ -1840,7 +1870,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log(`Enhanced pricing analysis (95%+ accuracy): ${items.length} items, ${analyzers.length} analyzers, location: ${location}`);
+    console.log(`Enhanced pricing analysis: ${items.length} items, ${analyzers.length} analyzers, location: ${location}, historical records: ${historicalData?.length || 0}`);
 
     // Filter active analyzers
     const activeAnalyzers = ANALYZERS.filter(a => analyzers.includes(a.id));
@@ -1855,7 +1885,7 @@ serve(async (req) => {
 
       // Run all analyzers in parallel for this batch
       const analyzerPromises = activeAnalyzers.map(analyzer => 
-        runAnalyzer(analyzer, batchItems, location, LOVABLE_API_KEY, model)
+        runAnalyzer(analyzer, batchItems, location, LOVABLE_API_KEY, model, historicalData)
       );
 
       const analyzerResults = await Promise.all(analyzerPromises);

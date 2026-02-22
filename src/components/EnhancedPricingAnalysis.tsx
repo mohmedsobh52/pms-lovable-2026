@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Brain, Sparkles, TrendingUp, TrendingDown, Minus, CheckCircle2, Loader2, Settings2, BarChart3, Users, Shield, Calculator, ChevronDown, ChevronRight, Target, Lightbulb, Database, Trash2, ExternalLink } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Brain, Sparkles, TrendingUp, TrendingDown, Minus, CheckCircle2, Loader2, Settings2, BarChart3, Users, Shield, Calculator, ChevronDown, ChevronRight, Target, Lightbulb, Database, Trash2, ExternalLink, ArrowDown, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import { Link } from "react-router-dom";
 interface BOQItem {
   item_number: string;
   description: string;
+  description_ar?: string;
   unit: string;
   quantity: number;
   unit_price?: number;
@@ -39,6 +40,7 @@ interface AnalyzerResult {
 interface EnhancedSuggestion {
   item_number: string;
   description: string;
+  description_ar?: string;
   current_price: number;
   analyzers: AnalyzerResult[];
   final_suggested_price: number;
@@ -58,7 +60,7 @@ const ANALYZERS = [
   { id: "construction_expert", name: "Construction Expert", nameAr: "خبير البناء", icon: Users, description: "خبرة 30+ سنة - Civil/Arch/MEP/Infrastructure" },
   { id: "market_analyst", name: "Market Analyst", nameAr: "محلل السوق", icon: BarChart3, description: "أسعار السوق 2024-2025 - دقة 95%+" },
   { id: "quantity_surveyor", name: "Quantity Surveyor", nameAr: "مهندس كميات", icon: Calculator, description: "تحليل تفصيلي للتكاليف - جميع التخصصات" },
-  { id: "database_comparator", name: "Historical Database", nameAr: "قاعدة بيانات", icon: Shield, description: "200+ مشروع سابق - مرجعي موثوق" },
+  { id: "database_comparator", name: "Historical Database", nameAr: "قاعدة بيانات تاريخية", icon: Shield, description: "ربط بقاعدة البيانات التاريخية الفعلية" },
 ];
 
 // All Saudi Arabia cities with location factors
@@ -78,6 +80,82 @@ const LOCATIONS = [
   { value: "Tabuk", label: "تبوك / Tabuk", factor: "1.18x" },
 ];
 
+// Fetch historical prices from Supabase
+async function fetchHistoricalPrices(): Promise<any[]> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    // Fetch from historical_pricing_files
+    const { data: historicalFiles } = await supabase
+      .from('historical_pricing_files')
+      .select('project_name, items, currency, project_date')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    const historicalData: any[] = [];
+
+    // Extract items from historical files
+    if (historicalFiles) {
+      for (const file of historicalFiles) {
+        const items = file.items as any[];
+        if (Array.isArray(items)) {
+          for (const item of items.slice(0, 50)) {
+            if (item.unit_price && item.unit_price > 0) {
+              historicalData.push({
+                description: item.description || item.Description || '',
+                description_ar: item.description_ar || '',
+                unit: item.unit || item.Unit || '',
+                unit_price: item.unit_price || item['Unit Price'] || 0,
+                source: file.project_name,
+                date: file.project_date,
+                currency: file.currency || 'SAR'
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Fetch from project_items that have prices (via saved_projects)
+    const { data: savedProjects } = await supabase
+      .from('saved_projects')
+      .select('id, name, analysis_data')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    // Extract items from saved projects' analysis_data
+    if (savedProjects) {
+      for (const project of savedProjects) {
+        const analysisData = project.analysis_data as any;
+        const items = analysisData?.items || analysisData?.boqItems || [];
+        if (Array.isArray(items)) {
+          for (const item of items.slice(0, 50)) {
+            const unitPrice = item.unit_price || item.unitPrice || 0;
+            if (unitPrice > 0) {
+              historicalData.push({
+                description: item.description || '',
+                description_ar: item.description_ar || '',
+                unit: item.unit || '',
+                unit_price: unitPrice,
+                source: project.name,
+                currency: 'SAR'
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return historicalData.slice(0, 200); // Limit to 200 items
+  } catch (error) {
+    console.error('Error fetching historical prices:', error);
+    return [];
+  }
+}
+
 export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricingAnalysisProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,6 +167,8 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [customWeights, setCustomWeights] = useState<Record<string, number>>({});
   const [deletedSuggestions, setDeletedSuggestions] = useState<Set<string>>(new Set());
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { selectedModel } = useAnalysisTracking();
 
@@ -138,6 +218,31 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
     });
   };
 
+  const scrollToBottom = () => {
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+    }
+  };
+
+  const scrollToTop = () => {
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      viewport.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Track scroll position for showing/hiding scroll buttons
+  useEffect(() => {
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!viewport) return;
+    const handleScroll = () => {
+      setShowScrollTop(viewport.scrollTop > 200);
+    };
+    viewport.addEventListener('scroll', handleScroll);
+    return () => viewport.removeEventListener('scroll', handleScroll);
+  }, [suggestions]);
+
   const handleAnalyze = async () => {
     if (!items || items.length === 0) {
       toast({
@@ -170,13 +275,22 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
     try {
       const validItems = items.filter(item => !!item.item_number);
 
+      // Fetch historical data if database_comparator is active
+      let historicalData: any[] = [];
+      if (activeAnalyzers.includes('database_comparator')) {
+        setProgress(5);
+        historicalData = await fetchHistoricalPrices();
+        console.log(`Fetched ${historicalData.length} historical price records`);
+      }
+
       const { data, error } = await supabase.functions.invoke("enhanced-pricing-analysis", {
         body: {
           items: validItems,
           location,
           model: selectedModel,
           analyzers: activeAnalyzers,
-          weights: Object.keys(customWeights).length > 0 ? customWeights : undefined
+          weights: Object.keys(customWeights).length > 0 ? customWeights : undefined,
+          historicalData: historicalData.length > 0 ? historicalData : undefined
         },
       });
       clearInterval(progressInterval);
@@ -201,7 +315,7 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
 
       toast({
         title: "✅ تم التحليل بنجاح",
-        description: `تم تحليل ${data.summary?.analyzed_items || 0} بند باستخدام ${activeAnalyzers.length} محلل`,
+        description: `تم تحليل ${data.summary?.analyzed_items || 0} بند باستخدام ${activeAnalyzers.length} محلل${historicalData.length > 0 ? ` + ${historicalData.length} سعر تاريخي` : ''}`,
       });
     } catch (error: any) {
       clearInterval(progressInterval);
@@ -261,8 +375,8 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
   };
 
   const dialogContent = (
-    <div className="flex flex-col gap-4 flex-1 overflow-hidden">
-      {/* Section 1: Settings Panel - Compact */}
+    <div className="flex flex-col gap-3 flex-1 overflow-hidden">
+      {/* Section 1: Settings Panel */}
       <div className="p-3 bg-muted/30 rounded-lg border">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -281,244 +395,276 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
           </Select>
         </div>
 
-            {/* Analyzers Selection - Horizontal */}
-            <div className="grid grid-cols-4 gap-2">
-              {ANALYZERS.map(analyzer => {
-                const Icon = analyzer.icon;
-                const isActive = activeAnalyzers.includes(analyzer.id);
-                return (
-                  <div
-                    key={analyzer.id}
-                    className={cn(
-                      "p-2 rounded-lg border cursor-pointer transition-all",
-                      isActive 
-                        ? "bg-primary/10 border-primary" 
-                        : "bg-background hover:bg-muted/50"
-                    )}
-                    onClick={() => toggleAnalyzer(analyzer.id)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon className={cn("w-4 h-4", isActive ? "text-primary" : "text-muted-foreground")} />
-                      <span className="text-xs font-medium flex-1">{analyzer.nameAr}</span>
-                      <Switch checked={isActive} className="scale-75" />
-                    </div>
+        {/* Analyzers Selection */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {ANALYZERS.map(analyzer => {
+            const Icon = analyzer.icon;
+            const isActive = activeAnalyzers.includes(analyzer.id);
+            return (
+              <div
+                key={analyzer.id}
+                className={cn(
+                  "p-2 rounded-lg border cursor-pointer transition-all",
+                  isActive 
+                    ? "bg-primary/10 border-primary shadow-sm" 
+                    : "bg-background hover:bg-muted/50"
+                )}
+                onClick={() => toggleAnalyzer(analyzer.id)}
+              >
+                <div className="flex items-center gap-2">
+                  <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-medium block truncate">{analyzer.nameAr}</span>
+                    <span className="text-[10px] text-muted-foreground block truncate">{analyzer.description}</span>
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                  <Switch checked={isActive} className="scale-75 shrink-0" />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-          {/* Section 2: Primary Actions Bar */}
-          <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
-            <Button 
-              onClick={handleAnalyze} 
-              disabled={isLoading || activeAnalyzers.length === 0}
-              className="gap-2"
-              size="lg"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  جاري التحليل...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  بدء التحليل المتقدم ({items.length} بند)
-                </>
-              )}
+      {/* Section 2: Actions Bar */}
+      <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
+        <Button 
+          onClick={handleAnalyze} 
+          disabled={isLoading || activeAnalyzers.length === 0}
+          className="gap-2"
+          size="lg"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              جاري التحليل...
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4" />
+              بدء التحليل المتقدم ({items.length} بند)
+            </>
+          )}
+        </Button>
+
+        {visibleSuggestions.length > 0 && (
+          <Button variant="secondary" onClick={handleApplyAll} className="gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            تطبيق جميع الأسعار ({visibleSuggestions.length})
+          </Button>
+        )}
+      </div>
+
+      {/* Section 3: Secondary Tools */}
+      {suggestions.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <HistoricalPriceComparison 
+            items={items} 
+            suggestions={suggestions}
+            onApplyAdjustedPrices={onApplyRates}
+          />
+          <EnhancedAnalysisPDFReport 
+            suggestions={suggestions}
+            summary={summary}
+          />
+          <Link to="/historical-pricing">
+            <Button variant="outline" size="sm" className="gap-2">
+              <Database className="w-4 h-4" />
+              قاعدة البيانات
             </Button>
+          </Link>
+          <AnalyzerWeightsDialog onWeightsChange={setCustomWeights} />
+        </div>
+      )}
 
-            {visibleSuggestions.length > 0 && (
-              <Button variant="secondary" onClick={handleApplyAll} className="gap-2">
-                <CheckCircle2 className="w-4 h-4" />
-                تطبيق جميع الأسعار ({visibleSuggestions.length})
-              </Button>
-            )}
+      {/* Section 4: Progress */}
+      {isLoading && (
+        <div className="space-y-1">
+          <Progress value={progress} className="h-2" />
+          <p className="text-xs text-muted-foreground text-center">
+            جاري التحليل باستخدام {activeAnalyzers.length} محلل... ({progress}%)
+          </p>
+        </div>
+      )}
+
+      {/* Section 5: Summary Stats */}
+      {summary && (
+        <div className="grid grid-cols-4 gap-2 py-2 border-b">
+          <div className="p-2.5 bg-primary/10 rounded-lg text-center border">
+            <p className="text-xl font-bold text-primary">{summary.analyzed_items}</p>
+            <p className="text-[11px] text-muted-foreground">بند تم تحليله</p>
           </div>
+          <div className="p-2.5 bg-green-100 dark:bg-green-900/30 rounded-lg text-center border border-green-200 dark:border-green-800">
+            <p className="text-xl font-bold text-green-600 dark:text-green-400">{summary.average_confidence}%</p>
+            <p className="text-[11px] text-muted-foreground">متوسط الثقة</p>
+          </div>
+          <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-center border border-blue-200 dark:border-blue-800">
+            <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{summary.average_consensus}%</p>
+            <p className="text-[11px] text-muted-foreground">توافق المحللين</p>
+          </div>
+          <div className="p-2.5 bg-muted rounded-lg text-center border">
+            <p className="text-xl font-bold">{activeAnalyzers.length}</p>
+            <p className="text-[11px] text-muted-foreground">محلل نشط</p>
+          </div>
+        </div>
+      )}
 
-          {/* Section 3: Secondary Tools Bar */}
-          {suggestions.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <HistoricalPriceComparison 
-                items={items} 
-                suggestions={suggestions}
-                onApplyAdjustedPrices={onApplyRates}
-              />
-              <EnhancedAnalysisPDFReport 
-                suggestions={suggestions}
-                summary={summary}
-              />
-              <Link to="/historical-pricing">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Database className="w-4 h-4" />
-                  قاعدة البيانات
-                </Button>
-              </Link>
-              <AnalyzerWeightsDialog onWeightsChange={setCustomWeights} />
-            </div>
-          )}
+      {/* Section 6: Results List with Scroll Buttons */}
+      {visibleSuggestions.length > 0 && (
+        <div className="relative flex-1 min-h-0">
+          <ScrollArea className="h-full pr-3" ref={scrollAreaRef}>
+            <div className="space-y-2 pb-2">
+              {visibleSuggestions.map((suggestion) => {
+                const isExpanded = expandedItems.has(suggestion.item_number);
+                const variance = getVarianceIndicator(suggestion.current_price, suggestion.final_suggested_price);
+                const VarianceIcon = variance.icon;
 
-          {/* Section 4: Progress Bar */}
-          {isLoading && (
-            <div className="space-y-1">
-              <Progress value={progress} className="h-2" />
-              <p className="text-xs text-muted-foreground text-center">
-                جاري التحليل باستخدام {activeAnalyzers.length} محلل... ({progress}%)
-              </p>
-            </div>
-          )}
-
-          {/* Section 5: Summary Stats - Sticky */}
-          {summary && (
-            <div className="grid grid-cols-4 gap-3 sticky top-0 bg-background z-10 py-2 border-b">
-              <div className="p-3 bg-primary/10 rounded-lg text-center border">
-                <p className="text-2xl font-bold text-primary">{summary.analyzed_items}</p>
-                <p className="text-xs text-muted-foreground">بند تم تحليله</p>
-              </div>
-              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg text-center border border-green-200 dark:border-green-800">
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{summary.average_confidence}%</p>
-                <p className="text-xs text-muted-foreground">متوسط الثقة</p>
-              </div>
-              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-center border border-blue-200 dark:border-blue-800">
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{summary.average_consensus}%</p>
-                <p className="text-xs text-muted-foreground">توافق المحللين</p>
-              </div>
-              <div className="p-3 bg-muted rounded-lg text-center border">
-                <p className="text-2xl font-bold">{activeAnalyzers.length}</p>
-                <p className="text-xs text-muted-foreground">محلل نشط</p>
-              </div>
-            </div>
-          )}
-
-          {/* Section 6: Results List - Scrollable */}
-          {visibleSuggestions.length > 0 && (
-            <ScrollArea className="flex-1 min-h-0 pr-4">
-              <div className="space-y-2">
-                {visibleSuggestions.map((suggestion) => {
-                  const isExpanded = expandedItems.has(suggestion.item_number);
-                  const variance = getVarianceIndicator(suggestion.current_price, suggestion.final_suggested_price);
-                  const VarianceIcon = variance.icon;
-
-                  return (
-                    <Collapsible key={suggestion.item_number} open={isExpanded}>
-                      <div className="border rounded-lg overflow-hidden">
-                        <div className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors">
-                          <CollapsibleTrigger 
-                            className="flex items-center gap-3 flex-1"
-                            onClick={() => toggleExpanded(suggestion.item_number)}
-                          >
-                            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                            <div className="text-right">
-                              <p className="font-medium text-sm">{suggestion.item_number}</p>
-                              <p className="text-xs text-muted-foreground truncate max-w-[250px]">
-                                {suggestion.description}
+                return (
+                  <Collapsible key={suggestion.item_number} open={isExpanded}>
+                    <div className="border rounded-lg overflow-hidden hover:shadow-sm transition-shadow">
+                      <div className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors">
+                        <CollapsibleTrigger 
+                          className="flex items-center gap-3 flex-1"
+                          onClick={() => toggleExpanded(suggestion.item_number)}
+                        >
+                          {isExpanded ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
+                          <div className="text-right min-w-0">
+                            <p className="font-medium text-sm">{suggestion.item_number}</p>
+                            <p className="text-xs text-muted-foreground truncate max-w-[250px]">
+                              {suggestion.description}
+                            </p>
+                            {suggestion.description_ar && (
+                              <p className="text-xs text-muted-foreground/80 truncate max-w-[250px]" dir="rtl">
+                                {suggestion.description_ar}
                               </p>
-                            </div>
-                          </CollapsibleTrigger>
+                            )}
+                          </div>
+                        </CollapsibleTrigger>
+                        
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground">الحالي</p>
+                            <p className="font-medium">{suggestion.current_price.toFixed(2)}</p>
+                          </div>
                           
+                          <VarianceIcon className={cn("w-5 h-5", variance.color)} />
+                          
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground">المقترح</p>
+                            <p className="font-bold text-primary">{suggestion.final_suggested_price.toFixed(2)}</p>
+                          </div>
+
+                          <Badge className={getConsensusColor(suggestion.consensus_score)}>
+                            توافق {suggestion.consensus_score}%
+                          </Badge>
+
+                          {/* Item Actions */}
+                          <div className="flex items-center gap-1 border-r pr-3 mr-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 px-2 gap-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpanded(suggestion.item_number);
+                              }}
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span className="text-xs">فتح</span>
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 px-2 text-destructive hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteSuggestion(suggestion.item_number);
+                              }}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <CollapsibleContent>
+                        <div className="p-4 bg-muted/20 border-t space-y-4">
+                          {/* Recommendation */}
+                          <div className="flex items-start gap-2 p-3 bg-primary/5 rounded-lg">
+                            <Lightbulb className="w-4 h-4 text-primary mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium">التوصية</p>
+                              <p className="text-sm text-muted-foreground">{suggestion.recommendation_ar}</p>
+                            </div>
+                          </div>
+
+                          {/* Price Range */}
                           <div className="flex items-center gap-4">
-                            <div className="text-right">
-                              <p className="text-xs text-muted-foreground">الحالي</p>
-                              <p className="font-medium">{suggestion.current_price.toFixed(2)}</p>
-                            </div>
-                            
-                            <VarianceIcon className={cn("w-5 h-5", variance.color)} />
-                            
-                            <div className="text-right">
-                              <p className="text-xs text-muted-foreground">المقترح</p>
-                              <p className="font-bold text-primary">{suggestion.final_suggested_price.toFixed(2)}</p>
-                            </div>
+                            <Target className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm">نطاق السعر:</span>
+                            <span className="text-sm font-medium">
+                              {suggestion.price_range.min.toFixed(2)} - {suggestion.price_range.max.toFixed(2)} ر.س
+                            </span>
+                          </div>
 
-                            <Badge className={getConsensusColor(suggestion.consensus_score)}>
-                              توافق {suggestion.consensus_score}%
-                            </Badge>
-
-                            {/* Item Actions */}
-                            <div className="flex items-center gap-1 border-r pr-3 mr-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="h-7 px-2 gap-1"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleExpanded(suggestion.item_number);
-                                }}
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                <span className="text-xs">فتح</span>
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="h-7 px-2 text-destructive hover:text-destructive"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteSuggestion(suggestion.item_number);
-                                }}
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
+                          {/* Analyzers Details */}
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">نتائج المحللين:</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              {suggestion.analyzers.map((analyzer, idx) => (
+                                <div key={idx} className="p-2 bg-background rounded border">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-medium">{analyzer.nameAr}</span>
+                                    <Badge variant="outline" className={getConfidenceColor(analyzer.confidence)}>
+                                      {analyzer.confidence}%
+                                    </Badge>
+                                  </div>
+                                  <p className="text-lg font-bold">{analyzer.suggested_price.toFixed(2)} ر.س</p>
+                                  <p className="text-xs text-muted-foreground truncate">{analyzer.methodology}</p>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         </div>
-
-                        <CollapsibleContent>
-                          <div className="p-4 bg-muted/20 border-t space-y-4">
-                            {/* Recommendation */}
-                            <div className="flex items-start gap-2 p-3 bg-primary/5 rounded-lg">
-                              <Lightbulb className="w-4 h-4 text-primary mt-0.5" />
-                              <div>
-                                <p className="text-sm font-medium">التوصية</p>
-                                <p className="text-sm text-muted-foreground">{suggestion.recommendation_ar}</p>
-                              </div>
-                            </div>
-
-                            {/* Price Range */}
-                            <div className="flex items-center gap-4">
-                              <Target className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm">نطاق السعر:</span>
-                              <span className="text-sm font-medium">
-                                {suggestion.price_range.min.toFixed(2)} - {suggestion.price_range.max.toFixed(2)} ر.س
-                              </span>
-                            </div>
-
-                            {/* Analyzers Details */}
-                            <div className="space-y-2">
-                              <p className="text-sm font-medium">نتائج المحللين:</p>
-                              <div className="grid grid-cols-2 gap-2">
-                                {suggestion.analyzers.map((analyzer, idx) => (
-                                  <div key={idx} className="p-2 bg-background rounded border">
-                                    <div className="flex items-center justify-between mb-1">
-                                      <span className="text-xs font-medium">{analyzer.nameAr}</span>
-                                      <Badge variant="outline" className={getConfidenceColor(analyzer.confidence)}>
-                                        {analyzer.confidence}%
-                                      </Badge>
-                                    </div>
-                                    <p className="text-lg font-bold">{analyzer.suggested_price.toFixed(2)} ر.س</p>
-                                    <p className="text-xs text-muted-foreground truncate">{analyzer.methodology}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </CollapsibleContent>
-                      </div>
-                    </Collapsible>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          )}
-
-          {/* Section 7: Empty State */}
-          {!isLoading && suggestions.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground flex-1 flex flex-col items-center justify-center">
-              <Brain className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>اختر المحللات وابدأ التحليل للحصول على أسعار دقيقة</p>
+                      </CollapsibleContent>
+                    </div>
+                  </Collapsible>
+                );
+              })}
             </div>
-          )}
+          </ScrollArea>
+
+          {/* Floating scroll buttons */}
+          <div className="absolute bottom-3 left-3 flex flex-col gap-1 z-10">
+            {showScrollTop && (
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-8 w-8 rounded-full shadow-lg opacity-90 hover:opacity-100"
+                onClick={scrollToTop}
+              >
+                <ArrowUp className="w-4 h-4" />
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-8 w-8 rounded-full shadow-lg opacity-90 hover:opacity-100"
+              onClick={scrollToBottom}
+            >
+              <ArrowDown className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
+      )}
+
+      {/* Section 7: Empty State */}
+      {!isLoading && suggestions.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground flex-1 flex flex-col items-center justify-center">
+          <Brain className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p>اختر المحللات وابدأ التحليل للحصول على أسعار دقيقة</p>
+        </div>
+      )}
+    </div>
   );
 
   return (
