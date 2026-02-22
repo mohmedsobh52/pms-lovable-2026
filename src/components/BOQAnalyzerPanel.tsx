@@ -475,6 +475,9 @@ export function BOQAnalyzerPanel({ onProjectSaved, embedded = false, initialFile
         if (!description_ar && description && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(description)) {
           description_ar = description;
         }
+        if (description_ar && !/[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(description_ar)) {
+          description_ar = ''; // ليس نصاً عربياً حقيقياً
+        }
         
         return {
           ...item,
