@@ -178,7 +178,7 @@ function detectColumnMapping(headers: string[]): Record<string, number> {
   } else if (mapping.description !== undefined && mapping.descriptionAr === undefined) {
     // Only English description found - check if header is actually Arabic
     const descHeader = headers[mapping.description] || '';
-    const isArabicHeader = /[\u0600-\u06FF]/.test(descHeader);
+    const isArabicHeader = /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(descHeader);
     if (isArabicHeader) {
       // The "description" column is actually Arabic, map it to both
       mapping.descriptionAr = mapping.description;
@@ -292,7 +292,7 @@ function findDescriptionColumnFromData(
       if (value.length > 20) score += 5;
       
       // Contains Arabic characters = +3 points
-      if (/[\u0600-\u06FF]/.test(value)) score += 3;
+      if (/[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(value)) score += 3;
       
       // Not a pure number = +2 points
       if (isNaN(parseFloat(value.replace(/[,،]/g, '')))) score += 2;
@@ -519,7 +519,7 @@ function extractBOQItems(data: (string | number | undefined)[][], maxRows: numbe
     }
 
     // Smart Arabic detection: if description contains Arabic and no separate descriptionAr
-    if (item.description && !item.descriptionAr && /[\u0600-\u06FF]/.test(item.description)) {
+    if (item.description && !item.descriptionAr && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(item.description)) {
       item.descriptionAr = item.description;
     }
     // Fallback: if only descriptionAr exists without description
@@ -1074,7 +1074,7 @@ export function reExtractWithMapping(
     }
     
     // Smart Arabic detection: if description is Arabic and no descriptionAr, copy it
-    if (item.description && !item.descriptionAr && /[\u0600-\u06FF]/.test(item.description)) {
+    if (item.description && !item.descriptionAr && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(item.description)) {
       item.descriptionAr = item.description;
     }
     // Fallback: if descriptionAr exists but no description, use it

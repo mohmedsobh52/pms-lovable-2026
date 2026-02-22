@@ -82,7 +82,7 @@ function normalizeAnalysisResult(result: any) {
     // Smart Arabic description detection
     const description = item.description || item.desc || item.item_description || '';
     let description_ar = item.description_ar || '';
-    if (!description_ar && description && /[\u0600-\u06FF]/.test(description)) {
+    if (!description_ar && description && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(description)) {
       description_ar = description;
     }
     if (description_ar && !description) {
@@ -615,7 +615,7 @@ const Index = () => {
           // Convert local text result to standard format
           const normalizedItems = localTextResult.items.map(item => {
             const desc = item.description || '';
-            const descAr = item.description_ar || (desc && /[\u0600-\u06FF]/.test(desc) ? desc : '');
+            const descAr = item.description_ar || (desc && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(desc) ? desc : '');
             return {
               ...item,
               item_number: item.item_number,

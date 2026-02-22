@@ -224,7 +224,7 @@ export function BOQUploadDialog({
 
       const rows = items.map((item: any, idx: number) => {
         const desc = item.description || item.desc || "";
-        const descAr = item.description_ar || item.descriptionAr || (desc && /[\u0600-\u06FF]/.test(desc) ? desc : null);
+        const descAr = item.description_ar || item.descriptionAr || (desc && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(desc) ? desc : null);
         return {
           project_id: projectId,
           item_number: item.item_number || item.number || String(idx + 1),

@@ -204,7 +204,7 @@ function extractItemsFromText(text: string): LocalTextItem[] {
       item.validation = { isValid: issues.length === 0, issues };
       
       // Smart Arabic detection
-      if (item.description && /[\u0600-\u06FF]/.test(item.description)) {
+      if (item.description && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(item.description)) {
         item.description_ar = item.description;
       }
       
@@ -302,7 +302,7 @@ function extractItemsByLineAnalysis(text: string): LocalTextItem[] {
     };
     
     // Smart Arabic detection
-    if (item.description && /[\u0600-\u06FF]/.test(item.description)) {
+    if (item.description && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(item.description)) {
       item.description_ar = item.description;
     }
     
@@ -326,7 +326,7 @@ export function performLocalTextAnalysis(
   const detectedLanguage = isArabicText(text) 
     ? 'arabic' 
     : /[a-zA-Z]/.test(text) 
-      ? (/[\u0600-\u06FF]/.test(text) ? 'mixed' : 'english')
+      ? (/[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text) ? 'mixed' : 'english')
       : 'arabic';
   
   // Try pattern extraction first
