@@ -1,52 +1,37 @@
 
 
-# إصلاح عدم ظهور الوصف العربي في صفحة المشروع
+# إصلاح خطأ "Partial extraction" - عدم تطابق إصدار PDF.js
 
-## السبب الجذري
+## المشكلة
 
-تم اكتشاف 3 ثغرات تمنع ظهور الوصف العربي:
-
-### 1. عند حفظ البنود في قاعدة البيانات (BOQUploadDialog)
-الملف `src/components/project-details/BOQUploadDialog.tsx` سطر 225-234:
-عند رفع ملف BOQ وحفظ البنود في جدول `project_items`، حقل `description_ar` لا يُرسل إطلاقاً رغم وجود العمود في قاعدة البيانات.
-
-### 2. عند تحويل البيانات لعرضها (ProjectDetailsPage)
-الملف `src/pages/ProjectDetailsPage.tsx` سطر 337-347:
-عند تحويل `project_items` إلى `AnalysisData` لتمريره إلى مكون `AnalysisResults`، حقل `description_ar` غير موجود في الـ mapping.
-
-### 3. عند تحميل المشروع من الصفحة الرئيسية (BOQItemsPage)
-الملف `src/pages/BOQItemsPage.tsx`:
-عند فتح مشروع محفوظ، يتم تحميل `analysis_data` مباشرة - هذا يعمل لأن `description_ar` موجود في `analysis_data`. لكن عند فتحه من `/projects/:id` تظهر المشكلة.
-
-## خطة الإصلاح
-
-### 1. إضافة `description_ar` عند حفظ البنود
-**الملف: `src/components/project-details/BOQUploadDialog.tsx`**
-
-في `saveItemsToProject` (سطر 225-234)، إضافة:
+عند محاولة استخراج النص من ملف PDF، يظهر الخطأ:
 ```
-description_ar: item.description_ar || null,
-```
-+ تطبيق الكشف الذكي: إذا كان `description` يحتوي على عربي ولا يوجد `description_ar`، يُنسخ تلقائياً.
-
-### 2. إضافة `description_ar` في تحويل البيانات
-**الملف: `src/pages/ProjectDetailsPage.tsx`**
-
-في `projectAnalysisData` (سطر 337-347)، إضافة:
-```
-description_ar: (item as any).description_ar || "",
+The API version "4.10.38" does not match the Worker version "4.4.168"
 ```
 
-### 3. تطبيق الكشف الذكي عند التحويل
-في نفس الـ mapping بـ `ProjectDetailsPage.tsx`، إذا كان `description` يحتوي عربي ولا يوجد `description_ar`:
+السبب: حزمة `pdfjs-dist` المثبتة تم تحديثها تلقائياً إلى `4.10.38` (لأن `package.json` يحدد `^4.4.168`)، لكن رابط Worker في الكود لا يزال يشير يدوياً إلى الإصدار القديم `4.4.168`.
+
+## الحل
+
+### تعديل ملف واحد: `src/lib/pdf-utils.ts`
+
+**السطر 5** - تحديث رابط Worker ليتطابق مع الإصدار المثبت:
+
+من:
 ```
-description_ar: (item as any).description_ar || 
-  (item.description && /[\u0600-\u06FF]/.test(item.description) ? item.description : ""),
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
 ```
+
+إلى حل ديناميكي لا يتأثر بتحديثات الحزمة مستقبلاً:
+```
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+```
+
+هذا يستخدم `pdfjsLib.version` مباشرة مما يضمن التطابق دائماً بين API و Worker بغض النظر عن أي تحديث مستقبلي.
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/project-details/BOQUploadDialog.tsx` | إضافة `description_ar` + كشف ذكي عند الحفظ |
-| `src/pages/ProjectDetailsPage.tsx` | إضافة `description_ar` في تحويل البيانات |
+| `src/lib/pdf-utils.ts` | سطر 5: استخدام `pdfjsLib.version` بدل الإصدار الثابت |
+
