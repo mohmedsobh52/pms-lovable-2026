@@ -1,51 +1,54 @@
 
 
-# إضافة BOQAnalyzerPanel داخل تبويب Analysis
+# تحسين شاشة التحليل المتقدم بالذكاء الاصطناعي
 
-## الهدف
+## التحسينات المطلوبة
 
-عند فتح مشروع محفوظ وعدم وجود بيانات تحليل، يظهر حالياً بطاقة "Upload BOQ File" فقط. المطلوب استبدالها بمكون `BOQAnalyzerPanel` الكامل (نفس المكون الموجود في تبويب "Analyze BOQ" بصفحة المشاريع المحفوظة) بحيث يتمكن المستخدم من تحليل ملف BOQ مباشرة من داخل صفحة تفاصيل المشروع.
+### 1. تحسين شكل الشاشة
+تحسين التباعد والتنسيق العام لمكون `EnhancedPricingAnalysis` ليكون أكثر وضوحاً واحترافية.
 
-## التعديل المطلوب
+### 2. إضافة زر "النزول لآخر الصفحة"
+إضافة زر عائم (Floating Action Button) أسفل قائمة النتائج للانتقال السريع لآخر القائمة، مع زر للعودة لأعلى.
 
-### ملف واحد: `src/pages/ProjectDetailsPage.tsx`
+### 3. ربط قاعدة البيانات التاريخية بالتحليل
+- إضافة محلل "قاعدة البيانات التاريخية" كمصدر فعلي للتسعير
+- عند تفعيل محلل "database_comparator"، يتم جلب الأسعار التاريخية من Supabase (جداول `historical_pricing_files` و `saved_projects`) ودمجها مع نتائج التحليل بالذكاء الاصطناعي
+- إرسال البيانات التاريخية مع طلب التحليل ليأخذها الذكاء الاصطناعي في الحسبان
 
-#### 1. إضافة import لمكون BOQAnalyzerPanel
-```typescript
-import { BOQAnalyzerPanel } from "@/components/BOQAnalyzerPanel";
-```
+### 4. إضافة عمود الوصف بالعربي
+- إضافة حقل `description_ar` في واجهة `BOQItem` و `EnhancedSuggestion`
+- عرض الوصف العربي بجانب الوصف الإنجليزي في قائمة النتائج عند وجوده
+- تمرير `description_ar` من البنود المصدرية للتحليل
 
-#### 2. استبدال بطاقة "Upload BOQ File" (الأسطر 1140-1174) بمكون BOQAnalyzerPanel
+## التفاصيل التقنية
 
-الحالة الحالية: بطاقة رفع ملفات بسيطة.
+### الملف: `src/components/EnhancedPricingAnalysis.tsx`
 
-الحالة الجديدة: تضمين `BOQAnalyzerPanel` بالكامل مع خاصية `embedded={true}` و `onProjectSaved` لإعادة تحميل بيانات المشروع بعد الحفظ.
+**1. تحديث الواجهات (interfaces):**
+- إضافة `description_ar?: string` في `BOQItem` و `EnhancedSuggestion`
 
-```typescript
-<BOQAnalyzerPanel 
-  embedded={true}
-  onProjectSaved={(savedProjectId) => {
-    // إعادة تحميل بيانات المشروع بعد الحفظ
-    fetchProjectData(); // أو الدالة المناسبة الموجودة فعلاً
-  }}
-/>
-```
+**2. إضافة زر التمرير:**
+- إضافة `useRef` لمنطقة التمرير (ScrollArea)
+- زر عائم `ArrowDown` للنزول لآخر القائمة و `ArrowUp` للعودة لأعلى
 
-هذا يوفر للمستخدم كل إمكانيات تحليل BOQ:
-- رفع ملف PDF أو Excel
-- سحب وإفلات
-- إدخال نص يدوي
-- معاينة بيانات Excel
-- تحليل محلي وتحليل بالذكاء الاصطناعي
-- عرض النتائج وحفظ المشروع
+**3. ربط البيانات التاريخية:**
+- إضافة دالة `fetchHistoricalPrices` تجلب البيانات من Supabase عند بدء التحليل
+- تمرير البيانات التاريخية مع `body` طلب التحليل كحقل `historicalData`
+- تحديث edge function `enhanced-pricing-analysis` لاستقبال البيانات التاريخية ودمجها في prompt الذكاء الاصطناعي كمرجع إضافي
+
+**4. عرض الوصف العربي:**
+- في كل عنصر نتيجة (suggestion row)، عرض `description_ar` تحت الوصف الإنجليزي بخط أصغر واتجاه RTL عند وجوده
+
+### الملف: `supabase/functions/enhanced-pricing-analysis/index.ts`
+
+- إضافة استقبال `historicalData` من الطلب
+- دمج الأسعار التاريخية في prompt الذكاء الاصطناعي كمرجع إضافي للمحلل "database_comparator"
+- إضافة `description_ar` في الاستجابة عند توفرها
 
 ## الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/pages/ProjectDetailsPage.tsx` | إضافة import + استبدال بطاقة الرفع بـ BOQAnalyzerPanel |
+| `src/components/EnhancedPricingAnalysis.tsx` | تحسين الشكل + زر تمرير + ربط تاريخي + وصف عربي |
+| `supabase/functions/enhanced-pricing-analysis/index.ts` | استقبال بيانات تاريخية + تمرير description_ar |
 
-## النتيجة المتوقعة
-
-- عند عدم وجود بيانات تحليل في تبويب Analysis، يظهر BOQAnalyzerPanel الكامل
-- عند وجود بيانات تحليل، يظهر AnalysisResults كما هو حالياً (لا تغيير)
