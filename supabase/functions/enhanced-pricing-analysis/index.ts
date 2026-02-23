@@ -1481,13 +1481,14 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
 }
 
 // Enhanced matching function with comprehensive keyword coverage
-function matchToReferencePrice(description: string, unit: string): { 
+function matchToReferencePrice(description: string | null | undefined, unit: string | null | undefined): { 
   category: string; 
   ref: typeof REFERENCE_PRICES[string];
   matchScore: number;
 } | null {
+  if (!description) return null;
   const desc = description.toLowerCase();
-  const unitLower = unit.toLowerCase();
+  const unitLower = (unit || "").toLowerCase();
   
   let bestMatch: { category: string; ref: typeof REFERENCE_PRICES[string]; matchScore: number } | null = null;
   let highestScore = 0;
