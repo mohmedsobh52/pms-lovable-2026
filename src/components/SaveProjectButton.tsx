@@ -95,10 +95,13 @@ export function SaveProjectButton({
 
     if (projectError) throw projectError;
 
-    // 1.5. Also save to saved_projects table for display in saved projects page
+    const projectId = (projectData as any).id as string;
+
+    // 1.5. Also save to saved_projects table with SAME ID for consistency
     const { error: savedProjectError } = await supabase
       .from('saved_projects')
       .insert([{
+        id: projectId,
         user_id: user.id,
         name: (nameOverride || projectName).trim(),
         file_name: fileName || null,
@@ -108,13 +111,10 @@ export function SaveProjectButton({
 
     if (savedProjectError) {
       console.error('Error saving to saved_projects:', savedProjectError);
-      // Don't throw, continue since main project was saved
     }
 
-    const projectId = (projectData as any).id as string;
-
     // 2. Insert all project items with sort_order to preserve original file sequence
-    const itemsToInsert = items.map((item, index) => {
+    const itemsToInsert = items.map((item: any, index) => {
       const calcCosts = getItemCalculatedCosts(item.item_number);
       const effectivePrice = calcCosts.calculatedUnitPrice > 0 
         ? calcCosts.calculatedUnitPrice 
@@ -122,15 +122,16 @@ export function SaveProjectButton({
       
       return {
         project_id: projectId,
-        item_number: item.item_number,
-        description: item.description,
-        unit: item.unit,
-        quantity: item.quantity,
+        item_number: item.item_number || `${index + 1}`,
+        description: item.description || item.item_description || "",
+        description_ar: item.description_ar || item.descriptionAr || null,
+        unit: item.unit || null,
+        quantity: item.quantity || 1,
         unit_price: effectivePrice,
-        total_price: effectivePrice * item.quantity,
-        category: item.category,
-        notes: item.notes,
-        sort_order: index, // Preserve original file sequence
+        total_price: effectivePrice * (item.quantity || 1),
+        category: item.category || null,
+        notes: item.notes || null,
+        sort_order: index,
       };
     });
 
@@ -212,21 +213,22 @@ export function SaveProjectButton({
       .eq('project_id', projectId);
 
     // Re-insert items
-    const itemsToInsert = items.map((item, index) => {
+    const itemsToInsert = items.map((item: any, index) => {
       const calcCosts = getItemCalculatedCosts(item.item_number);
       const effectivePrice = calcCosts.calculatedUnitPrice > 0 
         ? calcCosts.calculatedUnitPrice 
         : (item.unit_price || 0);
       return {
         project_id: projectId,
-        item_number: item.item_number,
-        description: item.description,
-        unit: item.unit,
-        quantity: item.quantity,
+        item_number: item.item_number || `${index + 1}`,
+        description: item.description || item.item_description || "",
+        description_ar: item.description_ar || item.descriptionAr || null,
+        unit: item.unit || null,
+        quantity: item.quantity || 1,
         unit_price: effectivePrice,
-        total_price: effectivePrice * item.quantity,
-        category: item.category,
-        notes: item.notes,
+        total_price: effectivePrice * (item.quantity || 1),
+        category: item.category || null,
+        notes: item.notes || null,
         sort_order: index,
       };
     });
