@@ -1,74 +1,31 @@
 
-# إصلاح خطأ "Cannot read properties of null" في تحليل الأسعار المتقدم
 
-## المشكلة
+# تفعيل تبويب "جدول الكميات" (BOQ) كتبويب افتراضي عند فتح أو إنشاء مشروع
 
-عند الضغط على "بدء التحليل المتقدم"، تظهر رسالة خطأ:
-```
-فشل التحليل - Edge Function returned a non-2xx status code
-```
-السبب: بعض بنود جدول الكميات تحتوي على قيم `null` في حقول مثل `unit` أو `description`، مما يسبب خطأ عند محاولة استدعاء `.toLowerCase()` على قيمة فارغة.
+## المشكلة الحالية
 
-## الملف المتأثر
+عند فتح مشروع أو إنشاء مشروع جديد، يتم عرض تبويب "Overview" (نظرة عامة) افتراضياً. المطلوب هو عرض تبويب "BOQ" (جدول الكميات) مباشرة.
 
-`supabase/functions/enhanced-pricing-analysis/index.ts`
+## التعديل المطلوب
 
-## التعديلات المطلوبة
+### ملف واحد: `src/pages/ProjectDetailsPage.tsx`
 
-### 1. تنظيف البنود قبل المعالجة (بعد سطر 1861)
-
-إضافة خطوة تنظيف للبنود الواردة لضمان عدم وجود قيم `null`:
+**السطر 71** - تغيير القيمة الافتراضية لـ `activeTab`:
 
 ```typescript
-// Sanitize items - ensure no null values
-const sanitizedItems = items.map(item => ({
-  ...item,
-  description: item.description || '',
-  description_ar: item.description_ar || undefined,
-  unit: item.unit || '',
-  quantity: item.quantity || 0,
-  unit_price: item.unit_price || 0,
-  item_number: item.item_number || '',
-}));
+// قبل:
+const [activeTab, setActiveTab] = useState("overview");
+
+// بعد:
+const [activeTab, setActiveTab] = useState("boq");
 ```
 
-ثم استخدام `sanitizedItems` بدلاً من `items` في جميع الاستدعاءات اللاحقة.
+هذا التعديل البسيط يضمن أن تبويب جدول الكميات يظهر مباشرة عند:
+- فتح مشروع موجود
+- إنشاء مشروع جديد
+- تحميل مشروع من قائمة المشاريع المحفوظة
 
-### 2. تأمين دالة `matchToReferencePrice` (تأكيد الإصلاح السابق)
+## التأثير
 
-التأكد من أن الحماية ضد القيم الفارغة موجودة وتعمل:
+لا يوجد تأثير سلبي - المستخدم يستطيع التنقل بين التبويبات بحرية كالمعتاد، فقط التبويب الافتراضي يتغير من Overview إلى BOQ.
 
-```typescript
-function matchToReferencePrice(
-  description: string | null | undefined,
-  unit: string | null | undefined
-) {
-  if (!description) return null;
-  const desc = description.toLowerCase();
-  const unitLower = (unit || "").toLowerCase();
-  // ...
-}
-```
-
-### 3. تأمين رسالة الخطأ (سطر 1958)
-
-استبدال رسالة الخطأ المكشوفة برسالة آمنة لا تكشف تفاصيل داخلية:
-
-```typescript
-return new Response(JSON.stringify({ 
-  error: "An error occurred during pricing analysis. Please try again."
-}), {
-  status: 500,
-  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-});
-```
-
-### 4. إعادة نشر الدالة
-
-إعادة نشر `enhanced-pricing-analysis` لضمان تطبيق جميع الإصلاحات.
-
-## النتيجة المتوقعة
-
-- لن يحدث خطأ عند وجود بنود بقيم فارغة في `unit` أو `description`
-- البنود ذات القيم الفارغة يتم تنظيفها تلقائياً قبل المعالجة
-- رسائل الخطأ لا تكشف تفاصيل داخلية للنظام
