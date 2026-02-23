@@ -68,7 +68,7 @@ export default function ProjectDetailsPage() {
   const [items, setItems] = useState<ProjectItem[]>([]);
   const [attachments, setAttachments] = useState<ProjectAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("boq");
   const [itemsSearch, setItemsSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(() => {
