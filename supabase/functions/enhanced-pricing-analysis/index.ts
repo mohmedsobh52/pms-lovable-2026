@@ -1866,12 +1866,23 @@ serve(async (req) => {
       });
     }
 
+    // Sanitize items - ensure no null values that could cause toLowerCase() errors
+    const sanitizedItems = items.map((item: any) => ({
+      ...item,
+      description: item.description || '',
+      description_ar: item.description_ar || undefined,
+      unit: item.unit || '',
+      quantity: item.quantity || 0,
+      unit_price: item.unit_price || 0,
+      item_number: item.item_number || '',
+    }));
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log(`Enhanced pricing analysis: ${items.length} items, ${analyzers.length} analyzers, location: ${location}, historical records: ${historicalData?.length || 0}`);
+    console.log(`Enhanced pricing analysis: ${sanitizedItems.length} items, ${analyzers.length} analyzers, location: ${location}, historical records: ${historicalData?.length || 0}`);
 
     // Filter active analyzers
     const activeAnalyzers = ANALYZERS.filter(a => analyzers.includes(a.id));
@@ -1880,9 +1891,9 @@ serve(async (req) => {
     const BATCH_SIZE = 15;
     const allSuggestions: EnhancedPricingSuggestion[] = [];
 
-    for (let i = 0; i < items.length; i += BATCH_SIZE) {
-      const batchItems = items.slice(i, i + BATCH_SIZE);
-      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(items.length / BATCH_SIZE)}`);
+    for (let i = 0; i < sanitizedItems.length; i += BATCH_SIZE) {
+      const batchItems = sanitizedItems.slice(i, i + BATCH_SIZE);
+      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(sanitizedItems.length / BATCH_SIZE)}`);
 
       // Run all analyzers in parallel for this batch
       const analyzerPromises = activeAnalyzers.map(analyzer => 
@@ -1896,7 +1907,7 @@ serve(async (req) => {
       allSuggestions.push(...batchSuggestions);
 
       // Small delay between batches
-      if (i + BATCH_SIZE < items.length) {
+      if (i + BATCH_SIZE < sanitizedItems.length) {
         await new Promise(resolve => setTimeout(resolve, 400));
       }
     }
@@ -1921,7 +1932,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       suggestions: allSuggestions,
       summary: {
-        total_items: items.length,
+        total_items: sanitizedItems.length,
         analyzed_items: allSuggestions.length,
         analyzers_used: activeAnalyzers.map(a => ({ id: a.id, name: a.name, nameAr: a.nameAr })),
         average_confidence: Math.round(avgConfidence),
@@ -1956,7 +1967,7 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : "Unknown error occurred"
+      error: "An error occurred during pricing analysis. Please try again."
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
