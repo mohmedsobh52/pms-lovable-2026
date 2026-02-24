@@ -2344,19 +2344,27 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                       });
                     }
                     
+                    const isPriced = aiRate > 0;
+                    const rowBg = isPriced 
+                      ? "bg-green-50/50 dark:bg-green-950/20" 
+                      : "bg-red-50/30 dark:bg-red-950/10";
+                    const pinnedBg = isPriced
+                      ? "bg-green-50 dark:bg-green-950/30"
+                      : "bg-red-50 dark:bg-red-950/20";
+                    
                     return (
                       <tr 
                         key={idx} 
                         className={cn(
                           "hover:bg-primary/5 transition-colors",
-                          idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                          rowBg
                         )}
                       >
                         {visibleColumns.includes("index") && (
                           <td className={cn(
                             "px-3 py-3 text-center",
                             pinnedColumns.includes("index") && "sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
-                            idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                            pinnedColumns.includes("index") ? pinnedBg : ""
                           )}>
                             <span className="font-mono text-sm font-medium text-slate-600 dark:text-slate-300">
                               {idx + 1}
@@ -2367,7 +2375,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                           <td className={cn(
                             "px-3 py-3 text-left",
                             pinnedColumns.includes("item_number") && "sticky left-[40px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
-                            idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                            pinnedColumns.includes("item_number") ? pinnedBg : ""
                           )}>
                             <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-1 rounded font-medium">
                               {item.item_number}
@@ -2378,7 +2386,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                           <td className={cn(
                             "px-3 py-3 text-left",
                             pinnedColumns.includes("item_code") && "sticky left-[120px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
-                            idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                            pinnedColumns.includes("item_code") ? pinnedBg : ""
                           )}>
                             <EditableItemCode
                               itemNumber={item.item_number}
@@ -2391,7 +2399,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                           <td className={cn(
                             "px-3 py-3 text-left min-w-[300px] max-w-[450px]",
                             pinnedColumns.includes("description") && "sticky left-[200px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
-                            idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                            pinnedColumns.includes("description") ? pinnedBg : ""
                           )}>
                             <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words" title={cleanText(item.description)}>
                               {(() => {
@@ -2411,7 +2419,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                         {visibleColumns.includes("description_ar") && (
                           <td className={cn(
                             "px-3 py-3 text-right min-w-[250px] max-w-[400px]",
-                            idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"
+                            ""
                           )} dir="rtl">
                             <p className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words">
                               {(() => {
