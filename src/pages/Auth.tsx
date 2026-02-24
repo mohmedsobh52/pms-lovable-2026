@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mail, Lock, Loader2, AlertCircle } from "lucide-react";
+import { Mail, Lock, Loader2, AlertCircle, KeyRound } from "lucide-react";
 import { PMSLogo } from "@/components/PMSLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 
 const authSchema = z.object({
@@ -16,6 +17,7 @@ const authSchema = z.object({
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -31,11 +33,35 @@ export default function Auth() {
     }
   }, [user, loading, navigate]);
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      setError("يرجى إدخال البريد الإلكتروني أولاً");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+      if (error) throw error;
+      toast({
+        title: "تم إرسال رابط إعادة التعيين",
+        description: "تحقق من بريدك الإلكتروني لإعادة تعيين كلمة المرور",
+      });
+      setShowForgotPassword(false);
+    } catch (err: any) {
+      setError(err.message || "حدث خطأ أثناء إرسال الرابط");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // Validate input
     const validation = authSchema.safeParse({ email, password });
     if (!validation.success) {
       setError(validation.error.errors[0].message);
@@ -100,119 +126,128 @@ export default function Auth() {
             </div>
           </div>
 
-          {/* Title */}
-          <h2 className="text-xl font-semibold text-center mb-2">
-            {isLogin ? "تسجيل الدخول" : "إنشاء حساب جديد"}
-          </h2>
+          {/* Forgot Password Form */}
+          {showForgotPassword ? (
+            <>
+              <h2 className="text-xl font-semibold text-center mb-2">استعادة كلمة المرور</h2>
+              <p className="text-sm text-muted-foreground text-center mb-4">
+                أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين
+              </p>
 
-          {/* Info Message */}
-          {isLogin ? (
-            <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-center text-sm text-blue-600 dark:text-blue-400">
-              ليس لديك حساب؟{" "}
-              <button
-                type="button"
-                onClick={() => setIsLogin(false)}
-                className="font-semibold underline hover:text-blue-700 dark:hover:text-blue-300"
-              >
-                أنشئ حساباً جديداً هنا
-              </button>
-            </div>
-          ) : (
-            <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-center text-sm text-green-600 dark:text-green-400">
-              سجل حسابك الآن! التسجيل سريع ولا يحتاج إلى تأكيد البريد الإلكتروني
-            </div>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-              {isLogin && error.includes("غير صحيحة") && (
-                <div className="mt-2 pt-2 border-t border-destructive/20">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsLogin(false);
-                      setError(null);
-                    }}
-                    className="text-xs hover:underline font-medium"
-                  >
-                    انقر هنا لإنشاء حساب جديد ←
-                  </button>
+              {error && (
+                <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{error}</span>
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">البريد الإلكتروني</Label>
-              <div className="relative">
-                <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="example@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pr-10"
-                  dir="ltr"
-                  required
-                />
-              </div>
-            </div>
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">البريد الإلكتروني</Label>
+                  <div className="relative">
+                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="reset-email"
+                      type="email"
+                      placeholder="example@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pr-10"
+                      dir="ltr"
+                      required
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">كلمة المرور</Label>
-              <div className="relative">
-                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pr-10"
-                  dir="ltr"
-                  required
-                />
-              </div>
-            </div>
+                <Button type="submit" className="w-full gap-2" disabled={isLoading}>
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                  إرسال رابط الاستعادة
+                </Button>
 
-            <Button
-              type="submit"
-              className="w-full btn-gradient"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : isLogin ? (
-                "تسجيل الدخول"
+                <Button type="button" variant="ghost" className="w-full" onClick={() => { setShowForgotPassword(false); setError(null); }}>
+                  العودة لتسجيل الدخول
+                </Button>
+              </form>
+            </>
+          ) : (
+            <>
+              {/* Title */}
+              <h2 className="text-xl font-semibold text-center mb-2">
+                {isLogin ? "تسجيل الدخول" : "إنشاء حساب جديد"}
+              </h2>
+
+              {/* Info Message */}
+              {isLogin ? (
+                <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-center text-sm text-blue-600 dark:text-blue-400">
+                  ليس لديك حساب؟{" "}
+                  <button type="button" onClick={() => setIsLogin(false)} className="font-semibold underline hover:text-blue-700 dark:hover:text-blue-300">
+                    أنشئ حساباً جديداً هنا
+                  </button>
+                </div>
               ) : (
-                "إنشاء حساب"
+                <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-center text-sm text-green-600 dark:text-green-400">
+                  سجل حسابك الآن! التسجيل سريع ولا يحتاج إلى تأكيد البريد الإلكتروني
+                </div>
               )}
-            </Button>
-          </form>
 
-          {/* Toggle */}
-          <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">
-              {isLogin ? "ليس لديك حساب؟" : "لديك حساب بالفعل؟"}
-            </span>{" "}
-            <button
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError(null);
-              }}
-              className="text-primary hover:underline font-medium"
-            >
-              {isLogin ? "إنشاء حساب" : "تسجيل الدخول"}
-            </button>
-          </div>
+              {/* Error Message */}
+              {error && (
+                <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                  {isLogin && error.includes("غير صحيحة") && (
+                    <div className="mt-2 pt-2 border-t border-destructive/20">
+                      <button type="button" onClick={() => { setIsLogin(false); setError(null); }} className="text-xs hover:underline font-medium">
+                        انقر هنا لإنشاء حساب جديد ←
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Form */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">البريد الإلكتروني</Label>
+                  <div className="relative">
+                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input id="email" type="email" placeholder="example@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pr-10" dir="ltr" required />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">كلمة المرور</Label>
+                    {isLogin && (
+                      <button type="button" onClick={() => { setShowForgotPassword(true); setError(null); }} className="text-xs text-primary hover:underline">
+                        نسيت كلمة المرور؟
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pr-10" dir="ltr" required />
+                  </div>
+                </div>
+
+                <Button type="submit" className="w-full btn-gradient" disabled={isLoading}>
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isLogin ? "تسجيل الدخول" : "إنشاء حساب"}
+                </Button>
+              </form>
+
+              {/* Toggle */}
+              <div className="mt-6 text-center text-sm">
+                <span className="text-muted-foreground">
+                  {isLogin ? "ليس لديك حساب؟" : "لديك حساب بالفعل؟"}
+                </span>{" "}
+                <button onClick={() => { setIsLogin(!isLogin); setError(null); }} className="text-primary hover:underline font-medium">
+                  {isLogin ? "إنشاء حساب" : "تسجيل الدخول"}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

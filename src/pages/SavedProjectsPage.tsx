@@ -4,8 +4,9 @@ import {
   FolderOpen, Trash2, Loader2, Calendar, FileText, Search,
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
   SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload,
-  TrendingUp, AlertTriangle, ExternalLink, FileSpreadsheet, History, Check, Pencil, Copy
+  TrendingUp, AlertTriangle, ExternalLink, FileSpreadsheet, History, Check, Pencil, Copy, Star
 } from "lucide-react";
+import { useFavoriteProjects } from "@/hooks/useFavoriteProjects";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -119,6 +120,7 @@ interface ProjectItem {
 }
 
 export default function SavedProjectsPage() {
+  const { favorites, toggleFavorite, isFavorite } = useFavoriteProjects();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -447,6 +449,13 @@ export default function SavedProjectsPage() {
           : bVal.localeCompare(aVal);
       }
       return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+    });
+
+    // Sort favorites to top
+    result.sort((a, b) => {
+      const aFav = isFavorite(a.id) ? 0 : 1;
+      const bFav = isFavorite(b.id) ? 0 : 1;
+      return aFav - bFav;
     });
     
     return result;
@@ -1041,11 +1050,18 @@ export default function SavedProjectsPage() {
                 )}
               >
                 {/* Selection Checkbox */}
-                <div className="absolute top-3 left-3 z-10">
+                <div className="absolute top-3 left-3 z-10 flex items-center gap-1">
                   <Checkbox
                     checked={selectedProjectIds.has(project.id)}
                     onCheckedChange={() => toggleProjectSelection(project.id)}
                   />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleFavorite(project.id); }}
+                    className="p-0.5 rounded hover:bg-muted transition-colors"
+                    title={isArabic ? "تثبيت" : "Pin"}
+                  >
+                    <Star className={cn("w-4 h-4", isFavorite(project.id) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")} />
+                  </button>
                 </div>
                 {/* Header */}
                 <div className="flex items-start justify-between gap-2 mb-4 pl-7">

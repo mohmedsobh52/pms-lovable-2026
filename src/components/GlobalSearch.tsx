@@ -118,7 +118,8 @@ export function GlobalSearch() {
     results.pages.length > 0 ||
     results.projects.length > 0 ||
     results.actions.length > 0 ||
-    results.settings.length > 0;
+    results.settings.length > 0 ||
+    results.contracts.length > 0;
 
   return (
     <CommandDialog open={isOpen} onOpenChange={setIsOpen}>
@@ -189,6 +190,23 @@ export function GlobalSearch() {
         )}
 
         {(results.pages.length > 0 || results.projects.length > 0) &&
+          (results.contracts.length > 0 || results.settings.length > 0) && <CommandSeparator />}
+
+        {/* Contracts */}
+        {results.contracts.length > 0 && (
+          <CommandGroup heading={isArabic ? 'العقود' : 'Contracts'}>
+            {results.contracts.map((item) => (
+              <SearchItemRow
+                key={item.id}
+                item={item}
+                isArabic={isArabic}
+                onSelect={() => navigateToItem(item)}
+              />
+            ))}
+          </CommandGroup>
+        )}
+
+        {(results.pages.length > 0 || results.projects.length > 0 || results.contracts.length > 0) &&
           results.settings.length > 0 && <CommandSeparator />}
 
         {/* Settings */}
