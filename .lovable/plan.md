@@ -1,83 +1,117 @@
 
-# المرحلة 11: نظام ألوان البنود + تحسين Auto Pricing + ربط تاريخي
+# المرحلة 12: إصلاح التنقل بين الصفحات + تحسين WBS + تحسين الأداء العام
 
 ---
 
-## 11.1 تطبيق نظام الألوان على صفوف جدول التحليل المتقدم
-
-### المشكلة الحالية
-جدول البنود في شاشة التحليل المتقدم (`AnalysisResults.tsx`) يستخدم ألوان صفوف بسيطة (أبيض/رمادي بالتناوب)، بينما جدول BOQ Tab (`ProjectBOQTab.tsx`) يطبق نظام ألوان ذكي:
-- **أخضر** للبنود المسعرة (`bg-green-50/50 dark:bg-green-950/20`)
-- **أحمر** للبنود غير المسعرة (`bg-red-50/30 dark:bg-red-950/10`)
-- **حد أحمر متقطع** للبنود الشاذة (outliers)
-
-### التعديلات المطلوبة
-
-**الملف:** `src/components/AnalysisResults.tsx`
-
-**سطور 2347-2353** - تعديل className للصف `<tr>`:
-- استبدال نظام التناوب الحالي بنظام ألوان مبني على حالة التسعير
-- إذا كان `aiRate > 0` (البند مسعر): استخدام `bg-green-50/50 dark:bg-green-950/20`
-- إذا كان `aiRate === 0` (البند غير مسعر): استخدام `bg-red-50/30 dark:bg-red-950/10`
-- الحفاظ على `hover:bg-primary/5 transition-colors`
-
-**سطور 2355-2364** - تعديل خلفيات الخلايا المثبتة (pinned cells):
-- تحديث خلفيات الخلايا في الأعمدة المثبتة (index, item_number, item_code, description) لتتبع لون الصف بدلاً من الأبيض/الرمادي الثابت
-
----
-
-## 11.2 تحسين شاشة Auto Pricing مع ربط تاريخي
-
-### المشكلة الحالية
-`AutoPriceDialog` يبحث فقط في 3 مصادر محلية (materials, labor, equipment) ولا يستفيد من المشاريع التاريخية. دقة المطابقة منخفضة نسبياً.
-
-### التعديلات المطلوبة
-
-**الملف:** `src/components/project-details/AutoPriceDialog.tsx`
-
-#### أ. إضافة مصدر البيانات التاريخية
-- إضافة `import { supabase } from "@/integrations/supabase/client"` و `useAuth`
-- جلب `project_items` من قاعدة البيانات (بنود مسعرة بـ `unit_price > 0`) عند فتح الحوار
-- جلب `historical_pricing_files` كمصدر إضافي
-- إضافة مرحلة رابعة في `pricingResults`: البحث في البيانات التاريخية
-
-#### ب. تحسين خوارزمية المطابقة (رفع الدقة لـ 98%+)
-- إضافة مطابقة الوحدات (unit matching) كعامل ترجيح (+20 نقطة عند تطابق الوحدة)
-- إضافة مطابقة الفئة (category matching) (+15 نقطة)
-- إضافة مطابقة جزئية محسنة: كلمات أطول من 4 أحرف تحصل على وزن أعلى
-- إضافة مطابقة عربية محسنة: البحث في `description_ar` + `name_ar`
-- تعديل `calculateConfidence` ليأخذ الوحدة والفئة كمعايير
-- إضافة penalty للمطابقات منخفضة الجودة (إذا تطابقت كلمة واحدة فقط عامة مثل "supply" أو "provide")
-- إضافة "infrastructure expert" keywords: قائمة كلمات مفتاحية متخصصة في البنية التحتية والإنشاءات (concrete, reinforcement, excavation, backfill, pipe, cable, manhole, etc.) لتحسين المطابقة
-
-#### ج. تحسين واجهة المستخدم
-- إضافة مصدر "Historical" في إحصائيات المطابقة (4 بطاقات بدلاً من 3)
-- إضافة عمود "المصدر" ملون في جدول Preview:
-  - أخضر: مكتبة المواد
-  - أزرق: عمالة
-  - برتقالي: معدات  
-  - بنفسجي: تاريخي
-- إضافة شريط تقدم للثقة بألوان متدرجة في كل صف
-- إضافة `getSourceLabel` لمصدر "historical"
-- إضافة tooltip على المصدر التاريخي يعرض اسم المشروع المرجعي
-
-#### د. تحسين تجربة المستخدم
-- عرض Preview تلقائياً بدلاً من زر "Preview" منفصل (إظهار النتائج مباشرة)
-- إضافة فلتر سريع حسب المصدر في جدول Preview
-- إضافة ملخص: "X من مكتبة، Y من عمالة، Z من معدات، W من تاريخي"
-
----
-
-## 11.3 إصلاح نظام الألوان في الخلايا المثبتة
+## 12.1 إصلاح مشكلة العودة لنقطة البداية عند التنقل بين الصفحات (خلل حرج)
 
 ### المشكلة
-الخلايا المثبتة (sticky) في الأعمدة (index, item_number, item_code, description) تستخدم خلفية ثابتة (أبيض/رمادي) لا تتغير مع لون الصف، مما يخلق تناقضاً بصرياً.
+عند التنقل بين تبويبات الشريط الجانبي (WBS, Cost, Brief, Charts, Time Schedule, Schedule Integration)، ثم الخروج من تبويب "Analysis" في ProjectDetailsPage والعودة إليه، يتم إعادة تعيين `activeTab` إلى `"items"` لأن:
+1. Radix UI `TabsContent` يُلغي تحميل (unmount) المحتوى عند تبديل التبويب الخارجي
+2. `AnalysisResults` يُعاد تحميله بالكامل (remount) فيعود `useState("items")` للقيمة الأولية
 
-### التعديلات
+### التعديلات المطلوبة
+
 **الملف:** `src/components/AnalysisResults.tsx`
 
-في كل خلية مثبتة (حوالي 4 مواضع بين سطور 2355-2400):
-- استبدال `idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"` بنفس منطق اللون المبني على حالة التسعير
+- تغيير `useState("items")` لاستخدام `sessionStorage` لحفظ التبويب النشط:
+```typescript
+const [activeTab, setActiveTab] = useState<...>(() => {
+  const saved = sessionStorage.getItem(`analysis_active_tab_${savedProjectId}`);
+  return (saved as typeof activeTab) || "items";
+});
+```
+- إضافة `useEffect` لحفظ التبويب عند تغييره:
+```typescript
+useEffect(() => {
+  if (savedProjectId) {
+    sessionStorage.setItem(`analysis_active_tab_${savedProjectId}`, activeTab);
+  }
+}, [activeTab, savedProjectId]);
+```
+
+**الملف:** `src/pages/ProjectDetailsPage.tsx`
+
+- إضافة `forceMount` على `TabsContent` الخاص بـ "analysis" لمنع إلغاء التحميل:
+```tsx
+<TabsContent value="analysis" forceMount className={activeTab !== "analysis" ? "hidden" : ""}>
+```
+
+---
+
+## 12.2 إصلاح أخطاء شاشة WBS
+
+### المشكلة
+1. تحذير Console: `CostAnalysis` لا يدعم `ref` (Radix يحاول تمرير ref)
+2. شاشة WBS تعمل لكن تحتاج تحسينات أداء
+
+### التعديلات المطلوبة
+
+**الملف:** `src/components/CostAnalysis.tsx`
+
+- تحويل `CostAnalysis` إلى `forwardRef` لإصلاح تحذير Console:
+```typescript
+export const CostAnalysis = React.forwardRef<HTMLDivElement, CostAnalysisProps>(
+  function CostAnalysis({ items, currency = "ر.س" }, ref) {
+    // ... existing code
+    return <div ref={ref}>...</div>;
+  }
+);
+```
+
+**الملف:** `src/components/WBSFlowDiagram.tsx`
+
+- تحسين حساب مواقع العُقد (nodes) باستخدام `useMemo`
+- إضافة error boundary داخلي لمنع تعطل الصفحة عند بيانات WBS غير مكتملة
+- إضافة null-check على `parent_code` قبل البحث عن العُقد الأب
+
+**الملف:** `src/components/WBSTreeDiagram.tsx`
+
+- التأكد أن `useMemo` و `React.memo` مطبقة بشكل صحيح (تم في المرحلة 10)
+- إضافة حماية ضد البيانات الفارغة أو المكررة في `wbsData`
+
+---
+
+## 12.3 تحسين أداء شاشات Charts و DataCharts
+
+### التعديلات المطلوبة
+
+**الملف:** `src/components/DataCharts.tsx`
+
+- التأكد أن `useMemo` مطبق على جميع حسابات الرسوم البيانية
+- إضافة `useCallback` لدوال التفاعل (`fetchAIInsights`, `CustomTooltip`)
+- تحسين responsive عبر تقليل عدد labels في المحور X للشاشات الصغيرة
+- إضافة transition animation عند تبديل نوع الرسم
+
+---
+
+## 12.4 تحسين أداء شاشة Time Schedule و Schedule Integration
+
+### التعديلات المطلوبة
+
+**الملف:** `src/components/ProjectTimeline.tsx`
+
+- التأكد أن `useMemo` مطبق على حسابات Gantt chart
+- إضافة skeleton loading أثناء توليد الجدول الزمني
+- تحسين عرض Critical Path بلون أحمر واضح + خط أعرض
+
+**الملف:** `src/components/ScheduleIntegration.tsx`
+
+- التأكد أن cache الـ `localStorage` يعمل بشكل صحيح (تم في المرحلة 10)
+- تحسين loading state مع skeleton بدلاً من spinner
+
+---
+
+## 12.5 تحسين الرسوم البيانية والصور
+
+### التعديلات المطلوبة
+
+**الملفات:** `DataCharts.tsx`, `CostAnalysis.tsx`, `ScheduleIntegration.tsx`
+
+- ضمان أن جميع الرسوم تستخدم `ResponsiveContainer` بأبعاد مناسبة
+- تحسين الألوان والتدرجات في الرسوم
+- إضافة خاصية `animationDuration` مناسبة لكل نوع رسم
+- تحسين tooltip styling لجعلها أوضح
 
 ---
 
@@ -85,18 +119,25 @@
 
 | الملف | التعديل |
 |-------|---------|
-| `src/components/AnalysisResults.tsx` | نظام ألوان الصفوف (أخضر/أحمر) حسب حالة التسعير |
-| `src/components/project-details/AutoPriceDialog.tsx` | ربط تاريخي + تحسين المطابقة + واجهة محسنة |
+| `src/components/AnalysisResults.tsx` | حفظ التبويب في sessionStorage |
+| `src/pages/ProjectDetailsPage.tsx` | forceMount على analysis tab |
+| `src/components/CostAnalysis.tsx` | forwardRef + تحسين أداء |
+| `src/components/WBSFlowDiagram.tsx` | null checks + error handling |
+| `src/components/WBSTreeDiagram.tsx` | حماية بيانات فارغة |
+| `src/components/DataCharts.tsx` | useCallback + responsive |
+| `src/components/ProjectTimeline.tsx` | skeleton loading |
+| `src/components/ScheduleIntegration.tsx` | تحسين loading state |
 
 ## ترتيب التنفيذ
 
-1. تحسين `AutoPriceDialog` (خوارزمية المطابقة + مصدر تاريخي + واجهة)
-2. تطبيق نظام ألوان الصفوف في `AnalysisResults`
-3. إصلاح ألوان الخلايا المثبتة
+1. إصلاح مشكلة العودة لنقطة البداية (الأهم - sessionStorage + forceMount)
+2. إصلاح CostAnalysis forwardRef warning
+3. تحسين WBS error handling
+4. تحسين Charts و Timeline و Integration (responsive + skeleton + animations)
 
 ## النتيجة المتوقعة
 
-- ألوان الصفوف تطابق نظام BOQ Tab (أخضر للمسعر، أحمر لغير المسعر)
-- Auto Pricing يبحث في 4 مصادر بدلاً من 3 (+ تاريخي)
-- دقة المطابقة ترتفع بشكل ملحوظ عبر مطابقة الوحدات والفئات والكلمات المتخصصة
-- واجهة Auto Pricing أوضح مع ألوان مصادر وشريط ثقة
+- التنقل بين WBS/Cost/Brief/Charts/Timeline/Integration يحافظ على الموقع عند العودة
+- اختفاء تحذير Console الخاص بـ CostAnalysis ref
+- WBS لا يتعطل عند بيانات ناقصة
+- رسوم بيانية أسرع وأجمل مع animations سلسة
