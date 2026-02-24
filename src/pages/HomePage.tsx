@@ -6,7 +6,7 @@ import { PMSLogo } from "@/components/PMSLogo";
 import { supabase } from "@/integrations/supabase/client";
 import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
 import alimtyazLogo from "@/assets/company/alimtyaz-logo.jpg";
-import { useEffect, useState, useCallback, memo } from "react";
+import { useEffect, useState, useCallback, useMemo, memo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,6 +24,7 @@ import {
   BookOpen,
   Phone,
   Mail,
+  BarChart3,
 } from "lucide-react";
 
 const sections = [
@@ -98,55 +99,71 @@ export default function HomePage() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchCounts = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     // Check sessionStorage cache first
+    let cachedCounts: CountsMap | null = null;
     try {
       const cached = sessionStorage.getItem(CACHE_KEY);
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
         if (Date.now() - timestamp < CACHE_TTL) {
+          cachedCounts = data;
           setCounts(data);
-          setIsLoading(false);
-          return;
         }
       }
     } catch {}
 
-    const results: CountsMap = {};
-    const promises = tableKeys.map(async (table) => {
+    // Fetch counts and activities in parallel
+    const countsPromise = cachedCounts ? Promise.resolve(cachedCounts) : (async () => {
+      const results: CountsMap = {};
+      const promises = tableKeys.map(async (table) => {
+        try {
+          const { count } = await supabase.from(table).select("*", { count: "exact", head: true });
+          results[table] = count ?? 0;
+        } catch {
+          results[table] = 0;
+        }
+      });
+      await Promise.all(promises);
+      return results;
+    })();
+
+    const activitiesPromise = (async () => {
       try {
-        const { count } = await supabase.from(table).select("*", { count: "exact", head: true });
-        results[table] = count ?? 0;
+        const [projRes, contRes] = await Promise.all([
+          supabase.from("saved_projects").select("name, created_at").order("created_at", { ascending: false }).limit(3),
+          supabase.from("contracts").select("contract_title, created_at").order("created_at", { ascending: false }).limit(2),
+        ]);
+        const acts: ActivityItem[] = [];
+        projRes.data?.forEach(p => acts.push({ type: "project", name: p.name, date: p.created_at, icon: "project" }));
+        contRes.data?.forEach(c => acts.push({ type: "contract", name: c.contract_title, date: c.created_at, icon: "contract" }));
+        acts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return acts.slice(0, 5);
       } catch {
-        results[table] = 0;
+        return [];
       }
-    });
-    await Promise.all(promises);
-    setCounts(results);
+    })();
+
+    const [countsResult, activitiesResult] = await Promise.all([countsPromise, activitiesPromise]);
+
+    if (!cachedCounts) {
+      setCounts(countsResult);
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: countsResult, timestamp: Date.now() }));
+      } catch {}
+    }
+    setActivities(activitiesResult);
     setIsLoading(false);
-
-    // Cache results
-    try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: results, timestamp: Date.now() }));
-    } catch {}
-
-    // Fetch recent activities
-    try {
-      const [projRes, contRes] = await Promise.all([
-        supabase.from("saved_projects").select("name, created_at").order("created_at", { ascending: false }).limit(3),
-        supabase.from("contracts").select("contract_title, created_at").order("created_at", { ascending: false }).limit(2),
-      ]);
-      const acts: ActivityItem[] = [];
-      projRes.data?.forEach(p => acts.push({ type: "project", name: p.name, date: p.created_at, icon: "📊" }));
-      contRes.data?.forEach(c => acts.push({ type: "contract", name: c.contract_title, date: c.created_at, icon: "📄" }));
-      acts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setActivities(acts.slice(0, 5));
-    } catch {}
   }, []);
 
   useEffect(() => {
-    fetchCounts();
-  }, [fetchCounts]);
+    fetchData();
+  }, [fetchData]);
+
+  const formattedDates = useMemo(() =>
+    activities.map(act =>
+      formatDistanceToNow(new Date(act.date), { addSuffix: true, locale: isArabic ? ar : enUS })
+    ), [activities, isArabic]);
 
   return (
     <div className="min-h-screen flex flex-col home-bg" dir={isArabic ? "rtl" : "ltr"}>
@@ -207,27 +224,42 @@ export default function HomePage() {
 
         {/* Recent Activity Feed */}
         {isLoading ? (
-          <div className="max-w-2xl w-full mb-5">
-            <div className="bg-black/40 backdrop-blur-md rounded-xl border border-white/15 p-4">
-              <Skeleton className="h-3 w-24 mb-3 bg-white/10" />
-              <div className="space-y-2">
+          <div className="max-w-3xl w-full mb-6">
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5 shadow-lg">
+              <Skeleton className="h-4 w-28 mb-4 bg-white/10" />
+              <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-6 w-full bg-white/10 rounded" />
+                  <Skeleton key={i} className="h-10 w-full bg-white/10 rounded-xl" />
                 ))}
               </div>
             </div>
           </div>
         ) : activities.length > 0 && (
-          <div className="max-w-2xl w-full mb-5">
-            <div className="bg-black/40 backdrop-blur-md rounded-xl border border-white/15 p-4">
-              <p className="text-white/70 text-xs font-medium mb-2.5 px-1">{isArabic ? "آخر الأنشطة" : "Recent Activity"}</p>
-              <div className="space-y-1">
+          <div className="max-w-3xl w-full mb-6">
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5 shadow-lg">
+              <p className="text-white/80 text-sm font-semibold mb-3 px-1">{isArabic ? "آخر الأنشطة" : "Recent Activity"}</p>
+              <div className="divide-y divide-white/5">
                 {activities.map((act, i) => (
-                  <div key={i} className="flex items-center gap-2 text-white/85 text-sm px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
-                    <span>{act.icon}</span>
-                    <span className="truncate flex-1">{act.name}</span>
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 text-white/90 text-sm px-3 py-2.5 rounded-xl hover:bg-white/10 transition-all duration-200 cursor-default"
+                    style={{
+                      animation: 'card-enter 0.3s ease-out forwards',
+                      animationDelay: `${i * 80}ms`,
+                      opacity: 0,
+                    }}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      act.type === 'project' ? 'bg-blue-500/15' : 'bg-emerald-500/15'
+                    }`}>
+                      {act.type === 'project'
+                        ? <BarChart3 className="w-4 h-4 text-blue-400" />
+                        : <FileText className="w-4 h-4 text-emerald-400" />
+                      }
+                    </div>
+                    <span className="truncate flex-1 font-medium">{act.name}</span>
                     <span className="text-white/45 shrink-0 text-xs">
-                      {formatDistanceToNow(new Date(act.date), { addSuffix: true, locale: isArabic ? ar : enUS })}
+                      {formattedDates[i]}
                     </span>
                   </div>
                 ))}
