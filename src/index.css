@@ -435,6 +435,20 @@
     box-shadow: 0 0 15px hsl(var(--gold) / 0.2);
     border-color: hsl(var(--gold) / 0.5);
   }
+
+
+  /* Home page background */
+  .home-bg {
+    background: linear-gradient(145deg, #0f1729 0%, #1a2744 40%, #1e3a5f 70%, #1a2744 100%);
+    position: relative;
+  }
+  .home-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 40%, hsl(38 92% 55% / 0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
 }
 
 @keyframes float {

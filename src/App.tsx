@@ -13,6 +13,7 @@ import { GlobalSearchProvider } from "@/contexts/GlobalSearchContext";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import BackgroundImage from "@/components/BackgroundImage";
 import { FloatingBackButton } from "@/components/FloatingBackButton";
+import { FixedTopNav } from "@/components/FixedTopNav";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { Loader2 } from "lucide-react";
@@ -86,6 +87,7 @@ const App = () => (
                   <GlobalSearch />
                   <UpdateBanner />
                   <FloatingBackButton />
+                  <FixedTopNav />
                   <ErrorBoundary>
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
