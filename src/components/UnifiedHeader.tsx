@@ -109,14 +109,14 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
   const isActive = (href: string) => location.pathname === href;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-gradient-to-r from-background/90 via-background/85 to-background/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-gradient-to-r from-background/95 via-background/90 to-background/95 backdrop-blur-xl dark:from-[hsl(218,45%,12%)]/95 dark:via-[hsl(215,48%,14%)]/90 dark:to-[hsl(218,45%,12%)]/95">
       <div className="container mx-auto px-4 h-14 md:h-16 flex items-center justify-between gap-2">
         {/* Left: Mobile Menu + Logo */}
         <div className="flex items-center gap-2">
           <MobileNavDrawer />
           <Link to="/" className="flex items-center gap-2 md:gap-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
-              <span className="text-white font-bold text-sm md:text-lg">B</span>
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0 dark:shadow-[0_0_15px_hsl(38,92%,55%,0.3)]">
+              <span className="text-white dark:text-background font-bold text-sm md:text-lg">B</span>
             </div>
             <span className="hidden sm:inline font-display text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               BOQ Analyzer

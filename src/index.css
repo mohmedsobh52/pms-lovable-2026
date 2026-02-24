@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 220 70% 40%;
+    --primary: 218 55% 32%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 215 16% 47%;
@@ -25,8 +25,10 @@
     --muted: 214 20% 94%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 199 89% 48%;
+    --accent: 38 92% 55%;
     --accent-foreground: 0 0% 100%;
+
+    --gold: 38 92% 55%;
 
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
@@ -39,42 +41,44 @@
 
     --border: 214 20% 88%;
     --input: 214 20% 88%;
-    --ring: 220 70% 40%;
+    --ring: 218 55% 32%;
 
     --radius: 0.75rem;
 
     --workflow-bg: 214 32% 96%;
     --workflow-node: 0 0% 100%;
     --workflow-line: 214 20% 75%;
-    --workflow-primary: 220 70% 40%;
-    --workflow-secondary: 199 89% 48%;
+    --workflow-primary: 218 55% 32%;
+    --workflow-secondary: 38 92% 55%;
     --workflow-success: 142 71% 45%;
-    --workflow-info: 199 89% 48%;
+    --workflow-info: 217 91% 60%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(220 70% 40%) 0%, hsl(199 89% 48%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(199 89% 48%) 0%, hsl(186 100% 42%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(218 55% 32%) 0%, hsl(38 92% 55%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(38 92% 55%) 0%, hsl(38 92% 65%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(38 92% 60%) 100%);
     --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(214 32% 97%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(220 70% 25%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(218 45% 14%) 0%, hsl(218 55% 22%) 100%);
     --gradient-bg: linear-gradient(180deg, hsl(214 50% 98%) 0%, hsl(0 0% 100%) 50%, hsl(214 50% 98%) 100%);
 
     --shadow-sm: 0 1px 2px hsl(222 47% 11% / 0.05);
     --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.08), 0 2px 4px -2px hsl(222 47% 11% / 0.06);
     --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.08), 0 4px 6px -4px hsl(222 47% 11% / 0.06);
     --shadow-xl: 0 20px 25px -5px hsl(222 47% 11% / 0.1), 0 8px 10px -6px hsl(222 47% 11% / 0.08);
-    --shadow-glow: 0 0 30px hsl(220 70% 40% / 0.2);
-    --shadow-glow-accent: 0 0 30px hsl(199 89% 48% / 0.2);
+    --shadow-glow: 0 0 30px hsl(218 55% 32% / 0.2);
+    --shadow-glow-accent: 0 0 30px hsl(38 92% 55% / 0.2);
+    --shadow-gold: 0 0 30px hsl(38 92% 55% / 0.3);
 
     --sidebar-background: 0 0% 99%;
     --sidebar-foreground: 222 47% 20%;
-    --sidebar-primary: 220 70% 40%;
+    --sidebar-primary: 218 55% 32%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 214 32% 95%;
     --sidebar-accent-foreground: 222 47% 11%;
     --sidebar-border: 214 20% 91%;
-    --sidebar-ring: 220 70% 40%;
+    --sidebar-ring: 218 55% 32%;
 
     /* Quick Action Card Colors */
-    --qa-blue: 220 70% 40%;
+    --qa-blue: 218 55% 32%;
     --qa-orange: 25 95% 53%;
     --qa-teal: 173 80% 40%;
     --qa-green: 142 71% 45%;
@@ -94,67 +98,73 @@
   }
 
   .dark {
-    --background: 222 47% 8%;
+    --background: 218 45% 10%;
     --foreground: 214 32% 95%;
 
-    --card: 222 47% 12%;
+    --card: 215 48% 14%;
     --card-foreground: 214 32% 95%;
 
-    --popover: 222 47% 10%;
+    --popover: 218 45% 12%;
     --popover-foreground: 214 32% 95%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 38 92% 55%;
+    --primary-foreground: 218 45% 10%;
 
     --secondary: 215 20% 35%;
     --secondary-foreground: 214 32% 95%;
 
-    --muted: 222 30% 18%;
-    --muted-foreground: 215 16% 55%;
+    --muted: 218 40% 18%;
+    --muted-foreground: 215 16% 65%;
 
-    --accent: 199 89% 48%;
+    --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
+
+    --gold: 38 92% 55%;
 
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 55%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 218 45% 10%;
 
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 30% 25%;
-    --input: 222 30% 25%;
-    --ring: 217 91% 60%;
+    --border: 215 38% 22%;
+    --input: 215 38% 22%;
+    --ring: 38 92% 55%;
 
-    --shadow-sm: 0 1px 2px hsl(222 47% 5% / 0.3);
-    --shadow-md: 0 4px 6px -1px hsl(222 47% 5% / 0.4), 0 2px 4px -2px hsl(222 47% 5% / 0.3);
-    --shadow-lg: 0 10px 15px -3px hsl(222 47% 5% / 0.4), 0 4px 6px -4px hsl(222 47% 5% / 0.3);
-    --shadow-xl: 0 20px 25px -5px hsl(222 47% 5% / 0.5), 0 8px 10px -6px hsl(222 47% 5% / 0.4);
-    --shadow-glow: 0 0 30px hsl(217 91% 60% / 0.25);
-    --shadow-glow-accent: 0 0 30px hsl(199 89% 48% / 0.25);
+    --shadow-sm: 0 1px 2px hsl(218 45% 5% / 0.3);
+    --shadow-md: 0 4px 6px -1px hsl(218 45% 5% / 0.4), 0 2px 4px -2px hsl(218 45% 5% / 0.3);
+    --shadow-lg: 0 10px 15px -3px hsl(218 45% 5% / 0.4), 0 4px 6px -4px hsl(218 45% 5% / 0.3);
+    --shadow-xl: 0 20px 25px -5px hsl(218 45% 5% / 0.5), 0 8px 10px -6px hsl(218 45% 5% / 0.4);
+    --shadow-glow: 0 0 30px hsl(38 92% 55% / 0.25);
+    --shadow-glow-accent: 0 0 30px hsl(217 91% 60% / 0.25);
+    --shadow-gold: 0 0 30px hsl(38 92% 55% / 0.4);
 
-    --workflow-bg: 222 47% 10%;
-    --workflow-node: 222 47% 15%;
-    --workflow-line: 215 20% 35%;
+    --workflow-bg: 218 45% 10%;
+    --workflow-node: 215 48% 16%;
+    --workflow-line: 215 38% 27%;
 
-    --gradient-surface: linear-gradient(180deg, hsl(222 47% 12%) 0%, hsl(222 47% 8%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(222 47% 5%) 0%, hsl(220 50% 12%) 100%);
-    --gradient-bg: linear-gradient(180deg, hsl(222 47% 6%) 0%, hsl(222 47% 10%) 50%, hsl(222 47% 6%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(218 45% 18%) 0%, hsl(38 92% 55%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(38 92% 55%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(38 92% 62%) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(215 48% 14%) 0%, hsl(218 45% 10%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(218 45% 7%) 0%, hsl(218 45% 14%) 100%);
+    --gradient-bg: linear-gradient(180deg, hsl(218 45% 8%) 0%, hsl(218 45% 12%) 50%, hsl(218 45% 8%) 100%);
 
-    --sidebar-background: 222 47% 10%;
+    --sidebar-background: 218 45% 12%;
     --sidebar-foreground: 214 32% 95%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 30% 18%;
+    --sidebar-primary: 38 92% 55%;
+    --sidebar-primary-foreground: 218 45% 10%;
+    --sidebar-accent: 218 40% 18%;
     --sidebar-accent-foreground: 214 32% 95%;
-    --sidebar-border: 222 30% 22%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-border: 215 38% 22%;
+    --sidebar-ring: 38 92% 55%;
 
     /* Quick Action Card Colors - Dark Mode */
     --qa-blue: 217 91% 60%;
-    --qa-orange: 25 95% 58%;
+    --qa-orange: 38 92% 55%;
     --qa-teal: 173 80% 45%;
     --qa-green: 142 71% 50%;
     --qa-purple: 262 83% 63%;
@@ -167,7 +177,7 @@
     --phase-initiation: 186 100% 55%;
     --phase-analysis: 217 91% 65%;
     --phase-pricing: 142 71% 50%;
-    --phase-contracting: 25 95% 58%;
+    --phase-contracting: 38 92% 55%;
     --phase-execution: 262 83% 63%;
     --phase-monitoring: 350 89% 65%;
   }
@@ -209,7 +219,7 @@
 
   .glass-card:hover {
     box-shadow: var(--shadow-xl);
-    border-color: hsl(var(--border) / 0.8);
+    border-color: hsl(var(--primary) / 0.3);
   }
 
   .workflow-node {
@@ -233,6 +243,10 @@
   .btn-gradient {
     background: var(--gradient-primary);
     @apply text-white font-semibold transition-all duration-200;
+  }
+
+  .dark .btn-gradient {
+    @apply text-background;
   }
 
   .btn-gradient:hover {
@@ -271,13 +285,13 @@
   }
 
   .dashboard-card {
-    @apply bg-card/95 backdrop-blur-sm rounded-xl border border-border/50 transition-all duration-200;
+    @apply bg-card/95 backdrop-blur-sm rounded-xl border border-border/60 transition-all duration-200;
     box-shadow: var(--shadow-md);
   }
 
   .dashboard-card:hover {
     box-shadow: var(--shadow-xl);
-    border-color: hsl(var(--primary) / 0.2);
+    border-color: hsl(var(--primary) / 0.3);
   }
 
   .data-table { @apply w-full text-sm; }
@@ -304,6 +318,18 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+
+  .text-gold {
+    color: hsl(var(--gold));
+  }
+
+  .gold-glow {
+    box-shadow: var(--shadow-gold);
+  }
+
+  .bg-gold {
+    background-color: hsl(var(--gold));
   }
 }
 

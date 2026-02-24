@@ -98,13 +98,13 @@ interface KPIData {
   contractHealth: number;
 }
 
-// Vivid chart colors
-const CHART_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
+// Vivid chart colors - Navy + Gold palette
+const CHART_COLORS = ["#2563EB", "#F5A623", "#10B981", "#7C3AED", "#EF4444"];
 const STATUS_COLORS: Record<string, string> = {
-  pending: "#F59E0B",
+  pending: "#F5A623",
   approved: "#10B981",
   rejected: "#EF4444",
-  under_review: "#3B82F6",
+  under_review: "#2563EB",
 };
 
 // Custom tooltip with better styling
@@ -477,8 +477,8 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
   };
 
   const getKPIColor = (value: number): string => {
-    if (value >= 75) return "#10B981";
-    if (value >= 50) return "#F59E0B";
+    if (value >= 75) return "#F5A623";
+    if (value >= 50) return "#2563EB";
     return "#EF4444";
   };
 
@@ -672,10 +672,10 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label={isArabic ? "إجمالي المشاريع" : "Total Projects"} value={stats.totalProjects} icon={FolderOpen} bgColor="bg-amber-100 dark:bg-amber-500/20" iconColor="text-amber-500" />
-            <StatCard label={isArabic ? "عروض الأسعار" : "Quotations"} value={stats.totalQuotations} icon={Receipt} bgColor="bg-blue-100 dark:bg-blue-500/20" iconColor="text-blue-500" />
-            <StatCard label={isArabic ? "إجمالي القيمة" : "Total Value"} value={formatCurrency(stats.totalValue)} icon={DollarSign} bgColor="bg-emerald-100 dark:bg-emerald-500/20" iconColor="text-emerald-500" />
-            <StatCard label={isArabic ? "متوسط العرض" : "Avg. Quotation"} value={formatCurrency(stats.averageQuotationValue)} icon={TrendingUp} bgColor="bg-rose-100 dark:bg-rose-500/20" iconColor="text-rose-500" />
+            <StatCard label={isArabic ? "إجمالي القيمة" : "Total Value"} value={formatCurrency(stats.totalValue)} icon={DollarSign} bgColor="bg-amber-100 dark:bg-amber-500/20" iconColor="text-amber-500 dark:text-[#F5A623]" />
+            <StatCard label={isArabic ? "إجمالي المشاريع" : "Total Projects"} value={stats.totalProjects} icon={FolderOpen} bgColor="bg-blue-100 dark:bg-blue-500/20" iconColor="text-blue-600 dark:text-blue-400" />
+            <StatCard label={isArabic ? "عروض الأسعار" : "Quotations"} value={stats.totalQuotations} icon={Receipt} bgColor="bg-emerald-100 dark:bg-emerald-500/20" iconColor="text-emerald-600 dark:text-emerald-400" />
+            <StatCard label={isArabic ? "متوسط العرض" : "Avg. Quotation"} value={formatCurrency(stats.averageQuotationValue)} icon={TrendingUp} bgColor="bg-purple-100 dark:bg-purple-500/20" iconColor="text-purple-600 dark:text-purple-400" />
           </div>
 
           {/* KPI Row */}
