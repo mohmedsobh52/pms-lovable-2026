@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
+import { ThemeProvider } from "@/hooks/useTheme";
 import { AnalysisProvider } from "@/hooks/useAnalysisData";
 import { AnalysisTrackingProvider } from "@/hooks/useAnalysisTracking";
 import { GlobalSearchProvider } from "@/contexts/GlobalSearchContext";
@@ -56,6 +57,7 @@ const PricingAccuracyPage = lazy(() => import("./pages/PricingAccuracyPage"));
 const PartnerDetailsPage = lazy(() => import("./pages/PartnerDetailsPage"));
 const ProgressCertificatesPage = lazy(() => import("./pages/ProgressCertificatesPage"));
 const NewCertificatePage = lazy(() => import("./pages/NewCertificatePage"));
+const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
 const queryClient = new QueryClient();
 
 // Page loading component
@@ -69,6 +71,7 @@ const PageLoader = () => (
 );
 
 const App = () => (
+  <ThemeProvider>
   <LanguageProvider>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -98,6 +101,7 @@ const App = () => (
                         <Route path="/cost-analysis" element={<CostAnalysisPage />} />
                         <Route path="/changelog" element={<Changelog />} />
                         <Route path="/admin/versions" element={<AdminVersions />} />
+                        <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                         {/* Separate pages for each section */}
                         <Route path="/dashboard" element={<DashboardPage />} />
                         <Route path="/items" element={<BOQItemsPage />} />
@@ -139,6 +143,7 @@ const App = () => (
       </AuthProvider>
     </QueryClientProvider>
   </LanguageProvider>
+  </ThemeProvider>
 );
 
 export default App;
