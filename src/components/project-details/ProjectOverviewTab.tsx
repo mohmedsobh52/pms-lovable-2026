@@ -175,15 +175,15 @@ export function ProjectOverviewTab({
                 <span>{isArabic ? "التقدم" : "Progress"}</span>
                 <span className="font-bold">{pricingStats.pricingPercentage}%</span>
               </div>
-              <Progress value={pricingStats.pricingPercentage} className="h-2" />
+              <Progress value={pricingStats.pricingPercentage} className={`h-2 ${pricingStats.pricingPercentage >= 75 ? 'progress-gold' : ''}`} />
             </div>
             <div className="flex justify-between items-center py-2 border-b border-border/50">
               <span className="text-muted-foreground">{isArabic ? "بنود مسعرة" : "Priced Items"}</span>
-              <span className="font-medium text-green-600">{pricingStats.pricedItems}</span>
+              <span className="font-medium text-success">{pricingStats.pricedItems}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-border/50">
               <span className="text-muted-foreground">{isArabic ? "بنود غير مسعرة" : "Unpriced Items"}</span>
-              <span className="font-medium text-amber-600">{pricingStats.unpricedItems}</span>
+              <span className="font-medium text-gold">{pricingStats.unpricedItems}</span>
             </div>
             <div className="flex justify-between items-center py-2">
               <span className="text-muted-foreground">{isArabic ? "إجمالي القيمة" : "Total Value"}</span>

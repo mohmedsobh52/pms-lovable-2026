@@ -16,14 +16,14 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 218 55% 32%;
+    --primary: 218 58% 28%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 215 16% 47%;
     --secondary-foreground: 0 0% 100%;
 
     --muted: 214 20% 94%;
-    --muted-foreground: 215 16% 47%;
+    --muted-foreground: 215 20% 40%;
 
     --accent: 38 92% 55%;
     --accent-foreground: 0 0% 100%;
@@ -39,7 +39,7 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 88%;
+    --border: 214 20% 85%;
     --input: 214 20% 88%;
     --ring: 218 55% 32%;
 
@@ -98,23 +98,23 @@
   }
 
   .dark {
-    --background: 218 45% 10%;
-    --foreground: 214 32% 95%;
+    --background: 218 48% 8%;
+    --foreground: 214 32% 96%;
 
-    --card: 215 48% 14%;
-    --card-foreground: 214 32% 95%;
+    --card: 215 50% 13%;
+    --card-foreground: 214 32% 96%;
 
     --popover: 218 45% 12%;
-    --popover-foreground: 214 32% 95%;
+    --popover-foreground: 214 32% 96%;
 
     --primary: 38 92% 55%;
     --primary-foreground: 218 45% 10%;
 
     --secondary: 215 20% 35%;
-    --secondary-foreground: 214 32% 95%;
+    --secondary-foreground: 214 32% 96%;
 
     --muted: 218 40% 18%;
-    --muted-foreground: 215 16% 65%;
+    --muted-foreground: 215 20% 68%;
 
     --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
@@ -333,40 +333,14 @@
   }
 
   /* Interactive Background */
-  .interactive-bg {
-    background: linear-gradient(
-      135deg,
-      hsl(218 45% 12%) 0%,
-      hsl(215 48% 16%) 25%,
-      hsl(218 45% 10%) 50%,
-      hsl(220 50% 14%) 75%,
-      hsl(218 45% 12%) 100%
-    );
-    background-size: 400% 400%;
-    animation: gradient-shift 15s ease infinite;
-  }
-
-  .dark .interactive-bg {
-    background: linear-gradient(
-      135deg,
-      hsl(218 45% 8%) 0%,
-      hsl(215 48% 12%) 25%,
-      hsl(218 45% 6%) 50%,
-      hsl(220 50% 10%) 75%,
-      hsl(218 45% 8%) 100%
-    );
-    background-size: 400% 400%;
-    animation: gradient-shift 15s ease infinite;
-  }
-
   :root .interactive-bg {
     background: linear-gradient(
       135deg,
-      hsl(214 32% 96%) 0%,
-      hsl(214 40% 93%) 25%,
-      hsl(218 35% 95%) 50%,
-      hsl(214 32% 97%) 75%,
-      hsl(214 32% 96%) 100%
+      hsl(214 32% 94%) 0%,
+      hsl(214 40% 90%) 25%,
+      hsl(218 35% 93%) 50%,
+      hsl(214 32% 95%) 75%,
+      hsl(214 32% 94%) 100%
     );
     background-size: 400% 400%;
     animation: gradient-shift 20s ease infinite;
@@ -375,17 +349,42 @@
   .dark .interactive-bg {
     background: linear-gradient(
       135deg,
-      hsl(218 45% 8%) 0%,
-      hsl(215 48% 12%) 25%,
-      hsl(218 45% 6%) 50%,
-      hsl(220 50% 10%) 75%,
-      hsl(218 45% 8%) 100%
+      hsl(218 48% 6%) 0%,
+      hsl(215 50% 10%) 25%,
+      hsl(218 48% 5%) 50%,
+      hsl(220 50% 8%) 75%,
+      hsl(218 48% 6%) 100%
     );
+    background-size: 400% 400%;
+    animation: gradient-shift 15s ease infinite;
   }
 
   .dot-grid {
     background-image: radial-gradient(circle, hsl(var(--border) / 0.3) 1px, transparent 1px);
     background-size: 24px 24px;
+  }
+
+  /* Gold value text for financial displays */
+  .text-gold-value {
+    color: hsl(var(--gold));
+    font-weight: 700;
+    text-shadow: 0 0 20px hsl(var(--gold) / 0.15);
+  }
+
+  /* Stat card with enhanced hover */
+  .card-stat {
+    @apply bg-card border border-border/60 rounded-xl transition-all duration-200;
+    box-shadow: var(--shadow-sm);
+  }
+  .card-stat:hover {
+    box-shadow: var(--shadow-lg);
+    border-color: hsl(var(--gold) / 0.3);
+    transform: translateY(-1px);
+  }
+
+  /* Gold progress bar */
+  .progress-gold .bg-primary {
+    background: linear-gradient(90deg, hsl(38 92% 50%), hsl(38 92% 60%)) !important;
   }
 }
 

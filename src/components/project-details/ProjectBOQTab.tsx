@@ -414,8 +414,8 @@ export function ProjectBOQTab({
             <TooltipTrigger asChild>
               <Card className="border-border/50 hover:shadow-md transition-shadow cursor-default">
                 <CardContent className="p-4 flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-amber-500/10">
-                    <Calculator className="w-5 h-5 text-amber-600" />
+                  <div className="p-2 rounded-lg bg-gold/10">
+                    <Calculator className="w-5 h-5 text-gold" />
                   </div>
                   <div>
                     <p className="text-xl font-bold">
@@ -446,9 +446,9 @@ export function ProjectBOQTab({
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-500",
-                pricingStats.pricingPercentage < 30 ? "bg-red-500" :
-                pricingStats.pricingPercentage < 70 ? "bg-amber-500" :
-                "bg-green-500"
+                pricingStats.pricingPercentage < 30 ? "bg-destructive" :
+                pricingStats.pricingPercentage < 70 ? "bg-warning" :
+                pricingStats.pricingPercentage >= 75 ? "bg-gold" : "bg-success"
               )}
               style={{ width: `${pricingStats.pricingPercentage}%` }}
             />

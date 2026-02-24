@@ -116,7 +116,7 @@ export function ProjectHeader({
         </div>
         
         <div className="flex items-center gap-2 project-actions-section">
-          <Button onClick={onStartPricing} className="gap-2">
+          <Button onClick={onStartPricing} className="gap-2 bg-gradient-to-r from-primary to-accent hover:opacity-90">
             <Play className="w-4 h-4" />
             {isArabic ? "بدء التسعير" : "Start Pricing"}
           </Button>
@@ -147,11 +147,11 @@ export function ProjectHeader({
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card className="border-border/50">
+        <Card className="card-stat">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Package className="w-5 h-5 text-primary" />
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <Package className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div className={`text-${isArabic ? 'left' : 'right'}`}>
                 <p className="text-2xl font-bold">{pricingStats.totalItems}</p>
@@ -163,14 +163,14 @@ export function ProjectHeader({
           </CardContent>
         </Card>
 
-        <Card className="border-border/50">
+        <Card className="card-stat">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div className="p-2 rounded-lg bg-amber-500/10">
-                <Percent className="w-5 h-5 text-amber-600" />
+              <div className="p-2 rounded-lg bg-gold/10">
+                <Percent className="w-5 h-5 text-gold" />
               </div>
               <div className={`text-${isArabic ? 'left' : 'right'}`}>
-                <p className="text-2xl font-bold">{pricingStats.pricingPercentage}%</p>
+                <p className="text-2xl font-bold text-gold">{pricingStats.pricingPercentage}%</p>
                 <p className="text-sm text-muted-foreground">
                   {isArabic ? "نسبة التسعير" : "Pricing %"}
                 </p>
@@ -179,14 +179,14 @@ export function ProjectHeader({
           </CardContent>
         </Card>
 
-        <Card className="border-border/50">
+        <Card className="card-stat">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div className="p-2 rounded-lg bg-green-500/10">
-                <DollarSign className="w-5 h-5 text-green-600" />
+              <div className="p-2 rounded-lg bg-success/10">
+                <DollarSign className="w-5 h-5 text-success" />
               </div>
               <div className={`text-${isArabic ? 'left' : 'right'}`}>
-                <p className="text-2xl font-bold">{formatCurrency(pricingStats.totalValue)}</p>
+                <p className="text-2xl font-bold text-gold-value">{formatCurrency(pricingStats.totalValue)}</p>
                 <p className="text-sm text-muted-foreground">
                   {isArabic ? "إجمالي القيمة" : "Total Value"}
                 </p>
@@ -195,11 +195,11 @@ export function ProjectHeader({
           </CardContent>
         </Card>
 
-        <Card className="border-border/50">
+        <Card className="card-stat">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div className="p-2 rounded-lg bg-blue-500/10">
-                <Building2 className="w-5 h-5 text-blue-600" />
+              <div className="p-2 rounded-lg bg-purple-500/10">
+                <Building2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div className={`text-${isArabic ? 'left' : 'right'}`}>
                 <p className="text-2xl font-bold">{project.currency || 'SAR'}</p>

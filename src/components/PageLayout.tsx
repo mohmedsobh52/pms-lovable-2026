@@ -31,7 +31,7 @@ export function PageLayout({ children, showBackground = false, className = "" }:
       </main>
 
       {/* Footer with Developer Credit */}
-      <footer className="border-t border-border py-4 md:py-6 bg-muted/10">
+      <footer className="border-t border-border/80 py-4 md:py-6 bg-card/50 backdrop-blur-sm">
         <div className="container mx-auto px-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>© 2025 PMS - {isArabic ? "نظام إدارة المشاريع" : "Project Management System"}</span>

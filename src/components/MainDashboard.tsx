@@ -116,7 +116,7 @@ const STATUS_COLORS: Record<string, string> = {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload) return null;
   return (
-    <div className="bg-popover border border-border rounded-xl shadow-xl px-4 py-3 text-sm">
+    <div className="bg-popover/95 backdrop-blur-sm border border-border rounded-xl shadow-2xl px-4 py-3 text-sm">
       <p className="font-semibold text-foreground mb-1">{label}</p>
       {payload.map((entry: any, i: number) => (
         <p key={i} className="flex items-center gap-2 text-muted-foreground">
@@ -694,7 +694,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             </div>
 
             {/* Radar Chart */}
-            <Card className="rounded-2xl border-0 shadow-sm">
+            <Card className="rounded-2xl border-0 shadow-sm border-t-2 border-t-gold">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Activity className="w-4 h-4 text-gold" />
@@ -705,14 +705,24 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                 <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart data={[
-                      { subject: isArabic ? "صحة المشاريع" : "Projects", value: kpiData.projectHealth, fullMark: 100 },
-                      { subject: isArabic ? "التسعير" : "Pricing", value: kpiData.pricingEfficiency, fullMark: 100 },
-                      { subject: isArabic ? "الأمان" : "Safety", value: kpiData.riskScore, fullMark: 100 },
-                      { subject: isArabic ? "العقود" : "Contracts", value: kpiData.contractHealth, fullMark: 100 },
+                      { subject: isArabic ? "صحة المشاريع" : "Projects", value: kpiData.projectHealth, target: 80, fullMark: 100 },
+                      { subject: isArabic ? "التسعير" : "Pricing", value: kpiData.pricingEfficiency, target: 80, fullMark: 100 },
+                      { subject: isArabic ? "الأمان" : "Safety", value: kpiData.riskScore, target: 80, fullMark: 100 },
+                      { subject: isArabic ? "العقود" : "Contracts", value: kpiData.contractHealth, target: 80, fullMark: 100 },
                     ]}>
-                      <PolarGrid stroke="hsl(var(--border))" />
+                      <PolarGrid stroke="hsl(var(--border))" strokeOpacity={0.6} />
                       <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
                       <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
+                      <Radar
+                        name={isArabic ? "الهدف" : "Target"}
+                        dataKey="target"
+                        stroke="#2563EB"
+                        fill="#2563EB"
+                        fillOpacity={0.08}
+                        strokeWidth={1}
+                        strokeDasharray="4 4"
+                        animationDuration={800}
+                      />
                       <Radar
                         name={isArabic ? "الأداء" : "Performance"}
                         dataKey="value"
@@ -732,7 +742,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Combined Monthly Chart with Toggle */}
-            <Card>
+            <Card className="border-t-2 border-t-blue-500">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
@@ -789,7 +799,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             </Card>
 
             {/* Quotations by Status Pie */}
-            <Card>
+            <Card className="border-t-2 border-t-purple-500">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <PieChart className="w-5 h-5" style={{ color: "#8B5CF6" }} />
