@@ -564,16 +564,18 @@ async function processBatch(
   apiKey: string,
   model: string = "google/gemini-2.5-flash",
   libraryData?: LibraryData,
-  historicalData?: HistoricalItem[]
+  historicalData?: HistoricalItem[],
+  dynamicCityFactors?: Record<string, { factor: number; label: string }>
 ): Promise<{ suggestions: MarketRateSuggestion[]; aiCount: number; refCount: number; libCount: number; histCount: number }> {
   
   const suggestions: MarketRateSuggestion[] = [];
   let aiCount = 0, refCount = 0, libCount = 0, histCount = 0;
   
-  // Get city factor
-  const cityData = CITY_FACTORS[location] || { factor: 1.0, label: "Default" };
+  // Use dynamic factors if available, fallback to static
+  const factorsSource = dynamicCityFactors || CITY_FACTORS;
+  const cityData = factorsSource[location] || { factor: 1.0, label: "Default" };
   const cityFactor = cityData.factor;
-  console.log(`City factor for ${location}: ${cityFactor} (${cityData.label})`);
+  console.log(`City factor for ${location}: ${cityFactor} (${cityData.label}) [source: ${dynamicCityFactors ? 'database' : 'static'}]`);
   
   // Helper to apply city factor to a price
   const applyFactor = (price: number) => Math.round(price * cityFactor * 100) / 100;
@@ -894,6 +896,28 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // Fetch dynamic city factors from database
+    let dynamicCityFactors: Record<string, { factor: number; label: string }> | undefined;
+    try {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      const { data: cityFactorsData } = await supabaseAdmin
+        .from('city_pricing_factors')
+        .select('city_name, factor, label');
+      if (cityFactorsData && cityFactorsData.length > 0) {
+        dynamicCityFactors = {};
+        for (const cf of cityFactorsData) {
+          dynamicCityFactors[cf.city_name] = { factor: Number(cf.factor), label: cf.label || 'Base' };
+        }
+        console.log(`Loaded ${cityFactorsData.length} dynamic city factors from database`);
+      }
+    } catch (e) {
+      console.warn('Failed to load dynamic city factors, using static fallback:', e);
+    }
+
     const BATCH_SIZE = 20;
     const allSuggestions: MarketRateSuggestion[] = [];
     let totalAI = 0, totalRef = 0, totalLib = 0, totalHist = 0;
@@ -906,7 +930,7 @@ serve(async (req) => {
       const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
       console.log(`Batch ${batchNumber}/${totalBatches}: ${batchItems.length} items`);
       
-      const result = await processBatch(batchItems, location, LOVABLE_API_KEY, model, libraryData, historicalData);
+      const result = await processBatch(batchItems, location, LOVABLE_API_KEY, model, libraryData, historicalData, dynamicCityFactors);
       allSuggestions.push(...result.suggestions);
       totalAI += result.aiCount;
       totalRef += result.refCount;

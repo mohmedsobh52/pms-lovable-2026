@@ -263,6 +263,42 @@ export type Database = {
         }
         Relationships: []
       }
+      city_pricing_factors: {
+        Row: {
+          city_name: string
+          city_name_ar: string | null
+          factor: number
+          id: string
+          label: string | null
+          last_updated: string
+          region: string
+          source: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          city_name: string
+          city_name_ar?: string | null
+          factor?: number
+          id?: string
+          label?: string | null
+          last_updated?: string
+          region: string
+          source?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          city_name?: string
+          city_name_ar?: string | null
+          factor?: number
+          id?: string
+          label?: string | null
+          last_updated?: string
+          region?: string
+          source?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       comparison_reports: {
         Row: {
           comparison_data: Json
@@ -1404,6 +1440,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      market_price_cache: {
+        Row: {
+          city: string | null
+          expires_at: string
+          fetched_at: string
+          id: string
+          result_data: Json
+          search_query: string
+        }
+        Insert: {
+          city?: string | null
+          expires_at?: string
+          fetched_at?: string
+          id?: string
+          result_data?: Json
+          search_query: string
+        }
+        Update: {
+          city?: string | null
+          expires_at?: string
+          fetched_at?: string
+          id?: string
+          result_data?: Json
+          search_query?: string
+        }
+        Relationships: []
       }
       material_prices: {
         Row: {
