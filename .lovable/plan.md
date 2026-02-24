@@ -1,97 +1,102 @@
 
 
-# المرحلة 18: تحسين الألوان والتباين عبر كامل البرنامج
+# المرحلة 19: توحيد الهيدرات والعناوين وتحسين الخلفية عبر كامل البرنامج
 
 ---
 
-## المشاكل الحالية
+## المشكلة الحالية
 
-1. **تباين ضعيف في الوضع الفاتح**: الألوان الأساسية (`--primary: 218 55% 32%`) تحتاج تعميق أكبر للقراءة
-2. **خلفية تفاعلية في الوضع الفاتح**: `.interactive-bg` يظهر باهت جداً - يحتاج تحسين
-3. **بطاقات الإحصائيات في ProjectHeader**: تستخدم ألوان عامة بدون التباين الذهبي الجديد
-4. **Progress bars**: تستخدم اللون الافتراضي بدون تدرج ذهبي للنسب العالية
-5. **الهيدر الفرعي (ProjectHeader)**: يحتاج تطبيق النظام اللوني الموحد (أزرق داكن + ذهبي)
-6. **CSS مكرر**: `.dark .interactive-bg` معرف مرتين في `index.css`
+كل صفحة تستخدم تصميم هيدر مختلف تماماً:
+- **ContractsPage**: أيقونة + عنوان بسيط + 6 بطاقات إحصائيات بألوان متعددة
+- **ReportsPage**: عنوان نص فقط بدون أيقونة ولا تدرج
+- **SettingsPage**: عنوان `h2` بسيط بدون وصف
+- **LibraryPage**: عنوان مع breadcrumb مختلف
+- **MaterialPricesPage**: عنوان `h2` بسيط
+- **ProcurementPage**: عنوان + وصف بدون gradient
+
+**المطلوب (مطابقة الصورة المرفقة):**
+- هيدر بتدرج أزرق داكن الى أزرق (Navy gradient)
+- عنوان أبيض كبير بخط عريض
+- عنوان فرعي رمادي فاتح
+- أيقونة مربعة بزاوية مستديرة
+- أزرار إجراء على اليمين
+- شريط إحصائيات سفلي مدمج مع ألوان ذهبية للقيم المالية
 
 ---
 
-## 18.1 تحسين CSS Variables والتباين
+## 19.1 إنشاء مكوّن هيدر موحّد (PageHeader)
+
+**ملف جديد:** `src/components/PageHeader.tsx`
+
+مكوّن قابل لإعادة الاستخدام يقبل:
+
+```text
+interface PageHeaderProps {
+  icon: LucideIcon           // أيقونة الصفحة
+  title: string              // العنوان الرئيسي
+  subtitle?: string          // العنوان الفرعي
+  actions?: ReactNode        // أزرار الإجراءات (يمين)
+  stats?: StatItem[]         // بطاقات الإحصائيات السفلية
+}
+
+interface StatItem {
+  value: string | number
+  label: string
+  type?: 'default' | 'gold' | 'percentage'  // gold = قيمة مالية ذهبية
+}
+```
+
+**التصميم (مطابق للصورة):**
+- خلفية: `bg-gradient-to-r from-[#1a2744] via-[#1e3054] to-[#2563EB]` (تدرج أزرق داكن)
+- العنوان: أبيض، `text-2xl font-bold`، خط Inter/Cairo
+- العنوان الفرعي: `text-white/70`، حجم أصغر
+- الأيقونة: مربع مستدير `rounded-xl` بخلفية `white/10`
+- شريط الإحصائيات: خلفية `white/5` بتأثير `backdrop-blur`، القيم المالية بالذهبي `#F5A623`، النسب بالبرتقالي الذهبي
+- الأزرار: `variant="outline"` بلون أبيض شفاف + زر رئيسي بخلفية ذهبية/برتقالية
+
+---
+
+## 19.2 تطبيق PageHeader على جميع الصفحات
+
+| الصفحة | الأيقونة | العنوان | الإحصائيات |
+|--------|----------|---------|------------|
+| `ContractsPage.tsx` | Building2 | Professional Engineering Contracts | Total Contracts, Active, Total Value (gold), Completion % |
+| `ReportsPage.tsx` | BarChart3 | Reports | Total Projects, In Progress, Total Value (gold), Completed |
+| `SettingsPage.tsx` | Settings2 | Settings | (بدون إحصائيات) |
+| `LibraryPage.tsx` | Library | Library | (بدون إحصائيات) |
+| `MaterialPricesPage.tsx` | DollarSign | Price Database | (بدون إحصائيات) |
+| `ProcurementPage.tsx` | Package | Procurement | (بدون إحصائيات) |
+| `SubcontractorsPage.tsx` | Users | Subcontractors | Total, Active, Total Value (gold), Progress % |
+| `BOQItemsPage.tsx` | FileSpreadsheet | BOQ Items | (بدون إحصائيات) |
+| `CalendarPage.tsx` | Calendar | Calendar | (بدون إحصائيات) |
+| `AdminDashboardPage.tsx` | ShieldAlert | Admin Dashboard | (يحتفظ ببطاقاته الخاصة) |
+
+---
+
+## 19.3 تحسين CSS للهيدر الموحد
 
 **الملف:** `src/index.css`
 
-### Light Mode
-- تعميق `--primary` من `218 55% 32%` الى `218 58% 28%` لتباين اعلى
-- تحسين `--border` من `214 20% 88%` الى `214 20% 85%` لوضوح اكبر للحدود
-- تعديل `--muted-foreground` من `215 16% 47%` الى `215 20% 40%` لقراءة افضل للنصوص الثانوية
-- إزالة تعريف `.dark .interactive-bg` المكرر
-
-### Dark Mode
-- تعميق `--background` قليلاً من `218 45% 10%` الى `218 48% 8%` لعمق اكبر
-- زيادة سطوع `--foreground` من `214 32% 95%` الى `214 32% 96%`
-- تحسين `--card` من `215 48% 14%` الى `215 50% 13%` لتمييز اوضح عن الخلفية
-- تحسين `--muted-foreground` من `215 16% 65%` الى `215 20% 68%` لقراءة افضل
-
-### عناصر CSS جديدة
-- إضافة `.text-gold-value` class خاص بالقيم المالية بحجم اكبر وتأثير glow خفيف
-- إضافة `.card-stat` class لبطاقات الإحصائيات مع hover وبوردر محسن
-- تحسين `.glass-card` بزيادة `backdrop-blur` وتحسين شفافية الخلفية
-- إضافة `.progress-gold` لشريط التقدم الذهبي
+إضافة أنماط جديدة:
+- `.page-header-gradient`: تدرج أزرق داكن موحد لجميع الهيدرات
+- `.page-header-stat`: بطاقة إحصائية شفافة داخل الهيدر
+- `.page-header-stat-gold`: قيمة مالية ذهبية مع تأثير glow
+- تحسين تباين النصوص داخل الهيدر (أبيض على أزرق داكن)
 
 ---
 
-## 18.2 تحسين MainDashboard - تقوية التباين
+## 19.4 تحسين خلفية التطبيق
 
-**الملف:** `src/components/MainDashboard.tsx`
+**الملف:** `src/components/BackgroundImage.tsx`
 
-- **StatCard**: إضافة بوردر خفيف ذهبي لبطاقة Total Value في الداكن
-- **KPICard**: تحسين ألوان progress bar - استخدام gradient للقيم العالية بدلاً من لون ثابت
-- **Radar Chart**: تحسين لون الشبكة (`PolarGrid`) لتباين اوضح، وإضافة خط مقارنة ثاني (Target = 80%) بلون أزرق
-- **Custom Tooltip**: تحسين التباين مع خلفية اغمق وظل اقوى
-- **Chart cards**: إضافة border-t بلون مميز لكل chart (ازرق للنشاط، بنفسجي للحالة)
+- تعزيز `.interactive-bg` بتدرج أكثر تناغماً مع الهيدر الأزرق الداكن
+- الوضع الفاتح: تدرج أبيض مائل للأزرق الخفيف
+- الوضع الداكن: تدرج أزرق داكن عميق يتناغم مع هيدرات الصفحات
+- تحسين `.dot-grid` لتكون أكثر نعومة
 
----
-
-## 18.3 تحسين ProjectHeader - الألوان الموحدة
-
-**الملف:** `src/components/project-details/ProjectHeader.tsx`
-
-- **Stats Cards**: تطبيق نفس نظام الألوان:
-  - Total Items: خلفية زرقاء + أيقونة زرقاء (بدلاً من primary المعمم)
-  - Pricing %: خلفية ذهبية + نص ذهبي + تأثير glow
-  - Total Value: خلفية خضراء + نص ذهبي للقيمة المالية (`.text-gold`)
-  - Currency: خلفية بنفسجية
-- **Header Bar**: تحسين خلفية الهيدر بإضافة gradient خفيف `from-card via-card/95 to-card`
-- **Action Buttons**: تحسين لون زر "Start Pricing" بتدرج ذهبي-أزرق
-
----
-
-## 18.4 تحسين ProjectOverviewTab
-
-**الملف:** `src/components/project-details/ProjectOverviewTab.tsx`
-
-- **Total Value display**: تطبيق `.text-gold` مع حجم أكبر وتأثير glow
-- **Progress bar**: استخدام لون ذهبي عند تجاوز 75%، أخضر عند اكتمال 100%
-- **Historical Stats section**: تحسين gradient الخلفية واستخدام ألوان أوضح للأيقونات
-- **Pricing Summary card**: تحسين ألوان "Priced Items" (أخضر أوضح) و"Unpriced Items" (ذهبي بدل amber)
-
----
-
-## 18.5 تحسين ProjectBOQTab
-
-**الملف:** `src/components/project-details/ProjectBOQTab.tsx`
-
-- **Progress bar في الأعلى**: استخدام لون ذهبي متدرج للنسب العالية (>75%)
-- **Stats cards**: تحسين ألوان الأيقونات لتتماشى مع النظام (ذهبي للمالية، أزرق للبنود)
-- **Action buttons**: تحسين لون زر Auto-Price بتدرج ذهبي
-
----
-
-## 18.6 تحسين PageLayout Footer
-
-**الملف:** `src/components/PageLayout.tsx`
-
-- تحسين خلفية الفوتر لتتماشى مع النظام اللوني
-- إضافة border-t بلون أوضح
+**الملف:** `src/index.css`
+- تحسين ألوان `.interactive-bg` لتتلاءم مع التدرج الأزرق الداكن للهيدرات
+- ضمان انتقال سلس بين الهيدر والمحتوى
 
 ---
 
@@ -99,27 +104,31 @@
 
 | الملف | التعديل |
 |-------|---------|
-| `src/index.css` | CSS variables + تباين + utility classes جديدة |
-| `src/components/MainDashboard.tsx` | تباين محسن + radar target line + card borders |
-| `src/components/project-details/ProjectHeader.tsx` | ألوان بطاقات + header gradient + أزرار |
-| `src/components/project-details/ProjectOverviewTab.tsx` | ألوان قيم مالية + progress + stats |
-| `src/components/project-details/ProjectBOQTab.tsx` | progress bar + stats colors + action buttons |
-| `src/components/PageLayout.tsx` | footer styling |
+| `src/components/PageHeader.tsx` | **جديد** - مكوّن هيدر موحد |
+| `src/index.css` | أنماط CSS جديدة للهيدر |
+| `src/components/BackgroundImage.tsx` | تحسين الخلفية |
+| `src/pages/ContractsPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
+| `src/pages/ReportsPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
+| `src/pages/SettingsPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
+| `src/pages/LibraryPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
+| `src/pages/MaterialPricesPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
+| `src/pages/ProcurementPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
+| `src/pages/SubcontractorsPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
+| `src/pages/BOQItemsPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
+| `src/pages/CalendarPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
 
 ## ترتيب التنفيذ
 
-1. تحديث CSS Variables والأنماط الجديدة (`index.css`)
-2. تحسين `MainDashboard` (التباين + Radar)
-3. تحسين `ProjectHeader` (ألوان البطاقات والأزرار)
-4. تحسين `ProjectOverviewTab` (القيم المالية والرسوم)
-5. تحسين `ProjectBOQTab` (Progress + Stats)
-6. تحسين `PageLayout` (Footer)
+1. إنشاء `PageHeader.tsx` (المكوّن الأساسي)
+2. إضافة أنماط CSS في `index.css`
+3. تحسين `BackgroundImage.tsx`
+4. تطبيق `PageHeader` على جميع الصفحات (بالتوازي)
 
 ## النتيجة المتوقعة
 
-- تباين عالي وقراءة ممتازة في كلا الوضعين (فاتح/داكن)
-- ألوان موحدة عبر جميع الصفحات: أزرق داكن + ذهبي/كهرماني
-- القيم المالية مميزة دائماً بالذهبي مع تأثير glow
-- Progress bars ذكية تتغير لونها حسب النسبة
-- هوية بصرية احترافية متسقة
+- هيدر موحد بتدرج أزرق داكن عبر جميع الصفحات (مطابق للصورة المرفقة)
+- عناوين بنفس الخط والحجم واللون في كل مكان
+- القيم المالية دائماً بالذهبي `#F5A623`
+- خلفية تفاعلية متناغمة مع الهيدرات
+- تجربة بصرية متسقة واحترافية
 
