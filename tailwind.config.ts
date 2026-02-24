@@ -63,6 +63,13 @@ export default {
         gold: {
           DEFAULT: "hsl(var(--gold))",
         },
+        navy: {
+          DEFAULT: "hsl(var(--navy))",
+          light: "hsl(var(--navy-light))",
+        },
+        blue: {
+          DEFAULT: "hsl(var(--blue))",
+        },
         workflow: {
           bg: "hsl(var(--workflow-bg))",
           node: "hsl(var(--workflow-node))",

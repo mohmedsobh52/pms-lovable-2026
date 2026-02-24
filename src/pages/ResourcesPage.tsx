@@ -51,6 +51,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { GanttChart } from "@/components/GanttChart";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
@@ -498,39 +499,36 @@ const ResourcesPage = () => {
     <PageLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Users className="h-6 w-6 text-primary" />
-              {isArabic ? 'إدارة الموارد' : 'Resource Management'}
-            </h1>
-            <p className="text-muted-foreground">
-              {isArabic ? 'إدارة العمالة والمعدات والمواد الخام للمشروع' : 'Manage labor, equipment, and materials for the project'}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={analyzeResourcesWithAI}
-              disabled={isAnalyzing || boqItems.length === 0}
-            >
-              {isAnalyzing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              <span className="mr-2">{isArabic ? 'تحليل بالذكاء الاصطناعي' : 'AI Analysis'}</span>
-            </Button>
-            <Button variant="outline" onClick={() => setShowAddDialog(true)}>
-              <Plus className="h-4 w-4" />
-              <span className="mr-2">{isArabic ? 'إضافة مورد' : 'Add Resource'}</span>
-            </Button>
-            <Button onClick={saveResources} disabled={isSaving || resources.length === 0}>
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              <span className="mr-2">{isArabic ? 'حفظ' : 'Save'}</span>
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          icon={Package}
+          title={isArabic ? 'إدارة الموارد' : 'Resource Management'}
+          subtitle={isArabic ? 'إدارة العمالة والمعدات والمواد الخام للمشروع' : 'Manage labor, equipment, and materials for the project'}
+          actions={
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={analyzeResourcesWithAI}
+                disabled={isAnalyzing || boqItems.length === 0}
+                className="border-white/30 text-white hover:bg-white/10"
+              >
+                {isAnalyzing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                <span className="mr-2">{isArabic ? 'تحليل بالذكاء الاصطناعي' : 'AI Analysis'}</span>
+              </Button>
+              <Button variant="outline" onClick={() => setShowAddDialog(true)} className="border-white/30 text-white hover:bg-white/10">
+                <Plus className="h-4 w-4" />
+                <span className="mr-2">{isArabic ? 'إضافة مورد' : 'Add Resource'}</span>
+              </Button>
+              <Button onClick={saveResources} disabled={isSaving || resources.length === 0} className="bg-gold text-white hover:bg-gold/90">
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                <span className="mr-2">{isArabic ? 'حفظ' : 'Save'}</span>
+              </Button>
+            </div>
+          }
+        />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">

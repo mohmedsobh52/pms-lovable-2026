@@ -29,6 +29,9 @@
     --accent-foreground: 0 0% 100%;
 
     --gold: 38 92% 55%;
+    --navy: 218 50% 18%;
+    --navy-light: 218 45% 25%;
+    --blue: 217 91% 60%;
 
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
@@ -59,6 +62,7 @@
     --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(214 32% 97%) 100%);
     --gradient-hero: linear-gradient(135deg, hsl(218 45% 14%) 0%, hsl(218 55% 22%) 100%);
     --gradient-bg: linear-gradient(180deg, hsl(214 50% 98%) 0%, hsl(0 0% 100%) 50%, hsl(214 50% 98%) 100%);
+    --gradient-navy: linear-gradient(135deg, hsl(218 50% 18%) 0%, hsl(218 45% 25%) 40%, hsl(217 91% 60%) 100%);
 
     --shadow-sm: 0 1px 2px hsl(222 47% 11% / 0.05);
     --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.08), 0 2px 4px -2px hsl(222 47% 11% / 0.06);
@@ -98,10 +102,10 @@
   }
 
   .dark {
-    --background: 218 48% 8%;
+    --background: 218 50% 7%;
     --foreground: 214 32% 96%;
 
-    --card: 215 50% 13%;
+    --card: 215 52% 12%;
     --card-foreground: 214 32% 96%;
 
     --popover: 218 45% 12%;
@@ -120,6 +124,9 @@
     --accent-foreground: 0 0% 100%;
 
     --gold: 38 92% 55%;
+    --navy: 218 50% 12%;
+    --navy-light: 218 45% 18%;
+    --blue: 217 91% 60%;
 
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
@@ -152,6 +159,7 @@
     --gradient-surface: linear-gradient(180deg, hsl(215 48% 14%) 0%, hsl(218 45% 10%) 100%);
     --gradient-hero: linear-gradient(135deg, hsl(218 45% 7%) 0%, hsl(218 45% 14%) 100%);
     --gradient-bg: linear-gradient(180deg, hsl(218 45% 8%) 0%, hsl(218 45% 12%) 50%, hsl(218 45% 8%) 100%);
+    --gradient-navy: linear-gradient(135deg, hsl(218 50% 12%) 0%, hsl(218 45% 18%) 40%, hsl(217 91% 50%) 100%);
 
     --sidebar-background: 218 45% 12%;
     --sidebar-foreground: 214 32% 95%;
@@ -336,11 +344,11 @@
   :root .interactive-bg {
     background: linear-gradient(
       135deg,
-      hsl(214 32% 94%) 0%,
-      hsl(214 40% 90%) 25%,
-      hsl(218 35% 93%) 50%,
-      hsl(214 32% 95%) 75%,
-      hsl(214 32% 94%) 100%
+      hsl(218 30% 96%) 0%,
+      hsl(218 35% 93%) 25%,
+      hsl(218 30% 95%) 50%,
+      hsl(218 35% 93%) 75%,
+      hsl(218 30% 96%) 100%
     );
     background-size: 400% 400%;
     animation: gradient-shift 20s ease infinite;
@@ -349,19 +357,34 @@
   .dark .interactive-bg {
     background: linear-gradient(
       135deg,
-      hsl(218 48% 6%) 0%,
-      hsl(215 50% 10%) 25%,
-      hsl(218 48% 5%) 50%,
-      hsl(220 50% 8%) 75%,
-      hsl(218 48% 6%) 100%
+      hsl(218 50% 6%) 0%,
+      hsl(218 52% 9%) 25%,
+      hsl(218 50% 7%) 50%,
+      hsl(218 52% 8%) 75%,
+      hsl(218 50% 6%) 100%
     );
     background-size: 400% 400%;
     animation: gradient-shift 15s ease infinite;
   }
 
   .dot-grid {
-    background-image: radial-gradient(circle, hsl(var(--border) / 0.3) 1px, transparent 1px);
+    background-image: radial-gradient(circle, hsl(var(--navy) / 0.08) 1px, transparent 1px);
     background-size: 24px 24px;
+  }
+
+  .dark .dot-grid {
+    background-image: radial-gradient(circle, hsl(var(--blue) / 0.08) 1px, transparent 1px);
+  }
+
+  /* Navy utility classes */
+  .text-navy {
+    color: hsl(var(--navy));
+  }
+  .bg-navy {
+    background-color: hsl(var(--navy));
+  }
+  .border-navy {
+    border-color: hsl(var(--navy) / 0.3);
   }
 
   /* Gold value text for financial displays */
@@ -389,7 +412,7 @@
 
   /* Unified Page Header Gradient */
   .page-header-gradient {
-    background: linear-gradient(135deg, #1a2744 0%, #1e3054 40%, #2563EB 100%);
+    background: var(--gradient-navy);
   }
 }
 

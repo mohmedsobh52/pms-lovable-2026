@@ -27,17 +27,17 @@ import {
 } from "lucide-react";
 
 const sections = [
-  { nameAr: "المشاريع", nameEn: "Projects", descAr: "إدارة ومتابعة المشاريع", descEn: "Manage & track projects", path: "/projects", icon: FolderOpen, color: "from-blue-600/40 to-blue-800/25", iconColor: "text-blue-200", countKey: "saved_projects" },
-  { nameAr: "جدول الكميات", nameEn: "BOQ Items", descAr: "بنود الأعمال والكميات", descEn: "Work items & quantities", path: "/items", icon: Layers, color: "from-emerald-600/40 to-emerald-800/25", iconColor: "text-emerald-200", countKey: "project_items" },
-  { nameAr: "التسعير والتحليل", nameEn: "Cost Analysis", descAr: "تحليل التكاليف والأسعار", descEn: "Cost & price analysis", path: "/cost-analysis", icon: DollarSign, color: "from-amber-600/40 to-amber-800/25", iconColor: "text-amber-200", countKey: "cost_analysis" },
-  { nameAr: "العقود", nameEn: "Contracts", descAr: "إدارة العقود والضمانات", descEn: "Contracts & warranties", path: "/contracts", icon: Briefcase, color: "from-purple-600/40 to-purple-800/25", iconColor: "text-purple-200", countKey: "contracts" },
-  { nameAr: "عروض الاسعار", nameEn: "Quotations", descAr: "مقارنة ورفع العروض", descEn: "Upload & compare quotes", path: "/quotations", icon: FileSearch, color: "from-pink-600/40 to-pink-800/25", iconColor: "text-pink-200", countKey: null },
-  { nameAr: "المشتريات", nameEn: "Procurement", descAr: "طلبات الشراء والموردين", descEn: "Procurement & suppliers", path: "/procurement", icon: Package, color: "from-cyan-600/40 to-cyan-800/25", iconColor: "text-cyan-200", countKey: "external_partners" },
-  { nameAr: "مقاولي الباطن", nameEn: "Subcontractors", descAr: "إدارة مقاولي الباطن", descEn: "Subcontractor management", path: "/subcontractors", icon: Users, color: "from-orange-600/40 to-orange-800/25", iconColor: "text-orange-200", countKey: "subcontractors" },
-  { nameAr: "المخاطر", nameEn: "Risk", descAr: "تقييم وإدارة المخاطر", descEn: "Risk assessment", path: "/risk", icon: AlertTriangle, color: "from-red-600/40 to-red-800/25", iconColor: "text-red-200", countKey: "risks" },
-  { nameAr: "التقارير", nameEn: "Reports", descAr: "التقارير والتحليلات", descEn: "Reports & analytics", path: "/projects?tab=reports", icon: FileText, color: "from-indigo-600/40 to-indigo-800/25", iconColor: "text-indigo-200", countKey: null },
-  { nameAr: "المستخلصات", nameEn: "Certificates", descAr: "الشهادات والمستخلصات", descEn: "Progress certificates", path: "/progress-certificates", icon: Award, color: "from-yellow-600/40 to-yellow-800/25", iconColor: "text-yellow-200", countKey: "progress_certificates" },
-  { nameAr: "المكتبة", nameEn: "Library", descAr: "مكتبة الأسعار والمواد", descEn: "Price & material library", path: "/library", icon: BookOpen, color: "from-teal-600/40 to-teal-800/25", iconColor: "text-teal-200", countKey: "material_prices" },
+  { nameAr: "المشاريع", nameEn: "Projects", descAr: "إدارة ومتابعة المشاريع", descEn: "Manage & track projects", path: "/projects", icon: FolderOpen, countKey: "saved_projects" },
+  { nameAr: "جدول الكميات", nameEn: "BOQ Items", descAr: "بنود الأعمال والكميات", descEn: "Work items & quantities", path: "/items", icon: Layers, countKey: "project_items" },
+  { nameAr: "التسعير والتحليل", nameEn: "Cost Analysis", descAr: "تحليل التكاليف والأسعار", descEn: "Cost & price analysis", path: "/cost-analysis", icon: DollarSign, countKey: "cost_analysis" },
+  { nameAr: "العقود", nameEn: "Contracts", descAr: "إدارة العقود والضمانات", descEn: "Contracts & warranties", path: "/contracts", icon: Briefcase, countKey: "contracts" },
+  { nameAr: "عروض الاسعار", nameEn: "Quotations", descAr: "مقارنة ورفع العروض", descEn: "Upload & compare quotes", path: "/quotations", icon: FileSearch, countKey: null },
+  { nameAr: "المشتريات", nameEn: "Procurement", descAr: "طلبات الشراء والموردين", descEn: "Procurement & suppliers", path: "/procurement", icon: Package, countKey: "external_partners" },
+  { nameAr: "مقاولي الباطن", nameEn: "Subcontractors", descAr: "إدارة مقاولي الباطن", descEn: "Subcontractor management", path: "/subcontractors", icon: Users, countKey: "subcontractors" },
+  { nameAr: "المخاطر", nameEn: "Risk", descAr: "تقييم وإدارة المخاطر", descEn: "Risk assessment", path: "/risk", icon: AlertTriangle, countKey: "risks" },
+  { nameAr: "التقارير", nameEn: "Reports", descAr: "التقارير والتحليلات", descEn: "Reports & analytics", path: "/projects?tab=reports", icon: FileText, countKey: null },
+  { nameAr: "المستخلصات", nameEn: "Certificates", descAr: "الشهادات والمستخلصات", descEn: "Progress certificates", path: "/progress-certificates", icon: Award, countKey: "progress_certificates" },
+  { nameAr: "المكتبة", nameEn: "Library", descAr: "مكتبة الأسعار والمواد", descEn: "Price & material library", path: "/library", icon: BookOpen, countKey: "material_prices" },
 ];
 
 type CountsMap = Record<string, number>;
@@ -60,11 +60,11 @@ const NavCard = memo(({ section, index, count, isArabic }: {
     <Link
       to={section.path}
       className={`group relative flex flex-col items-center justify-center gap-2 md:gap-3 p-4 md:p-6 rounded-xl
-        bg-black/50 backdrop-blur-md border border-white/20
-        hover:border-white/40 hover:scale-[1.08] hover:shadow-xl hover:shadow-black/30
+        backdrop-blur-md border border-white/15
+        hover:border-gold/50 hover:scale-[1.08] hover:shadow-xl hover:shadow-gold/10
         transition-all duration-200 transform-gpu will-change-transform
         cursor-pointer shadow-lg
-        bg-gradient-to-br ${section.color}`}
+        bg-gradient-to-br from-[hsl(218,50%,18%)] via-[hsl(218,45%,22%)] to-[hsl(217,91%,35%)]`}
       style={{
         animation: 'card-enter 0.4s ease-out forwards',
         animationDelay: `${index * 50}ms`,
@@ -72,13 +72,13 @@ const NavCard = memo(({ section, index, count, isArabic }: {
       }}
     >
       {count !== undefined && count > 0 && (
-        <span className="absolute top-2 end-2 bg-white/25 text-white text-[11px] font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center shadow-sm">
+        <span className="absolute top-2 end-2 bg-gold/90 text-white text-[11px] font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center shadow-sm">
           {count}
         </span>
       )}
 
-      <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl bg-white/10 group-hover:bg-white/20 group-hover:ring-2 group-hover:ring-white/25 flex items-center justify-center transition-all duration-200 group-hover:-translate-y-1`}>
-        <Icon className={`w-6 h-6 md:w-8 md:h-8 ${section.iconColor} drop-shadow-lg`} />
+      <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl bg-white/10 group-hover:bg-gold/20 group-hover:ring-2 group-hover:ring-gold/30 flex items-center justify-center transition-all duration-200 group-hover:-translate-y-1">
+        <Icon className="w-6 h-6 md:w-8 md:h-8 text-gold/90 drop-shadow-lg" />
       </div>
       <div className="text-center">
         <p className="text-white font-semibold text-xs md:text-sm">{section.nameAr}</p>
@@ -277,7 +277,7 @@ export default function HomePage() {
       </main>
 
       {/* Designer Footer */}
-      <footer className="bg-black/50 backdrop-blur-md border-t border-white/10 py-4">
+      <footer className="bg-gradient-to-r from-[hsl(218,50%,12%)] to-[hsl(218,45%,18%)] backdrop-blur-md border-t border-white/10 py-4">
         <div className="container mx-auto px-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">

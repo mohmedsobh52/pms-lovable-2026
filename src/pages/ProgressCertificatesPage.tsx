@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -248,24 +249,20 @@ const ProgressCertificatesPage = () => {
     <PageLayout>
       <TooltipProvider>
       <div className="container mx-auto p-4 md:p-6 space-y-6" dir={isArabic ? "rtl" : "ltr"}>
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <FileText className="h-6 w-6 text-primary" />
-              {isArabic ? "المستخلصات" : "Progress Certificates"}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {isArabic ? "إدارة مستخلصات المقاولين ومقاولي الباطن" : "Manage contractor & subcontractor invoices"}
-            </p>
-          </div>
-          <Link 
-            to="/progress-certificates/new"
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 relative z-[70] pointer-events-auto"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            {isArabic ? "مستخلص جديد" : "New Certificate"}
-          </Link>
-        </div>
+        <PageHeader
+          icon={FileCheck}
+          title={isArabic ? "المستخلصات" : "Progress Certificates"}
+          subtitle={isArabic ? "إدارة مستخلصات المقاولين ومقاولي الباطن" : "Manage contractor & subcontractor invoices"}
+          actions={
+            <Link 
+              to="/progress-certificates/new"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-10 px-4 py-2 bg-gold text-white hover:bg-gold/90 relative z-[70] pointer-events-auto"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              {isArabic ? "مستخلص جديد" : "New Certificate"}
+            </Link>
+          }
+        />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

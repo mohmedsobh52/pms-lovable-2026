@@ -6,6 +6,7 @@ import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Database, DollarSign, FileStack, TrendingUp } from "lucide-react";
 
 const AnalysisToolsPage = () => {
@@ -34,6 +35,11 @@ const AnalysisToolsPage = () => {
 
   return (
     <PageLayout>
+      <PageHeader
+        icon={TrendingUp}
+        title={isArabic ? "أدوات التحليل" : "Analysis Tools"}
+        subtitle={isArabic ? "تحليل التكاليف ومقارنة الأسعار" : "Cost analysis and price comparison"}
+      />
       <Tabs defaultValue="cost-analysis" className="space-y-4">
         <TabsList className="grid w-full grid-cols-4 tabs-navigation-safe">
           <TabsTrigger value="cost-analysis" className="flex items-center gap-2">
