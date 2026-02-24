@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Brain, Sparkles, TrendingUp, TrendingDown, Minus, CheckCircle2, Loader2, Settings2, BarChart3, Users, Shield, Calculator, ChevronDown, ChevronRight, Target, Lightbulb, Database, Trash2, ExternalLink, ArrowDown, ArrowUp } from "lucide-react";
+import { Brain, Sparkles, TrendingUp, TrendingDown, Minus, CheckCircle2, Loader2, Settings2, BarChart3, Users, Shield, Calculator, ChevronDown, ChevronRight, Target, Lightbulb, Database, Trash2, ExternalLink, ArrowDown, ArrowUp, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -371,6 +371,13 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
 
   const dialogContent = (
     <div className="flex flex-col gap-3 flex-1 overflow-hidden">
+      {/* Estimation Warning Banner */}
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+        <p className="text-xs text-amber-800 dark:text-amber-300">
+          تنبيه: جميع الأسعار المعروضة تقديرية وقد تختلف عن أسعار السوق الفعلية. يجب مراجعتها والتحقق منها قبل الاعتماد.
+        </p>
+      </div>
       {/* Section 1: Settings Panel */}
       <div className="p-3 bg-muted/30 rounded-lg border">
         <div className="flex items-center justify-between mb-3">

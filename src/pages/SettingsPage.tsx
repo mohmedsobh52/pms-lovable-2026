@@ -3,11 +3,12 @@ import { AIModelSelector } from "@/components/AIModelSelector";
 import { AnalysisStatusDashboard } from "@/components/AnalysisStatusDashboard";
 import { CompanySettingsPanel } from "@/components/CompanySettingsPanel";
 import { DeveloperInfo } from "@/components/DeveloperInfo";
+import { CityFactorsManager } from "@/components/CityFactorsManager";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Bell, Activity, Building2, Info, Settings2 } from "lucide-react";
+import { Brain, Bell, Activity, Building2, Info, Settings2, MapPin } from "lucide-react";
 
 const SettingsPage = () => {
   const { isArabic } = useLanguage();
@@ -22,7 +23,7 @@ const SettingsPage = () => {
         />
         
         <Tabs defaultValue="company" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 tabs-navigation-safe">
+          <TabsList className="grid w-full grid-cols-6 tabs-navigation-safe">
             <TabsTrigger value="company" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">{isArabic ? "الشركة" : "Company"}</span>
@@ -30,6 +31,10 @@ const SettingsPage = () => {
             <TabsTrigger value="ai" className="flex items-center gap-2">
               <Brain className="h-4 w-4" />
               <span className="hidden sm:inline">{isArabic ? "نموذج AI" : "AI Model"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="city-factors" className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              <span className="hidden sm:inline">{isArabic ? "معاملات المدن" : "City Factors"}</span>
             </TabsTrigger>
             <TabsTrigger value="tracking" className="flex items-center gap-2">
               <Activity className="h-4 w-4" />
@@ -51,6 +56,10 @@ const SettingsPage = () => {
           
           <TabsContent value="ai" className="mt-6">
             <AIModelSelector />
+          </TabsContent>
+
+          <TabsContent value="city-factors" className="mt-6">
+            <CityFactorsManager />
           </TabsContent>
           
           <TabsContent value="tracking" className="mt-6">

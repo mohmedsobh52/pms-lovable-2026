@@ -452,6 +452,17 @@ function AutoPriceDialogComponent({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Estimation Warning Banner */}
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-800 dark:text-amber-300">
+            {isArabic 
+              ? "تنبيه: جميع الأسعار المعروضة تقديرية وقد تختلف عن أسعار السوق الفعلية. يجب مراجعتها والتحقق منها قبل الاعتماد."
+              : "Notice: All prices shown are estimates and may differ from actual market prices. Review and verify before approval."
+            }
+          </p>
+        </div>
+
         <div className="space-y-4 py-2">
           {/* Confidence Threshold Slider */}
           <div className="space-y-2">
