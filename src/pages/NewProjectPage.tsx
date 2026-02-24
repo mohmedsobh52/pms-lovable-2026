@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -189,30 +190,11 @@ export default function NewProjectPage() {
           </BreadcrumbList>
         </Breadcrumb>
         
-        {/* Page Header - Enhanced */}
-        <div className="flex items-center gap-4 bg-gradient-to-r from-primary/10 to-transparent p-4 rounded-lg">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => navigate("/projects")} 
-            className="relative z-[51] pointer-events-auto bg-background/80 hover:bg-background"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Plus className="w-6 h-6 text-primary" />
-              </div>
-              {isArabic ? "إنشاء مشروع جديد" : "Create New Project"}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {isArabic 
-                ? "قم بإنشاء مشروع فارغ وأضف بنود BOQ لاحقاً"
-                : "Create an empty project and add BOQ items later"}
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          icon={Plus}
+          title={isArabic ? "إنشاء مشروع جديد" : "Create New Project"}
+          subtitle={isArabic ? "قم بإنشاء مشروع فارغ وأضف بنود BOQ لاحقاً" : "Create an empty project and add BOQ items later"}
+        />
         
         <form onSubmit={handleSubmit}>
           <Card className="form-card-safe border-2 hover:border-primary/30 transition-colors shadow-lg">

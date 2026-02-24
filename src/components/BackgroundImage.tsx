@@ -8,7 +8,7 @@ const BackgroundImage = () => {
       <div className="fixed inset-0 -z-40 dot-grid" />
 
       {/* Light/Dark Mode Overlay */}
-      <div className="fixed inset-0 -z-10 bg-background/60 dark:bg-background/50 pointer-events-none" />
+      <div className="fixed inset-0 -z-10 bg-background/80 dark:bg-background/40 pointer-events-none" />
     </>
   );
 };
