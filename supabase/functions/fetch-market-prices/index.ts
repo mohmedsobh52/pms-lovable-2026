@@ -126,7 +126,7 @@ Respond in JSON only, no extra text. Format:
 
 Important: Use SAR or appropriate currency for the city. Be realistic and accurate.`;
 
-    const aiResponse = await fetch("https://api.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${lovableApiKey}`,
