@@ -855,38 +855,76 @@ function AutoPriceDialogComponent({
           </div>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-3 items-center border-t pt-4">
-          {pricingResults.length > 0 && (
-            <div className="flex-1 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{pricingResults.length}</span>{" "}
-              {isArabic ? "بند" : "items"} · {isArabic ? "إجمالي تقديري" : "Est. total"}:{" "}
-              <span className="font-semibold text-foreground">
-                {pricingResults.reduce((sum, r) => {
-                  const item = items.find(i => i.id === r.itemId);
-                  return sum + r.suggestedPrice * (item?.quantity || 1);
-                }, 0).toLocaleString()} {currency}
-              </span>
+        {pricingResults.length > 0 && (() => {
+          const totalEstimatedValue = pricingResults.reduce((sum, r) => {
+            const item = items.find(i => i.id === r.itemId);
+            return sum + r.suggestedPrice * (item?.quantity || 1);
+          }, 0);
+          const avgConfidence = Math.round(pricingResults.reduce((sum, r) => sum + r.confidence, 0) / pricingResults.length);
+          const confidenceColor = avgConfidence >= 70 ? 'text-green-600 dark:text-green-400' : avgConfidence >= 50 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400';
+          const confidenceBg = avgConfidence >= 70 ? 'bg-green-500/10 border-green-500/20' : avgConfidence >= 50 ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-red-500/10 border-red-500/20';
+
+          return (
+            <div className="border-t-2 border-primary/20 bg-muted/50 rounded-b-lg -mx-6 -mb-6 px-6 py-4 space-y-4">
+              {/* Stats Row */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-background border shadow-sm">
+                  <span className="text-xs text-muted-foreground mb-1">
+                    {isArabic ? "البنود المسعرة" : "Priced Items"}
+                  </span>
+                  <span className="text-lg font-bold text-foreground">
+                    {pricingResults.length}
+                    <span className="text-sm font-normal text-muted-foreground"> / {items.length}</span>
+                  </span>
+                </div>
+                <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-background border shadow-sm">
+                  <span className="text-xs text-muted-foreground mb-1">
+                    {isArabic ? "القيمة الإجمالية المقدرة" : "Total Estimated Value"}
+                  </span>
+                  <span className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                    {totalEstimatedValue.toLocaleString()} <span className="text-xs font-medium">{currency}</span>
+                  </span>
+                </div>
+                <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-background border shadow-sm">
+                  <span className="text-xs text-muted-foreground mb-1">
+                    {isArabic ? "متوسط الثقة" : "Avg. Confidence"}
+                  </span>
+                  <div className={`text-lg font-bold px-2 py-0.5 rounded ${confidenceColor} ${confidenceBg} border`}>
+                    {avgConfidence}%
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between gap-3">
+                <Button variant="ghost" onClick={onClose} className="text-muted-foreground">
+                  {isArabic ? "إلغاء" : "Cancel"}
+                </Button>
+                <Button 
+                  onClick={handleApply} 
+                  disabled={pricingResults.length === 0 || isApplying}
+                  size="lg"
+                  className="gap-2 min-w-[200px] bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg text-base font-semibold"
+                >
+                  {isApplying ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-5 h-5" />
+                  )}
+                  {isArabic ? `تطبيق التسعير (${pricingResults.length})` : `Apply Pricing (${pricingResults.length})`}
+                </Button>
+              </div>
             </div>
-          )}
-          <div className="flex gap-2">
+          );
+        })()}
+
+        {pricingResults.length === 0 && (
+          <DialogFooter className="border-t pt-4">
             <Button variant="outline" onClick={onClose}>
               {isArabic ? "إلغاء" : "Cancel"}
             </Button>
-            <Button 
-              onClick={handleApply} 
-              disabled={pricingResults.length === 0 || isApplying}
-              size="lg"
-              className="gap-2 min-w-[160px]"
-            >
-              {isApplying ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4" />
-              )}
-              {isArabic ? `تطبيق التسعير (${pricingResults.length})` : `Apply Pricing (${pricingResults.length})`}
-            </Button>
-          </div>
-        </DialogFooter>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
