@@ -1,100 +1,68 @@
 
-# المرحلة 16: تطبيق درجات الألوان الجديدة (أزرق داكن + ذهبي) على كامل البرنامج
+
+# المرحلة 17: خلفية تفاعلية + Radar Chart + تحسين صفحة تفاصيل المشروع
 
 ---
 
-## الألوان المستخرجة من الصورة المرفقة
+## 17.1 إزالة صور الخلفيات وإنشاء خلفية تفاعلية
 
-```text
-الخلفية الرئيسية: أزرق داكن عميق (#1a2744 / hsl(218, 45%, 18%))
-خلفية البطاقات: أزرق داكن متوسط (#1e3054 / hsl(215, 48%, 22%))
-القيم المالية: ذهبي/كهرماني (#F5A623 / hsl(38, 92%, 55%))
-النصوص الفرعية: رمادي فاتح (#94A3B8 / hsl(215, 16%, 65%))
-الحدود: أزرق داكن فاتح (#2a3f5f / hsl(215, 38%, 27%))
-```
+### المشكلة
+- `BackgroundImage.tsx` يستخدم صورة ثابتة (`pms-dashboard-bg.png`) مما يبطئ التحميل ويبدو غير عصري
+- الصورة مستخدمة في `App.tsx` (عامة) و `HomePage.tsx` و `PageLayout.tsx`
 
----
+### الحل
+**الملف:** `src/components/BackgroundImage.tsx`
+- حذف مرجع الصورة بالكامل
+- استبدالها بخلفية تفاعلية CSS-only تتضمن:
+  - تدرج متحرك (Animated Gradient) باستخدام ألوان النظام الجديدة (أزرق داكن + ذهبي)
+  - شبكة نقاط خفيفة (Dot Grid) تعطي إحساس تقني
+  - تأثير متحرك `@keyframes gradient-shift` للتدرج البطيء
+  - لا صور خارجية = تحميل أسرع بكثير
 
-## 16.1 تحديث CSS Variables في index.css
-
-**الملف:** `src/index.css`
-
-### Light Mode (بدون تغيير جوهري - تحسينات طفيفة)
-- تعميق لون `--primary` إلى `218 55% 32%` (أزرق داكن أعمق)
-- تعديل `--accent` ليكون ذهبي: `38 92% 55%`
-- إضافة `--gold` variable: `38 92% 55%` للقيم المالية
-
-### Dark Mode (التغيير الرئيسي - مطابقة للصورة)
-- `--background`: `218 45% 10%` (أغمق)
-- `--card`: `215 48% 14%` (أزرق داكن)
-- `--primary`: `38 92% 55%` (ذهبي كلون رئيسي في الداكن)
-- `--primary-foreground`: `218 45% 10%`
-- `--accent`: `217 91% 60%` (أزرق مضيء)
-- `--border`: `215 38% 22%`
-- `--muted`: `218 40% 18%`
-- `--muted-foreground`: `215 16% 65%`
-
-### Gradients
-- `--gradient-primary`: تدرج من أزرق داكن إلى ذهبي
-- `--gradient-hero`: تدرج أزرق داكن عميق
-- إضافة `--gradient-gold`: تدرج ذهبي للقيم المالية
+**الملف:** `src/pages/FastExtractionPage.tsx`
+- إزالة مرجع `construction-bg.png` واستخدام `bg-background` بدلاً منه
 
 ---
 
-## 16.2 تحسين MainDashboard بالألوان الجديدة
+## 17.2 إضافة Radar Chart لمؤشرات الأداء KPI
 
 **الملف:** `src/components/MainDashboard.tsx`
 
-### أ. بطاقات الإحصائيات (StatCard)
-- تغيير ألوان الخلفيات لتتماشى مع النظام الجديد:
-  - Total Value: خلفية ذهبية + نص ذهبي (مطابق للصورة)
-  - Total Projects: خلفية زرقاء
-  - Quotations: خلفية خضراء
-  - Average: خلفية بنفسجية
-- إضافة تأثير glow ذهبي على بطاقة Total Value
-
-### ب. ألوان الرسوم البيانية
-- تحديث `CHART_COLORS` لتتناسب مع النظام:
-  - الأزرق: `#2563EB` (أوضح)
-  - الذهبي: `#F5A623`
-  - الأخضر: `#10B981`
-  - البنفسجي: `#7C3AED`
-  - الأحمر: `#EF4444`
-
-### ج. KPI Cards
-- تعديل ألوان progress bars لتستخدم الذهبي للقيم الممتازة
-- تحسين خلفيات KPI بتدرجات أكثر عمقاً
+- إضافة import لـ `Radar`, `RadarChart`, `PolarGrid`, `PolarAngleAxis`, `PolarRadiusAxis` من `recharts`
+- إضافة قسم جديد بعد KPI Cards يعرض Radar Chart تفاعلي يضم:
+  - Project Health (صحة المشاريع)
+  - Pricing Efficiency (كفاءة التسعير)
+  - Risk Score (مؤشر المخاطر)
+  - Contract Health (صحة العقود)
+- استخدام ألوان النظام: `#F5A623` (ذهبي) للخط الرئيسي و `#2563EB` (أزرق) للمقارنة
+- وضعه بجانب بطاقات KPI الحالية في تخطيط `grid grid-cols-1 lg:grid-cols-3`
+  - عمودين لـ KPI cards (2x2 grid)
+  - عمود واحد لـ Radar Chart
 
 ---
 
-## 16.3 تحسين UnifiedHeader
+## 17.3 تحسين صفحة تفاصيل المشروع بالألوان الجديدة
 
-**الملف:** `src/components/UnifiedHeader.tsx`
+**الملف:** `src/components/project-details/ProjectHeader.tsx`
+- تطبيق تدرج أزرق-ذهبي على خلفية الهيدر
+- تحسين ألوان أزرار الإجراءات لتتماشى مع النظام
 
-- تحسين خلفية الهيدر لتتماشى مع النظام الأزرق الداكن
-- تعديل لون الشعار ليستخدم التدرج الذهبي في الوضع الداكن
-- تحسين ألوان أزرار التنقل
+**الملف:** `src/components/project-details/ProjectOverviewTab.tsx`
+- تحسين ألوان بطاقات الإحصائيات (استخدام الذهبي للقيم المالية)
+- تحسين ألوان الرسوم البيانية
+
+**الملف:** `src/components/project-details/ProjectBOQTab.tsx`
+- تحسين ألوان شريط التقدم (Progress bar) لتستخدم الذهبي للاكتمال العالي
+- تحسين ألوان أزرار الإجراءات
 
 ---
 
-## 16.4 تحسين عناصر UI عامة
+## 17.4 إضافة أنماط CSS للخلفية التفاعلية
 
 **الملف:** `src/index.css`
-
-- تعديل `.glass-card` لتستخدم الألوان الجديدة
-- تعديل `.btn-gradient` لاستخدام تدرج أزرق-ذهبي
-- تحسين `.dashboard-card` بحدود أكثر وضوحاً
-- إضافة utility class `.text-gold` للقيم المالية
-- إضافة `.gold-glow` shadow effect
-
----
-
-## 16.5 تطبيق الألوان على الصفحة الرئيسية
-
-**الملف:** `src/pages/HomePage.tsx`
-
-- تحسين ألوان شريط الإحصائيات ليعرض القيم بالذهبي
-- تحديث ألوان بطاقات الأقسام لتتناسب مع النظام الجديد
+- إضافة `@keyframes gradient-shift` لحركة التدرج البطيئة
+- إضافة `.interactive-bg` class
+- إضافة `.dot-grid` pattern class
 
 ---
 
@@ -102,21 +70,26 @@
 
 | الملف | التعديل |
 |-------|---------|
-| `src/index.css` | CSS variables + gradients + utility classes |
-| `src/components/MainDashboard.tsx` | ألوان البطاقات والرسوم و KPIs |
-| `src/components/UnifiedHeader.tsx` | ألوان الهيدر والتنقل |
-| `src/pages/HomePage.tsx` | ألوان شريط الإحصائيات والبطاقات |
+| `src/components/BackgroundImage.tsx` | خلفية تفاعلية CSS بدلاً من صورة |
+| `src/index.css` | keyframes وأنماط جديدة |
+| `src/components/MainDashboard.tsx` | Radar Chart + إعادة تخطيط KPI |
+| `src/components/project-details/ProjectHeader.tsx` | ألوان أزرق-ذهبي |
+| `src/components/project-details/ProjectOverviewTab.tsx` | ألوان محسنة |
+| `src/components/project-details/ProjectBOQTab.tsx` | ألوان محسنة |
+| `src/pages/FastExtractionPage.tsx` | إزالة صورة الخلفية |
 
 ## ترتيب التنفيذ
 
-1. تحديث CSS variables في `index.css` (الأساس)
-2. تطبيق الألوان على `MainDashboard`
-3. تحسين `UnifiedHeader`
-4. تحسين `HomePage`
+1. تحديث `BackgroundImage.tsx` (إزالة الصور + خلفية تفاعلية)
+2. إضافة CSS animations في `index.css`
+3. إضافة Radar Chart في `MainDashboard.tsx`
+4. تحسين ألوان صفحة تفاصيل المشروع
+5. تنظيف مراجع الصور المتبقية
 
 ## النتيجة المتوقعة
 
-- نظام ألوان موحد: أزرق داكن عميق + ذهبي/كهرماني عبر كامل البرنامج
-- القيم المالية تظهر بالذهبي الواضح (كما في الصورة المرفقة)
-- تباين عالي وقراءة سهلة في كلا الوضعين (فاتح/داكن)
-- هوية بصرية احترافية تعبر عن نظام إدارة مشاريع متكامل
+- خلفية تفاعلية أنيقة بدون صور (تحميل أسرع)
+- Radar Chart تفاعلي يعطي نظرة شاملة على KPIs
+- ألوان موحدة (أزرق داكن + ذهبي) عبر جميع صفحات المشروع
+- تباين عالي وقراءة ممتازة في الوضعين الفاتح والداكن
+
