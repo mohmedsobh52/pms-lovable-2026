@@ -6,9 +6,10 @@ import { PMSLogo } from "@/components/PMSLogo";
 import { supabase } from "@/integrations/supabase/client";
 import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
 import alimtyazLogo from "@/assets/company/alimtyaz-logo.jpg";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, memo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   FolderOpen,
   Layers,
@@ -26,17 +27,17 @@ import {
 } from "lucide-react";
 
 const sections = [
-  { nameAr: "المشاريع", nameEn: "Projects", descAr: "إدارة ومتابعة المشاريع", descEn: "Manage & track projects", path: "/projects", icon: FolderOpen, color: "from-blue-500/30 to-blue-700/20", iconColor: "text-blue-300", countKey: "saved_projects" },
-  { nameAr: "جدول الكميات", nameEn: "BOQ Items", descAr: "بنود الأعمال والكميات", descEn: "Work items & quantities", path: "/items", icon: Layers, color: "from-emerald-500/30 to-emerald-700/20", iconColor: "text-emerald-300", countKey: "project_items" },
-  { nameAr: "التسعير والتحليل", nameEn: "Cost Analysis", descAr: "تحليل التكاليف والأسعار", descEn: "Cost & price analysis", path: "/cost-analysis", icon: DollarSign, color: "from-amber-500/30 to-amber-700/20", iconColor: "text-amber-300", countKey: "cost_analysis" },
-  { nameAr: "العقود", nameEn: "Contracts", descAr: "إدارة العقود والضمانات", descEn: "Contracts & warranties", path: "/contracts", icon: Briefcase, color: "from-purple-500/30 to-purple-700/20", iconColor: "text-purple-300", countKey: "contracts" },
-  { nameAr: "عروض الاسعار", nameEn: "Quotations", descAr: "مقارنة ورفع العروض", descEn: "Upload & compare quotes", path: "/quotations", icon: FileSearch, color: "from-pink-500/30 to-pink-700/20", iconColor: "text-pink-300", countKey: null },
-  { nameAr: "المشتريات", nameEn: "Procurement", descAr: "طلبات الشراء والموردين", descEn: "Procurement & suppliers", path: "/procurement", icon: Package, color: "from-cyan-500/30 to-cyan-700/20", iconColor: "text-cyan-300", countKey: "external_partners" },
-  { nameAr: "مقاولي الباطن", nameEn: "Subcontractors", descAr: "إدارة مقاولي الباطن", descEn: "Subcontractor management", path: "/subcontractors", icon: Users, color: "from-orange-500/30 to-orange-700/20", iconColor: "text-orange-300", countKey: "subcontractors" },
-  { nameAr: "المخاطر", nameEn: "Risk", descAr: "تقييم وإدارة المخاطر", descEn: "Risk assessment", path: "/risk", icon: AlertTriangle, color: "from-red-500/30 to-red-700/20", iconColor: "text-red-300", countKey: "risks" },
-  { nameAr: "التقارير", nameEn: "Reports", descAr: "التقارير والتحليلات", descEn: "Reports & analytics", path: "/projects?tab=reports", icon: FileText, color: "from-indigo-500/30 to-indigo-700/20", iconColor: "text-indigo-300", countKey: null },
-  { nameAr: "المستخلصات", nameEn: "Certificates", descAr: "الشهادات والمستخلصات", descEn: "Progress certificates", path: "/progress-certificates", icon: Award, color: "from-yellow-500/30 to-yellow-700/20", iconColor: "text-yellow-300", countKey: "progress_certificates" },
-  { nameAr: "المكتبة", nameEn: "Library", descAr: "مكتبة الأسعار والمواد", descEn: "Price & material library", path: "/library", icon: BookOpen, color: "from-teal-500/30 to-teal-700/20", iconColor: "text-teal-300", countKey: "material_prices" },
+  { nameAr: "المشاريع", nameEn: "Projects", descAr: "إدارة ومتابعة المشاريع", descEn: "Manage & track projects", path: "/projects", icon: FolderOpen, color: "from-blue-600/40 to-blue-800/25", iconColor: "text-blue-200", countKey: "saved_projects" },
+  { nameAr: "جدول الكميات", nameEn: "BOQ Items", descAr: "بنود الأعمال والكميات", descEn: "Work items & quantities", path: "/items", icon: Layers, color: "from-emerald-600/40 to-emerald-800/25", iconColor: "text-emerald-200", countKey: "project_items" },
+  { nameAr: "التسعير والتحليل", nameEn: "Cost Analysis", descAr: "تحليل التكاليف والأسعار", descEn: "Cost & price analysis", path: "/cost-analysis", icon: DollarSign, color: "from-amber-600/40 to-amber-800/25", iconColor: "text-amber-200", countKey: "cost_analysis" },
+  { nameAr: "العقود", nameEn: "Contracts", descAr: "إدارة العقود والضمانات", descEn: "Contracts & warranties", path: "/contracts", icon: Briefcase, color: "from-purple-600/40 to-purple-800/25", iconColor: "text-purple-200", countKey: "contracts" },
+  { nameAr: "عروض الاسعار", nameEn: "Quotations", descAr: "مقارنة ورفع العروض", descEn: "Upload & compare quotes", path: "/quotations", icon: FileSearch, color: "from-pink-600/40 to-pink-800/25", iconColor: "text-pink-200", countKey: null },
+  { nameAr: "المشتريات", nameEn: "Procurement", descAr: "طلبات الشراء والموردين", descEn: "Procurement & suppliers", path: "/procurement", icon: Package, color: "from-cyan-600/40 to-cyan-800/25", iconColor: "text-cyan-200", countKey: "external_partners" },
+  { nameAr: "مقاولي الباطن", nameEn: "Subcontractors", descAr: "إدارة مقاولي الباطن", descEn: "Subcontractor management", path: "/subcontractors", icon: Users, color: "from-orange-600/40 to-orange-800/25", iconColor: "text-orange-200", countKey: "subcontractors" },
+  { nameAr: "المخاطر", nameEn: "Risk", descAr: "تقييم وإدارة المخاطر", descEn: "Risk assessment", path: "/risk", icon: AlertTriangle, color: "from-red-600/40 to-red-800/25", iconColor: "text-red-200", countKey: "risks" },
+  { nameAr: "التقارير", nameEn: "Reports", descAr: "التقارير والتحليلات", descEn: "Reports & analytics", path: "/projects?tab=reports", icon: FileText, color: "from-indigo-600/40 to-indigo-800/25", iconColor: "text-indigo-200", countKey: null },
+  { nameAr: "المستخلصات", nameEn: "Certificates", descAr: "الشهادات والمستخلصات", descEn: "Progress certificates", path: "/progress-certificates", icon: Award, color: "from-yellow-600/40 to-yellow-800/25", iconColor: "text-yellow-200", countKey: "progress_certificates" },
+  { nameAr: "المكتبة", nameEn: "Library", descAr: "مكتبة الأسعار والمواد", descEn: "Price & material library", path: "/library", icon: BookOpen, color: "from-teal-600/40 to-teal-800/25", iconColor: "text-teal-200", countKey: "material_prices" },
 ];
 
 type CountsMap = Record<string, number>;
@@ -47,59 +48,105 @@ const tableKeys = [
   "external_partners", "subcontractors", "risks", "progress_certificates", "material_prices",
 ] as const;
 
+const CACHE_KEY = "pms_home_counts";
+const CACHE_TTL = 5 * 60 * 1000;
+
+// Memoized navigation card
+const NavCard = memo(({ section, index, count, isArabic }: {
+  section: typeof sections[0]; index: number; count?: number; isArabic: boolean;
+}) => {
+  const Icon = section.icon;
+  return (
+    <Link
+      to={section.path}
+      className={`group relative flex flex-col items-center justify-center gap-2 md:gap-3 p-4 md:p-6 rounded-xl
+        bg-black/50 backdrop-blur-md border border-white/20
+        hover:border-white/40 hover:scale-[1.08] hover:shadow-xl hover:shadow-black/30
+        transition-all duration-200 transform-gpu will-change-transform
+        cursor-pointer shadow-lg
+        bg-gradient-to-br ${section.color}`}
+      style={{
+        animation: 'card-enter 0.4s ease-out forwards',
+        animationDelay: `${index * 50}ms`,
+        opacity: 0,
+      }}
+    >
+      {count !== undefined && count > 0 && (
+        <span className="absolute top-2 end-2 bg-white/25 text-white text-[11px] font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center shadow-sm">
+          {count}
+        </span>
+      )}
+
+      <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl bg-white/10 group-hover:bg-white/20 group-hover:ring-2 group-hover:ring-white/25 flex items-center justify-center transition-all duration-200 group-hover:-translate-y-1`}>
+        <Icon className={`w-6 h-6 md:w-8 md:h-8 ${section.iconColor} drop-shadow-lg`} />
+      </div>
+      <div className="text-center">
+        <p className="text-white font-semibold text-xs md:text-sm">{section.nameAr}</p>
+        <p className="text-white/80 text-[10px] md:text-xs mt-0.5">{section.nameEn}</p>
+        <p className="text-white/55 text-[9px] md:text-[10px] mt-1 hidden sm:block">
+          {isArabic ? section.descAr : section.descEn}
+        </p>
+      </div>
+    </Link>
+  );
+});
+NavCard.displayName = "NavCard";
+
 export default function HomePage() {
   const { isArabic } = useLanguage();
   const [counts, setCounts] = useState<CountsMap>({});
   const [activities, setActivities] = useState<ActivityItem[]>([]);
-  useEffect(() => {
-    const CACHE_KEY = "pms_home_counts";
-    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  const [isLoading, setIsLoading] = useState(true);
 
-    const fetchCounts = async () => {
-      // Check sessionStorage cache first
-      try {
-        const cached = sessionStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const { data, timestamp } = JSON.parse(cached);
-          if (Date.now() - timestamp < CACHE_TTL) {
-            setCounts(data);
-            return;
-          }
+  const fetchCounts = useCallback(async () => {
+    // Check sessionStorage cache first
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_TTL) {
+          setCounts(data);
+          setIsLoading(false);
+          return;
         }
-      } catch {}
+      }
+    } catch {}
 
-      const results: CountsMap = {};
-      const promises = tableKeys.map(async (table) => {
-        try {
-          const { count } = await supabase.from(table).select("*", { count: "exact", head: true });
-          results[table] = count ?? 0;
-        } catch {
-          results[table] = 0;
-        }
-      });
-      await Promise.all(promises);
-      setCounts(results);
-
-      // Cache results
+    const results: CountsMap = {};
+    const promises = tableKeys.map(async (table) => {
       try {
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: results, timestamp: Date.now() }));
-      } catch {}
+        const { count } = await supabase.from(table).select("*", { count: "exact", head: true });
+        results[table] = count ?? 0;
+      } catch {
+        results[table] = 0;
+      }
+    });
+    await Promise.all(promises);
+    setCounts(results);
+    setIsLoading(false);
 
-      // Fetch recent activities
-      try {
-        const [projRes, contRes] = await Promise.all([
-          supabase.from("saved_projects").select("name, created_at").order("created_at", { ascending: false }).limit(3),
-          supabase.from("contracts").select("contract_title, created_at").order("created_at", { ascending: false }).limit(2),
-        ]);
-        const acts: ActivityItem[] = [];
-        projRes.data?.forEach(p => acts.push({ type: "project", name: p.name, date: p.created_at, icon: "📊" }));
-        contRes.data?.forEach(c => acts.push({ type: "contract", name: c.contract_title, date: c.created_at, icon: "📄" }));
-        acts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setActivities(acts.slice(0, 5));
-      } catch {}
-    };
-    fetchCounts();
+    // Cache results
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: results, timestamp: Date.now() }));
+    } catch {}
+
+    // Fetch recent activities
+    try {
+      const [projRes, contRes] = await Promise.all([
+        supabase.from("saved_projects").select("name, created_at").order("created_at", { ascending: false }).limit(3),
+        supabase.from("contracts").select("contract_title, created_at").order("created_at", { ascending: false }).limit(2),
+      ]);
+      const acts: ActivityItem[] = [];
+      projRes.data?.forEach(p => acts.push({ type: "project", name: p.name, date: p.created_at, icon: "📊" }));
+      contRes.data?.forEach(c => acts.push({ type: "contract", name: c.contract_title, date: c.created_at, icon: "📄" }));
+      acts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setActivities(acts.slice(0, 5));
+    } catch {}
   }, []);
+
+  useEffect(() => {
+    fetchCounts();
+  }, [fetchCounts]);
 
   return (
     <div className="min-h-screen flex flex-col" dir={isArabic ? "rtl" : "ltr"}>
@@ -108,40 +155,73 @@ export default function HomePage() {
           from { opacity: 0; transform: translateY(20px) scale(0.95); }
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
+        @keyframes hero-enter {
+          from { opacity: 0; transform: translateY(-15px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes stat-enter {
+          from { opacity: 0; transform: scale(0.9); }
+          to   { opacity: 1; transform: scale(1); }
+        }
       `}</style>
       <BackgroundImage />
       <UnifiedHeader />
 
       <main className="flex-1 flex flex-col items-center justify-center px-3 md:px-4 py-6 md:py-8">
         {/* Quick Stats Strip */}
-        {Object.keys(counts).length > 0 && (
+        {isLoading ? (
+          <div className="flex items-center justify-center gap-4 md:gap-6 mb-5 flex-wrap">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-9 w-28 rounded-full bg-white/10" />
+            ))}
+          </div>
+        ) : Object.keys(counts).length > 0 && (
           <div className="flex items-center justify-center gap-4 md:gap-6 mb-5 flex-wrap">
             {[
               { label: isArabic ? "مشروع" : "Projects", value: counts.saved_projects || 0, icon: "📊" },
               { label: isArabic ? "عقد" : "Contracts", value: counts.contracts || 0, icon: "📄" },
               { label: isArabic ? "بند" : "Items", value: counts.project_items || 0, icon: "📋" },
               { label: isArabic ? "مادة" : "Materials", value: counts.material_prices || 0, icon: "🏗️" },
-            ].map((stat) => (
-              <div key={stat.label} className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 text-white text-xs md:text-sm">
+            ].map((stat, i) => (
+              <div
+                key={stat.label}
+                className="flex items-center gap-1.5 bg-white/15 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 text-white text-sm shadow-md"
+                style={{
+                  animation: 'stat-enter 0.3s ease-out forwards',
+                  animationDelay: `${i * 80}ms`,
+                  opacity: 0,
+                }}
+              >
                 <span>{stat.icon}</span>
                 <span className="font-bold">{stat.value.toLocaleString()}</span>
-                <span className="text-white/70">{stat.label}</span>
+                <span className="text-white/75">{stat.label}</span>
               </div>
             ))}
           </div>
         )}
 
         {/* Recent Activity Feed */}
-        {activities.length > 0 && (
+        {isLoading ? (
           <div className="max-w-2xl w-full mb-5">
-            <div className="bg-black/30 backdrop-blur-sm rounded-xl border border-white/10 p-3">
-              <p className="text-white/60 text-xs mb-2 px-1">{isArabic ? "آخر الأنشطة" : "Recent Activity"}</p>
+            <div className="bg-black/40 backdrop-blur-md rounded-xl border border-white/15 p-4">
+              <Skeleton className="h-3 w-24 mb-3 bg-white/10" />
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-6 w-full bg-white/10 rounded" />
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : activities.length > 0 && (
+          <div className="max-w-2xl w-full mb-5">
+            <div className="bg-black/40 backdrop-blur-md rounded-xl border border-white/15 p-4">
+              <p className="text-white/70 text-xs font-medium mb-2.5 px-1">{isArabic ? "آخر الأنشطة" : "Recent Activity"}</p>
               <div className="space-y-1">
                 {activities.map((act, i) => (
-                  <div key={i} className="flex items-center gap-2 text-white/80 text-xs px-1 py-1">
+                  <div key={i} className="flex items-center gap-2 text-white/85 text-sm px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
                     <span>{act.icon}</span>
                     <span className="truncate flex-1">{act.name}</span>
-                    <span className="text-white/40 shrink-0">
+                    <span className="text-white/45 shrink-0 text-xs">
                       {formatDistanceToNow(new Date(act.date), { addSuffix: true, locale: isArabic ? ar : enUS })}
                     </span>
                   </div>
@@ -152,58 +232,45 @@ export default function HomePage() {
         )}
 
         {/* Welcome Header */}
-        <div className="flex items-center gap-3 mb-6 md:mb-8">
-          <PMSLogo size="lg" />
+        <div
+          className="flex items-center gap-3 mb-6 md:mb-8"
+          style={{ animation: 'hero-enter 0.5s ease-out forwards' }}
+        >
+          <div className="relative">
+            <PMSLogo size="xl" />
+            <div className="absolute inset-0 rounded-lg bg-primary/20 blur-xl -z-10" />
+          </div>
           <div className="text-center">
-            <h1 className="text-xl md:text-3xl font-bold text-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+            <h1
+              className="text-2xl md:text-4xl font-bold text-white"
+              style={{ textShadow: '0 2px 12px rgba(0,0,0,0.6), 0 0 40px rgba(59,130,246,0.15)' }}
+            >
               {isArabic ? "نظام إدارة المشاريع" : "Project Management System"}
             </h1>
-            <p className="text-white/70 text-xs md:text-sm mt-1">
+            <p className="text-white/75 text-sm md:text-base mt-1">
               {isArabic ? "اختر القسم للبدء" : "Select a section to begin"}
             </p>
           </div>
-          <img src={alimtyazLogo} alt="Alimtyaz Logo" className="w-10 h-10 md:w-12 md:h-12 rounded-lg object-contain bg-white/10 p-1" />
+          <img
+            src={alimtyazLogo}
+            alt="Alimtyaz Logo"
+            className="w-12 h-12 md:w-14 md:h-14 rounded-lg object-contain bg-white/10 p-1"
+            loading="lazy"
+          />
         </div>
 
         {/* Navigation Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 max-w-5xl w-full">
           {sections.map((section, index) => {
-            const Icon = section.icon;
             const count = section.countKey ? counts[section.countKey] : undefined;
             return (
-              <Link
+              <NavCard
                 key={section.path}
-                to={section.path}
-                className={`group relative flex flex-col items-center justify-center gap-2 md:gap-3 p-4 md:p-6 rounded-xl
-                  bg-black/40 border border-white/15
-                  hover:border-white/30 hover:scale-[1.08]
-                  transition-transform transition-colors duration-200 transform-gpu will-change-transform
-                  cursor-pointer shadow-lg
-                  bg-gradient-to-br ${section.color}`}
-                style={{
-                  animation: 'card-enter 0.4s ease-out forwards',
-                  animationDelay: `${index * 50}ms`,
-                  opacity: 0,
-                }}
-              >
-                {/* Counter Badge */}
-                {count !== undefined && count > 0 && (
-                  <span className="absolute top-2 end-2 bg-white/20 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-                    {count}
-                  </span>
-                )}
-
-                <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl bg-white/10 group-hover:bg-white/20 group-hover:ring-2 group-hover:ring-white/20 flex items-center justify-center transition-all duration-200 group-hover:-translate-y-1`}>
-                  <Icon className={`w-6 h-6 md:w-8 md:h-8 ${section.iconColor} drop-shadow`} />
-                </div>
-                <div className="text-center">
-                  <p className="text-white font-semibold text-xs md:text-sm">{section.nameAr}</p>
-                  <p className="text-white/75 text-[10px] md:text-xs mt-0.5">{section.nameEn}</p>
-                  <p className="text-white/50 text-[9px] md:text-[10px] mt-1 hidden sm:block">
-                    {isArabic ? section.descAr : section.descEn}
-                  </p>
-                </div>
-              </Link>
+                section={section}
+                index={index}
+                count={count}
+                isArabic={isArabic}
+              />
             );
           })}
         </div>
@@ -218,6 +285,7 @@ export default function HomePage() {
                 src={developerPhoto}
                 alt="Dr.Eng. Mohamed Sobh"
                 className="w-12 h-12 rounded-full ring-2 ring-primary/30 object-cover"
+                loading="lazy"
               />
               <div>
                 <p className="text-white font-semibold text-sm">Dr.Eng. Mohamed Sobh</p>
@@ -239,7 +307,7 @@ export default function HomePage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <img src={alimtyazLogo} alt="AL IMTYAZ" className="w-10 h-10 rounded-lg object-contain bg-white/10 p-1" />
+              <img src={alimtyazLogo} alt="AL IMTYAZ" className="w-10 h-10 rounded-lg object-contain bg-white/10 p-1" loading="lazy" />
               <span className="text-white/60 text-xs">AL IMTYAZ ALWATANIYA CONT.</span>
             </div>
           </div>
