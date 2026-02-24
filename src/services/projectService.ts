@@ -128,12 +128,33 @@ export const projectService = {
 
   async deleteProject(projectId: string) {
     try {
-      const { error } = await supabase
-        .from('saved_projects')
-        .delete()
-        .eq('id', projectId);
+      // Get project_items IDs for cascading deletes
+      const { data: projectItems } = await supabase
+        .from('project_items')
+        .select('id')
+        .eq('project_id', projectId);
 
-      if (error) throw error;
+      const itemIds = (projectItems || []).map((i: any) => i.id);
+
+      if (itemIds.length > 0) {
+        const { error: costErr } = await supabase.from('item_costs').delete().in('project_item_id', itemIds);
+        if (costErr) throw costErr;
+        const { error: pricingErr } = await supabase.from('item_pricing_details').delete().in('project_item_id', itemIds);
+        if (pricingErr) throw pricingErr;
+      }
+
+      const { error: boqErr } = await supabase.from('edited_boq_prices').delete().or(`project_id.eq.${projectId},saved_project_id.eq.${projectId}`);
+      if (boqErr) throw boqErr;
+
+      const { error: itemsErr } = await supabase.from('project_items').delete().eq('project_id', projectId);
+      if (itemsErr) throw itemsErr;
+
+      const { error: pdErr } = await supabase.from('project_data').delete().eq('id', projectId);
+      if (pdErr) throw pdErr;
+
+      const { error: spErr } = await supabase.from('saved_projects').delete().eq('id', projectId);
+      if (spErr) throw spErr;
+
       return true;
     } catch (error) {
       console.error('Error deleting project:', error);
