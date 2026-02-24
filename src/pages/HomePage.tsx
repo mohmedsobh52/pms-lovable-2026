@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/hooks/useLanguage";
 import { UnifiedHeader } from "@/components/UnifiedHeader";
-import BackgroundImage from "@/components/BackgroundImage";
+
 import { PMSLogo } from "@/components/PMSLogo";
 import { supabase } from "@/integrations/supabase/client";
 import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
@@ -149,7 +149,7 @@ export default function HomePage() {
   }, [fetchCounts]);
 
   return (
-    <div className="min-h-screen flex flex-col" dir={isArabic ? "rtl" : "ltr"}>
+    <div className="min-h-screen flex flex-col home-bg" dir={isArabic ? "rtl" : "ltr"}>
       <style>{`
         @keyframes card-enter {
           from { opacity: 0; transform: translateY(20px) scale(0.95); }
@@ -164,7 +164,6 @@ export default function HomePage() {
           to   { opacity: 1; transform: scale(1); }
         }
       `}</style>
-      <BackgroundImage />
       <UnifiedHeader />
 
       <main className="flex-1 flex flex-col items-center justify-center px-3 md:px-4 py-6 md:py-8">
