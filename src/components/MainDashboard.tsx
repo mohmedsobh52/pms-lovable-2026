@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { XLSX } from '@/lib/exceljs-utils';
+import { PageHeader } from "./PageHeader";
 import { ProjectComparisonReport } from "./ProjectComparisonReport";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RiskManagement } from "./RiskManagement";
@@ -550,113 +551,85 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6">
-          {/* Header with reorganized buttons */}
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-navy flex items-center justify-center">
-                <LayoutDashboard className="w-5 h-5 text-white" />
+          <PageHeader
+            icon={LayoutDashboard}
+            title={isArabic ? "لوحة التحكم" : "Dashboard"}
+            subtitle={isArabic ? "نظام إدارة المشاريع المتكامل" : "Integrated Project Management System"}
+            stats={[
+              { value: formatCurrency(stats.totalValue), label: isArabic ? "إجمالي القيمة" : "Total Value", type: 'gold' as const },
+              { value: stats.totalProjects, label: isArabic ? "المشاريع" : "Projects" },
+              { value: stats.totalQuotations, label: isArabic ? "العروض" : "Quotations" },
+            ]}
+            actions={
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Filter */}
+                <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className={`bg-white/10 border-white/20 text-white hover:bg-white/20 ${dateFrom || dateTo ? "border-primary" : ""}`}>
+                      <Filter className="w-4 h-4 me-2" />
+                      {isArabic ? "فلترة" : "Filter"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 bg-popover" align="end">
+                    <div className="space-y-4">
+                      <h4 className="font-medium">{isArabic ? "فلترة حسب التاريخ" : "Filter by Date"}</h4>
+                      <div className="space-y-2">
+                        <Label>{isArabic ? "من تاريخ" : "From Date"}</Label>
+                        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{isArabic ? "إلى تاريخ" : "To Date"}</Label>
+                        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={applyDateFilter} className="flex-1">{isArabic ? "تطبيق" : "Apply"}</Button>
+                        <Button size="sm" variant="outline" onClick={clearDateFilter}>{isArabic ? "مسح" : "Clear"}</Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Reports */}
+                <Button size="sm" onClick={() => navigate("/projects?tab=reports")} className="gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20" variant="outline">
+                  <BarChart3 className="w-4 h-4" />
+                  <span className="hidden sm:inline">{isArabic ? "التقارير" : "Reports"}</span>
+                </Button>
+
+                {/* Export & Tools Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+                      <MoreHorizontal className="w-4 h-4 me-1" />
+                      <span className="hidden sm:inline">{isArabic ? "أدوات" : "Tools"}</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 bg-popover z-50">
+                    <DropdownMenuItem onClick={printReport}>
+                      <Printer className="w-4 h-4 me-2" />
+                      {isArabic ? "طباعة التقرير" : "Print Report"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportToPDF}>
+                      <Download className="w-4 h-4 me-2" />
+                      {isArabic ? "تصدير PDF" : "Export PDF"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportToExcel}>
+                      <FileSpreadsheet className="w-4 h-4 me-2" />
+                      {isArabic ? "تصدير Excel" : "Export Excel"}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <div className="w-full"><ProjectComparisonReport isArabic={isArabic} /></div>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Refresh */}
+                <Button variant="outline" size="icon" className="h-8 w-8 bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={() => { sessionStorage.removeItem(CACHE_KEY); fetchDashboardData(false); }}>
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold">{isArabic ? "لوحة التحكم" : "Dashboard"}</h2>
-                <p className="text-sm text-muted-foreground">{isArabic ? "نظام إدارة المشاريع المتكامل" : "Integrated Project Management System"}</p>
-              </div>
-            </div>
-
-            {/* Reorganized toolbar: only 4-5 main buttons */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Filter */}
-              <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={dateFrom || dateTo ? "border-primary" : ""}>
-                    <Filter className="w-4 h-4 me-2" />
-                    {isArabic ? "فلترة" : "Filter"}
-                    {(dateFrom || dateTo) && <Badge variant="secondary" className="ms-2 text-xs">{isArabic ? "مفعّل" : "Active"}</Badge>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 bg-popover" align="end">
-                  <div className="space-y-4">
-                    <h4 className="font-medium">{isArabic ? "فلترة حسب التاريخ" : "Filter by Date"}</h4>
-                    <div className="space-y-2">
-                      <Label>{isArabic ? "من تاريخ" : "From Date"}</Label>
-                      <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{isArabic ? "إلى تاريخ" : "To Date"}</Label>
-                      <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={applyDateFilter} className="flex-1">{isArabic ? "تطبيق" : "Apply"}</Button>
-                      <Button size="sm" variant="outline" onClick={clearDateFilter}>{isArabic ? "مسح" : "Clear"}</Button>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-
-              {/* Reports */}
-              <Button size="sm" onClick={() => navigate("/projects?tab=reports")} className="gap-2 bg-gradient-to-r from-primary to-accent hover:opacity-90">
-                <BarChart3 className="w-4 h-4" />
-                <span className="hidden sm:inline">{isArabic ? "التقارير" : "Reports"}</span>
-              </Button>
-
-              {/* Budget */}
-              <Popover open={showBudgetSettings} onOpenChange={setShowBudgetSettings}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={budgetAlert.isOverBudget || budgetAlert.isNearThreshold ? "border-destructive" : ""}>
-                    <AlertTriangle className={`w-4 h-4 me-1 ${budgetAlert.isOverBudget ? 'text-destructive' : budgetAlert.isNearThreshold ? 'text-amber-500' : ''}`} />
-                    <span className="hidden sm:inline">{isArabic ? "الميزانية" : "Budget"}</span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 bg-popover" align="end">
-                  <div className="space-y-4">
-                    <h4 className="font-medium">{isArabic ? "إعدادات الميزانية" : "Budget Settings"}</h4>
-                    <div className="space-y-2">
-                      <Label>{isArabic ? "الحد الأقصى (ر.س)" : "Max Budget (SAR)"}</Label>
-                      <Input type="number" value={budgetSettings.maxBudget} onChange={(e) => setBudgetSettings({...budgetSettings, maxBudget: Number(e.target.value)})} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{isArabic ? "نسبة التنبيه (%)" : "Alert Threshold (%)"}</Label>
-                      <Input type="number" min="1" max="100" value={budgetSettings.alertThreshold} onChange={(e) => setBudgetSettings({...budgetSettings, alertThreshold: Number(e.target.value)})} />
-                    </div>
-                    <Button size="sm" onClick={() => saveBudgetSettings(budgetSettings)} className="w-full">{isArabic ? "حفظ" : "Save"}</Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-
-              {/* Export & Tools Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <MoreHorizontal className="w-4 h-4 me-1" />
-                    <span className="hidden sm:inline">{isArabic ? "أدوات" : "Tools"}</span>
-                    <ChevronDown className="w-3 h-3 ms-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 bg-popover z-50">
-                  <DropdownMenuItem onClick={printReport}>
-                    <Printer className="w-4 h-4 me-2" />
-                    {isArabic ? "طباعة التقرير" : "Print Report"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={exportToPDF}>
-                    <Download className="w-4 h-4 me-2" />
-                    {isArabic ? "تصدير PDF" : "Export PDF"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={exportToExcel}>
-                    <FileSpreadsheet className="w-4 h-4 me-2" />
-                    {isArabic ? "تصدير Excel" : "Export Excel"}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <div className="w-full"><ProjectComparisonReport isArabic={isArabic} /></div>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Refresh */}
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { sessionStorage.removeItem(CACHE_KEY); fetchDashboardData(false); }}>
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
+            }
+          />
 
           {/* Budget Alert Banner */}
           {(budgetAlert.isOverBudget || budgetAlert.isNearThreshold) && (

@@ -22,6 +22,7 @@ import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-ut
 import * as pdfjsLib from 'pdfjs-dist';
 import { Link } from "react-router-dom";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { HistoricalPricingStats } from "@/components/HistoricalPricingStats";
 import { HistoricalPricingPDFReport } from "@/components/HistoricalPricingPDFReport";
 import { ImportFromSavedProjects } from "@/components/ImportFromSavedProjects";
@@ -608,268 +609,133 @@ export default function HistoricalPricingPage() {
   return (
     <PageLayout>
       <div className="container mx-auto p-4 md:p-6 space-y-6" dir={isArabic ? "rtl" : "ltr"}>
-        {/* Header */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Link to="/">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Database className="w-6 h-6 text-primary" />
-                قاعدة البيانات التاريخية للأسعار
-              </h1>
-              <p className="text-muted-foreground">
-                رفع وإدارة ملفات BOQ المسعرة سابقاً لتحسين دقة التحليل
-              </p>
-            </div>
-          </div>
-
-          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-            <div className="flex items-center gap-2">
+        <PageHeader
+          icon={Database}
+          title={isArabic ? "قاعدة البيانات التاريخية للأسعار" : "Historical Pricing Database"}
+          subtitle={isArabic ? "رفع وإدارة ملفات BOQ المسعرة سابقاً لتحسين دقة التحليل" : "Upload and manage previously priced BOQ files to improve analysis accuracy"}
+          actions={
+            <>
               <ImportFromSavedProjects 
                 onImportComplete={() => { setCurrentPage(1); loadFiles(); }}
                 existingProjectNames={files.map(f => f.project_name)}
               />
               <HistoricalPricingPDFReport historicalFiles={files as any} />
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  رفع ملف جديد
-                </Button>
-              </DialogTrigger>
-            </div>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Upload className="w-5 h-5" />
-                  رفع ملف مسعّر تاريخي
-                </DialogTitle>
-              </DialogHeader>
+              <Button className="gap-2" onClick={() => setUploadDialogOpen(true)}>
+                <Plus className="w-4 h-4" />
+                {isArabic ? "رفع ملف جديد" : "Upload New File"}
+              </Button>
+            </>
+          }
+        />
 
-              <div className="space-y-4">
-                {/* File Upload */}
-                <div className="space-y-2">
-                  <Label>ملف Excel أو PDF</Label>
-                  <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls,.csv,.pdf"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      id="file-upload"
-                      disabled={isUploading}
-                    />
-                    <label htmlFor="file-upload" className="cursor-pointer">
-                      {isUploading ? (
-                        <div className="space-y-3">
-                          <Loader2 className="w-12 h-12 mx-auto text-primary animate-spin" />
-                          <Progress value={uploadProgress} className="w-full max-w-xs mx-auto" />
-                          <p className="text-sm text-muted-foreground">{uploadStage}</p>
-                        </div>
-                      ) : (
+        {/* Upload Dialog */}
+        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                {isArabic ? "رفع ملف مسعّر تاريخي" : "Upload Historical Priced File"}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* File Upload */}
+              <div className="space-y-2">
+                <Label>{isArabic ? "ملف Excel أو PDF" : "Excel or PDF File"}</Label>
+                <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv,.pdf"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="file-upload"
+                    disabled={isUploading}
+                  />
+                  <label htmlFor="file-upload" className="cursor-pointer">
+                    {isUploading ? (
+                      <div className="space-y-3">
+                        <Loader2 className="w-12 h-12 mx-auto text-primary animate-spin" />
+                        <Progress value={uploadProgress} className="w-full max-w-xs mx-auto" />
+                        <p className="text-sm text-muted-foreground">{uploadStage}</p>
+                      </div>
+                    ) : (
+                      <>
                         <div className="flex items-center justify-center gap-2 mb-2">
-                          <FileSpreadsheet className="w-10 h-10 text-green-600" />
-                          <FileText className="w-10 h-10 text-red-600" />
+                          <FileSpreadsheet className="w-10 h-10 text-primary" />
+                          <FileText className="w-10 h-10 text-destructive" />
                         </div>
-                      )}
-                      {!isUploading && (
-                        <>
-                          <p className="text-sm text-muted-foreground">
-                            اضغط لاختيار ملف Excel أو PDF
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            xlsx, xls, csv, pdf (حتى 5000 بند)
-                          </p>
-                        </>
-                      )}
-                      {uploadedFileName && !isUploading && (
-                        <Badge variant="secondary" className="mt-2">
-                          {uploadedFileName} ({uploadedItems.length} بند)
-                        </Badge>
-                      )}
-                    </label>
-                  </div>
-                  
-                  {/* Truncation warning */}
-                  {itemsTruncated && originalRowCount && (
-                    <div className="flex items-center gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-sm">
-                      <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0" />
-                      <span>تم استخراج {uploadedItems.length} بند من أصل {originalRowCount} بند. البنود الزائدة لم يتم تضمينها.</span>
-                    </div>
-                  )}
-                  
-                  {/* Diagnostic bar - extraction quality */}
-                  {uploadedItems.length > 0 && (() => {
-                    const fields = ['description', 'unit', 'quantity', 'unit_price', 'total_price', 'item_number', 'item_code'];
-                    const mappedFields = fields.filter(f => 
-                      uploadedItems.some(item => {
-                        const val = (item as any)[f];
-                        return val && val !== '' && val !== 0;
-                      })
-                    );
-                    const completeItems = uploadedItems.filter(item => 
-                      item.description && item.unit_price > 0 && item.quantity > 0
-                    );
-                    const completenessRatio = uploadedItems.length > 0 ? completeItems.length / uploadedItems.length : 0;
-                    const isLowQuality = completenessRatio < 0.5;
-                    
-                    return (
-                      <div className={`p-3 rounded-lg border text-sm ${isLowQuality ? 'border-destructive/50 bg-destructive/10' : 'border-primary/30 bg-primary/5'}`}>
-                        <div className="flex items-center gap-4 flex-wrap">
-                          <span className="flex items-center gap-1">
-                            <CheckCircle className={`w-4 h-4 ${isLowQuality ? 'text-destructive' : 'text-primary'}`} />
-                            تم ربط <strong>{mappedFields.length}</strong> من {fields.length} حقل
-                          </span>
-                          <span className="text-muted-foreground">|</span>
-                          <span>
-                            <strong>{Math.round(completenessRatio * 100)}%</strong> من البنود تحتوي بيانات كاملة
-                          </span>
-                        </div>
-                        {isLowQuality && (
-                          <p className="text-xs text-destructive mt-1">
-                            ⚠️ جودة الاستخراج منخفضة - تحقق من تنسيق الملف أو جرب ملف Excel بدلاً من PDF
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })()}
+                        <p className="text-sm text-muted-foreground">
+                          {isArabic ? "اسحب وأفلت ملف هنا أو انقر للاختيار" : "Drag & drop or click to select"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">Excel, CSV, PDF</p>
+                      </>
+                    )}
+                  </label>
                 </div>
-
-                {/* Project Details */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>اسم المشروع *</Label>
-                    <Input
-                      value={projectName}
-                      onChange={(e) => setProjectName(e.target.value)}
-                      placeholder="مثال: برج الرياض السكني"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>الموقع</Label>
-                    <Select value={projectLocation} onValueChange={setProjectLocation}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="اختر الموقع" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {LOCATIONS.map(loc => (
-                          <SelectItem key={loc.value} value={loc.value}>
-                            {loc.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>تاريخ المشروع</Label>
-                    <Input
-                      type="date"
-                      value={projectDate}
-                      onChange={(e) => setProjectDate(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>العملة</Label>
-                    <Select value={currency} onValueChange={setCurrency}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="SAR">ريال سعودي (SAR)</SelectItem>
-                        <SelectItem value="USD">دولار أمريكي (USD)</SelectItem>
-                        <SelectItem value="AED">درهم إماراتي (AED)</SelectItem>
-                        <SelectItem value="EGP">جنيه مصري (EGP)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>ملاحظات</Label>
-                  <Textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="أي ملاحظات إضافية عن المشروع..."
-                    rows={2}
-                  />
-                </div>
-
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <Switch
-                    checked={isVerified}
-                    onCheckedChange={setIsVerified}
-                    id="verified"
-                  />
-                  <Label htmlFor="verified" className="cursor-pointer">
-                    تم التحقق من الأسعار (مشروع منفذ فعلياً)
-                  </Label>
-                </div>
-
-                {/* PDF Page Preview */}
-                {showPdfPreview && pdfPagePreviews.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-2">
-                        <FileImage className="w-4 h-4" />
-                        معاينة صفحات PDF ({pdfPagePreviews.length} صفحات)
-                      </Label>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => setShowPdfPreview(false)}
-                      >
-                        إخفاء
-                      </Button>
-                    </div>
-                    <ScrollArea className="h-[200px] border rounded-lg p-2">
-                      <div className="flex gap-2">
-                        {pdfPagePreviews.map((preview, idx) => (
-                          <div key={idx} className="flex-shrink-0 border rounded-lg overflow-hidden">
-                            <img 
-                              src={preview} 
-                              alt={`صفحة ${idx + 1}`}
-                              className="h-[170px] w-auto object-contain"
-                            />
-                            <p className="text-xs text-center text-muted-foreground py-1">
-                              صفحة {idx + 1}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                )}
-
-                {/* Preview Items */}
-                {uploadedItems.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>معاينة وتعديل البنود ({uploadedItems.length} بند)</Label>
-                    <HistoricalItemsTable
-                      items={uploadedItems}
-                      onItemsChange={setUploadedItems}
-                      projectName={projectName || uploadedFileName}
-                    />
-                  </div>
-                )}
               </div>
 
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="outline">إلغاء</Button>
-                </DialogClose>
-                <Button onClick={handleSaveFile} disabled={!projectName || uploadedItems.length === 0}>
-                  حفظ في قاعدة البيانات
+              {uploadedItems.length > 0 && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{isArabic ? "اسم المشروع *" : "Project Name *"}</Label>
+                      <Input value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder={isArabic ? "مثال: مشروع الرياض" : "e.g. Riyadh Project"} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{isArabic ? "الموقع" : "Location"}</Label>
+                      <Select value={projectLocation} onValueChange={setProjectLocation}>
+                        <SelectTrigger><SelectValue placeholder={isArabic ? "اختر الموقع" : "Select location"} /></SelectTrigger>
+                        <SelectContent>
+                          {LOCATIONS.map(loc => <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{isArabic ? "تاريخ المشروع" : "Project Date"}</Label>
+                      <Input type="date" value={projectDate} onChange={(e) => setProjectDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{isArabic ? "العملة" : "Currency"}</Label>
+                      <Select value={currency} onValueChange={setCurrency}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SAR">SAR</SelectItem>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="EGP">EGP</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
+                    <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={isArabic ? "ملاحظات إضافية..." : "Additional notes..."} rows={2} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={isVerified} onCheckedChange={setIsVerified} />
+                    <Label>{isArabic ? "تم التحقق من الأسعار" : "Prices verified"}</Label>
+                  </div>
+                  <Badge variant="secondary" className="gap-1">
+                    <FileSpreadsheet className="w-3 h-3" />
+                    {uploadedItems.length} {isArabic ? "بند" : "items"}
+                  </Badge>
+                </>
+              )}
+            </div>
+
+            <DialogFooter>
+              {uploadedItems.length > 0 && (
+                <Button onClick={handleExportToExcel} variant="outline" className="gap-2">
+                  <Download className="w-4 h-4" />
+                  {isArabic ? "تصدير Excel" : "Export Excel"}
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+              )}
+              <Button onClick={handleSaveFile} disabled={uploadedItems.length === 0 || !projectName.trim()} className="gap-2">
+                {isArabic ? "حفظ في القاعدة" : "Save to Database"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>

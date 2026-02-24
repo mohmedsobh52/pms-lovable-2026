@@ -4,6 +4,7 @@ import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Upload, FolderOpen, FileSpreadsheet, Clock, ChevronRight } from "lucide-react";
@@ -58,8 +59,12 @@ const BOQItemsPage = () => {
   if (!analysisData) {
     return (
       <PageLayout>
+        <PageHeader
+          icon={FileSpreadsheet}
+          title={isArabic ? "بنود جدول الكميات" : "BOQ Items"}
+          subtitle={isArabic ? "إدارة وتحليل بنود جداول الكميات" : "Manage and analyze BOQ items"}
+        />
         <div className="flex flex-col items-center justify-center py-12 gap-8 max-w-2xl mx-auto px-4">
-          {/* Icon + title */}
           <div className="text-center space-y-3">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
               <FileSpreadsheet className="w-8 h-8 text-primary" />
@@ -177,6 +182,11 @@ const BOQItemsPage = () => {
 
   return (
     <PageLayout>
+      <PageHeader
+        icon={FileSpreadsheet}
+        title={isArabic ? "بنود جدول الكميات" : "BOQ Items"}
+        subtitle={isArabic ? "إدارة وتحليل بنود جداول الكميات" : "Manage and analyze BOQ items"}
+      />
       <AnalysisResults
         data={analysisData}
         wbsData={wbsData}
