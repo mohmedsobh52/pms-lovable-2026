@@ -361,20 +361,68 @@ export default function SavedProjectsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      // Delete project items first (if any)
-      await supabase.from("project_items").delete().eq("project_id", id);
-      
-      // Delete from project_data
-      await supabase.from("project_data").delete().eq("id", id);
-      
-      // Delete from saved_projects
-      await supabase.from("saved_projects").delete().eq("id", id);
-      
+      // 1. Get project_items IDs for cascading deletes
+      const { data: projectItems } = await supabase
+        .from("project_items")
+        .select("id")
+        .eq("project_id", id);
+
+      const itemIds = (projectItems || []).map((i: any) => i.id);
+
+      // 2. Delete child tables linked via project_items
+      if (itemIds.length > 0) {
+        const { error: costErr } = await supabase
+          .from("item_costs")
+          .delete()
+          .in("project_item_id", itemIds);
+        if (costErr) throw costErr;
+
+        const { error: pricingErr } = await supabase
+          .from("item_pricing_details")
+          .delete()
+          .in("project_item_id", itemIds);
+        if (pricingErr) throw pricingErr;
+      }
+
+      // 3. Delete edited_boq_prices linked to project
+      const { error: boqErr } = await supabase
+        .from("edited_boq_prices")
+        .delete()
+        .or(`project_id.eq.${id},saved_project_id.eq.${id}`);
+      if (boqErr) throw boqErr;
+
+      // 4. Delete project_items
+      const { error: itemsErr } = await supabase
+        .from("project_items")
+        .delete()
+        .eq("project_id", id);
+      if (itemsErr) throw itemsErr;
+
+      // 5. Delete from project_data
+      const { error: pdErr } = await supabase
+        .from("project_data")
+        .delete()
+        .eq("id", id);
+      if (pdErr) throw pdErr;
+
+      // 6. Delete from saved_projects
+      const { error: spErr } = await supabase
+        .from("saved_projects")
+        .delete()
+        .eq("id", id);
+      if (spErr) throw spErr;
+
+      // Clear cache and refresh
+      if (user) {
+        sessionStorage.removeItem(`pms_projects_${user.id}`);
+      }
+
       toast({
         title: isArabic ? "تم حذف المشروع" : "Project deleted",
       });
-      fetchProjects();
+      fetchProjects(true);
     } catch (error: any) {
+      console.error("Delete error:", error);
       toast({
         title: isArabic ? "خطأ في حذف المشروع" : "Error deleting project",
         description: error.message,
@@ -660,10 +708,63 @@ export default function SavedProjectsPage() {
     try {
       const ids = Array.from(selectedProjectIds);
       for (const id of ids) {
-        await supabase.from("project_items").delete().eq("project_id", id);
-        await supabase.from("project_data").delete().eq("id", id);
-        await supabase.from("saved_projects").delete().eq("id", id);
+        // 1. Get project_items IDs
+        const { data: projectItems } = await supabase
+          .from("project_items")
+          .select("id")
+          .eq("project_id", id);
+
+        const itemIds = (projectItems || []).map((i: any) => i.id);
+
+        // 2. Delete child tables
+        if (itemIds.length > 0) {
+          const { error: costErr } = await supabase
+            .from("item_costs")
+            .delete()
+            .in("project_item_id", itemIds);
+          if (costErr) throw costErr;
+
+          const { error: pricingErr } = await supabase
+            .from("item_pricing_details")
+            .delete()
+            .in("project_item_id", itemIds);
+          if (pricingErr) throw pricingErr;
+        }
+
+        // 3. Delete edited_boq_prices
+        const { error: boqErr } = await supabase
+          .from("edited_boq_prices")
+          .delete()
+          .or(`project_id.eq.${id},saved_project_id.eq.${id}`);
+        if (boqErr) throw boqErr;
+
+        // 4. Delete project_items
+        const { error: itemsErr } = await supabase
+          .from("project_items")
+          .delete()
+          .eq("project_id", id);
+        if (itemsErr) throw itemsErr;
+
+        // 5. Delete from project_data
+        const { error: pdErr } = await supabase
+          .from("project_data")
+          .delete()
+          .eq("id", id);
+        if (pdErr) throw pdErr;
+
+        // 6. Delete from saved_projects
+        const { error: spErr } = await supabase
+          .from("saved_projects")
+          .delete()
+          .eq("id", id);
+        if (spErr) throw spErr;
       }
+
+      // Clear cache
+      if (user) {
+        sessionStorage.removeItem(`pms_projects_${user.id}`);
+      }
+
       toast({
         title: isArabic
           ? `تم حذف ${ids.length} مشروع بنجاح`
@@ -671,7 +772,7 @@ export default function SavedProjectsPage() {
       });
       setSelectedProjectIds(new Set());
       setShowBulkDeleteConfirm(false);
-      fetchProjects();
+      fetchProjects(true);
     } catch (error: any) {
       toast({
         title: isArabic ? "خطأ في الحذف الجماعي" : "Bulk delete error",
