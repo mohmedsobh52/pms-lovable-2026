@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGlobalSearch } from "@/contexts/GlobalSearchContext";
+import { useTheme } from "@/hooks/useTheme";
 import { useNavigationHistory, iconMap } from "@/hooks/useNavigationHistory";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
@@ -102,22 +103,7 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
   const { getHistoryExcludingCurrent, clearHistory } = useNavigationHistory();
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Theme state
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
-    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    const initialTheme = savedTheme || systemTheme;
-    setTheme(initialTheme);
-    document.documentElement.classList.toggle("dark", initialTheme === "dark");
-  }, []);
-
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-    document.documentElement.classList.toggle("dark", newTheme === "dark");
-  };
+  const { theme, toggleTheme } = useTheme();
 
   const navHistory = getHistoryExcludingCurrent();
   const isActive = (href: string) => location.pathname === href;
