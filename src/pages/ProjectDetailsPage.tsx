@@ -323,7 +323,13 @@ export default function ProjectDetailsPage() {
     ).length;
     const unpricedItems = totalItems - pricedItems;
     const pricingPercentage = totalItems > 0 ? Math.round((pricedItems / totalItems) * 100 * 10) / 10 : 0;
-    const totalValue = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
+    const totalValue = items.reduce((sum, item) => {
+      const tp = item.total_price || 0;
+      if (tp > 0) return sum + tp;
+      // Fallback: quantity * unit_price
+      const calc = (item.quantity || 0) * (item.unit_price || 0);
+      return sum + calc;
+    }, 0);
     
     return { totalItems, pricedItems, confirmedItems, unpricedItems, pricingPercentage, totalValue };
   }, [items]);

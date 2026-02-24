@@ -888,12 +888,17 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   // Calculate KPI data from analysis
   const kpiData = useMemo(() => {
     const items = data.items || [];
-    const totalValue = data.summary?.total_value || items.reduce((sum, item) => sum + (item.total_price || 0), 0);
-    const highRiskItems = items.filter(item => 
-      item.notes?.toLowerCase().includes('risk') || 
-      item.notes?.toLowerCase().includes('warning') ||
-      (item.total_price && item.total_price > totalValue * 0.05)
-    );
+    const calculatedTotal = items.reduce((sum, item) => {
+      const tp = item.total_price || 0;
+      if (tp > 0) return sum + tp;
+      return sum + ((item.quantity || 0) * (item.unit_price || 0));
+    }, 0);
+    const totalValue = data.summary?.total_value || calculatedTotal || 0;
+    const highRiskItems = items.filter(item => {
+      if (item.notes?.toLowerCase().includes('risk') || item.notes?.toLowerCase().includes('warning')) return true;
+      const itemValue = item.total_price || ((item.quantity || 0) * (item.unit_price || 0));
+      return totalValue > 0 && itemValue > 0 && itemValue > totalValue * 0.05;
+    });
     const avgUnitPrice = items.length > 0 
       ? items.reduce((sum, item) => sum + (item.unit_price || 0), 0) / items.length 
       : 0;
@@ -908,7 +913,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
       avgUnitPrice,
       currency: data.summary?.currency || "SAR"
     };
-  }, [data]);
+  }, [data, data.items]);
 
   // Pricing progress for sidebar badge
   const pricingProgress = useMemo(() => {
