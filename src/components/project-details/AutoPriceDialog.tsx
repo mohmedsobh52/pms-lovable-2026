@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, memo } from "react";
-import { Sparkles, Info, AlertTriangle, CheckCircle, Loader2, Filter, Database, Wrench, Users, History, Globe, Search } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback, useRef, memo } from "react";
+import { Sparkles, Info, AlertTriangle, CheckCircle, Loader2, Filter, Database, Wrench, Users, History, Globe, Search, BookOpen } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,7 @@ import { useEquipmentRates } from "@/hooks/useEquipmentRates";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { ProjectItem } from "./types";
+import { REFERENCE_PRICES } from "@/lib/reference-prices";
 
 interface AutoPriceDialogProps {
   isOpen: boolean;
@@ -126,6 +127,35 @@ function normalizeUnit(unit: string): string {
   return UNIT_ALIASES[lower] || lower;
 }
 
+// N-gram similarity for fuzzy matching (especially Arabic text)
+function ngramSimilarity(str1: string, str2: string, n: number = 3): number {
+  if (!str1 || !str2) return 0;
+  const s1 = str1.toLowerCase().trim();
+  const s2 = str2.toLowerCase().trim();
+  if (s1 === s2) return 1;
+  if (s1.length < n || s2.length < n) {
+    // Fallback to substring check for short strings
+    return s1.includes(s2) || s2.includes(s1) ? 0.6 : 0;
+  }
+  const ngrams1 = new Set<string>();
+  const ngrams2 = new Set<string>();
+  for (let i = 0; i <= s1.length - n; i++) ngrams1.add(s1.slice(i, i + n));
+  for (let i = 0; i <= s2.length - n; i++) ngrams2.add(s2.slice(i, i + n));
+  let intersection = 0;
+  ngrams1.forEach(ng => { if (ngrams2.has(ng)) intersection++; });
+  const union = ngrams1.size + ngrams2.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+
+// Arabic root matching - common suffix/prefix variations
+function arabicRootMatch(word1: string, word2: string): boolean {
+  if (!word1 || !word2 || word1.length < 3 || word2.length < 3) return false;
+  // Check if they share a 3-char root
+  const root1 = word1.slice(0, Math.min(word1.length, 4));
+  const root2 = word2.slice(0, Math.min(word2.length, 4));
+  return root1 === root2 || word1.includes(word2.slice(0, 3)) || word2.includes(word1.slice(0, 3));
+}
+
 function AutoPriceDialogComponent({
   isOpen,
   onClose,
@@ -134,7 +164,7 @@ function AutoPriceDialogComponent({
   isArabic,
   currency,
 }: AutoPriceDialogProps) {
-  const [confidenceThreshold, setConfidenceThreshold] = useState([50]);
+  const [confidenceThreshold, setConfidenceThreshold] = useState([30]);
   const [isApplying, setIsApplying] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [historicalItems, setHistoricalItems] = useState<HistoricalItem[]>([]);
@@ -243,6 +273,18 @@ function AutoPriceDialogComponent({
       score += 50;
     }
     
+    // 1b. N-gram similarity bonus
+    const ngramScore = ngramSimilarity(descLower, nameLower);
+    if (ngramScore > 0.3) {
+      score += Math.round(ngramScore * 30);
+    }
+    if (nameArLower) {
+      const ngramScoreAr = ngramSimilarity(descLower, nameArLower);
+      if (ngramScoreAr > 0.3) {
+        score += Math.round(ngramScoreAr * 30);
+      }
+    }
+    
     // 2. Tokenized word matching with expert weights
     const descTokens = descLower.split(/[\s,،.\-_/()]+/).filter(w => w.length > 1);
     const refTokens = [...nameLower.split(/[\s,،.\-_/()]+/), ...nameArLower.split(/[\s,،.\-_/()]+/)].filter(w => w.length > 1);
@@ -259,10 +301,12 @@ function AutoPriceDialogComponent({
       const expertWeight = EXPERT_KEYWORDS[word] || 0;
       const isLongWord = word.length > 4;
       
-      const matched = allRefTokens.some(rw => rw.includes(word) || word.includes(rw));
+      // Check direct match OR Arabic root match
+      const matched = allRefTokens.some(rw => 
+        rw.includes(word) || word.includes(rw) || arabicRootMatch(word, rw)
+      );
       if (matched) {
         matchedSignificantWords++;
-        // Expert keywords get bonus
         if (expertWeight > 0) {
           score += expertWeight;
         } else if (isLongWord) {
@@ -310,7 +354,7 @@ function AutoPriceDialogComponent({
       // 1. Check material_prices
       for (const mat of materials) {
         const confidence = calculateEnhancedScore(description, itemUnit, mat.name, mat.name_ar, mat.unit, mat.category);
-        if (confidence >= 25 && (!bestMatch || confidence > bestMatch.confidence)) {
+        if (confidence >= 20 && (!bestMatch || confidence > bestMatch.confidence)) {
           bestMatch = { price: mat.unit_price, confidence, source: "library", sourceName: mat.name };
         }
       }
@@ -318,7 +362,7 @@ function AutoPriceDialogComponent({
       // 2. Check labor_rates
       for (const labor of laborRates) {
         const confidence = calculateEnhancedScore(description, itemUnit, labor.name, labor.name_ar, labor.unit, labor.category);
-        if (confidence >= 25 && (!bestMatch || confidence > bestMatch.confidence)) {
+        if (confidence >= 20 && (!bestMatch || confidence > bestMatch.confidence)) {
           bestMatch = { price: labor.unit_rate, confidence, source: "labor", sourceName: labor.name };
         }
       }
@@ -326,7 +370,7 @@ function AutoPriceDialogComponent({
       // 3. Check equipment_rates
       for (const equipment of equipmentRates) {
         const confidence = calculateEnhancedScore(description, itemUnit, equipment.name, equipment.name_ar, equipment.unit, equipment.category);
-        if (confidence >= 25 && (!bestMatch || confidence > bestMatch.confidence)) {
+        if (confidence >= 20 && (!bestMatch || confidence > bestMatch.confidence)) {
           bestMatch = { price: equipment.rental_rate, confidence, source: "equipment", sourceName: equipment.name };
         }
       }
@@ -335,8 +379,47 @@ function AutoPriceDialogComponent({
       for (const hi of historicalItems) {
         if (!hi.description) continue;
         const confidence = calculateEnhancedScore(description, itemUnit, hi.description, null, hi.unit);
-        if (confidence >= 25 && (!bestMatch || confidence > bestMatch.confidence)) {
+        if (confidence >= 20 && (!bestMatch || confidence > bestMatch.confidence)) {
           bestMatch = { price: hi.unit_price, confidence, source: "historical", sourceName: hi.description.slice(0, 60), sourceProject: hi.project_name };
+        }
+      }
+
+      // 5. Check built-in reference prices (fallback)
+      if (!bestMatch || bestMatch.confidence < 50) {
+        for (const ref of REFERENCE_PRICES) {
+          const descLower = description.toLowerCase();
+          let refScore = 0;
+          
+          // Check English keywords
+          for (const kw of ref.keywords) {
+            if (descLower.includes(kw)) refScore += 15;
+          }
+          // Check Arabic keywords
+          for (const kw of ref.keywordsAr) {
+            if (descLower.includes(kw)) refScore += 15;
+          }
+          // N-gram bonus against keywords
+          for (const kw of [...ref.keywords, ...ref.keywordsAr]) {
+            const ng = ngramSimilarity(descLower, kw);
+            if (ng > 0.35) refScore += Math.round(ng * 12);
+          }
+          // Unit match bonus
+          const normItemUnit2 = normalizeUnit(itemUnit);
+          const normRefUnit2 = normalizeUnit(ref.unit);
+          if (normItemUnit2 && normRefUnit2 && normItemUnit2 === normRefUnit2) {
+            refScore += 15;
+          }
+          
+          // Cap reference confidence at 55%
+          const refConfidence = Math.min(refScore, 55);
+          if (refConfidence >= 20 && (!bestMatch || refConfidence > bestMatch.confidence)) {
+            bestMatch = { 
+              price: ref.avgPrice, 
+              confidence: refConfidence, 
+              source: "reference", 
+              sourceName: ref.keywords[0] + " (" + ref.category + ")" 
+            };
+          }
         }
       }
 
@@ -354,7 +437,7 @@ function AutoPriceDialogComponent({
       }
     }
 
-    // 5. Check market prices from AI search
+    // 6. Check market prices from AI search
     for (const item of unpricedItems) {
       const description = item.description || "";
       const mp = marketPrices[item.item_number];
@@ -362,7 +445,6 @@ function AutoPriceDialogComponent({
         const existingResult = results.find(r => r.itemId === item.id);
         const marketConfidence = mp.confidence === "high" ? 85 : mp.confidence === "medium" ? 65 : 45;
         if (!existingResult || marketConfidence > existingResult.confidence) {
-          // Remove existing if market is better
           const idx = results.findIndex(r => r.itemId === item.id);
           if (idx >= 0) results.splice(idx, 1);
           results.push({
@@ -383,7 +465,7 @@ function AutoPriceDialogComponent({
 
   // Source statistics
   const sourceStats = useMemo(() => {
-    const stats = { library: 0, labor: 0, equipment: 0, historical: 0, market: 0 };
+    const stats = { library: 0, labor: 0, equipment: 0, historical: 0, market: 0, reference: 0 };
     for (const r of pricingResults) {
       if (r.source in stats) stats[r.source as keyof typeof stats]++;
     }
@@ -432,6 +514,24 @@ function AutoPriceDialogComponent({
     }
   };
 
+  // Auto-trigger market search when all libraries are empty
+  const autoSearchTriggered = useRef(false);
+  useEffect(() => {
+    if (!isOpen || loadingHistorical || loadingMarket || autoSearchTriggered.current) return;
+    if (materials.length === 0 && laborRates.length === 0 && equipmentRates.length === 0 && historicalItems.length === 0) {
+      autoSearchTriggered.current = true;
+      handleMarketSearch();
+    }
+  }, [isOpen, loadingHistorical, materials.length, laborRates.length, equipmentRates.length, historicalItems.length]);
+
+  // Reset auto-search flag when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      autoSearchTriggered.current = false;
+      setMarketSearchDone(false);
+    }
+  }, [isOpen]);
+
   const handleApply = async () => {
     if (pricingResults.length === 0) return;
     setIsApplying(true);
@@ -469,6 +569,7 @@ function AutoPriceDialogComponent({
       equipment: { color: "bg-orange-500/10 text-orange-700 border-orange-200", icon: <Wrench className="w-3 h-3" />, label: "Equipment", labelAr: "معدات" },
       historical: { color: "bg-purple-500/10 text-purple-700 border-purple-200", icon: <History className="w-3 h-3" />, label: "Historical", labelAr: "تاريخي" },
       market: { color: "bg-teal-500/10 text-teal-700 border-teal-200", icon: <Globe className="w-3 h-3" />, label: "Market AI", labelAr: "سوق AI" },
+      reference: { color: "bg-cyan-500/10 text-cyan-700 border-cyan-200", icon: <BookOpen className="w-3 h-3" />, label: "Reference", labelAr: "مرجعي" },
     };
     const cfg = configs[source] || configs.library;
     
@@ -510,8 +611,8 @@ function AutoPriceDialogComponent({
           </DialogTitle>
           <DialogDescription>
             {isArabic 
-              ? "تسعير البنود تلقائياً من 5 مصادر: مكتبة المواد، العمالة، المعدات، البيانات التاريخية، وأسعار السوق AI"
-              : "Auto-price items from 5 sources: Materials, Labor, Equipment, Historical Data & AI Market Prices"
+              ? "تسعير البنود تلقائياً من 6 مصادر: مكتبة المواد، العمالة، المعدات، البيانات التاريخية، أسعار مرجعية مدمجة، وأسعار السوق AI"
+              : "Auto-price items from 6 sources: Materials, Labor, Equipment, Historical, Built-in References & AI Market Prices"
             }
           </DialogDescription>
         </DialogHeader>
@@ -541,7 +642,7 @@ function AutoPriceDialogComponent({
             <Slider
               value={confidenceThreshold}
               onValueChange={setConfidenceThreshold}
-              min={30}
+              min={15}
               max={90}
               step={5}
               className="w-full"
@@ -642,6 +743,16 @@ function AutoPriceDialogComponent({
                   <Globe className="w-3 h-3" /> {sourceStats.market}
                 </Button>
               )}
+              {sourceStats.reference > 0 && (
+                <Button
+                  variant={sourceFilter === "reference" ? "default" : "outline"}
+                  size="sm"
+                  className="h-6 text-xs px-2 gap-1"
+                  onClick={() => setSourceFilter(sourceFilter === "reference" ? null : "reference")}
+                >
+                  <BookOpen className="w-3 h-3" /> {sourceStats.reference}
+                </Button>
+              )}
             </div>
           )}
 
@@ -652,7 +763,7 @@ function AutoPriceDialogComponent({
               size="sm"
               className="w-full gap-2 border-teal-200 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400 dark:hover:bg-teal-950/30"
               onClick={handleMarketSearch}
-              disabled={loadingMarket || marketSearchDone}
+              disabled={loadingMarket}
             >
               {loadingMarket ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
