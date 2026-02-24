@@ -185,7 +185,7 @@ export default function HomePage() {
             ].map((stat, i) => (
               <div
                 key={stat.label}
-                className="flex items-center gap-1.5 bg-white/15 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 text-white text-sm shadow-md"
+                className="flex items-center gap-1.5 bg-white/15 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 text-white text-sm shadow-md hover:bg-white/20 transition-colors"
                 style={{
                   animation: 'stat-enter 0.3s ease-out forwards',
                   animationDelay: `${i * 80}ms`,
@@ -193,7 +193,7 @@ export default function HomePage() {
                 }}
               >
                 <span>{stat.icon}</span>
-                <span className="font-bold">{stat.value.toLocaleString()}</span>
+                <span className="font-bold text-[#F5A623]">{stat.value.toLocaleString()}</span>
                 <span className="text-white/75">{stat.label}</span>
               </div>
             ))}

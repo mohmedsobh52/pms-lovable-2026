@@ -60,6 +60,9 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        gold: {
+          DEFAULT: "hsl(var(--gold))",
+        },
         workflow: {
           bg: "hsl(var(--workflow-bg))",
           node: "hsl(var(--workflow-node))",
