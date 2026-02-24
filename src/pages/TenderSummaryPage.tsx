@@ -5,6 +5,7 @@ import {
   Users, Building2, Shield, FileCheck, Settings, FileText,
   Table as TableIcon, Loader2, HardHat, ChevronDown, Package, Hammer, Wrench, Ruler, Target
 } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -549,102 +550,45 @@ export default function TenderSummaryPage() {
   return (
     <div className="min-h-screen bg-background" dir={isArabic ? "rtl" : "ltr"}>
       {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            {/* Right side - Logo and Navigation */}
-            <div className="flex items-center gap-2">
-              {/* زر الرجوع */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  if (window.history.length > 2) {
-                    navigate(-1);
-                  } else {
-                    navigate(`/projects/${projectId}`);
-                  }
-                }}
-                className="gap-1.5"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">
-                  {isArabic ? "رجوع" : "Back"}
-                </span>
-              </Button>
-              
-              {/* زر الرئيسية */}
-              <Button variant="outline" size="sm" asChild className="gap-1.5">
-                <Link to="/">
-                  <Home className="w-4 h-4" />
-                  <span className="hidden sm:inline">
-                    {isArabic ? "الرئيسية" : "Home"}
-                  </span>
-                </Link>
-              </Button>
-              
-              {/* Breadcrumbs */}
-              <nav className="hidden md:flex items-center gap-2 text-sm ms-2">
-                <Link to="/projects" className="text-muted-foreground hover:text-foreground transition-colors">
-                  {isArabic ? "المشاريع" : "Projects"}
-                </Link>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                <Link to={`/projects/${projectId}`} className="text-muted-foreground hover:text-foreground transition-colors">
-                  {project?.name || projectId}
-                </Link>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                <span className="text-foreground font-medium">
-                  {isArabic ? "التسعير" : "Pricing"}
-                </span>
-              </nav>
-            </div>
-
-            {/* Center - Title and Save Status */}
-            <div className="flex flex-col items-center">
-              <h1 className="text-lg font-bold">
-                {isArabic ? "ملخص العطاء" : "Tender Summary"}
-              </h1>
-              <div className="flex items-center gap-3">
-                <p className="text-sm text-muted-foreground">{project?.name}</p>
-                <SaveStatusIndicator status={saveStatus} lastSaved={lastSaved} isArabic={isArabic} />
-              </div>
-            </div>
-
-            {/* Left side - Actions */}
-            <div className="flex items-center gap-2">
-              <TenderPDFExport
-                isArabic={isArabic}
-                projectName={project?.name || "Project"}
-                pricingSettings={pricingSettings}
-                totals={totals}
-                staffData={staffData}
-                facilitiesData={facilitiesData}
-                insuranceData={insuranceData}
-                guaranteesData={guaranteesData}
-                indirectCostsData={indirectCostsData}
-                subcontractorsData={subcontractorsData}
-                directCosts={directCosts}
-                projectArea={projectArea}
-              />
-              <Button
-                onClick={handleCalculate}
-                disabled={isCalculating}
-                className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-              >
-                {isCalculating ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4" />
-                )}
-                {isArabic ? "حفظ" : "Save"}
-              </Button>
-              <LanguageToggle />
-              <ThemeToggle />
-              <UserMenu />
-            </div>
+      <PageHeader
+        icon={Calculator}
+        title={isArabic ? "ملخص العطاء" : "Tender Summary"}
+        subtitle={project?.name || ""}
+        actions={
+          <div className="flex items-center gap-2">
+            <SaveStatusIndicator status={saveStatus} lastSaved={lastSaved} isArabic={isArabic} />
+            <TenderPDFExport
+              isArabic={isArabic}
+              projectName={project?.name || "Project"}
+              pricingSettings={pricingSettings}
+              totals={totals}
+              staffData={staffData}
+              facilitiesData={facilitiesData}
+              insuranceData={insuranceData}
+              guaranteesData={guaranteesData}
+              indirectCostsData={indirectCostsData}
+              subcontractorsData={subcontractorsData}
+              directCosts={directCosts}
+              projectArea={projectArea}
+            />
+            <Button
+              onClick={handleCalculate}
+              disabled={isCalculating}
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+            >
+              {isCalculating ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              {isArabic ? "حفظ" : "Save"}
+            </Button>
+            <LanguageToggle />
+            <ThemeToggle />
+            <UserMenu />
           </div>
-        </div>
-      </header>
+        }
+      />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">

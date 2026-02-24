@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Home, Upload, History, Lightbulb, FolderOpen, ArrowLeft, ChevronLeft } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -86,92 +87,53 @@ export default function FastExtractionPage() {
     >
       <div className="min-h-screen">
         {/* Header */}
-        <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {/* زر الرجوع */}
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleBack}
-                  className="gap-1.5"
-                >
-                  {isArabic ? (
-                    <ChevronLeft className="h-4 w-4 rotate-180" />
-                  ) : (
-                    <ArrowLeft className="h-4 w-4" />
-                  )}
+        <PageHeader
+          icon={Upload}
+          title={isArabic ? "الاستخراج السريع" : "Fast Extraction"}
+          subtitle={isArabic ? "رفع وتصنيف واستخراج الملفات" : "Upload, classify and extract files"}
+          actions={
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowProjectFiles(true)}
+                className="gap-2 text-white/80 hover:text-white hover:bg-white/10"
+              >
+                <FolderOpen className="h-4 w-4" />
+                <span className="hidden sm:inline">
+                  {isArabic ? "ملفات المشاريع" : "Project Files"}
+                </span>
+              </Button>
+              <Button variant="ghost" size="sm" asChild className="text-white/80 hover:text-white hover:bg-white/10">
+                <Link to="/projects" className="gap-2">
+                  <History className="h-4 w-4" />
                   <span className="hidden sm:inline">
-                    {isArabic ? "رجوع" : "Back"}
+                    {isArabic ? "عمليات الاستخراج" : "Extraction History"}
                   </span>
-                </Button>
-                
-                {/* زر الرئيسية */}
-                <Button variant="outline" size="sm" asChild className="gap-1.5">
-                  <Link to="/">
-                    <Home className="h-4 w-4" />
-                    <span className="hidden sm:inline">
-                      {isArabic ? "الرئيسية" : "Home"}
-                    </span>
-                  </Link>
-                </Button>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowProjectFiles(true)}
-                  className="gap-2"
-                >
-                  <FolderOpen className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {isArabic ? "ملفات المشاريع" : "Project Files"}
-                  </span>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/projects" className="gap-2">
-                    <History className="h-4 w-4" />
-                    <span className="hidden sm:inline">
-                      {isArabic ? "عمليات الاستخراج" : "Extraction History"}
-                    </span>
-                  </Link>
-                </Button>
-                <Button
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => {
-                    setFiles([]);
-                    setCurrentStep(1);
-                  }}
-                >
-                  <Upload className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {isArabic ? "رفع جديد" : "New Upload"}
-                  </span>
-                </Button>
-                <ThemeToggle />
-                <LanguageToggle />
-                {user && <UserMenu />}
-              </div>
+                </Link>
+              </Button>
+              <Button
+                size="sm"
+                className="gap-2"
+                onClick={() => {
+                  setFiles([]);
+                  setCurrentStep(1);
+                }}
+              >
+                <Upload className="h-4 w-4" />
+                <span className="hidden sm:inline">
+                  {isArabic ? "رفع جديد" : "New Upload"}
+                </span>
+              </Button>
+              <ThemeToggle />
+              <LanguageToggle />
+              {user && <UserMenu />}
             </div>
-          </div>
-        </header>
+          }
+        />
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8">
-          {/* Title */}
-          <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold flex items-center justify-center gap-2">
-              ⚡ {isArabic ? "الاستخراج السريع" : "Fast Extraction"}
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              {isArabic
-                ? "رفع الملفات وتصنيفها بالذكاء الاصطناعي ومتابعة التقدم"
-                : "Upload files, classify with AI, and track progress"}
-            </p>
-          </div>
 
           {/* Stepper */}
           <FastExtractionStepper currentStep={currentStep} onStepClick={setCurrentStep} />

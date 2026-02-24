@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef, memo } from "react";
+import { PageHeader } from "@/components/PageHeader";
 import { useNavigate, Link, useSearchParams, useLocation } from "react-router-dom";
 import {
   FolderOpen, Trash2, Loader2, Calendar, FileText, Search,
@@ -803,38 +804,28 @@ export default function SavedProjectsPage() {
   return (
     <div className="min-h-screen bg-background" dir={isArabic ? 'rtl' : 'ltr'}>
       {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-                <ArrowLeft className="w-5 h-5" />
+      <PageHeader
+        icon={FolderOpen}
+        title={isArabic ? "المشاريع" : "Projects"}
+        subtitle={isArabic ? "إدارة المشاريع وتحليل ملفات BOQ" : "Manage projects and analyze BOQ files"}
+        stats={[
+          { value: projects.length, label: isArabic ? "المشاريع" : "Projects" },
+          { value: `${projects.reduce((sum, p) => sum + (p.total_value || 0), 0).toLocaleString()}`, label: isArabic ? "القيمة الإجمالية" : "Total Value", type: 'gold' as const },
+          { value: projects.reduce((sum, p) => sum + (p.items_count || 0), 0), label: isArabic ? "البنود" : "Items" },
+        ]}
+        actions={
+          <div className="flex items-center gap-2">
+            <LanguageToggle />
+            <ThemeToggle />
+            <Link to="/settings">
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-white/80 hover:text-white hover:bg-white/10">
+                <Settings2 className="h-4 w-4" />
               </Button>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <FolderOpen className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="font-display text-xl font-bold">
-                  {isArabic ? "المشاريع" : "Projects"}
-                </h1>
-                <p className="text-xs text-muted-foreground">
-                  {isArabic ? "إدارة المشاريع وتحليل ملفات BOQ" : "Manage projects and analyze BOQ files"}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <LanguageToggle />
-              <ThemeToggle />
-              <Link to="/settings">
-                <Button variant="ghost" size="icon" className="h-9 w-9">
-                  <Settings2 className="h-4 w-4" />
-                </Button>
-              </Link>
-              <UserMenu />
-            </div>
+            </Link>
+            <UserMenu />
           </div>
-        </div>
-      </header>
+        }
+      />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
