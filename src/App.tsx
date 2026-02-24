@@ -12,7 +12,7 @@ import { AnalysisTrackingProvider } from "@/hooks/useAnalysisTracking";
 import { GlobalSearchProvider } from "@/contexts/GlobalSearchContext";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import BackgroundImage from "@/components/BackgroundImage";
-import { FloatingBackButton } from "@/components/FloatingBackButton";
+
 import { FixedTopNav } from "@/components/FixedTopNav";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -86,7 +86,7 @@ const App = () => (
                 <GlobalSearchProvider>
                   <GlobalSearch />
                   <UpdateBanner />
-                  <FloatingBackButton />
+                  
                   <FixedTopNav />
                   <ErrorBoundary>
                     <Suspense fallback={<PageLoader />}>

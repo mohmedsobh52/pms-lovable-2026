@@ -1,14 +1,36 @@
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
+import { cn } from "@/lib/utils";
 
 export function FixedTopNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isArabic } = useLanguage();
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollY = useRef(0);
 
   const isHomePage = location.pathname === "/" || location.pathname === "/dashboard";
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      if (currentY < 100) {
+        setIsVisible(true);
+      } else if (currentY > lastScrollY.current) {
+        setIsVisible(false);
+      } else {
+        setIsVisible(true);
+      }
+      lastScrollY.current = currentY;
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   if (isHomePage) return null;
 
   const handleBack = () => {
@@ -21,9 +43,13 @@ export function FixedTopNav() {
 
   return (
     <div
-      className={`fixed top-4 z-50 flex items-center gap-1 bg-background/80 backdrop-blur-md border border-border/60 rounded-full shadow-lg px-1 py-1 ${
-        isArabic ? "right-4" : "left-4"
-      }`}
+      className={cn(
+        "fixed bottom-6 z-50 flex items-center gap-1 bg-background/80 backdrop-blur-md border border-border/60 rounded-full shadow-lg px-1 py-1 transition-all duration-300",
+        isArabic ? "right-6" : "left-6",
+        isVisible
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 translate-y-4 pointer-events-none"
+      )}
     >
       <Button
         variant="ghost"
