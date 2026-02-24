@@ -46,23 +46,18 @@ export async function verifyAuth(req: Request): Promise<{ userId: string | null;
   });
 
   try {
-    // Use getUser() which validates the token server-side
-    // This is more reliable than getClaims() which only decodes the JWT
-    const { data: userData, error: userError } = await supabase.auth.getUser();
+    const token = authHeader.replace('Bearer ', '');
+    const { data, error: claimsError } = await supabase.auth.getClaims(token);
 
-    if (userError || !userData?.user) {
-      console.error('Auth verification failed:', userError?.message || 'No user data');
+    if (claimsError || !data?.claims) {
+      console.error('Auth verification failed:', claimsError?.message || 'No claims data');
       
-      // Provide a more helpful error message
       let errorMessage = 'Unauthorized - Invalid token';
       let errorMessageAr = 'غير مصرح - الرمز غير صالح';
       
-      if (userError?.message?.includes('expired')) {
+      if (claimsError?.message?.includes('expired')) {
         errorMessage = 'Session expired - Please login again';
         errorMessageAr = 'انتهت الجلسة - يرجى تسجيل الدخول مرة أخرى';
-      } else if (userError?.message?.includes('refresh')) {
-        errorMessage = 'Session needs refresh - Please reload the page';
-        errorMessageAr = 'الجلسة تحتاج تحديث - يرجى إعادة تحميل الصفحة';
       }
       
       return {
@@ -78,8 +73,9 @@ export async function verifyAuth(req: Request): Promise<{ userId: string | null;
       };
     }
 
-    console.log(`User authenticated: ${userData.user.id}`);
-    return { userId: userData.user.id, error: null };
+    const userId = data.claims.sub as string;
+    console.log(`User authenticated: ${userId}`);
+    return { userId, error: null };
     
   } catch (err) {
     console.error('Auth exception:', err);
