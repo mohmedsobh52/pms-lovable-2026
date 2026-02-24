@@ -1,12 +1,15 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, memo } from "react";
 import { useNavigate, Link, useSearchParams, useLocation } from "react-router-dom";
 import {
   FolderOpen, Trash2, Loader2, Calendar, FileText, Search,
   ArrowLeft, Eye, Edit, DollarSign, Package, Filter, X,
   SortAsc, SortDesc, Download, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload,
-  TrendingUp, AlertTriangle, ExternalLink, FileSpreadsheet, History, Check, Pencil, Copy, Star
+  TrendingUp, AlertTriangle, ExternalLink, FileSpreadsheet, History, Check, Pencil, Copy, Star,
+  CheckCircle2, Clock, CircleDashed, Heart
 } from "lucide-react";
 import { useFavoriteProjects } from "@/hooks/useFavoriteProjects";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -137,6 +140,7 @@ export default function SavedProjectsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<string>("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [pricingFilter, setPricingFilter] = useState<string>("all");
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(null);
   const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
@@ -191,8 +195,23 @@ export default function SavedProjectsPage() {
     }
   }, [searchParams]);
 
-  const fetchProjects = async () => {
+  const fetchProjects = async (skipCache = false) => {
     if (!user) return;
+
+    // Check sessionStorage cache (3 min)
+    if (!skipCache) {
+      try {
+        const cached = sessionStorage.getItem(`pms_projects_${user.id}`);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < 3 * 60 * 1000) {
+            setProjects(data);
+            setIsLoading(false);
+            return;
+          }
+        }
+      } catch {}
+    }
     
     setIsLoading(true);
     try {
@@ -271,6 +290,11 @@ export default function SavedProjectsPage() {
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       setProjects(allProjects);
+
+      // Cache to sessionStorage
+      try {
+        sessionStorage.setItem(`pms_projects_${user.id}`, JSON.stringify({ data: allProjects, timestamp: Date.now() }));
+      } catch {}
 
       // تصحيح القيم الفاسدة في قاعدة البيانات (مرة واحدة)
       (async () => {
@@ -409,6 +433,23 @@ export default function SavedProjectsPage() {
     }
   }, []);
 
+  // Helper to get pricing percentage
+  const getPricingPct = useCallback((project: ProjectData) => {
+    const totalCount = project.items_count || 0;
+    if (totalCount === 0) return 0;
+    const pricedCount = (project.analysis_data?.items || [])
+      .filter((item: any) => (item.unit_price || 0) > 0 || (item.total_price || 0) > 0).length;
+    return Math.round((pricedCount / totalCount) * 100);
+  }, []);
+
+  // Stats computed from all projects
+  const projectStats = useMemo(() => {
+    const totalValue = projects.reduce((sum, p) => sum + getSafeProjectTotal(p), 0);
+    const totalItems = projects.reduce((sum, p) => sum + (p.items_count || 0), 0);
+    const completedPricing = projects.filter(p => getPricingPct(p) === 100).length;
+    return { totalValue, totalItems, completedPricing };
+  }, [projects, getPricingPct]);
+
   // Filter and sort projects
   const filteredProjects = useMemo(() => {
     let result = [...projects];
@@ -419,6 +460,17 @@ export default function SavedProjectsPage() {
         p.name.toLowerCase().includes(query) ||
         p.file_name?.toLowerCase().includes(query)
       );
+    }
+
+    // Pricing filter
+    if (pricingFilter === "completed") {
+      result = result.filter(p => getPricingPct(p) === 100);
+    } else if (pricingFilter === "in_progress") {
+      result = result.filter(p => { const pct = getPricingPct(p); return pct > 0 && pct < 100; });
+    } else if (pricingFilter === "no_pricing") {
+      result = result.filter(p => getPricingPct(p) === 0);
+    } else if (pricingFilter === "favorites") {
+      result = result.filter(p => isFavorite(p.id));
     }
     
     result.sort((a, b) => {
@@ -459,7 +511,7 @@ export default function SavedProjectsPage() {
     });
     
     return result;
-  }, [projects, searchQuery, sortField, sortDirection]);
+  }, [projects, searchQuery, sortField, sortDirection, pricingFilter, getPricingPct]);
 
   // Inline edit handlers
   const handleStartEdit = (project: ProjectData) => {
@@ -953,6 +1005,76 @@ export default function SavedProjectsPage() {
           </div>
         </div>
 
+        {/* Stats Summary Bar */}
+        {projects.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="glass-card p-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <FolderOpen className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{isArabic ? "المشاريع" : "Projects"}</p>
+                <p className="font-bold text-lg">{projects.length}</p>
+              </div>
+            </div>
+            <div className="glass-card p-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{isArabic ? "إجمالي القيمة" : "Total Value"}</p>
+                <p className="font-bold text-sm">{formatLargeNumber(projectStats.totalValue)}</p>
+              </div>
+            </div>
+            <div className="glass-card p-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                <Package className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{isArabic ? "إجمالي البنود" : "Total Items"}</p>
+                <p className="font-bold text-lg">{projectStats.totalItems.toLocaleString()}</p>
+              </div>
+            </div>
+            <div className="glass-card p-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{isArabic ? "مكتمل التسعير" : "Fully Priced"}</p>
+                <p className="font-bold text-lg">{projectStats.completedPricing}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pricing Filter Chips */}
+        <div className="flex flex-wrap gap-2">
+          {[
+            { key: "all", label: isArabic ? "الكل" : "All", icon: Filter },
+            { key: "completed", label: isArabic ? "مكتمل" : "Complete", icon: CheckCircle2 },
+            { key: "in_progress", label: isArabic ? "قيد التسعير" : "In Progress", icon: Clock },
+            { key: "no_pricing", label: isArabic ? "بدون تسعير" : "No Pricing", icon: CircleDashed },
+            { key: "favorites", label: isArabic ? "المفضلة" : "Favorites", icon: Star },
+          ].map(f => (
+            <button
+              key={f.key}
+              onClick={() => setPricingFilter(f.key)}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border",
+                pricingFilter === f.key
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:border-border"
+              )}
+            >
+              <f.icon className="w-3 h-3" />
+              {f.label}
+              {f.key === "all" && <span className="opacity-70">({projects.length})</span>}
+              {f.key === "completed" && <span className="opacity-70">({projectStats.completedPricing})</span>}
+              {f.key === "favorites" && <span className="opacity-70">({favorites.size})</span>}
+            </button>
+          ))}
+        </div>
+
         {/* Bulk Actions Bar */}
         {selectedProjectIds.size > 0 && (
           <div className="glass-card p-3 flex items-center justify-between gap-3 border-primary/20 bg-primary/5">
@@ -1011,46 +1133,96 @@ export default function SavedProjectsPage() {
         </AlertDialog>
 
         {/* Projects Grid */}
+        <TooltipProvider delayDuration={300}>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          /* Skeleton Loading */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="glass-card p-5 space-y-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-4 w-4 rounded" />
+                  <Skeleton className="h-5 w-3/4" />
+                </div>
+                <Skeleton className="h-3 w-1/2" />
+                <div className="grid grid-cols-2 gap-3">
+                  <Skeleton className="h-16 rounded-lg" />
+                  <Skeleton className="h-16 rounded-lg" />
+                </div>
+                <Skeleton className="h-1.5 w-full rounded-full" />
+                <Skeleton className="h-3 w-1/3" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-8 flex-1 rounded-md" />
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredProjects.length === 0 ? (
+          /* Enhanced Empty State */
           <div className="glass-card p-12 text-center">
-            <FolderOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="font-display text-lg font-semibold mb-2">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+              <FolderOpen className="w-10 h-10 text-primary" />
+            </div>
+            <h3 className="font-display text-xl font-bold mb-2">
               {isArabic ? "لا توجد مشاريع" : "No projects found"}
             </h3>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               {searchQuery 
                 ? (isArabic ? "لا توجد نتائج للبحث" : "No results match your search")
-                : (isArabic ? "ابدأ بتحليل ملف BOQ لحفظ مشروعك الأول" : "Start by analyzing a BOQ file to save your first project")
+                : (isArabic ? "ابدأ رحلتك بثلاث خطوات بسيطة" : "Get started in three simple steps")
               }
             </p>
             {!searchQuery && (
               <>
-                <Button onClick={() => setActiveTab("analyze")} className="gap-2 btn-gradient">
-                  <Sparkles className="w-4 h-4" />
-                  {isArabic ? "تحليل ملف جديد" : "Analyze New File"}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto mb-8">
+                  {[
+                    { icon: Upload, label: isArabic ? "١. ارفع الملف" : "1. Upload File", desc: isArabic ? "PDF أو Excel" : "PDF or Excel" },
+                    { icon: Sparkles, label: isArabic ? "٢. حلل تلقائياً" : "2. Auto Analyze", desc: isArabic ? "استخراج البنود" : "Extract items" },
+                    { icon: DollarSign, label: isArabic ? "٣. سعّر البنود" : "3. Price Items", desc: isArabic ? "تسعير ذكي" : "Smart pricing" },
+                  ].map((step, i) => (
+                    <div key={i} className="p-4 rounded-xl bg-muted/50 border border-border/50">
+                      <div className="w-10 h-10 mx-auto mb-2 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <step.icon className="w-5 h-5 text-primary" />
+                      </div>
+                      <p className="font-semibold text-sm">{step.label}</p>
+                      <p className="text-xs text-muted-foreground">{step.desc}</p>
+                    </div>
+                  ))}
+                </div>
+                <Button onClick={() => setActiveTab("analyze")} size="lg" className="gap-2 btn-gradient shadow-lg animate-pulse">
+                  <Sparkles className="w-5 h-5" />
+                  {isArabic ? "ابدأ الآن" : "Get Started"}
                 </Button>
-                <p className="text-xs text-muted-foreground mt-3">
-                  {isArabic ? "أو اسحب وأفلت ملف PDF/Excel مباشرةً هنا" : "Or drag & drop a PDF/Excel file directly here"}
-                </p>
               </>
             )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredProjects.map((project) => (
+            {filteredProjects.map((project, index) => {
+              const pricingPct = getPricingPct(project);
+              const totalCount = project.items_count || 0;
+              const pricedCount = (project.analysis_data?.items || [])
+                .filter((item: any) => (item.unit_price || 0) > 0 || (item.total_price || 0) > 0).length;
+              return (
               <div
                 key={project.id}
                 className={cn(
-                  "glass-card p-5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 group relative",
+                  "glass-card overflow-hidden hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 group relative",
                   selectedProjectIds.has(project.id) && "border-primary/40 bg-primary/5"
                 )}
+                style={{ animationDelay: `${index * 50}ms` }}
               >
+                {/* Color-coded top bar */}
+                <div className={cn(
+                  "h-1 w-full",
+                  pricingPct === 100 ? "bg-green-500" : pricingPct >= 30 ? "bg-primary" : pricingPct > 0 ? "bg-orange-400" : "bg-muted-foreground/20"
+                )} />
+
+                <div className="p-5">
                 {/* Selection Checkbox */}
-                <div className="absolute top-3 left-3 z-10 flex items-center gap-1">
+                <div className="absolute top-4 left-3 z-10 flex items-center gap-1">
                   <Checkbox
                     checked={selectedProjectIds.has(project.id)}
                     onCheckedChange={() => toggleProjectSelection(project.id)}
@@ -1058,9 +1230,8 @@ export default function SavedProjectsPage() {
                   <button
                     onClick={(e) => { e.stopPropagation(); toggleFavorite(project.id); }}
                     className="p-0.5 rounded hover:bg-muted transition-colors"
-                    title={isArabic ? "تثبيت" : "Pin"}
                   >
-                    <Star className={cn("w-4 h-4", isFavorite(project.id) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")} />
+                    <Star className={cn("w-4 h-4 transition-all", isFavorite(project.id) ? "fill-yellow-400 text-yellow-400 scale-110" : "text-muted-foreground")} />
                   </button>
                 </div>
                 {/* Header */}
@@ -1094,7 +1265,6 @@ export default function SavedProjectsPage() {
                         <button
                           onClick={() => handleStartEdit(project)}
                           className="opacity-0 group-hover/name:opacity-100 transition-opacity p-1 rounded hover:bg-muted"
-                          title={isArabic ? "تعديل الاسم" : "Edit name"}
                         >
                           <Pencil className="w-3 h-3 text-muted-foreground" />
                         </button>
@@ -1136,35 +1306,28 @@ export default function SavedProjectsPage() {
                 </div>
 
                 {/* Pricing Progress Bar */}
-                {(() => {
-                  const totalCount = project.items_count || 0;
-                  const pricedCount = (project.analysis_data?.items || [])
-                    .filter((item: any) => (item.unit_price || 0) > 0 || (item.total_price || 0) > 0).length;
-                  const pricingPct = totalCount > 0 ? Math.round((pricedCount / totalCount) * 100) : 0;
-                  if (totalCount === 0) return null;
-                  return (
-                    <div className="mb-3">
-                      <div className="flex justify-between items-center mb-1 text-xs text-muted-foreground">
-                        <span>{isArabic ? "التسعير" : "Pricing"}</span>
-                        <span className={cn(
-                          "font-semibold",
-                          pricingPct === 100 ? "text-green-600" : pricingPct > 50 ? "text-primary" : "text-orange-500"
-                        )}>
-                          {pricedCount}/{totalCount} ({pricingPct}%)
-                        </span>
-                      </div>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={cn(
-                            "h-full rounded-full transition-all duration-300",
-                            pricingPct === 100 ? "bg-green-500" : pricingPct > 50 ? "bg-primary" : "bg-orange-400"
-                          )}
-                          style={{ width: `${pricingPct}%` }}
-                        />
-                      </div>
+                {totalCount > 0 && (
+                  <div className="mb-3">
+                    <div className="flex justify-between items-center mb-1 text-xs text-muted-foreground">
+                      <span>{isArabic ? "التسعير" : "Pricing"}</span>
+                      <span className={cn(
+                        "font-semibold",
+                        pricingPct === 100 ? "text-green-600" : pricingPct > 50 ? "text-primary" : "text-orange-500"
+                      )}>
+                        {pricedCount}/{totalCount} ({pricingPct}%)
+                      </span>
                     </div>
-                  );
-                })()}
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all duration-500 ease-out",
+                          pricingPct === 100 ? "bg-green-500" : pricingPct > 50 ? "bg-primary" : "bg-orange-400"
+                        )}
+                        style={{ width: `${pricingPct}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Date */}
                 <div className="flex items-center gap-1 text-xs text-muted-foreground mb-4">
@@ -1176,7 +1339,7 @@ export default function SavedProjectsPage() {
                   })}
                 </div>
 
-                {/* Actions */}
+                {/* Actions with Tooltips */}
                 <div className="flex gap-2">
                   <Button
                     variant="default"
@@ -1187,30 +1350,30 @@ export default function SavedProjectsPage() {
                     <Edit className="w-4 h-4" />
                     {isArabic ? "تحميل" : "Load"}
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleViewDetails(project)}
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleExportToExcel(project)}
-                    title={isArabic ? "تصدير Excel" : "Export Excel"}
-                  >
-                    <Download className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCloneProject(project)}
-                    disabled={isCloning}
-                    title={isArabic ? "نسخ المشروع" : "Clone Project"}
-                  >
-                    {isCloning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="sm" onClick={() => handleViewDetails(project)}>
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{isArabic ? "عرض التفاصيل" : "View Details"}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="sm" onClick={() => handleExportToExcel(project)}>
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{isArabic ? "تصدير Excel" : "Export Excel"}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="sm" onClick={() => handleCloneProject(project)} disabled={isCloning}>
+                        {isCloning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{isArabic ? "نسخ المشروع" : "Clone Project"}</TooltipContent>
+                  </Tooltip>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
@@ -1241,10 +1404,13 @@ export default function SavedProjectsPage() {
                     </AlertDialogContent>
                   </AlertDialog>
                 </div>
+                </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
+        </TooltipProvider>
           </TabsContent>
 
           {/* Analyze BOQ Tab */}
