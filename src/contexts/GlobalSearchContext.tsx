@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
-export type SearchItemType = 'page' | 'project' | 'action' | 'setting' | 'file';
+export type SearchItemType = 'page' | 'project' | 'action' | 'setting' | 'file' | 'item' | 'contract';
 
 export interface SearchItem {
   id: string;
@@ -23,6 +23,8 @@ export interface SearchResults {
   projects: SearchItem[];
   actions: SearchItem[];
   settings: SearchItem[];
+  items: SearchItem[];
+  contracts: SearchItem[];
 }
 
 interface GlobalSearchContextType {
@@ -346,49 +348,73 @@ function GlobalSearchProviderInternal({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [projects, setProjects] = useState<SearchItem[]>([]);
+  const [dbItems, setDbItems] = useState<SearchItem[]>([]);
+  const [dbContracts, setDbContracts] = useState<SearchItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Fetch projects from database
+  // Fetch projects, items, contracts from database
   useEffect(() => {
-    const fetchProjects = async () => {
+    const fetchData = async () => {
       if (!user) {
         setProjects([]);
+        setDbItems([]);
+        setDbContracts([]);
         return;
       }
 
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('project_data')
-          .select('id, name, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(15);
+        const [projRes, contractRes] = await Promise.all([
+          supabase
+            .from('project_data')
+            .select('id, name, created_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(15),
+          supabase
+            .from('contracts')
+            .select('id, contract_title, contract_number, status')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(10),
+        ]);
 
-        if (error) throw error;
+        if (projRes.data) {
+          setProjects(projRes.data.map((p) => ({
+            id: `project-${p.id}`,
+            type: 'project' as const,
+            label: p.name,
+            labelAr: p.name,
+            icon: 'FolderOpen',
+            href: `/projects/${p.id}`,
+            keywords: [p.name.toLowerCase()],
+          })));
+        }
 
-        const projectItems: SearchItem[] = (data || []).map((p) => ({
-          id: `project-${p.id}`,
-          type: 'project' as const,
-          label: p.name,
-          labelAr: p.name,
-          icon: 'FolderOpen',
-          href: `/projects/${p.id}`,
-          keywords: [p.name.toLowerCase()],
-        }));
-
-        setProjects(projectItems);
+        if (contractRes.data) {
+          setDbContracts(contractRes.data.map((c) => ({
+            id: `contract-${c.id}`,
+            type: 'contract' as const,
+            label: `${c.contract_number} - ${c.contract_title}`,
+            labelAr: `${c.contract_number} - ${c.contract_title}`,
+            description: c.status || '',
+            descriptionAr: c.status || '',
+            icon: 'FileContract',
+            href: `/contracts`,
+            keywords: [c.contract_title.toLowerCase(), c.contract_number.toLowerCase()],
+          })));
+        }
       } catch (error) {
-        console.error('Error fetching projects:', error);
+        console.error('Error fetching search data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
     if (isOpen) {
-      fetchProjects();
+      fetchData();
     }
   }, [isOpen, user]);
 
@@ -422,8 +448,10 @@ function GlobalSearchProviderInternal({ children }: { children: ReactNode }) {
       projects: filterItems(projects, query),
       actions: filterItems(quickActions, query),
       settings: filterItems(settingsItems, query),
+      items: filterItems(dbItems, query),
+      contracts: filterItems(dbContracts, query),
     };
-  }, [query, projects, filterItems]);
+  }, [query, projects, dbItems, dbContracts, filterItems]);
 
   // Navigate to item
   const navigateToItem = useCallback(
