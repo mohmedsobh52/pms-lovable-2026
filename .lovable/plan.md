@@ -1,85 +1,95 @@
 
 
-# المرحلة 7: تحسين الأداء والشكل لصفحة المشاريع
-
-بناءً على مراجعة الكود والصورة المرفقة، هذه التحسينات المقترحة:
+# المرحلة 8: لوحة تحكم إدارية + Dark/Light Mode محسّن + مراجعة التحسينات
 
 ---
 
-## 7.1 Skeleton Loading لبطاقات المشاريع
+## 8.1 لوحة تحكم إدارية (Admin Dashboard)
 
-**الملف:** `src/pages/SavedProjectsPage.tsx`
+### المشكلة الحالية
+صفحة `AdminVersions.tsx` تستخدم فحص أمان ضعيف (`ADMIN_EMAILS` hardcoded). لا توجد لوحة إدارية شاملة لعرض إحصائيات النظام.
 
-استبدال مؤشر التحميل الدوار (Spinner) بهيكل تحميل (Skeleton) يُظهر 6 بطاقات وهمية بنفس تخطيط البطاقات الحقيقية أثناء انتظار البيانات. يحسن التجربة البصرية بشكل ملحوظ.
+### التعديلات المطلوبة
 
----
+#### أ. إنشاء صفحة إدارية جديدة
+**ملف جديد:** `src/pages/AdminDashboardPage.tsx`
 
-## 7.2 شريط إحصائيات سريع (Stats Summary Bar)
+صفحة تعرض:
+- عدد المستخدمين المسجلين (من `saved_projects` بـ `distinct user_id`)
+- عدد المشاريع الإجمالي والنشطة (آخر 30 يوم)
+- عدد العقود والعروض المقدمة
+- إحصائيات الاستخدام الشهري (رسم بياني خطي)
+- آخر المشاريع المنشأة (جدول)
+- توزيع المشاريع حسب الحالة (رسم دائري)
 
-**الملف:** `src/pages/SavedProjectsPage.tsx`
+**ملاحظة أمنية:** سيتم استخدام جدول `user_roles` الموجود مع دالة `has_role` للتحقق من صلاحية Admin عبر Edge Function آمنة.
 
-إضافة شريط إحصائيات أعلى شبكة المشاريع يعرض:
-- إجمالي المشاريع
-- إجمالي القيمة الكلية (مجموع قيم كل المشاريع)
-- إجمالي البنود
-- المشاريع المكتملة التسعير (100%)
+#### ب. إنشاء Edge Function لجلب الإحصائيات
+**ملف جديد:** `supabase/functions/admin-stats/index.ts`
 
-بأيقونات ملونة وتصميم بطاقات صغيرة.
+- تتحقق من أن المستخدم لديه دور `admin` في `user_roles`
+- تجلب الإحصائيات من الجداول المختلفة باستخدام `service_role_key`
+- ترجع البيانات بتنسيق JSON
 
----
-
-## 7.3 تحسين تصميم بطاقات المشاريع
-
-**الملف:** `src/pages/SavedProjectsPage.tsx`
-
-- إضافة تأثير hover أفضل مع ارتفاع الظل (shadow elevation)
-- إضافة شريط لوني علوي يتغير حسب نسبة التسعير (أحمر < 30%، برتقالي < 70%، أخضر = 100%)
-- تحسين تباعد العناصر داخل البطاقة
-- إضافة tooltip على أزرار الإجراءات
-
----
-
-## 7.4 تحسين الأداء - Lazy Loading وتخزين مؤقت
-
-**الملف:** `src/pages/SavedProjectsPage.tsx`
-
-- إضافة `sessionStorage` cache لمدة 3 دقائق لقائمة المشاريع (تحميل فوري عند العودة)
-- استخدام `React.memo` لمكون البطاقة لمنع إعادة الرندرة غير الضرورية
-- تحسين `fetchProjects` بإزالة منطق إصلاح البيانات من الاستعلام الرئيسي ونقله لـ background task
+#### ج. تسجيل المسار في App.tsx
+إضافة route جديد: `/admin/dashboard`
 
 ---
 
-## 7.5 فلتر حسب حالة التسعير
+## 8.2 تحسين نظام Dark/Light Mode
 
-**الملف:** `src/pages/SavedProjectsPage.tsx`
+### المشكلة الحالية
+- `ThemeToggle.tsx` يدير الثيم محلياً بـ `useState` مستقل
+- `UnifiedHeader.tsx` يكرر نفس المنطق (سطور 106-120)
+- لا يوجد Context مشترك، مما يعني أن التبديل في مكان لا ينعكس فوراً في مكان آخر
+- بعض الصفحات تستخدم `ThemeToggle` مباشرة خارج `UnifiedHeader`
 
-إضافة أزرار فلتر سريعة (chips) أسفل شريط البحث:
-- الكل
-- مكتمل التسعير (100%)
-- قيد التسعير (1-99%)
-- بدون تسعير (0%)
-- المفضلة فقط
+### التعديلات المطلوبة
+
+#### أ. إنشاء ThemeProvider مركزي
+**ملف جديد:** `src/hooks/useTheme.tsx`
+
+```text
+ThemeProvider:
+- يقرأ الثيم من localStorage عند التحميل
+- يستمع لتغييرات النظام (prefers-color-scheme)
+- يوفر toggleTheme() و theme و setTheme()
+- يطبق الفئة "dark" على document.documentElement
+```
+
+#### ب. تحديث ThemeToggle.tsx
+تبسيط المكون ليستخدم `useTheme()` بدلاً من إدارة الحالة محلياً.
+
+#### ج. تحديث UnifiedHeader.tsx
+إزالة منطق الثيم المكرر (سطور 106-120) واستخدام `useTheme()`.
+
+#### د. تحديث App.tsx
+لف التطبيق بـ `ThemeProvider`.
+
+#### هـ. تحسين ألوان Dark Mode في index.css
+- تحسين تباين `--warning` في الوضع الداكن
+- إضافة `--shadow-*` مخصصة للوضع الداكن
+- ضبط شفافية الحدود لتكون أوضح
 
 ---
 
-## 7.6 تحسين الحركات والانتقالات (Animations)
+## 8.3 مراجعة وإصلاح التحسينات السابقة
 
-**الملف:** `src/pages/SavedProjectsPage.tsx`
+### التحققات المطلوبة
 
-- إضافة animation عند ظهور البطاقات (staggered fade-in)
-- إضافة transition سلس عند الفلترة والترتيب
-- تحسين حركة شريط التقدم (progress bar) بـ CSS transition
+#### أ. فحص كونسول المتصفح
+- التأكد من عدم وجود أخطاء JavaScript
+- فحص التحذيرات المتعلقة بـ React keys أو deprecated APIs
 
----
+#### ب. فحص الشبكة
+- التأكد من نجاح استعلامات Supabase
+- فحص أي طلبات فاشلة (4xx/5xx)
 
-## 7.7 تحسين صفحة المشاريع الفارغة (Empty State)
-
-**الملف:** `src/pages/SavedProjectsPage.tsx`
-
-تحسين رسالة "لا توجد مشاريع" بإضافة:
-- رسم توضيحي أكبر وأجمل (أيقونة متدرجة)
-- 3 خطوات سريعة للبدء (رفع ملف، تحليل، تسعير)
-- زر بارز مع تأثير pulse
+#### ج. إصلاح مشاكل معروفة
+- التأكد من أن Skeleton Loading يظهر بشكل صحيح
+- التأكد من عمل فلاتر حالة التسعير
+- التأكد من عمل نظام المفضلة
+- التأكد من عمل البحث الشامل في العقود
 
 ---
 
@@ -87,13 +97,20 @@
 
 | الملف | التعديل |
 |-------|---------|
-| `src/pages/SavedProjectsPage.tsx` | Skeleton, stats bar, card design, filters, animations, empty state, caching |
+| `src/pages/AdminDashboardPage.tsx` | ملف جديد - لوحة تحكم إدارية |
+| `supabase/functions/admin-stats/index.ts` | ملف جديد - Edge Function للإحصائيات |
+| `src/hooks/useTheme.tsx` | ملف جديد - ThemeProvider مركزي |
+| `src/components/ThemeToggle.tsx` | تبسيط لاستخدام useTheme |
+| `src/components/UnifiedHeader.tsx` | إزالة منطق الثيم المكرر |
+| `src/App.tsx` | إضافة ThemeProvider + route admin |
+| `src/index.css` | تحسين ألوان Dark Mode |
+| `supabase/config.toml` | تسجيل admin-stats function |
 
 ## ترتيب التنفيذ
 
-1. Skeleton Loading + Stats Bar (تحسين فوري)
-2. تصميم البطاقات + شريط لوني + tooltips
-3. فلاتر حالة التسعير
-4. تخزين مؤقت + React.memo
-5. الحركات والانتقالات + Empty State
+1. ThemeProvider + تحديث ThemeToggle + UnifiedHeader (أساسي)
+2. تحسين ألوان Dark Mode في CSS
+3. Edge Function للإحصائيات الإدارية
+4. صفحة Admin Dashboard + Route
+5. مراجعة وإصلاح التحسينات السابقة
 
