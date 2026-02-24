@@ -1,107 +1,79 @@
 
-# المرحلة 20.2: التحديث الشامل النهائي - تأثيرات حركية + ألوان موحدة للجداول + إصلاح الخلفية
+# المرحلة 20.2: التحديث الشامل النهائي
+
+تأثيرات حركية ذهبية + ألوان موحدة للجداول + إصلاح الخلفية + PageHeader للصفحات المتبقية
 
 ---
 
-## 1. تأثيرات حركية ذهبية للبطاقات والأزرار (hover + click)
+## 1. تأثيرات حركية ذهبية (hover + click)
 
-**الملف:** `src/index.css`
+### `src/index.css`
+اضافة أنماط CSS جديدة في نهاية قسم `@layer components`:
 
-اضافة أنماط CSS جديدة:
-
-```css
-/* Gold hover glow for cards */
-.card-gold-hover {
-  transition: all 0.3s ease;
-}
-.card-gold-hover:hover {
-  border-color: hsl(var(--gold) / 0.4);
-  box-shadow: 0 0 20px hsl(var(--gold) / 0.15);
-  transform: translateY(-2px);
-}
-
-/* Gold click effect for buttons */
-.btn-gold-press:active {
-  transform: scale(0.97);
-  box-shadow: 0 0 15px hsl(var(--gold) / 0.3) inset;
-}
-
-/* Gold hover for buttons */
-.btn-gold-hover {
-  transition: all 0.2s ease;
-}
-.btn-gold-hover:hover {
-  box-shadow: 0 0 15px hsl(var(--gold) / 0.2);
-  border-color: hsl(var(--gold) / 0.5);
-}
+```text
+.card-gold-hover    -> hover: border-gold/40, shadow gold/15, translateY(-2px)
+.btn-gold-hover     -> hover: shadow gold/20, border-gold/50
+.btn-gold-press     -> active: scale(0.97), inset shadow gold/30
 ```
 
-**الملف:** `src/components/ui/card.tsx`
+### `src/components/ui/card.tsx`
+- تغيير `transition` من بدون الى `transition-all duration-200`
+- اضافة `hover:shadow-md hover:-translate-y-0.5` للـ Card الافتراضي
 
-- اضافة `transition-all duration-200 hover:shadow-lg hover:border-[hsl(var(--gold)/0.3)] hover:-translate-y-0.5` للـ Card الافتراضي
-
-**الملف:** `src/components/ui/button.tsx`
-
-- اضافة `active:scale-[0.98]` للـ Button الافتراضي لتأثير الضغط
-- اضافة `transition-all` (بدلاً من `transition-colors` فقط) لدعم تأثير الـ transform
-
----
-
-## 2. نظام ألوان الجداول والبطاقات الداخلية (كحلي + أزرق + ذهبي)
-
-**الملف:** `src/components/ui/table.tsx`
-
-- `TableHead`: تغيير الخلفية من `muted` الى تدرج كحلي خفيف: `bg-[#1a2744]/5 dark:bg-[#1a2744]/30` مع نص كحلي `text-[#1a2744] dark:text-white/80`
-- `TableRow` hover: تغيير من `hover:bg-muted/50` الى `hover:bg-[#2563EB]/5 dark:hover:bg-[#2563EB]/10` (لمسة أزرق خفيفة عند المرور)
-
-**الملف:** `src/index.css` (تحسين `.data-table`)
-
-- `.data-table th`: خلفية كحلية خفيفة `bg-[#1a2744]/8` + نص كحلي `text-[#1a2744]`
-- `.data-table tr:hover td`: خلفية أزرق خفيف `bg-[#2563EB]/5`
-
-**الملف:** `src/components/ui/card.tsx`
-
-- البطاقات تحصل على hover ذهبي خفيف (border-gold/30)
+### `src/components/ui/button.tsx`
+- تغيير `transition-colors` الى `transition-all duration-200`
+- اضافة `active:scale-[0.98]` لتأثير الضغط على جميع الأزرار
 
 ---
 
-## 3. اصلاح الخلفية - وضوح النصوص
+## 2. ألوان كحلي/أزرق/ذهبي للجداول
 
-**الملف:** `src/index.css`
+### `src/components/ui/table.tsx`
+- `TableHead`: تغيير من `text-muted-foreground` الى `bg-[#1a2744]/5 dark:bg-[#1a2744]/20 text-[#1a2744] dark:text-white/80 font-semibold`
+- `TableRow`: تغيير من `hover:bg-muted/50` الى `hover:bg-[#2563EB]/5 dark:hover:bg-[#2563EB]/10`
 
-- **الوضع الفاتح**: التأكد ان `.interactive-bg` يستخدم ألوان فاتحة جداً (98% lightness)
-- **الوضع الداكن**: التأكد ان الخلفية كحلية عميقة بدون تداخل مع النصوص
-- تحسين `--foreground` في الوضع الفاتح ليكون أغمق `222 47% 8%` لتباين أعلى
+---
 
-**الملف:** `src/components/BackgroundImage.tsx`
+## 3. اصلاح الخلفية والتباين
 
-- التأكد من overlay: `bg-background/85 dark:bg-background/50` لضمان وضوح النصوص
+### `src/components/BackgroundImage.tsx`
+- تعديل overlay من `bg-background/80 dark:bg-background/40` الى `bg-background/85 dark:bg-background/50`
+
+### `src/index.css`
+- تفتيح `.interactive-bg` اكثر في الوضع الفاتح (99% lightness)
+- تحسين `--foreground` في الوضع الفاتح ليكون اغمق لتباين افضل
 
 ---
 
 ## 4. تطبيق PageHeader على الصفحات المتبقية
 
-### 4.1 SavedProjectsPage.tsx
-- استبدال الهيدر المحلي (سطور 806-837) بـ `PageHeader` بايقونة `FolderOpen`
+### 4.1 `src/pages/SavedProjectsPage.tsx`
+- استبدال الهيدر المحلي (سطور 806-837) بـ `PageHeader`
+- ايقونة: `FolderOpen`
 - عنوان: "Projects" / "المشاريع"
 - وصف: "Manage projects and analyze BOQ files"
 - stats: عدد المشاريع، القيمة الاجمالية (gold)، البنود الاجمالية
-- الاحتفاظ بأزرار اللغة/الثيم/الاعدادات/المستخدم في actions
+- الاحتفاظ بأزرار اللغة/الثيم/الاعدادات/المستخدم في `actions`
 
-### 4.2 CostAnalysisPage.tsx
-- استبدال الهيدر المحلي (سطور 986-1004) بـ `PageHeader` بايقونة `Calculator`
-- عنوان: "تحليل تكاليف البنود" / "Cost Analysis"
+### 4.2 `src/pages/CostAnalysisPage.tsx`
+- استبدال الهيدر المحلي (سطور 986-1004) بـ `PageHeader`
+- ايقونة: `Calculator`
+- عنوان: "Cost Analysis" / "تحليل تكاليف البنود"
 - الاحتفاظ بزر العودة وThemeToggle في actions
 
-### 4.3 FastExtractionPage.tsx
-- استبدال الهيدر المحلي (سطور 89-165) بـ `PageHeader` بايقونة `Upload`
+### 4.3 `src/pages/FastExtractionPage.tsx`
+- استبدال الهيدر المحلي (سطور 89-160) بـ `PageHeader`
+- ايقونة: `Upload`
 - عنوان: "Fast Extraction" / "الاستخراج السريع"
+- وصف: "Upload, classify and extract files"
 - الاحتفاظ بالأزرار الوظيفية في actions
 
-### 4.4 TenderSummaryPage.tsx
-- استبدال الهيدر المحلي (سطور 552-635) بـ `PageHeader` بايقونة `Calculator`
-- عنوان: "Tender Summary" / "ملخص التسعير"
-- الاحتفاظ بالBreadcrumbs والأزرار في actions
+### 4.4 `src/pages/TenderSummaryPage.tsx`
+- استبدال الهيدر المحلي (سطور 552-647) بـ `PageHeader`
+- ايقونة: `Calculator`
+- عنوان: "Tender Summary" / "ملخص العطاء"
+- وصف: اسم المشروع
+- الاحتفاظ بالBreadcrumbs وSaveStatus وأزرار الاجراءات في actions
 
 ---
 
@@ -109,10 +81,10 @@
 
 | الملف | التعديل |
 |-------|---------|
-| `src/index.css` | تأثيرات حركية ذهبية + اصلاح خلفية + أنماط جداول |
-| `src/components/ui/card.tsx` | hover ذهبي + transition |
+| `src/index.css` | تأثيرات حركية ذهبية + تحسين خلفية |
+| `src/components/ui/card.tsx` | hover + transition |
 | `src/components/ui/button.tsx` | active scale + transition-all |
-| `src/components/ui/table.tsx` | ألوان كحلي/أزرق للجداول |
+| `src/components/ui/table.tsx` | ألوان كحلي/أزرق |
 | `src/components/BackgroundImage.tsx` | تحسين overlay |
 | `src/pages/SavedProjectsPage.tsx` | PageHeader موحد |
 | `src/pages/CostAnalysisPage.tsx` | PageHeader موحد |
@@ -121,16 +93,16 @@
 
 ## ترتيب التنفيذ
 
-1. تحديث `index.css` (تأثيرات حركية + خلفية + جداول)
-2. تحديث `card.tsx` + `button.tsx` + `table.tsx` (مكونات UI)
+1. تحديث `index.css` (تأثيرات + خلفية)
+2. تحديث `card.tsx` + `button.tsx` + `table.tsx` (بالتوازي)
 3. تحسين `BackgroundImage.tsx`
-4. تطبيق `PageHeader` على الصفحات الأربع المتبقية (بالتوازي)
+4. تطبيق `PageHeader` على الصفحات الأربع (بالتوازي)
 
 ## النتيجة المتوقعة
 
-- تأثيرات hover ذهبية أنيقة على جميع البطاقات في البرنامج
+- تأثيرات hover ذهبية على جميع البطاقات في البرنامج
 - تأثير ضغط (active scale) على جميع الأزرار
-- رؤوس الجداول بلون كحلي خفيف بدلاً من الرمادي العادي
+- رؤوس الجداول بلون كحلي خفيف
 - صفوف الجداول بتأثير hover أزرق خفيف
-- خلفية واضحة لا تتداخل مع النصوص في كلا الوضعين
-- جميع الصفحات بدون استثناء تستخدم PageHeader الموحد
+- خلفية واضحة مع تباين عالي في كلا الوضعين
+- جميع الصفحات تستخدم PageHeader الموحد بدون استثناء
