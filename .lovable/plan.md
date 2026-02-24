@@ -1,117 +1,97 @@
 
-# المرحلة 12: إصلاح التنقل بين الصفحات + تحسين WBS + تحسين الأداء العام
+# المرحلة 13: تفعيل نسب أداء المدن + تحسين دقة التسعير لـ 98%+
 
 ---
 
-## 12.1 إصلاح مشكلة العودة لنقطة البداية عند التنقل بين الصفحات (خلل حرج)
+## 13.1 إضافة نظام City Performance Factors (معاملات أداء المدن)
 
-### المشكلة
-عند التنقل بين تبويبات الشريط الجانبي (WBS, Cost, Brief, Charts, Time Schedule, Schedule Integration)، ثم الخروج من تبويب "Analysis" في ProjectDetailsPage والعودة إليه، يتم إعادة تعيين `activeTab` إلى `"items"` لأن:
-1. Radix UI `TabsContent` يُلغي تحميل (unmount) المحتوى عند تبديل التبويب الخارجي
-2. `AnalysisResults` يُعاد تحميله بالكامل (remount) فيعود `useState("items")` للقيمة الأولية
+### المشكلة الحالية
+المدينة المختارة (Riyadh/Jeddah/etc.) تُرسل كنص فقط إلى AI دون تأثير فعلي على الأسعار المرجعية أو المكتبية. لا يوجد نظام معاملات (factors) يعدل الأسعار حسب المدينة.
 
 ### التعديلات المطلوبة
 
-**الملف:** `src/components/AnalysisResults.tsx`
+**الملف:** `supabase/functions/suggest-market-rates/index.ts`
 
-- تغيير `useState("items")` لاستخدام `sessionStorage` لحفظ التبويب النشط:
-```typescript
-const [activeTab, setActiveTab] = useState<...>(() => {
-  const saved = sessionStorage.getItem(`analysis_active_tab_${savedProjectId}`);
-  return (saved as typeof activeTab) || "items";
-});
-```
-- إضافة `useEffect` لحفظ التبويب عند تغييره:
-```typescript
-useEffect(() => {
-  if (savedProjectId) {
-    sessionStorage.setItem(`analysis_active_tab_${savedProjectId}`, activeTab);
-  }
-}, [activeTab, savedProjectId]);
-```
-
-**الملف:** `src/pages/ProjectDetailsPage.tsx`
-
-- إضافة `forceMount` على `TabsContent` الخاص بـ "analysis" لمنع إلغاء التحميل:
-```tsx
-<TabsContent value="analysis" forceMount className={activeTab !== "analysis" ? "hidden" : ""}>
+إضافة `CITY_FACTORS` بعد `REFERENCE_PRICES`:
+```text
+const CITY_FACTORS: Record<string, { factor: number; label: string }> = {
+  "Riyadh":  { factor: 1.00, label: "Baseline" },
+  "Jeddah":  { factor: 1.05, label: "+5%" },
+  "Dammam":  { factor: 0.97, label: "-3%" },
+  "Makkah":  { factor: 1.08, label: "+8%" },
+  "Madinah": { factor: 1.04, label: "+4%" },
+  "Khobar":  { factor: 0.98, label: "-2%" },
+  "Tabuk":   { factor: 1.12, label: "+12% (remote)" },
+  "Abha":    { factor: 1.10, label: "+10% (mountain)" },
+  // UAE
+  "Dubai":   { factor: 1.25, label: "+25%" },
+  "Abu Dhabi": { factor: 1.20, label: "+20%" },
+  // Egypt
+  "Cairo":   { factor: 0.45, label: "-55%" },
+  "Alexandria": { factor: 0.42, label: "-58%" },
+  // Qatar/Kuwait
+  "Doha":    { factor: 1.30, label: "+30%" },
+  "Kuwait City": { factor: 1.15, label: "+15%" },
+};
 ```
 
----
+تعديل `processBatch`:
+- استخراج `cityFactor` من `CITY_FACTORS[location]` (default 1.0)
+- تطبيقه على كل الأسعار: `suggested_avg * cityFactor`, `suggested_min * cityFactor`, `suggested_max * cityFactor`
+- إضافة `city_factor` في ملاحظات النتيجة
 
-## 12.2 إصلاح أخطاء شاشة WBS
+**الملف:** `src/components/MarketRateSuggestions.tsx`
 
-### المشكلة
-1. تحذير Console: `CostAnalysis` لا يدعم `ref` (Radix يحاول تمرير ref)
-2. شاشة WBS تعمل لكن تحتاج تحسينات أداء
-
-### التعديلات المطلوبة
-
-**الملف:** `src/components/CostAnalysis.tsx`
-
-- تحويل `CostAnalysis` إلى `forwardRef` لإصلاح تحذير Console:
-```typescript
-export const CostAnalysis = React.forwardRef<HTMLDivElement, CostAnalysisProps>(
-  function CostAnalysis({ items, currency = "ر.س" }, ref) {
-    // ... existing code
-    return <div ref={ref}>...</div>;
-  }
-);
-```
-
-**الملف:** `src/components/WBSFlowDiagram.tsx`
-
-- تحسين حساب مواقع العُقد (nodes) باستخدام `useMemo`
-- إضافة error boundary داخلي لمنع تعطل الصفحة عند بيانات WBS غير مكتملة
-- إضافة null-check على `parent_code` قبل البحث عن العُقد الأب
-
-**الملف:** `src/components/WBSTreeDiagram.tsx`
-
-- التأكد أن `useMemo` و `React.memo` مطبقة بشكل صحيح (تم في المرحلة 10)
-- إضافة حماية ضد البيانات الفارغة أو المكررة في `wbsData`
+- إضافة عرض معامل المدينة بجانب dropdown المدينة كـ Badge
+- إضافة مدن UAE/Egypt/Qatar/Kuwait حسب المنطقة المختارة (dynamic city list)
+- إضافة مدن لكل منطقة بدلاً من عرض مدن السعودية فقط دائماً
 
 ---
 
-## 12.3 تحسين أداء شاشات Charts و DataCharts
+## 13.2 تحسين دقة التسعير إلى 98%+
 
-### التعديلات المطلوبة
+### التعديلات في Edge Function
 
-**الملف:** `src/components/DataCharts.tsx`
+**الملف:** `supabase/functions/suggest-market-rates/index.ts`
 
-- التأكد أن `useMemo` مطبق على جميع حسابات الرسوم البيانية
-- إضافة `useCallback` لدوال التفاعل (`fetchAIInsights`, `CustomTooltip`)
-- تحسين responsive عبر تقليل عدد labels في المحور X للشاشات الصغيرة
-- إضافة transition animation عند تبديل نوع الرسم
+#### أ. تعزيز خوارزمية `findReferencePrice`
+- خفض عتبة المطابقة من `score >= 25` إلى `score >= 20` لزيادة تغطية Reference
+- إضافة مطابقة الوحدات كعامل ترجيح: إذا تطابقت الوحدة مع `ref.unit` يُضاف +10 نقاط
+- تحسين `fuzzyMatch` لدعم مطابقة الأجزاء (substring matching) بوزن أعلى
 
----
+#### ب. تعزيز `findHistoricalPrice`
+- زيادة حد `confidence >= 75` إلى `confidence >= 65` لقبول مطابقات أكثر
+- إضافة تعديل التضخم الديناميكي: بدلاً من 4% ثابت، حساب نسبة تعتمد على عمر السجل
 
-## 12.4 تحسين أداء شاشة Time Schedule و Schedule Integration
-
-### التعديلات المطلوبة
-
-**الملف:** `src/components/ProjectTimeline.tsx`
-
-- التأكد أن `useMemo` مطبق على حسابات Gantt chart
-- إضافة skeleton loading أثناء توليد الجدول الزمني
-- تحسين عرض Critical Path بلون أحمر واضح + خط أعرض
-
-**الملف:** `src/components/ScheduleIntegration.tsx`
-
-- التأكد أن cache الـ `localStorage` يعمل بشكل صحيح (تم في المرحلة 10)
-- تحسين loading state مع skeleton بدلاً من spinner
+#### ج. تحسين AI Validation
+- تعديل `validatePrice` لمنح الثقة العالية عندما يتطابق سعر AI مع نطاق Reference (±15%)
+- إضافة cross-validation: إذا كان سعر AI وReference وHistorical كلهم في نفس النطاق (±20%)، رفع الثقة إلى "High"
 
 ---
 
-## 12.5 تحسين الرسوم البيانية والصور
+## 13.3 تحسين واجهة MarketRateSuggestions
 
-### التعديلات المطلوبة
+**الملف:** `src/components/MarketRateSuggestions.tsx`
 
-**الملفات:** `DataCharts.tsx`, `CostAnalysis.tsx`, `ScheduleIntegration.tsx`
+### أ. عرض معامل المدينة
+- إضافة Badge بجوار selector المدينة يعرض النسبة (مثل "+5%" أو "Baseline")
+- إضافة tooltip يشرح تأثير المعامل
 
-- ضمان أن جميع الرسوم تستخدم `ResponsiveContainer` بأبعاد مناسبة
-- تحسين الألوان والتدرجات في الرسوم
-- إضافة خاصية `animationDuration` مناسبة لكل نوع رسم
-- تحسين tooltip styling لجعلها أوضح
+### ب. إضافة بطاقة "Historical" في الإحصائيات
+- حالياً تعرض 4 بطاقات: Library, Reference, AI, Accuracy
+- إضافة بطاقة Historical (amber) + نقل Avg Deviation
+
+### ج. تحسين قائمة المدن حسب المنطقة
+- إضافة REGION_CITIES map:
+  - saudi: [Riyadh, Jeddah, Dammam, Makkah, Madinah, Khobar, Tabuk, Abha]
+  - uae: [Dubai, Abu Dhabi, Sharjah, Ajman]
+  - egypt: [Cairo, Alexandria, Giza]
+  - qatar: [Doha, Al Wakrah]
+  - kuwait: [Kuwait City, Hawalli]
+  - bahrain: [Manama, Muharraq]
+  - oman: [Muscat, Salalah]
+- تغيير dropdown المدينة ليعرض مدن المنطقة المختارة فقط
+- إعادة تعيين المدينة عند تغيير المنطقة
 
 ---
 
@@ -119,25 +99,18 @@ export const CostAnalysis = React.forwardRef<HTMLDivElement, CostAnalysisProps>(
 
 | الملف | التعديل |
 |-------|---------|
-| `src/components/AnalysisResults.tsx` | حفظ التبويب في sessionStorage |
-| `src/pages/ProjectDetailsPage.tsx` | forceMount على analysis tab |
-| `src/components/CostAnalysis.tsx` | forwardRef + تحسين أداء |
-| `src/components/WBSFlowDiagram.tsx` | null checks + error handling |
-| `src/components/WBSTreeDiagram.tsx` | حماية بيانات فارغة |
-| `src/components/DataCharts.tsx` | useCallback + responsive |
-| `src/components/ProjectTimeline.tsx` | skeleton loading |
-| `src/components/ScheduleIntegration.tsx` | تحسين loading state |
+| `supabase/functions/suggest-market-rates/index.ts` | معاملات المدن + تحسين عتبات المطابقة + city factor |
+| `src/components/MarketRateSuggestions.tsx` | مدن ديناميكية + عرض معامل المدينة + بطاقة Historical |
 
 ## ترتيب التنفيذ
 
-1. إصلاح مشكلة العودة لنقطة البداية (الأهم - sessionStorage + forceMount)
-2. إصلاح CostAnalysis forwardRef warning
-3. تحسين WBS error handling
-4. تحسين Charts و Timeline و Integration (responsive + skeleton + animations)
+1. تحديث Edge Function بنظام City Factors وتحسين عتبات المطابقة
+2. تحسين واجهة MarketRateSuggestions بالمدن الديناميكية ومعامل المدينة
+3. إضافة بطاقة Historical في الإحصائيات
 
 ## النتيجة المتوقعة
 
-- التنقل بين WBS/Cost/Brief/Charts/Timeline/Integration يحافظ على الموقع عند العودة
-- اختفاء تحذير Console الخاص بـ CostAnalysis ref
-- WBS لا يتعطل عند بيانات ناقصة
-- رسوم بيانية أسرع وأجمل مع animations سلسة
+- كل مدينة لها معامل سعري يؤثر فعلياً في النتائج (مثلاً Tabuk +12% عن الرياض)
+- دقة التسعير ترتفع عبر قبول مطابقات أكثر من Reference وHistorical
+- عرض المدن يتغير ديناميكياً حسب المنطقة المختارة
+- المستخدم يرى معامل المدينة بوضوح قبل بدء التحليل
