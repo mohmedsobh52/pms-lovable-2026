@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface KPIData {
   totalValue: number;
@@ -33,22 +35,34 @@ interface EnhancedKPIDashboardProps {
   data: KPIData;
   title?: string;
   projectName?: string;
+  projectId?: string;
 }
 
-export function EnhancedKPIDashboard({ data, title, projectName }: EnhancedKPIDashboardProps) {
+export function EnhancedKPIDashboard({ data, title, projectName, projectId }: EnhancedKPIDashboardProps) {
   const { isArabic } = useLanguage();
   const currency = data.currency || "SAR";
   const completionRate = Math.round((data.completedItems / Math.max(data.itemCount, 1)) * 100);
-  const riskRate = Math.round((data.highRiskCount / Math.max(data.itemCount, 1)) * 100);
+  const [dbRiskCount, setDbRiskCount] = useState<number | null>(null);
+
+  // Fetch real risk count from database
+  useEffect(() => {
+    if (!projectId) return;
+    const fetchRisks = async () => {
+      const { count, error } = await supabase
+        .from('risks')
+        .select('*', { count: 'exact', head: true })
+        .eq('project_id', projectId)
+        .in('impact', ['high', 'very_high', 'critical']);
+      if (!error && count !== null) setDbRiskCount(count);
+    };
+    fetchRisks();
+  }, [projectId]);
+
+  const effectiveRiskCount = dbRiskCount !== null ? dbRiskCount : data.highRiskCount;
+  const riskRate = Math.round((effectiveRiskCount / Math.max(data.itemCount, 1)) * 100);
 
   const formatCurrency = (value: number) => {
-    if (value >= 1000000) {
-      return `${(value / 1000000).toFixed(2)}M`;
-    }
-    if (value >= 1000) {
-      return `${(value / 1000).toFixed(1)}K`;
-    }
-    return value.toLocaleString();
+    return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
   };
 
   return (
@@ -148,11 +162,11 @@ export function EnhancedKPIDashboard({ data, title, projectName }: EnhancedKPIDa
         {/* Risk Card */}
         <Card className={cn(
           "relative overflow-hidden group hover:shadow-lg transition-all duration-300",
-          data.highRiskCount > 0 && "border-destructive/30"
+          effectiveRiskCount > 0 && "border-destructive/30"
         )}>
           <div className={cn(
             "absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity",
-            data.highRiskCount > 0 
+            effectiveRiskCount > 0 
               ? "bg-gradient-to-br from-destructive/10 to-destructive/5" 
               : "bg-gradient-to-br from-green-500/10 to-green-500/5"
           )} />
@@ -160,11 +174,11 @@ export function EnhancedKPIDashboard({ data, title, projectName }: EnhancedKPIDa
             <div className="flex items-start justify-between">
               <div className={cn(
                 "p-3 rounded-xl transition-colors",
-                data.highRiskCount > 0 
+                effectiveRiskCount > 0 
                   ? "bg-destructive/10 group-hover:bg-destructive/20" 
                   : "bg-green-500/10 group-hover:bg-green-500/20"
               )}>
-                {data.highRiskCount > 0 ? (
+                {effectiveRiskCount > 0 ? (
                   <AlertTriangle className="w-6 h-6 text-destructive" />
                 ) : (
                   <CheckCircle2 className="w-6 h-6 text-green-600" />
@@ -177,9 +191,9 @@ export function EnhancedKPIDashboard({ data, title, projectName }: EnhancedKPIDa
             <div className="mt-4">
               <p className={cn(
                 "text-3xl font-bold tracking-tight",
-                data.highRiskCount > 0 ? "text-destructive" : "text-green-600"
+                effectiveRiskCount > 0 ? "text-destructive" : "text-green-600"
               )}>
-                {data.highRiskCount}
+                {effectiveRiskCount}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
                 {isArabic ? "بنود عالية المخاطر" : "High Risk Items"}
@@ -189,10 +203,10 @@ export function EnhancedKPIDashboard({ data, title, projectName }: EnhancedKPIDa
               <div className="flex items-center gap-2">
                 <Activity className={cn(
                   "w-4 h-4",
-                  data.highRiskCount > 0 ? "text-destructive" : "text-green-600"
+                  effectiveRiskCount > 0 ? "text-destructive" : "text-green-600"
                 )} />
                 <span className="text-sm">
-                  {data.highRiskCount > 0 
+                  {effectiveRiskCount > 0 
                     ? (isArabic ? "يحتاج مراجعة" : "Needs review")
                     : (isArabic ? "حالة جيدة" : "Good status")
                   }
@@ -249,7 +263,7 @@ export function EnhancedKPIDashboard({ data, title, projectName }: EnhancedKPIDa
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-destructive" />
-                <span className="text-sm">{isArabic ? "مخاطر" : "Risk"}: {data.highRiskCount}</span>
+                <span className="text-sm">{isArabic ? "مخاطر" : "Risk"}: {effectiveRiskCount}</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
