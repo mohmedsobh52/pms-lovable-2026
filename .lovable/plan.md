@@ -1,106 +1,92 @@
 
-
-# المرحلة 9: تحسين أداء التحليل المتقدم وربط التسعير بالمشاريع التاريخية
+# المرحلة 10: تفعيل Auto Price + تحسين أداء الشاشات الجانبية
 
 ---
 
-## 9.1 إضافة زر "التسعير التلقائي" في شاشة التحليل المتقدم (Analysis Tab)
+## 10.1 إصلاح وتفعيل زر Auto Price (خلل حرج)
 
-### المشكلة الحالية
-شاشة BOQ Tab تحتوي على زر "التسعير التلقائي" (`AutoPriceDialog`) الذي يطابق البنود مع مكتبة الأسعار المحلية، لكن شاشة التحليل المتقدم (`AnalysisResults`) لا تحتوي على هذا الزر. المستخدم يحتاج للعودة لتبويب BOQ لاستخدامه.
-
-### التعديلات المطلوبة
+**المشكلة:** زر "Auto Price" موجود في شريط الأدوات (سطر 1689-1697) ويفتح `showAutoPriceDialog` state، لكن مكون `<AutoPriceDialog>` **لم يتم عرضه (render) في JSX** - فالضغط على الزر لا يفعل شيئاً.
 
 **الملف:** `src/components/AnalysisResults.tsx`
 
-- إضافة زر "التسعير التلقائي" بجوار أزرار Suggest Rates و تحليل متقدم في شريط الأدوات (السطر ~1682)
-- ربطه بنفس `AutoPriceDialog` المستخدم في `ProjectBOQTab`
-- عند التطبيق، تحديث `project_items` في قاعدة البيانات + تحديث `data.items` محلياً
-- إضافة state لـ `showAutoPriceDialog` و handler `handleApplyAutoPricing`
-
-**الملف:** `src/pages/ProjectDetailsPage.tsx`
-
-- تمرير `onAutoPricing` callback جديد إلى `AnalysisResults` لتحديث `items` state بعد التسعير التلقائي
+التعديلات:
+- إضافة `<AutoPriceDialog>` في نهاية JSX (بجوار QuickPriceDialog و DetailedPriceDialog حوالي سطر 3010)
+- تحويل بنود `data.items` إلى نوع `ProjectItem` المطلوب من AutoPriceDialog (إضافة `id` field)
+- ربط `onApplyPricing` بدالة تحدث `updateAIRate` لكل بند مسعر + استدعاء `onApplyAutoPricing` إن وجد
+- تصميم الحوار يطابق الصورة المرفقة: شريط Confidence، معلومات "What will happen"، وإحصائيات (Unpriced / Can Be Priced / No Match)
 
 ---
 
-## 9.2 تحسين أداء التحليل المتقدم (EnhancedPricingAnalysis)
+## 10.2 تحسين أداء شاشة WBS
 
-### التعديلات المطلوبة
-
-#### أ. ربط التسعير بالمشاريع التاريخية تلقائياً
-**الملف:** `src/components/EnhancedPricingAnalysis.tsx`
-
-المشكلة: `fetchHistoricalPrices()` تجلب فقط من `historical_pricing_files` و `saved_projects.analysis_data`. لا تجلب من `project_items` المسعرة فعلياً.
+**الملف:** `src/components/WBSTreeDiagram.tsx` (262 سطر)
 
 التحسينات:
-- إضافة مصدر ثالث: `project_items` التي لها `unit_price > 0` من جميع مشاريع المستخدم
-- زيادة الحد الأقصى من 200 إلى 500 عنصر تاريخي
-- إضافة `category` في البيانات التاريخية لتحسين المطابقة
-- عرض عدد المصادر التاريخية في واجهة المستخدم
+- إضافة `useMemo` لدالة `buildTree` لتجنب إعادة البناء عند كل render
+- إضافة `React.memo` على TreeNode الداخلي
+- تحسين أداء expand/collapse عبر Set operations بدلاً من إعادة إنشاء المصفوفة
+- إضافة مؤشر عدد العناصر لكل فرع في العقد المغلقة
 
-#### ب. زيادة نسبة الثقة
-**الملف:** `supabase/functions/enhanced-pricing-analysis/index.ts`
+---
+
+## 10.3 تحسين أداء شاشة Cost (التكاليف)
+
+**الملف:** `src/components/CostAnalysis.tsx` (1386 سطر)
 
 التحسينات:
-- تحسين خوارزمية `matchScore`: إضافة وزن إضافي لمطابقة `category` (+3 نقاط)
-- إضافة وزن للمطابقة الجزئية للكلمات (partial word match) بدلاً من التطابق الكامل فقط
-- تقليل عتبة المطابقة من 6 إلى 5 للبنود ذات الوحدات المتطابقة
-- زيادة وزن قاعدة البيانات المرجعية للمطابقات القوية (score >= 12) من 40% إلى 50%
-- إضافة fallback ذكي: إذا لم يتم إيجاد مطابقة مرجعية، البحث في البنود التاريخية المرسلة
+- النظام يستخدم cache بالفعل (24 ساعة) وهذا جيد
+- إضافة `useMemo` للرسوم البيانية (Pie/Bar/Treemap) لتجنب إعادة الحساب
+- تحسين ExcelJS import بجعله dynamic import بدلاً من static (سطر 16)
+- إضافة loading skeleton أثناء تحميل التحليل بدلاً من spinner فقط
+- تحسين عرض التوصيات مع أيقونات ملونة
 
 ---
 
-## 9.3 تحسين أداء Suggest Rates (MarketRateSuggestions)
+## 10.4 تحسين أداء شاشة Brief (الملخص)
 
-### التعديلات المطلوبة
+**الملف:** `src/components/AnalysisResults.tsx` (قسم summary tab، سطور 2725-2761)
 
-**الملف:** `src/components/MarketRateSuggestions.tsx`
-
-- إضافة جلب البيانات التاريخية من `project_items` (المسعرة فعلياً) بالإضافة إلى مكتبة المواد/العمالة/المعدات
-- إرسال البيانات التاريخية مع طلب التحليل إلى Edge Function
-- عرض مصدر "Historical" كمصدر رابع بجوار Library/Reference/AI
-
-**الملف:** `supabase/functions/suggest-market-rates/index.ts`
-
-- إضافة مرحلة بحث جديدة: بعد Library وقبل Reference، البحث في البيانات التاريخية المرسلة
-- إذا تم إيجاد تطابق تاريخي بثقة عالية (>70%)، استخدام السعر مع تعديل (inflation 3-5%)
-- إضافة `source: "historical"` للبنود المسعرة من التاريخ
+التحسينات:
+- إضافة بطاقات إحصائية إضافية: متوسط سعر الوحدة، أغلى بند، أرخص بند
+- تحسين عرض الفئات بألوان متدرجة
+- إضافة رسم بياني صغير (mini chart) لتوزيع القيم
+- إضافة مؤشر تقدم التسعير في الملخص
 
 ---
 
-## 9.4 ربط مباشر بالمشاريع التاريخية من واجهة التسعير
+## 10.5 تحسين أداء شاشة Charts (الرسوم البيانية)
 
-### التعديلات المطلوبة
+**الملف:** `src/components/DataCharts.tsx` (639 سطر)
 
-**الملف:** `src/components/EnhancedPricingAnalysis.tsx`
-
-- إضافة زر "ربط بالمشاريع التاريخية" بجوار أزرار الأدوات الثانوية
-- عند الضغط: فتح dialog يعرض قائمة المشاريع التاريخية المتاحة مع عدد البنود المتطابقة
-- إمكانية اختيار مشروع تاريخي محدد لاستخدام أسعاره كمرجع أساسي
-
-**الملف:** `src/components/MarketRateSuggestions.tsx`
-
-- إضافة مؤشر بصري للبنود التي تم تسعيرها من مصدر تاريخي
-- إضافة tooltip يعرض اسم المشروع التاريخي المرجعي
+التحسينات:
+- إضافة `useMemo` لحسابات `categoryData` (سطر 95) - حالياً يُحسب في كل render
+- إضافة `useCallback` لدوال التفاعل
+- تحسين responsive الرسوم لشاشات الموبايل
+- إضافة animation سلسة عند تبديل نوع الرسم (pie/bar/line/area)
 
 ---
 
-## 9.5 تحسين عرض النتائج ونسبة الثقة
+## 10.6 تحسين أداء شاشة Time Schedule (الجدول الزمني)
 
-### التعديلات المطلوبة
+**الملف:** `src/components/ProjectTimeline.tsx` (1378 سطر)
 
-**الملف:** `src/components/EnhancedPricingAnalysis.tsx`
+التحسينات:
+- إضافة `useMemo` لحسابات Gantt chart
+- تحسين dynamic import لـ XLSX (موجود بالفعل - التأكد من عدم تكراره)
+- إضافة skeleton loading أثناء إنشاء الجدول الزمني
+- تحسين عرض الـ critical path بلون مميز أكثر وضوحاً
 
-- عرض `confidence` بنسبة مئوية مع شريط تقدم ملون
-- إضافة ملخص: "X بند بثقة عالية، Y بند بثقة متوسطة، Z بند بثقة منخفضة"
-- إضافة فلتر لعرض البنود حسب مستوى الثقة
-- عرض المصدر الرئيسي لكل بند (مرجعي/تاريخي/AI)
+---
 
-**الملف:** `src/components/MarketRateSuggestions.tsx`
+## 10.7 تحسين أداء شاشة Schedule Integration (تكامل الجدول)
 
-- إضافة عمود "المصدر التاريخي" في جدول النتائج
-- تلوين صفوف البنود حسب المصدر (أخضر=مكتبة، أزرق=مرجعي، بنفسجي=AI، برتقالي=تاريخي)
+**الملف:** `src/components/ScheduleIntegration.tsx` (1302 سطر)
+
+التحسينات:
+- إضافة `useMemo` لحسابات EVM و S-Curve data
+- تحسين عرض Gantt Chart المدمج
+- إضافة cache لنتائج التحليل عبر `localStorage`
+- تحسين loading state أثناء الجلب من AI
 
 ---
 
@@ -108,25 +94,17 @@
 
 | الملف | التعديل |
 |-------|---------|
-| `src/components/AnalysisResults.tsx` | إضافة زر التسعير التلقائي + AutoPriceDialog |
-| `src/pages/ProjectDetailsPage.tsx` | تمرير callback لتحديث items بعد التسعير |
-| `src/components/EnhancedPricingAnalysis.tsx` | ربط بـ project_items التاريخية + فلتر ثقة + زر ربط تاريخي |
-| `src/components/MarketRateSuggestions.tsx` | جلب بيانات تاريخية + عرض مصدر تاريخي |
-| `supabase/functions/enhanced-pricing-analysis/index.ts` | تحسين المطابقة + خفض العتبة + وزن category |
-| `supabase/functions/suggest-market-rates/index.ts` | إضافة مرحلة بحث تاريخي + source historical |
+| `src/components/AnalysisResults.tsx` | تفعيل AutoPriceDialog + تحسين Brief tab |
+| `src/components/WBSTreeDiagram.tsx` | useMemo + React.memo |
+| `src/components/CostAnalysis.tsx` | useMemo + dynamic import + skeleton |
+| `src/components/DataCharts.tsx` | useMemo + useCallback + animations |
+| `src/components/ProjectTimeline.tsx` | useMemo + skeleton loading |
+| `src/components/ScheduleIntegration.tsx` | useMemo + cache + loading |
 
 ## ترتيب التنفيذ
 
-1. تحسين Edge Functions (enhanced-pricing-analysis + suggest-market-rates)
-2. تحسين EnhancedPricingAnalysis (جلب تاريخي + فلتر ثقة + عرض محسن)
-3. تحسين MarketRateSuggestions (مصدر تاريخي + عرض محسن)
-4. إضافة زر التسعير التلقائي في AnalysisResults
-5. ربط الكل مع ProjectDetailsPage
-
-## النتيجة المتوقعة
-
-- زيادة نسبة الثقة في التسعير من ~80% إلى ~90%+ عبر الربط بالمشاريع التاريخية
-- تسعير تلقائي متاح من تبويب التحليل المتقدم دون الحاجة للعودة لـ BOQ
-- عرض مصادر التسعير بشكل أوضح (مكتبة/مرجعي/تاريخي/AI)
-- تحسين المطابقة عبر إضافة category matching و partial word matching
-
+1. إصلاح AutoPriceDialog (الأكثر أهمية - الزر لا يعمل حالياً)
+2. تحسين Brief tab مع إحصائيات إضافية
+3. تحسين WBS + Charts (useMemo)
+4. تحسين CostAnalysis + Timeline (dynamic imports + skeleton)
+5. تحسين ScheduleIntegration (cache + loading)
