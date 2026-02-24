@@ -1280,6 +1280,519 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["irrigation", "drip irrigation", "sprinkler irrigation"],
     keywordsAr: ["نظام ري", "ري بالتنقيط"]
   },
+  
+  // ========================
+  // TEMPORARY WORKS - أعمال مؤقتة
+  // ========================
+  "scaffolding_steel": {
+    min: 25, max: 55, unit: "m²",
+    description: "Steel scaffolding rental and erection",
+    category: "Temporary Works", categoryAr: "أعمال مؤقتة",
+    keywords: ["scaffolding", "scaffold", "staging"],
+    keywordsAr: ["سقالات", "سقالة حديد"]
+  },
+  "hoarding_site": {
+    min: 120, max: 280, unit: "m",
+    description: "Site hoarding/fencing",
+    category: "Temporary Works", categoryAr: "أعمال مؤقتة",
+    keywords: ["hoarding", "site fence", "temporary fence", "barricade"],
+    keywordsAr: ["حواجز مؤقتة", "سياج موقع"]
+  },
+  "site_office": {
+    min: 2500, max: 6000, unit: "month",
+    description: "Temporary site office rental",
+    category: "Temporary Works", categoryAr: "أعمال مؤقتة",
+    keywords: ["site office", "temporary office", "portacabin"],
+    keywordsAr: ["مكتب موقع", "بورتاكابين"]
+  },
+  "temporary_toilet": {
+    min: 800, max: 2000, unit: "month",
+    description: "Temporary toilet",
+    category: "Temporary Works", categoryAr: "أعمال مؤقتة",
+    keywords: ["temporary toilet", "portable toilet", "site toilet"],
+    keywordsAr: ["حمامات مؤقتة", "دورة مياه مؤقتة"]
+  },
+  "safety_signage": {
+    min: 150, max: 500, unit: "no",
+    description: "Safety signs and boards",
+    category: "Temporary Works", categoryAr: "أعمال مؤقتة",
+    keywords: ["safety sign", "warning sign", "signage"],
+    keywordsAr: ["لوحات سلامة", "إشارات تحذير"]
+  },
+  "temporary_power": {
+    min: 3000, max: 8000, unit: "month",
+    description: "Temporary power supply",
+    category: "Temporary Works", categoryAr: "أعمال مؤقتة",
+    keywords: ["temporary power", "generator rental", "temp electricity"],
+    keywordsAr: ["كهرباء مؤقتة", "مولد كهربائي"]
+  },
+  "temporary_water": {
+    min: 1500, max: 4000, unit: "month",
+    description: "Temporary water supply",
+    category: "Temporary Works", categoryAr: "أعمال مؤقتة",
+    keywords: ["temporary water", "water tanker", "temp water"],
+    keywordsAr: ["مياه مؤقتة", "تانكر مياه"]
+  },
+  
+  // ========================
+  // PRELIMINARIES - أعمال تحضيرية
+  // ========================
+  "mobilization": {
+    min: 50000, max: 200000, unit: "ls",
+    description: "Mobilization & demobilization",
+    category: "Preliminaries", categoryAr: "أعمال تحضيرية",
+    keywords: ["mobilization", "demobilization", "mob demob"],
+    keywordsAr: ["تجهيز موقع", "تعبئة وإخلاء"]
+  },
+  "site_clearance": {
+    min: 5, max: 15, unit: "m²",
+    description: "Site clearance and grubbing",
+    category: "Preliminaries", categoryAr: "أعمال تحضيرية",
+    keywords: ["site clearance", "clearing", "grubbing", "site preparation"],
+    keywordsAr: ["تنظيف موقع", "إزالة مخلفات"]
+  },
+  "survey_setting_out": {
+    min: 3, max: 8, unit: "m²",
+    description: "Survey and setting out",
+    category: "Preliminaries", categoryAr: "أعمال تحضيرية",
+    keywords: ["survey", "setting out", "layout"],
+    keywordsAr: ["مساحة", "توقيع محاور"]
+  },
+  "insurance_car": {
+    min: 0.003, max: 0.008, unit: "ls",
+    description: "Contractor All Risk insurance",
+    category: "Preliminaries", categoryAr: "أعمال تحضيرية",
+    keywords: ["insurance", "car insurance", "contractor all risk"],
+    keywordsAr: ["تأمين", "تأمين شامل"]
+  },
+  
+  // ========================
+  // DEMOLITION - أعمال الهدم
+  // ========================
+  "demolition_concrete": {
+    min: 80, max: 200, unit: "m³",
+    description: "Concrete demolition",
+    category: "Demolition", categoryAr: "أعمال هدم",
+    keywords: ["demolition concrete", "concrete demolition", "break concrete"],
+    keywordsAr: ["هدم خرسانة", "تكسير خرسانة"]
+  },
+  "demolition_block": {
+    min: 15, max: 40, unit: "m²",
+    description: "Block wall demolition",
+    category: "Demolition", categoryAr: "أعمال هدم",
+    keywords: ["demolition wall", "demolish block", "remove wall"],
+    keywordsAr: ["هدم جدران", "إزالة بلوك"]
+  },
+  "demolition_tiles": {
+    min: 12, max: 30, unit: "m²",
+    description: "Tile removal",
+    category: "Demolition", categoryAr: "أعمال هدم",
+    keywords: ["remove tile", "tile demolition", "strip tiles"],
+    keywordsAr: ["إزالة بلاط", "تكسير سيراميك"]
+  },
+  "demolition_plaster": {
+    min: 8, max: 22, unit: "m²",
+    description: "Plaster removal",
+    category: "Demolition", categoryAr: "أعمال هدم",
+    keywords: ["remove plaster", "strip plaster", "hack plaster"],
+    keywordsAr: ["إزالة لياسة", "تكسير لياسة"]
+  },
+  "debris_disposal": {
+    min: 45, max: 120, unit: "m³",
+    description: "Debris removal and disposal",
+    category: "Demolition", categoryAr: "أعمال هدم",
+    keywords: ["debris", "disposal", "waste removal", "rubbish"],
+    keywordsAr: ["نقل مخلفات", "إزالة أنقاض"]
+  },
+  
+  // ========================
+  // ELEVATORS - المصاعد
+  // ========================
+  "elevator_passenger": {
+    min: 180000, max: 450000, unit: "no",
+    description: "Passenger elevator",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["passenger elevator", "passenger lift", "elevator"],
+    keywordsAr: ["مصعد ركاب", "أسانسير"]
+  },
+  "elevator_freight": {
+    min: 250000, max: 600000, unit: "no",
+    description: "Freight/cargo elevator",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["freight elevator", "cargo lift", "goods lift", "service lift"],
+    keywordsAr: ["مصعد شحن", "مصعد بضائع"]
+  },
+  "escalator": {
+    min: 400000, max: 900000, unit: "no",
+    description: "Escalator",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["escalator", "moving stairway"],
+    keywordsAr: ["سلم كهربائي", "سلم متحرك"]
+  },
+  
+  // ========================
+  // ADVANCED FIRE PROTECTION - حماية حريق متقدمة
+  // ========================
+  "fm200_system": {
+    min: 800, max: 2000, unit: "m²",
+    description: "FM200 clean agent fire suppression",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["fm200", "fm-200", "clean agent", "gas suppression", "novec"],
+    keywordsAr: ["إف إم 200", "إطفاء غاز"]
+  },
+  "foam_system": {
+    min: 350, max: 800, unit: "m²",
+    description: "Foam fire suppression system",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["foam system", "foam suppression", "afff"],
+    keywordsAr: ["نظام رغوي", "إطفاء رغوي"]
+  },
+  "fire_curtain": {
+    min: 2500, max: 6000, unit: "m²",
+    description: "Fire curtain/smoke barrier",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["fire curtain", "smoke barrier", "fire shutter"],
+    keywordsAr: ["ستارة حريق", "حاجز دخان"]
+  },
+  
+  // ========================
+  // SMART BUILDING SYSTEMS - أنظمة ذكية
+  // ========================
+  "bms_system": {
+    min: 25, max: 65, unit: "m²",
+    description: "Building Management System",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["bms", "building management", "building automation", "bas"],
+    keywordsAr: ["نظام إدارة المبنى", "أتمتة المبنى"]
+  },
+  "access_control": {
+    min: 3500, max: 8000, unit: "no",
+    description: "Access control point",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["access control", "card reader", "biometric"],
+    keywordsAr: ["تحكم دخول", "بصمة"]
+  },
+  "ip_camera": {
+    min: 2500, max: 6000, unit: "no",
+    description: "IP CCTV camera with installation",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["cctv", "ip camera", "surveillance camera", "security camera"],
+    keywordsAr: ["كاميرا مراقبة", "كاميرا أمنية"]
+  },
+  "pa_system": {
+    min: 15, max: 40, unit: "m²",
+    description: "Public address system",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["public address", "pa system", "speaker system", "sound system"],
+    keywordsAr: ["نظام صوتي", "مكبرات صوت"]
+  },
+  
+  // ========================
+  // TANKS - الخزانات
+  // ========================
+  "tank_underground_concrete": {
+    min: 1200, max: 2500, unit: "m³",
+    description: "Underground concrete water tank",
+    category: "Civil Works", categoryAr: "أعمال مدنية",
+    keywords: ["underground tank", "water tank concrete", "cistern"],
+    keywordsAr: ["خزان أرضي", "خزان مياه خرساني"]
+  },
+  "tank_overhead_steel": {
+    min: 2500, max: 5500, unit: "m³",
+    description: "Elevated steel water tank",
+    category: "Civil Works", categoryAr: "أعمال مدنية",
+    keywords: ["overhead tank", "elevated tank", "water tower"],
+    keywordsAr: ["خزان علوي", "برج مياه"]
+  },
+  "tank_grp": {
+    min: 800, max: 2000, unit: "m³",
+    description: "GRP/FRP water tank",
+    category: "Civil Works", categoryAr: "أعمال مدنية",
+    keywords: ["grp tank", "frp tank", "fiberglass tank"],
+    keywordsAr: ["خزان فيبرجلاس", "خزان بلاستيك"]
+  },
+  "septic_tank": {
+    min: 3000, max: 8000, unit: "m³",
+    description: "Septic tank",
+    category: "Infrastructure", categoryAr: "بنية تحتية",
+    keywords: ["septic tank", "sewage tank"],
+    keywordsAr: ["خزان صرف", "بيارة"]
+  },
+  
+  // ========================  
+  // ROAD WORKS ADVANCED - أعمال طرق متقدمة
+  // ========================
+  "concrete_barrier": {
+    min: 350, max: 800, unit: "m",
+    description: "Concrete road barrier (jersey barrier)",
+    category: "Infrastructure", categoryAr: "بنية تحتية",
+    keywords: ["jersey barrier", "concrete barrier", "road barrier", "new jersey"],
+    keywordsAr: ["حاجز خرساني", "حاجز طريق"]
+  },
+  "road_marking": {
+    min: 8, max: 25, unit: "m",
+    description: "Road marking/line painting",
+    category: "Infrastructure", categoryAr: "بنية تحتية",
+    keywords: ["road marking", "line marking", "lane marking", "road paint"],
+    keywordsAr: ["خطوط طرق", "علامات طريق"]
+  },
+  "speed_bump": {
+    min: 800, max: 2500, unit: "no",
+    description: "Speed bump/hump",
+    category: "Infrastructure", categoryAr: "بنية تحتية",
+    keywords: ["speed bump", "speed hump", "road hump"],
+    keywordsAr: ["مطب", "مطب صناعي"]
+  },
+  "traffic_signal": {
+    min: 25000, max: 80000, unit: "no",
+    description: "Traffic signal complete",
+    category: "Infrastructure", categoryAr: "بنية تحتية",
+    keywords: ["traffic signal", "traffic light"],
+    keywordsAr: ["إشارة مرور", "إشارة ضوئية"]
+  },
+  "street_light_pole": {
+    min: 3500, max: 8000, unit: "no",
+    description: "Street light pole with fixture",
+    category: "Infrastructure", categoryAr: "بنية تحتية",
+    keywords: ["street light", "light pole", "lamp post", "road light"],
+    keywordsAr: ["إنارة شوارع", "عمود إنارة"]
+  },
+  "bollard": {
+    min: 500, max: 1500, unit: "no",
+    description: "Bollard",
+    category: "Infrastructure", categoryAr: "بنية تحتية",
+    keywords: ["bollard", "parking bollard"],
+    keywordsAr: ["حاجز معدني", "بولارد"]
+  },
+  
+  // ========================
+  // ADDITIONAL MEP ITEMS
+  // ========================
+  "ups_system": {
+    min: 2000, max: 8000, unit: "kVA",
+    description: "UPS system",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["ups", "uninterruptible power", "battery backup"],
+    keywordsAr: ["يو بي إس", "طاقة احتياطية"]
+  },
+  "generator_diesel": {
+    min: 800, max: 2500, unit: "kVA",
+    description: "Diesel generator",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["diesel generator", "standby generator", "emergency generator", "genset"],
+    keywordsAr: ["مولد ديزل", "مولد كهربائي", "مولد طوارئ"]
+  },
+  "solar_panel": {
+    min: 2500, max: 5500, unit: "kWp",
+    description: "Solar PV panel system",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["solar panel", "solar pv", "photovoltaic", "solar system"],
+    keywordsAr: ["ألواح شمسية", "طاقة شمسية"]
+  },
+  "water_heater_solar": {
+    min: 3000, max: 8000, unit: "no",
+    description: "Solar water heater",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["solar water heater", "solar heater"],
+    keywordsAr: ["سخان شمسي"]
+  },
+  "water_pump": {
+    min: 3500, max: 12000, unit: "no",
+    description: "Water pump with motor",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["water pump", "booster pump", "submersible pump"],
+    keywordsAr: ["مضخة مياه", "مضخة غاطسة"]
+  },
+  "sewage_pump": {
+    min: 5000, max: 15000, unit: "no",
+    description: "Sewage/sump pump",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["sewage pump", "sump pump", "submersible sewage"],
+    keywordsAr: ["مضخة صرف", "مضخة مجاري"]
+  },
+  "ahu_unit": {
+    min: 15000, max: 45000, unit: "no",
+    description: "Air Handling Unit",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["air handling unit", "ahu", "air handler"],
+    keywordsAr: ["وحدة مناولة هواء"]
+  },
+  "chiller": {
+    min: 800, max: 2500, unit: "TR",
+    description: "Water-cooled chiller per TR",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["chiller", "water chiller", "air cooled chiller"],
+    keywordsAr: ["تشيلر", "مبرد مياه"]
+  },
+  "cooling_tower": {
+    min: 500, max: 1500, unit: "TR",
+    description: "Cooling tower per TR",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["cooling tower"],
+    keywordsAr: ["برج تبريد"]
+  },
+  "duct_gi": {
+    min: 120, max: 280, unit: "m²",
+    description: "GI duct fabrication and installation",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["gi duct", "galvanized duct", "hvac duct", "air duct"],
+    keywordsAr: ["مجرى هواء", "دكت"]
+  },
+  "duct_insulation": {
+    min: 35, max: 80, unit: "m²",
+    description: "Duct insulation",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["duct insulation", "thermal duct insulation"],
+    keywordsAr: ["عزل مجاري هواء", "عزل دكت"]
+  },
+  "diffuser_supply": {
+    min: 150, max: 450, unit: "no",
+    description: "Supply air diffuser",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["diffuser", "supply diffuser", "air diffuser", "grille"],
+    keywordsAr: ["موزع هواء", "شبكة هواء"]
+  },
+  "vrf_system": {
+    min: 1800, max: 4500, unit: "TR",
+    description: "VRF/VRV HVAC system per TR",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["vrf", "vrv", "variable refrigerant"],
+    keywordsAr: ["في آر إف"]
+  },
+  
+  // ========================
+  // ADDITIONAL FINISHING
+  // ========================
+  "raised_floor": {
+    min: 250, max: 550, unit: "m²",
+    description: "Raised access floor",
+    category: "Finishing", categoryAr: "تشطيبات",
+    keywords: ["raised floor", "access floor", "raised access"],
+    keywordsAr: ["أرضية مرفوعة"]
+  },
+  "skirting_tile": {
+    min: 35, max: 80, unit: "m",
+    description: "Tile skirting",
+    category: "Finishing", categoryAr: "تشطيبات",
+    keywords: ["skirting", "base tile", "cove"],
+    keywordsAr: ["وزرة", "قاعدة بلاط"]
+  },
+  "cornice_gypsum": {
+    min: 25, max: 65, unit: "m",
+    description: "Gypsum cornice/coving",
+    category: "Finishing", categoryAr: "تشطيبات",
+    keywords: ["cornice", "coving", "crown moulding"],
+    keywordsAr: ["كورنيش جبس", "زاوية جبس"]
+  },
+  "kitchen_cabinet": {
+    min: 800, max: 2500, unit: "m",
+    description: "Kitchen cabinet per linear meter",
+    category: "Finishing", categoryAr: "تشطيبات",
+    keywords: ["kitchen cabinet", "kitchen unit", "cabinet"],
+    keywordsAr: ["خزانة مطبخ", "دولاب مطبخ"]
+  },
+  "wardrobe_builtin": {
+    min: 600, max: 1800, unit: "m",
+    description: "Built-in wardrobe per linear meter",
+    category: "Finishing", categoryAr: "تشطيبات",
+    keywords: ["wardrobe", "built-in wardrobe", "closet"],
+    keywordsAr: ["دولاب حائط", "خزانة ملابس"]
+  },
+  "granite_countertop": {
+    min: 350, max: 850, unit: "m",
+    description: "Granite countertop",
+    category: "Finishing", categoryAr: "تشطيبات",
+    keywords: ["countertop", "granite top", "kitchen top", "worktop"],
+    keywordsAr: ["سطح جرانيت", "رخامة مطبخ"]
+  },
+  "mirror": {
+    min: 180, max: 450, unit: "m²",
+    description: "Mirror with frame",
+    category: "Finishing", categoryAr: "تشطيبات",
+    keywords: ["mirror", "wall mirror"],
+    keywordsAr: ["مرآة", "مراية"]
+  },
+  "handrail_stainless": {
+    min: 450, max: 1200, unit: "m",
+    description: "Stainless steel handrail",
+    category: "Finishing", categoryAr: "تشطيبات",
+    keywords: ["handrail", "stainless handrail", "railing stainless"],
+    keywordsAr: ["درابزين ستانلس", "حديد درج"]
+  },
+  "cladding_aluminum": {
+    min: 250, max: 550, unit: "m²",
+    description: "Aluminum composite cladding",
+    category: "Finishing", categoryAr: "تشطيبات",
+    keywords: ["aluminum cladding", "alucobond", "acp", "composite panel"],
+    keywordsAr: ["كلادينج ألمنيوم", "الوكوبوند"]
+  },
+  "cladding_stone": {
+    min: 350, max: 850, unit: "m²",
+    description: "Natural stone cladding",
+    category: "Finishing", categoryAr: "تشطيبات",
+    keywords: ["stone cladding", "natural stone facade", "limestone cladding"],
+    keywordsAr: ["تكسية حجر", "واجهة حجرية"]
+  },
+  
+  // ========================
+  // ADDITIONAL PLUMBING FIXTURES
+  // ========================
+  "wc_western": {
+    min: 800, max: 2500, unit: "no",
+    description: "Western WC complete set",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["wc", "toilet", "water closet", "western wc"],
+    keywordsAr: ["مرحاض", "كرسي حمام"]
+  },
+  "wc_arabic": {
+    min: 500, max: 1500, unit: "no",
+    description: "Arabic/squat WC",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["arabic toilet", "squat toilet", "squat wc"],
+    keywordsAr: ["مرحاض عربي", "مرحاض أرضي"]
+  },
+  "wash_basin": {
+    min: 600, max: 2000, unit: "no",
+    description: "Wash basin with pedestal",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["wash basin", "lavatory", "hand basin", "sink"],
+    keywordsAr: ["مغسلة", "حوض غسيل"]
+  },
+  "bathtub": {
+    min: 1500, max: 5000, unit: "no",
+    description: "Bathtub",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["bathtub", "bath tub"],
+    keywordsAr: ["بانيو", "حوض استحمام"]
+  },
+  "shower_set": {
+    min: 800, max: 3000, unit: "no",
+    description: "Shower set with mixer",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["shower", "shower set", "rain shower"],
+    keywordsAr: ["دش", "شاور"]
+  },
+  "kitchen_sink": {
+    min: 500, max: 2000, unit: "no",
+    description: "Kitchen sink with mixer",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["kitchen sink", "double sink"],
+    keywordsAr: ["حوض مطبخ"]
+  },
+  "floor_drain": {
+    min: 80, max: 250, unit: "no",
+    description: "Floor drain",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["floor drain", "drain cover"],
+    keywordsAr: ["صفاية أرضية", "مصرف أرضي"]
+  },
+  "water_heater_electric": {
+    min: 800, max: 2500, unit: "no",
+    description: "Electric water heater",
+    category: "MEP", categoryAr: "كهروميكانيكا",
+    keywords: ["water heater", "electric heater", "geyser"],
+    keywordsAr: ["سخان كهربائي", "سخان مياه"]
+  },
 };
 
 // Analyzer configurations with enhanced prompts for 95%+ accuracy
@@ -1480,45 +1993,110 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
   }
 }
 
-// Enhanced matching function with comprehensive keyword coverage
+// NEGATIVE KEYWORDS - prevent false matches
+const NEGATIVE_KEYWORDS: Record<string, string[]> = {
+  "excavation_normal": ["rock", "basement", "shoring", "blasting"],
+  "excavation_rock": ["normal", "soft", "sand"],
+  "concrete_plain": ["reinforced", "prestressed", "precast"],
+  "concrete_reinforced_column": ["beam", "slab", "foundation", "wall"],
+  "concrete_reinforced_beam": ["column", "slab", "foundation", "wall"],
+  "concrete_reinforced_slab": ["column", "beam", "foundation", "wall"],
+  "concrete_reinforced_foundation": ["column", "beam", "slab", "wall"],
+  "paint_emulsion": ["epoxy", "oil", "external", "anti"],
+  "paint_oil": ["emulsion", "epoxy", "water", "latex"],
+  "paint_epoxy": ["emulsion", "oil", "latex", "water"],
+  "tile_ceramic_floor": ["wall", "porcelain", "marble", "granite"],
+  "tile_ceramic_wall": ["floor", "porcelain", "marble", "granite"],
+  "plaster_internal": ["external", "outdoor"],
+  "plaster_external": ["internal", "indoor"],
+  "pipe_upvc": ["steel", "copper", "hdpe", "ductile"],
+  "pipe_steel": ["upvc", "pvc", "plastic", "hdpe"],
+};
+
+// Enhanced matching function with tokenization, negative keywords, and higher threshold
 function matchToReferencePrice(description: string | null | undefined, unit: string | null | undefined): { 
   category: string; 
   ref: typeof REFERENCE_PRICES[string];
   matchScore: number;
 } | null {
   if (!description) return null;
-  const desc = description.toLowerCase();
-  const unitLower = (unit || "").toLowerCase();
+  const desc = description.toLowerCase().trim();
+  const descTokens = desc.split(/[\s,.\-\/()]+/).filter(t => t.length > 1);
+  const unitLower = (unit || "").toLowerCase().trim();
   
   let bestMatch: { category: string; ref: typeof REFERENCE_PRICES[string]; matchScore: number } | null = null;
   let highestScore = 0;
   
   for (const [category, ref] of Object.entries(REFERENCE_PRICES)) {
     let score = 0;
+    let keywordMatches = 0;
     
-    // Check English keywords
+    // Check English keywords with tokenized matching
     for (const keyword of ref.keywords) {
-      if (desc.includes(keyword.toLowerCase())) {
-        score += keyword.length; // Longer matches are more specific
+      const kwLower = keyword.toLowerCase();
+      const kwTokens = kwLower.split(/[\s\-\/]+/).filter(t => t.length > 1);
+      
+      // Exact phrase match (highest value)
+      if (desc.includes(kwLower)) {
+        score += keyword.length * 2;
+        keywordMatches++;
+      } else {
+        // Token-level match: all tokens of keyword found in description
+        const allTokensFound = kwTokens.length > 0 && kwTokens.every(t => descTokens.some(dt => dt.includes(t) || t.includes(dt)));
+        if (allTokensFound && kwTokens.length >= 2) {
+          score += keyword.length * 1.5;
+          keywordMatches++;
+        } else {
+          // Partial: individual token matches (lower score)
+          for (const kt of kwTokens) {
+            if (kt.length >= 4 && descTokens.some(dt => dt === kt)) {
+              score += kt.length * 0.5;
+            }
+          }
+        }
       }
     }
     
     // Check Arabic keywords
     for (const keyword of ref.keywordsAr) {
       if (desc.includes(keyword)) {
-        score += keyword.length * 1.2; // Slightly higher weight for Arabic matches
+        score += keyword.length * 2.0;
+        keywordMatches++;
       }
     }
     
-    // Check unit compatibility
-    const refUnit = ref.unit.toLowerCase();
-    if (unitLower.includes(refUnit) || refUnit.includes(unitLower)) {
-      score += 5;
+    // Multiple keyword matches bonus
+    if (keywordMatches >= 2) {
+      score *= 1.5;
     }
     
-    // Check description match
+    // Check unit compatibility (higher weight)
+    const refUnit = ref.unit.toLowerCase();
+    const unitMatches = unitLower === refUnit || 
+      unitLower.includes(refUnit) || 
+      refUnit.includes(unitLower) ||
+      (unitLower === "m2" && refUnit === "m²") ||
+      (unitLower === "m3" && refUnit === "m³") ||
+      (unitLower === "l.m" && refUnit === "m") ||
+      (unitLower === "lm" && refUnit === "m");
+    if (unitMatches && unitLower.length > 0) {
+      score += 8;
+    }
+    
+    // Check full description match
     if (desc.includes(ref.description.toLowerCase())) {
-      score += 10;
+      score += 12;
+    }
+    
+    // Negative keywords check - reject false matches
+    const negatives = NEGATIVE_KEYWORDS[category];
+    if (negatives && score > 0) {
+      for (const neg of negatives) {
+        if (desc.includes(neg.toLowerCase())) {
+          score *= 0.3; // Heavy penalty for negative keyword presence
+          break;
+        }
+      }
     }
     
     if (score > highestScore) {
@@ -1527,8 +2105,8 @@ function matchToReferencePrice(description: string | null | undefined, unit: str
     }
   }
   
-  // Only return if we have a meaningful match
-  return highestScore >= 3 ? bestMatch : null;
+  // Higher threshold (6) to prevent false matches
+  return highestScore >= 6 ? bestMatch : null;
 }
 
 async function runAnalyzer(
@@ -1666,6 +2244,47 @@ For each item return:
   }
 }
 
+// Fallback price estimation for items without any reference or AI match
+function estimateFallbackPrice(description: string, unit: string, quantity: number): number {
+  const desc = description.toLowerCase();
+  const unitLower = unit.toLowerCase();
+  
+  // Common unit-based fallback ranges (SAR)
+  const unitFallbacks: Record<string, { min: number; max: number }> = {
+    "m²": { min: 50, max: 200 },
+    "m2": { min: 50, max: 200 },
+    "m³": { min: 100, max: 500 },
+    "m3": { min: 100, max: 500 },
+    "m": { min: 30, max: 150 },
+    "lm": { min: 30, max: 150 },
+    "l.m": { min: 30, max: 150 },
+    "no": { min: 200, max: 2000 },
+    "no.": { min: 200, max: 2000 },
+    "ton": { min: 2000, max: 8000 },
+    "kg": { min: 3, max: 15 },
+    "ls": { min: 5000, max: 50000 },
+    "l.s": { min: 5000, max: 50000 },
+    "set": { min: 500, max: 5000 },
+    "point": { min: 80, max: 200 },
+    "head": { min: 80, max: 200 },
+  };
+  
+  // Category hints from description
+  if (desc.includes("supply") && desc.includes("install")) {
+    // Supply & install items tend to be higher
+    const base = unitFallbacks[unitLower] || { min: 100, max: 500 };
+    return (base.min + base.max) / 2 * 1.3;
+  }
+  
+  const fallback = unitFallbacks[unitLower];
+  if (fallback) {
+    return (fallback.min + fallback.max) / 2;
+  }
+  
+  // Generic fallback
+  return 100;
+}
+
 function aggregateResults(
   items: BOQItem[],
   analyzerResults: { analyzerId: string; results: any[] }[],
@@ -1686,7 +2305,11 @@ function aggregateResults(
       }
     }
 
-    // Calculate weighted average using custom weights if provided
+    // Dynamic weight adjustment based on reference match strength
+    const hasStrongRef = match && match.matchScore >= 15;
+    const hasMediumRef = match && match.matchScore >= 8;
+    
+    // Calculate weighted average using dynamic weights
     let weightedSum = 0;
     let totalWeight = 0;
     const prices: number[] = [];
@@ -1702,31 +2325,33 @@ function aggregateResults(
         const refMax = match.ref.max * locationFactor;
         
         if (price < refMin * 0.9) {
-          // Price significantly too low, adjust to lower quartile
           price = refMin + (refMax - refMin) * 0.25;
           confidence = Math.max(50, confidence - 15);
         } else if (price > refMax * 1.3) {
-          // Price significantly too high, adjust to upper quartile
           price = refMin + (refMax - refMin) * 0.75;
           confidence = Math.max(50, confidence - 20);
         } else if (price < refMin) {
-          // Price slightly low, adjust to range
           price = refMin;
           confidence = Math.max(60, confidence - 10);
         } else if (price > refMax) {
-          // Price slightly high, adjust to range
           price = refMax;
           confidence = Math.max(60, confidence - 10);
         } else {
-          // Within range - boost confidence significantly
           confidence = Math.min(98, confidence + 15);
         }
       }
       
-      // Use custom weight if provided, otherwise use default
-      const baseWeight = customWeights && customWeights[analyzer.id] !== undefined 
+      // Dynamic weight: reduce AI analyzer weight when strong reference exists
+      let baseWeight = customWeights && customWeights[analyzer.id] !== undefined 
         ? customWeights[analyzer.id] 
         : analyzer.weight;
+      
+      if (hasStrongRef) {
+        // Strong reference: reduce all AI weights by 40%
+        baseWeight *= 0.6;
+      } else if (hasMediumRef) {
+        baseWeight *= 0.8;
+      }
       
       const weight = baseWeight * (confidence / 100);
       
@@ -1744,15 +2369,39 @@ function aggregateResults(
       });
     }
 
-    // Determine final price with reference validation
+    // Add reference price as a virtual analyzer when strong match exists
+    if (match && (hasStrongRef || hasMediumRef)) {
+      const refMid = ((match.ref.min + match.ref.max) / 2) * locationFactor;
+      const refConfidence = hasStrongRef ? 95 : 85;
+      const refWeight = hasStrongRef ? 0.40 : 0.25;
+      
+      weightedSum += refMid * refWeight * (refConfidence / 100);
+      totalWeight += refWeight * (refConfidence / 100);
+      prices.push(refMid);
+      
+      analyzersData.push({
+        name: "Reference Database",
+        nameAr: "قاعدة بيانات مرجعية",
+        suggested_price: Math.round(refMid * 100) / 100,
+        confidence: refConfidence,
+        methodology: `Verified market range: ${match.ref.min}-${match.ref.max} ${match.ref.unit} (${match.ref.description}). Match score: ${match.matchScore}`,
+        source: "reference_database"
+      });
+    }
+
+    // Determine final price with reference validation and fallback
     let finalPrice: number;
     if (totalWeight > 0) {
       finalPrice = weightedSum / totalWeight;
     } else if (match) {
       // Use reference midpoint if no AI results
       finalPrice = ((match.ref.min + match.ref.max) / 2) * locationFactor;
+    } else if (item.unit_price && item.unit_price > 0) {
+      // Fallback: use existing price if available
+      finalPrice = item.unit_price;
     } else {
-      finalPrice = item.unit_price || 0;
+      // Last resort fallback: estimate based on common unit price ranges
+      finalPrice = estimateFallbackPrice(item.description || '', item.unit || '', item.quantity || 1);
     }
     
     // Final strict validation against reference for 95%+ accuracy
@@ -1773,14 +2422,25 @@ function aggregateResults(
     const stdDev = Math.sqrt(variance);
     const consensusScore = Math.max(0, Math.min(100, 100 - (stdDev / (avgPrice || 1)) * 80));
 
-    // Calculate overall confidence with reference boost
+    // Calculate overall confidence with tiered reference boost
     let avgConfidence = itemResults.length > 0
       ? itemResults.reduce((sum, { result }) => sum + (result.confidence || 50), 0) / itemResults.length
-      : 50;
+      : (match ? 75 : 40);
     
-    // Boost confidence if we have a strong reference match
-    if (match && match.matchScore >= 10) {
-      avgConfidence = Math.min(98, avgConfidence + 10);
+    // Tiered confidence boost based on reference match strength
+    if (match) {
+      if (match.matchScore >= 20) {
+        avgConfidence = Math.min(98, avgConfidence + 15);
+      } else if (match.matchScore >= 12) {
+        avgConfidence = Math.min(96, avgConfidence + 12);
+      } else if (match.matchScore >= 8) {
+        avgConfidence = Math.min(92, avgConfidence + 8);
+      }
+    }
+    
+    // Penalize confidence when no reference and no AI results
+    if (!match && itemResults.length === 0) {
+      avgConfidence = Math.min(avgConfidence, 35);
     }
 
     // Generate recommendation
