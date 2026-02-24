@@ -1,123 +1,62 @@
 
 
-# تحسين أداء ودقة نظام التسعير التلقائي
+# إضافة تبويب "Analyze BOQ" في صفحة تفاصيل المشروع
 
-## تحليل المشكلة الحالية
+## الهدف
+إضافة تبويب جديد "Analyze BOQ" بين تبويب "BOQ" وتبويب "Analysis" في صفحة تفاصيل المشروع، يعرض واجهة رفع ملفات BOQ (PDF/Excel) مع السحب والإفلات كما في الصورة المرفقة.
 
-المشكلة الأساسية واضحة من الصورة: **10 بنود غير مسعرة، 0 مطابقات، 0% ثقة**. السبب الجذري:
-1. مكتبات الأسعار فارغة تماماً (0 مواد، 0 عمالة، 0 معدات، 0 ملفات تاريخية)
-2. بحث أسعار السوق AI لا يعمل تلقائياً - يتطلب ضغط زر يدوي
-3. رابط API في Edge Function خاطئ (`api.lovable.dev` بدلاً من `ai.gateway.lovable.dev`)
-4. لا توجد أسعار مرجعية مدمجة كبديل عند فراغ المكتبات
+## التغييرات المطلوبة
 
----
+### 1. إضافة التبويب في صفحة تفاصيل المشروع
 
-## التحسينات المقترحة
+**الملف:** `src/pages/ProjectDetailsPage.tsx`
 
-### 1. إصلاح رابط API في Edge Function
+- إضافة `TabsTrigger` جديد باسم "analyze-boq" بين تبويب "boq" و "analysis"
+- إضافة `TabsContent` جديد يحتوي على مكون `BOQAnalyzerPanel` (موجود بالفعل ومستورد في الصفحة)
+- عند نجاح تحليل الملف، يتم تحديث بنود المشروع (`project_items`) تلقائياً وإعادة تحميلها في تبويب BOQ
+- أيقونة التبويب: `Upload` أو `FileUp`
 
-**الملف:** `supabase/functions/fetch-market-prices/index.ts`
+### 2. ربط نتائج التحليل بالمشروع الحالي
 
-الرابط الحالي خاطئ:
-```text
-https://api.lovable.dev/v1/chat/completions
-```
-يجب تصحيحه إلى:
-```text
-https://ai.gateway.lovable.dev/v1/chat/completions
-```
-
----
-
-### 2. بحث AI تلقائي عند فراغ المكتبات
-
-**الملف:** `src/components/project-details/AutoPriceDialog.tsx`
-
-- عند فتح الحوار، إذا كانت المكتبات الأربع فارغة (مواد + عمالة + معدات + تاريخي = 0)، يتم تشغيل بحث أسعار السوق AI تلقائياً بدون انتظار ضغط المستخدم
-- إظهار رسالة توضيحية: "المكتبات فارغة، جاري البحث عن أسعار السوق تلقائياً..."
-- السماح بإعادة البحث حتى بعد البحث الأول (إزالة قفل `marketSearchDone`)
-
----
-
-### 3. إضافة أسعار مرجعية مدمجة (Built-in Reference Prices)
-
-**الملف:** `src/components/project-details/AutoPriceDialog.tsx`
-
-إضافة قاعدة بيانات أسعار مرجعية محلية (حوالي 80 بنداً شائعاً) تغطي:
-- أعمال الخرسانة (خرسانة جاهزة، حديد تسليح، شدات، صب)
-- أعمال الحفر والردم (حفر، ردم، دمك)
-- أعمال الأنابيب والصرف (HDPE, UPVC, غرف تفتيش)
-- أعمال الكهرباء (كابلات، إنارة)
-- أعمال الطرق (أسفلت، إنترلوك، أرصفة)
-- أعمال العزل والدهانات
-
-هذه الأسعار تُستخدم كمصدر سادس (Reference) بثقة منخفضة (40-55%) كبديل أخير عند عدم توفر مصادر أخرى.
-
----
-
-### 4. تحسين خوارزمية المطابقة
-
-**الملف:** `src/components/project-details/AutoPriceDialog.tsx`
-
-- إضافة مطابقة **N-gram** (ثلاثيات الأحرف) لتحسين المطابقة الجزئية للنصوص العربية والإنجليزية
-- تخفيض عتبة القبول من 25 إلى 20 نقطة لزيادة التغطية
-- زيادة وزن المطابقة للكلمات العربية المتخصصة
-- إضافة مطابقة بالجذر للكلمات العربية (مثل: "خرسانة" تطابق "خرسانية")
-
----
-
-### 5. تخفيض الحد الأدنى الافتراضي للثقة
-
-**الملف:** `src/components/project-details/AutoPriceDialog.tsx`
-
-- تغيير الحد الافتراضي من 50% إلى 30%
-- تغيير الحد الأدنى للمنزلق من 30% إلى 15%
-
----
-
-### 6. تحسين Edge Function
-
-**الملف:** `supabase/functions/fetch-market-prices/index.ts`
-
-- استخدام tool calling بدلاً من طلب JSON خام لضمان استجابة منظمة
-- إضافة معالجة أخطاء 429 و 402
-- تحسين البرومبت ليشمل سياقاً أكثر عن نوع المشروع
+عند اكتمال التحليل بنجاح من داخل التبويب الجديد:
+- حفظ البنود المستخرجة في جدول `project_items` مرتبطة بـ `projectId` الحالي
+- تحديث `analysis_data` في `project_data`
+- إعادة تحميل قائمة البنود في الصفحة لتظهر فوراً في تبويب BOQ
+- إظهار رسالة نجاح للمستخدم
 
 ---
 
 ## التفاصيل التقنية
 
-### الأسعار المرجعية المدمجة
+### التبويب الجديد في TabsList (سطر ~1089)
 ```text
-مصفوفة من ~80 بنداً بتنسيق:
-{ keywords: ["concrete", "خرسانة"], unit: "m3", minPrice: 250, maxPrice: 450, avgPrice: 350, category: "concrete" }
+<TabsTrigger value="analyze-boq" className="flex items-center gap-1 flex-shrink-0">
+  <FileUp className="w-3.5 h-3.5" />
+  {isArabic ? "تحليل BOQ" : "Analyze BOQ"}
+</TabsTrigger>
 ```
 
-### N-gram Matching
+### محتوى التبويب (TabsContent)
 ```text
-function ngramSimilarity(str1, str2, n=3):
-  - استخراج جميع n-grams من كلا النصين
-  - حساب نسبة التقاطع (Jaccard similarity)
-  - إرجاع نتيجة 0-1
+<TabsContent value="analyze-boq">
+  <BOQAnalyzerPanel
+    embedded={true}
+    onProjectSaved={handleBOQAnalyzerSuccess}
+  />
+</TabsContent>
 ```
 
-### Auto-trigger Logic
+### دالة معالجة النجاح
 ```text
-useEffect:
-  if (isOpen && !loadingHistorical && materials.length === 0 && laborRates.length === 0 && 
-      equipmentRates.length === 0 && historicalItems.length === 0 && !marketSearchDone):
-    handleMarketSearch()
+handleBOQAnalyzerSuccess:
+  - إعادة تحميل بنود المشروع من project_items
+  - تحديث الحالة المحلية (items state)
+  - التبديل تلقائياً إلى تبويب "boq" لعرض النتائج
 ```
 
----
+### الملفات المتأثرة
+| الملف | نوع التغيير |
+|-------|-------------|
+| `src/pages/ProjectDetailsPage.tsx` | إضافة TabsTrigger + TabsContent + handler |
 
-## ترتيب التنفيذ
-
-| الخطوة | الوصف |
-|--------|-------|
-| 1 | إصلاح رابط API في Edge Function + إضافة tool calling ومعالجة الأخطاء |
-| 2 | إضافة الأسعار المرجعية المدمجة |
-| 3 | تحسين خوارزمية المطابقة (N-gram + عتبات أقل) |
-| 4 | تفعيل البحث التلقائي عند فراغ المكتبات |
-| 5 | تخفيض الحد الافتراضي للثقة |
-
+لا حاجة لإنشاء ملفات جديدة - المكون `BOQAnalyzerPanel` موجود بالفعل ومستورد في الصفحة.
