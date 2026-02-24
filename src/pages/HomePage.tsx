@@ -49,7 +49,22 @@ export default function HomePage() {
   const [counts, setCounts] = useState<CountsMap>({});
 
   useEffect(() => {
+    const CACHE_KEY = "pms_home_counts";
+    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
     const fetchCounts = async () => {
+      // Check sessionStorage cache first
+      try {
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < CACHE_TTL) {
+            setCounts(data);
+            return;
+          }
+        }
+      } catch {}
+
       const results: CountsMap = {};
       const promises = tableKeys.map(async (table) => {
         try {
@@ -61,6 +76,11 @@ export default function HomePage() {
       });
       await Promise.all(promises);
       setCounts(results);
+
+      // Cache results
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: results, timestamp: Date.now() }));
+      } catch {}
     };
     fetchCounts();
   }, []);
@@ -77,6 +97,24 @@ export default function HomePage() {
       <UnifiedHeader />
 
       <main className="flex-1 flex flex-col items-center justify-center px-3 md:px-4 py-6 md:py-8">
+        {/* Quick Stats Strip */}
+        {Object.keys(counts).length > 0 && (
+          <div className="flex items-center justify-center gap-4 md:gap-6 mb-5 flex-wrap">
+            {[
+              { label: isArabic ? "مشروع" : "Projects", value: counts.saved_projects || 0, icon: "📊" },
+              { label: isArabic ? "عقد" : "Contracts", value: counts.contracts || 0, icon: "📄" },
+              { label: isArabic ? "بند" : "Items", value: counts.project_items || 0, icon: "📋" },
+              { label: isArabic ? "مادة" : "Materials", value: counts.material_prices || 0, icon: "🏗️" },
+            ].map((stat) => (
+              <div key={stat.label} className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 text-white text-xs md:text-sm">
+                <span>{stat.icon}</span>
+                <span className="font-bold">{stat.value.toLocaleString()}</span>
+                <span className="text-white/70">{stat.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Welcome Header */}
         <div className="flex items-center gap-3 mb-6 md:mb-8">
           <PMSLogo size="lg" />

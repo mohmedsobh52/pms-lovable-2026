@@ -39,8 +39,10 @@ import {
   ProjectAttachment, 
   EditFormData 
 } from "@/components/project-details/types";
-import { AnalysisResults } from "@/components/AnalysisResults";
-import { ContractManagement } from "@/components/ContractManagement";
+import React, { Suspense } from "react";
+
+const AnalysisResults = React.lazy(() => import("@/components/AnalysisResults").then(m => ({ default: m.AnalysisResults })));
+const ContractManagement = React.lazy(() => import("@/components/ContractManagement").then(m => ({ default: m.ContractManagement })));
 
 export default function ProjectDetailsPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -1164,6 +1166,7 @@ export default function ProjectDetailsPage() {
           </TabsContent>
 
           <TabsContent value="analysis">
+            <Suspense fallback={<div className="flex items-center justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>}>
             {projectAnalysisData ? (
               <AnalysisResults
                 data={projectAnalysisData}
@@ -1196,6 +1199,7 @@ export default function ProjectDetailsPage() {
                 }}
               />
             )}
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="documents">
@@ -1212,7 +1216,9 @@ export default function ProjectDetailsPage() {
           </TabsContent>
 
           <TabsContent value="contracts">
-            <ContractManagement projectId={projectId} />
+            <Suspense fallback={<div className="flex items-center justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>}>
+              <ContractManagement projectId={projectId} />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="settings">

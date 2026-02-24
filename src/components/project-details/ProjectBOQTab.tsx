@@ -2,8 +2,11 @@ import { useState } from "react";
 import {
   Package, Search, Filter, Download, Trash2, Plus, Wand2, RefreshCw,
   ArrowUpDown, Hash, FileText, CheckCircle, MoreVertical, DollarSign,
-  Edit, XCircle, Loader2, History, Upload, FileUp
+  Edit, XCircle, Loader2, History, Upload, FileUp,
+  BarChart3, CircleDollarSign, ListChecks, Calculator
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -138,44 +141,89 @@ export function ProjectBOQTab({
   return (
     <div className="space-y-4">
       {/* Statistics Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-border/50">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{pricingStats.totalItems}</p>
-            <p className="text-sm text-muted-foreground">
-              {isArabic ? "إجمالي البنود" : "Total Items"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-green-600">{pricingStats.pricedItems}</p>
-            <p className="text-sm text-muted-foreground">
-              {isArabic ? "بنود مسعرة" : "Priced Items"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-blue-600">{pricingStats.confirmedItems}</p>
-            <p className="text-sm text-muted-foreground">
-              {isArabic ? "بنود مؤكدة" : "Confirmed Items"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">
-              {currency} {formatCurrency(pricingStats.totalValue)}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {isArabic ? "إجمالي القيمة" : "Total Value"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <TooltipProvider>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="border-border/50 hover:shadow-md transition-shadow cursor-default">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <BarChart3 className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{pricingStats.totalItems}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isArabic ? "إجمالي البنود" : "Total Items"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>{isArabic ? "عدد جميع البنود في جدول الكميات" : "Total number of BOQ items"}</TooltipContent>
+          </Tooltip>
 
-      {/* Progress Bar */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="border-border/50 hover:shadow-md transition-shadow cursor-default">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-green-500/10">
+                    <CircleDollarSign className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-green-600">{pricingStats.pricedItems}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isArabic ? "بنود مسعرة" : "Priced Items"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>{isArabic ? "البنود التي تم تسعيرها" : "Items with assigned prices"}</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="border-border/50 hover:shadow-md transition-shadow cursor-default">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-500/10">
+                    <ListChecks className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-blue-600">{pricingStats.confirmedItems}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isArabic ? "بنود مؤكدة" : "Confirmed"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>{isArabic ? "البنود المسعرة والمؤكدة بالكامل" : "Fully priced and confirmed items"}</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="border-border/50 hover:shadow-md transition-shadow cursor-default">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-amber-500/10">
+                    <Calculator className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">
+                      {currency} {formatCurrency(pricingStats.totalValue)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {isArabic ? "إجمالي القيمة" : "Total Value"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>{isArabic ? "إجمالي قيمة جدول الكميات" : "Total BOQ value"}</TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
+
+      {/* Enhanced Progress Bar */}
       <Card className="border-border/50">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
@@ -184,7 +232,21 @@ export function ProjectBOQTab({
             </span>
             <span className="text-sm font-bold">{pricingStats.pricingPercentage}%</span>
           </div>
-          <Progress value={pricingStats.pricingPercentage} className="h-3" />
+          <div className="relative h-3 w-full overflow-hidden rounded-full bg-secondary">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                pricingStats.pricingPercentage < 30 ? "bg-red-500" :
+                pricingStats.pricingPercentage < 70 ? "bg-amber-500" :
+                "bg-green-500"
+              )}
+              style={{ width: `${pricingStats.pricingPercentage}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground">
+            <span>{pricingStats.pricedItems} / {pricingStats.totalItems} {isArabic ? "مسعر" : "priced"}</span>
+            <span>{pricingStats.confirmedItems} {isArabic ? "مؤكد" : "confirmed"}</span>
+          </div>
         </CardContent>
       </Card>
 
@@ -296,7 +358,7 @@ export function ProjectBOQTab({
         <CardContent>
           <div className="rounded-md border">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-background border-b">
                 <TableRow>
                   <TableHead className="w-[50px]">
                     <Checkbox 
@@ -332,7 +394,14 @@ export function ProjectBOQTab({
                   </TableRow>
                 ) : (
                   displayedItems.map((item) => (
-                    <TableRow key={item.id}>
+                    <TableRow 
+                      key={item.id}
+                      className={cn(
+                        item.unit_price && item.unit_price > 0
+                          ? "bg-green-50/50 dark:bg-green-950/20 hover:bg-green-100/50 dark:hover:bg-green-950/30"
+                          : "bg-red-50/30 dark:bg-red-950/10 hover:bg-red-100/30 dark:hover:bg-red-950/20"
+                      )}
+                    >
                       <TableCell>
                         <Checkbox 
                           checked={selectedItems.has(item.id)}
