@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from "recharts";
 import { BarChart3, PieChartIcon, TrendingUp, Sparkles, Loader2, Brain, AreaChartIcon, Maximize2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -91,8 +91,8 @@ export function DataCharts({ items, summary, wbsData }: DataChartsProps) {
     close: isArabic ? "إغلاق" : "Close",
   };
 
-  // Prepare data for charts
-  const categoryData = items.reduce((acc, item) => {
+  // Memoized data for charts
+  const categoryData = useMemo(() => items.reduce((acc, item) => {
     const category = item.category || t.uncategorized;
     if (!acc[category]) {
       acc[category] = { name: category, count: 0, value: 0 };
@@ -100,22 +100,21 @@ export function DataCharts({ items, summary, wbsData }: DataChartsProps) {
     acc[category].count += 1;
     acc[category].value += item.total_price || 0;
     return acc;
-  }, {} as Record<string, { name: string; count: number; value: number }>);
+  }, {} as Record<string, { name: string; count: number; value: number }>), [items, t.uncategorized]);
 
-  const pieData = Object.values(categoryData).map((cat, idx) => ({
+  const pieData = useMemo(() => Object.values(categoryData).map((cat, idx) => ({
     ...cat,
     fill: CHART_COLORS[idx % CHART_COLORS.length],
-  }));
+  })), [categoryData]);
 
-  const barData = Object.values(categoryData).map((cat) => ({
+  const barData = useMemo(() => Object.values(categoryData).map((cat) => ({
     name: cat.name.length > 12 ? cat.name.slice(0, 12) + "..." : cat.name,
     fullName: cat.name,
     count: cat.count,
     value: cat.value,
-  }));
+  })), [categoryData]);
 
-  // Top items by value for line/area charts
-  const topItemsData = items
+  const topItemsData = useMemo(() => items
     .filter(item => item.total_price && item.total_price > 0)
     .sort((a, b) => (b.total_price || 0) - (a.total_price || 0))
     .slice(0, 10)
@@ -123,9 +122,9 @@ export function DataCharts({ items, summary, wbsData }: DataChartsProps) {
       name: `${t.item} ${idx + 1}`,
       value: item.total_price || 0,
       description: item.description.slice(0, 30),
-    }));
+    })), [items, t.item]);
 
-  const fetchAIInsights = async () => {
+  const fetchAIInsights = useCallback(async () => {
     setIsLoadingInsights(true);
     try {
       const { data, error } = await supabase.functions.invoke("analyze-charts", {
@@ -157,14 +156,14 @@ export function DataCharts({ items, summary, wbsData }: DataChartsProps) {
     } finally {
       setIsLoadingInsights(false);
     }
-  };
+  }, [items, summary, wbsData, categoryData, language, toast, t]);
 
-  const chartTabs = [
+  const chartTabs = useMemo(() => [
     { id: "pie", label: t.pieChart, icon: <PieChartIcon className="w-4 h-4" /> },
     { id: "bar", label: t.barChart, icon: <BarChart3 className="w-4 h-4" /> },
     { id: "line", label: t.lineChart, icon: <TrendingUp className="w-4 h-4" /> },
     { id: "area", label: t.areaChart, icon: <AreaChartIcon className="w-4 h-4" /> },
-  ] as const;
+  ] as const, [t]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {

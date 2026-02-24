@@ -13,7 +13,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTo
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import ExcelJS from "exceljs";
+// ExcelJS is dynamically imported when needed for performance
 import { saveAs } from "file-saver";
 
 interface BOQItem {
@@ -390,13 +390,30 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
 
   const displayResult = editedResult || analysisResult;
 
+  // Memoized chart data for Pie/Bar/Treemap
+  const chartData = useMemo(() => {
+    if (!displayResult?.summary) return null;
+    const s = displayResult.summary;
+    return {
+      pieData: [
+        { name: t('مواد', 'Materials'), value: s.total_materials, color: '#22c55e' },
+        { name: t('عمالة', 'Labor'), value: s.total_labor, color: '#3b82f6' },
+        { name: t('معدات', 'Equipment'), value: s.total_equipment, color: '#f59e0b' },
+        { name: t('مقاولين', 'Subcontractor'), value: s.total_subcontractor, color: '#8b5cf6' },
+        { name: t('مصاريف غير مباشرة', 'Indirect'), value: s.total_indirect_costs, color: '#ec4899' },
+        { name: t('أرباح', 'Profit'), value: s.total_profit, color: '#14b8a6' },
+      ].filter(d => d.value > 0),
+      grandTotal: s.grand_total,
+    };
+  }, [displayResult?.summary, t]);
+
   // Recommendation icon helper
-  const getRecIcon = (rec: string) => {
+  const getRecIcon = useCallback((rec: string) => {
     const lower = rec.toLowerCase();
     if (lower.includes('تفاوض') || lower.includes('negotiat') || lower.includes('سعر') || lower.includes('price')) return <DollarSign className="w-3.5 h-3.5 text-green-500 shrink-0" />;
     if (lower.includes('خطر') || lower.includes('risk') || lower.includes('احتياط') || lower.includes('contingen')) return <Shield className="w-3.5 h-3.5 text-red-500 shrink-0" />;
     return <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
-  };
+  }, []);
 
   // --- Comparison Data ---
   const comparisonData = useMemo(() => {
@@ -508,6 +525,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
   // --- Export Excel ---
   const exportToExcel = async () => {
     if (!displayResult) return;
+    const ExcelJS = (await import("exceljs")).default;
     const wb = new ExcelJS.Workbook();
     wb.creator = 'PMS Cost Analysis';
     

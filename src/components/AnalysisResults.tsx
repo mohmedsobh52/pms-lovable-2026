@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { DataCharts } from "./DataCharts";
 import { ProjectTimeline } from "./ProjectTimeline";
@@ -2722,9 +2723,18 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
           </div>
         )}
 
-        {activeTab === "summary" && data.summary && (
+        {activeTab === "summary" && data.summary && (() => {
+          const pricedItems = data.items?.filter(i => (i.unit_price && i.unit_price > 0) || (i.total_price && i.total_price > 0)) || [];
+          const allItems = data.items || [];
+          const pricingProgress = allItems.length > 0 ? Math.round((pricedItems.length / allItems.length) * 100) : 0;
+          const avgUnitPrice = pricedItems.length > 0 ? pricedItems.reduce((s, i) => s + (i.unit_price || 0), 0) / pricedItems.length : 0;
+          const sortedByPrice = [...pricedItems].sort((a, b) => (b.total_price || 0) - (a.total_price || 0));
+          const mostExpensive = sortedByPrice[0];
+          const cheapest = sortedByPrice[sortedByPrice.length - 1];
+          const categoryColors = ["from-primary/15 to-primary/5 border-primary/20", "from-accent/15 to-accent/5 border-accent/20", "from-success/15 to-success/5 border-success/20", "from-warning/15 to-warning/5 border-warning/20", "from-destructive/15 to-destructive/5 border-destructive/20"];
+          
+          return (
           <div className="space-y-6">
-            {/* Company Logo Upload */}
             <CompanyLogoUpload />
             
             {/* Summary Cards */}
@@ -2744,22 +2754,62 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                   <p className="text-sm text-muted-foreground">{data.summary.currency}</p>
                 </div>
               )}
-              <div className="p-6 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 col-span-1 md:col-span-2">
-                <p className="text-sm text-muted-foreground mb-2">{isArabic ? "الفئات" : "Categories"}</p>
-                <div className="flex flex-wrap gap-2">
-                  {(data.summary.categories || []).map((cat, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1 bg-accent/10 text-accent rounded-full text-sm"
-                    >
-                      {cat}
-                    </span>
-                  ))}
+              <div className="p-6 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/20">
+                <p className="text-sm text-muted-foreground mb-1">{isArabic ? "متوسط سعر الوحدة" : "Avg Unit Price"}</p>
+                <p className="text-2xl font-display font-bold text-blue-600">
+                  {avgUnitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="p-6 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-500/5 border border-amber-500/20">
+                <p className="text-sm text-muted-foreground mb-1">{isArabic ? "تقدم التسعير" : "Pricing Progress"}</p>
+                <p className="text-2xl font-display font-bold text-amber-600">{pricingProgress}%</p>
+                <Progress value={pricingProgress} className="h-2 mt-2" />
+                <p className="text-xs text-muted-foreground mt-1">{pricedItems.length}/{allItems.length}</p>
+              </div>
+            </div>
+
+            {/* Most Expensive & Cheapest */}
+            {mostExpensive && cheapest && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-gradient-to-br from-red-500/10 to-red-500/5 border border-red-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ArrowUp className="w-4 h-4 text-red-500" />
+                    <p className="text-sm font-medium text-red-600">{isArabic ? "أغلى بند" : "Most Expensive"}</p>
+                  </div>
+                  <p className="text-sm text-foreground truncate">{mostExpensive.description}</p>
+                  <p className="text-lg font-bold text-red-600">{(mostExpensive.total_price || 0).toLocaleString()} {data.summary.currency}</p>
                 </div>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ArrowDown className="w-4 h-4 text-green-500" />
+                    <p className="text-sm font-medium text-green-600">{isArabic ? "أرخص بند" : "Cheapest Item"}</p>
+                  </div>
+                  <p className="text-sm text-foreground truncate">{cheapest.description}</p>
+                  <p className="text-lg font-bold text-green-600">{(cheapest.total_price || 0).toLocaleString()} {data.summary.currency}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Categories with gradient colors */}
+            <div className="p-6 rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20">
+              <p className="text-sm text-muted-foreground mb-3">{isArabic ? "الفئات" : "Categories"}</p>
+              <div className="flex flex-wrap gap-2">
+                {(data.summary.categories || []).map((cat, idx) => (
+                  <span
+                    key={idx}
+                    className={cn("px-3 py-1.5 rounded-full text-sm font-medium border bg-gradient-to-r", categoryColors[idx % categoryColors.length])}
+                  >
+                    {cat}
+                    <span className="ml-1 text-xs opacity-70">
+                      ({data.items?.filter(i => i.category === cat).length || 0})
+                    </span>
+                  </span>
+                ))}
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {activeTab === "costs" && data.items && (
           <CostAnalysis items={data.items} currency={data.summary?.currency} />
@@ -3005,6 +3055,45 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
             });
             setHistoricalPriceItem(null);
           }}
+          currency={data.summary?.currency || "SAR"}
+        />
+      )}
+      {/* Auto Price Dialog - conditional render */}
+      {showAutoPriceDialog && data.items && (
+        <AutoPriceDialog
+          isOpen={showAutoPriceDialog}
+          onClose={() => setShowAutoPriceDialog(false)}
+          items={(data.items || []).map((item, idx) => ({
+            id: item.item_number || `item-${idx}`,
+            item_number: item.item_number,
+            description: item.description,
+            description_ar: (item as any).description_ar || null,
+            unit: item.unit || null,
+            quantity: item.quantity || null,
+            unit_price: item.unit_price || null,
+            total_price: item.total_price || null,
+            category: item.category || null,
+            subcategory: null,
+            specifications: null,
+            is_section: null,
+            sort_order: idx,
+          }))}
+          onApplyPricing={async (pricedItems) => {
+            for (const pi of pricedItems) {
+              const matchingItem = data.items?.find(i => i.item_number === pi.id || i.item_number === pi.id);
+              if (matchingItem) {
+                updateAIRate(matchingItem.item_number, pi.price);
+              }
+            }
+            if (onApplyAutoPricing) {
+              await onApplyAutoPricing(pricedItems);
+            }
+            toast({
+              title: isArabic ? "تم التسعير التلقائي" : "Auto pricing applied",
+              description: isArabic ? `تم تسعير ${pricedItems.length} بند` : `${pricedItems.length} items priced`,
+            });
+          }}
+          isArabic={isArabic}
           currency={data.summary?.currency || "SAR"}
         />
       )}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { ChevronRight, ChevronDown, Folder, FolderOpen, FileText, Download, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,25 +21,128 @@ interface WBSTreeDiagramProps {
 interface TreeNode {
   item: WBSItem;
   children: TreeNode[];
+  totalDescendants: number;
 }
+
+// Count total descendants recursively
+function countDescendants(node: TreeNode): number {
+  let count = node.children.length;
+  for (const child of node.children) {
+    count += countDescendants(child);
+  }
+  return count;
+}
+
+// Memoized tree node component
+const TreeNodeComponent = memo(function TreeNodeComponent({
+  node,
+  level,
+  expandedNodes,
+  onToggle,
+}: {
+  node: TreeNode;
+  level: number;
+  expandedNodes: Set<string>;
+  onToggle: (code: string) => void;
+}) {
+  const hasChildren = node.children.length > 0;
+  const isExpanded = expandedNodes.has(node.item.code);
+  const levelColors = [
+    "bg-primary text-primary-foreground",
+    "bg-accent text-accent-foreground",
+    "bg-muted text-foreground",
+  ];
+
+  return (
+    <div className="select-none">
+      <div
+        className={cn(
+          "flex items-center gap-2 py-2 px-3 rounded-lg cursor-pointer transition-all hover:bg-muted/50",
+          level === 0 && "font-semibold"
+        )}
+        onClick={() => hasChildren && onToggle(node.item.code)}
+        style={{ marginLeft: `${level * 24}px` }}
+      >
+        {hasChildren ? (
+          isExpanded ? (
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          )
+        ) : (
+          <div className="w-4" />
+        )}
+        
+        {hasChildren ? (
+          isExpanded ? (
+            <FolderOpen className="w-5 h-5 text-warning" />
+          ) : (
+            <Folder className="w-5 h-5 text-warning" />
+          )
+        ) : (
+          <FileText className="w-5 h-5 text-muted-foreground" />
+        )}
+
+        <span className={cn(
+          "px-2 py-0.5 rounded text-xs font-mono",
+          levelColors[Math.min(level, levelColors.length - 1)]
+        )}>
+          {node.item.code}
+        </span>
+
+        <span className={cn(
+          "text-sm",
+          level === 0 ? "font-medium" : "text-muted-foreground"
+        )}>
+          {node.item.title}
+        </span>
+
+        {node.item.items.length > 0 && (
+          <span className="ml-2 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+            {node.item.items.length} items
+          </span>
+        )}
+
+        {/* Show descendant count when collapsed */}
+        {hasChildren && !isExpanded && node.totalDescendants > 0 && (
+          <span className="ml-1 text-xs text-primary/70 bg-primary/10 px-2 py-0.5 rounded-full">
+            +{node.totalDescendants}
+          </span>
+        )}
+      </div>
+
+      {isExpanded && hasChildren && (
+        <div className="border-l-2 border-border/50 ml-6">
+          {node.children.map(child => (
+            <TreeNodeComponent
+              key={child.item.code}
+              node={child}
+              level={level + 1}
+              expandedNodes={expandedNodes}
+              onToggle={onToggle}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
 
 export function WBSTreeDiagram({ wbsData }: WBSTreeDiagramProps) {
   const { isArabic } = useLanguage();
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(wbsData.map(w => w.code)));
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(() => new Set(wbsData.map(w => w.code)));
   const [zoom, setZoom] = useState(100);
 
-  // Build tree structure
-  const buildTree = (items: WBSItem[]): TreeNode[] => {
+  // Memoized tree building
+  const tree = useMemo(() => {
     const nodeMap: Record<string, TreeNode> = {};
     const roots: TreeNode[] = [];
 
-    // Create all nodes first
-    items.forEach(item => {
-      nodeMap[item.code] = { item, children: [] };
+    wbsData.forEach(item => {
+      nodeMap[item.code] = { item, children: [], totalDescendants: 0 };
     });
 
-    // Build parent-child relationships
-    items.forEach(item => {
+    wbsData.forEach(item => {
       const node = nodeMap[item.code];
       if (item.parent_code && nodeMap[item.parent_code]) {
         nodeMap[item.parent_code].children.push(node);
@@ -48,46 +151,44 @@ export function WBSTreeDiagram({ wbsData }: WBSTreeDiagramProps) {
       }
     });
 
-    // Sort children by code
     Object.values(nodeMap).forEach(node => {
       node.children.sort((a, b) => a.item.code.localeCompare(b.item.code));
     });
 
+    // Calculate descendants
+    const calcDesc = (n: TreeNode): number => {
+      n.totalDescendants = countDescendants(n);
+      n.children.forEach(calcDesc);
+      return n.totalDescendants;
+    };
+    roots.forEach(calcDesc);
+
     return roots;
-  };
+  }, [wbsData]);
 
-  const tree = buildTree(wbsData);
-
-  const toggleNode = (code: string) => {
-    const newSet = new Set(expandedNodes);
-    if (newSet.has(code)) {
-      newSet.delete(code);
-    } else {
-      newSet.add(code);
-    }
-    setExpandedNodes(newSet);
-  };
-
-  const expandAll = () => {
-    setExpandedNodes(new Set(wbsData.map(w => w.code)));
-  };
-
-  const collapseAll = () => {
-    setExpandedNodes(new Set());
-  };
-
-  const exportToPDF = () => {
-    const pdf = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4'
+  const toggleNode = useCallback((code: string) => {
+    setExpandedNodes(prev => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
     });
+  }, []);
 
+  const expandAll = useCallback(() => {
+    setExpandedNodes(new Set(wbsData.map(w => w.code)));
+  }, [wbsData]);
+
+  const collapseAll = useCallback(() => {
+    setExpandedNodes(new Set());
+  }, []);
+
+  const exportToPDF = useCallback(() => {
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const margin = 15;
     let yPos = 20;
 
-    // Title
     pdf.setFillColor(59, 130, 246);
     pdf.rect(0, 0, pageWidth, 25, 'F');
     pdf.setTextColor(255, 255, 255);
@@ -99,104 +200,25 @@ export function WBSTreeDiagram({ wbsData }: WBSTreeDiagramProps) {
     pdf.setTextColor(30, 41, 59);
 
     const drawNode = (node: TreeNode, level: number) => {
-      if (yPos > 190) {
-        pdf.addPage();
-        yPos = 20;
-      }
-
+      if (yPos > 190) { pdf.addPage(); yPos = 20; }
       const indent = margin + (level * 15);
       const prefix = level === 0 ? "▸ " : level === 1 ? "▹ " : "○ ";
-      
       pdf.setFontSize(level === 0 ? 12 : level === 1 ? 10 : 9);
       pdf.setFont("helvetica", level === 0 ? "bold" : "normal");
-      
       pdf.text(`${prefix}${node.item.code} - ${node.item.title}`, indent, yPos);
       yPos += 7;
-
-      if (node.item.items && node.item.items.length > 0) {
+      if (node.item.items?.length > 0) {
         pdf.setFontSize(8);
         pdf.setTextColor(100, 116, 139);
         pdf.text(`Items: ${node.item.items.join(", ")}`, indent + 10, yPos);
         pdf.setTextColor(30, 41, 59);
         yPos += 5;
       }
-
       node.children.forEach(child => drawNode(child, level + 1));
     };
-
     tree.forEach(root => drawNode(root, 0));
-
     pdf.save('wbs-tree-diagram.pdf');
-  };
-
-  const renderNode = (node: TreeNode, level: number = 0): JSX.Element => {
-    const hasChildren = node.children.length > 0;
-    const isExpanded = expandedNodes.has(node.item.code);
-    const levelColors = [
-      "bg-primary text-primary-foreground",
-      "bg-accent text-accent-foreground",
-      "bg-muted text-foreground",
-    ];
-
-    return (
-      <div key={node.item.code} className="select-none">
-        <div
-          className={cn(
-            "flex items-center gap-2 py-2 px-3 rounded-lg cursor-pointer transition-all hover:bg-muted/50",
-            level === 0 && "font-semibold"
-          )}
-          onClick={() => hasChildren && toggleNode(node.item.code)}
-          style={{ marginLeft: `${level * 24}px` }}
-        >
-          {hasChildren ? (
-            isExpanded ? (
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            )
-          ) : (
-            <div className="w-4" />
-          )}
-          
-          {hasChildren ? (
-            isExpanded ? (
-              <FolderOpen className="w-5 h-5 text-warning" />
-            ) : (
-              <Folder className="w-5 h-5 text-warning" />
-            )
-          ) : (
-            <FileText className="w-5 h-5 text-muted-foreground" />
-          )}
-
-          <span className={cn(
-            "px-2 py-0.5 rounded text-xs font-mono",
-            levelColors[Math.min(level, levelColors.length - 1)]
-          )}>
-            {node.item.code}
-          </span>
-
-          <span className={cn(
-            "text-sm",
-            level === 0 ? "font-medium" : "text-muted-foreground"
-          )}>
-            {node.item.title}
-          </span>
-
-          {node.item.items.length > 0 && (
-            <span className="ml-2 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {node.item.items.length} items
-            </span>
-          )}
-        </div>
-
-        {isExpanded && hasChildren && (
-          <div className="border-l-2 border-border/50 ml-6">
-            {node.children.map(child => renderNode(child, level + 1))}
-          </div>
-        )}
-      </div>
-    );
-  };
+  }, [tree]);
 
   if (wbsData.length === 0) {
     return (
@@ -242,10 +264,17 @@ export function WBSTreeDiagram({ wbsData }: WBSTreeDiagramProps) {
           className="overflow-auto max-h-[600px] p-4 bg-muted/20 rounded-xl border border-border"
           style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left' }}
         >
-          {tree.map(root => renderNode(root, 0))}
+          {tree.map(root => (
+            <TreeNodeComponent
+              key={root.item.code}
+              node={root}
+              level={0}
+              expandedNodes={expandedNodes}
+              onToggle={toggleNode}
+            />
+          ))}
         </div>
 
-        {/* Legend */}
         <div className="mt-4 flex items-center gap-6 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <Folder className="w-4 h-4 text-warning" />
