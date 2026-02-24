@@ -1,102 +1,114 @@
 
 
-# المرحلة 19: توحيد الهيدرات والعناوين وتحسين الخلفية عبر كامل البرنامج
+# المرحلة 20: تحديث شامل - توحيد الألوان (كحلي + أزرق + ذهبي) عبر كامل البرنامج
 
 ---
 
-## المشكلة الحالية
+## الهدف
 
-كل صفحة تستخدم تصميم هيدر مختلف تماماً:
-- **ContractsPage**: أيقونة + عنوان بسيط + 6 بطاقات إحصائيات بألوان متعددة
-- **ReportsPage**: عنوان نص فقط بدون أيقونة ولا تدرج
-- **SettingsPage**: عنوان `h2` بسيط بدون وصف
-- **LibraryPage**: عنوان مع breadcrumb مختلف
-- **MaterialPricesPage**: عنوان `h2` بسيط
-- **ProcurementPage**: عنوان + وصف بدون gradient
-
-**المطلوب (مطابقة الصورة المرفقة):**
-- هيدر بتدرج أزرق داكن الى أزرق (Navy gradient)
-- عنوان أبيض كبير بخط عريض
-- عنوان فرعي رمادي فاتح
-- أيقونة مربعة بزاوية مستديرة
-- أزرار إجراء على اليمين
-- شريط إحصائيات سفلي مدمج مع ألوان ذهبية للقيم المالية
+تطبيق ثلاثة ألوان أساسية متسقة عبر كامل البرنامج:
+1. **الكحلي (Navy)**: `#1a2744` - `#1e3054` - للخلفيات والهيدرات
+2. **الأزرق (Blue)**: `#2563EB` - `#3B82F6` - للعناصر التفاعلية والأيقونات
+3. **الذهبي (Gold)**: `#F5A623` - للقيم المالية والتأكيدات
 
 ---
 
-## 19.1 إنشاء مكوّن هيدر موحّد (PageHeader)
+## المشاكل الحالية
 
-**ملف جديد:** `src/components/PageHeader.tsx`
-
-مكوّن قابل لإعادة الاستخدام يقبل:
-
-```text
-interface PageHeaderProps {
-  icon: LucideIcon           // أيقونة الصفحة
-  title: string              // العنوان الرئيسي
-  subtitle?: string          // العنوان الفرعي
-  actions?: ReactNode        // أزرار الإجراءات (يمين)
-  stats?: StatItem[]         // بطاقات الإحصائيات السفلية
-}
-
-interface StatItem {
-  value: string | number
-  label: string
-  type?: 'default' | 'gold' | 'percentage'  // gold = قيمة مالية ذهبية
-}
-```
-
-**التصميم (مطابق للصورة):**
-- خلفية: `bg-gradient-to-r from-[#1a2744] via-[#1e3054] to-[#2563EB]` (تدرج أزرق داكن)
-- العنوان: أبيض، `text-2xl font-bold`، خط Inter/Cairo
-- العنوان الفرعي: `text-white/70`، حجم أصغر
-- الأيقونة: مربع مستدير `rounded-xl` بخلفية `white/10`
-- شريط الإحصائيات: خلفية `white/5` بتأثير `backdrop-blur`، القيم المالية بالذهبي `#F5A623`، النسب بالبرتقالي الذهبي
-- الأزرار: `variant="outline"` بلون أبيض شفاف + زر رئيسي بخلفية ذهبية/برتقالية
+1. **10 صفحات لا تستخدم PageHeader** بعد: DashboardPage, BOQItemsPage, RiskPage, CostAnalysisPage, HistoricalPricingPage, SavedProjectsPage, ProgressCertificatesPage, NewProjectPage, ResourcesPage, AnalysisToolsPage, FastExtractionPage, PricingAccuracyPage, TenderSummaryPage
+2. **MainDashboard**: الهيدر يستخدم تصميم محلي بدلاً من PageHeader الموحد
+3. **HomePage**: بطاقات التنقل تستخدم ألوان متعددة عشوائية بدلاً من النظام الثلاثي
+4. **الخلفية التفاعلية**: تحتاج تعزيز بالألوان الكحلية لتتناغم مع الهيدرات
+5. **CSS Variables**: الوضع الفاتح يستخدم `--primary` أزرق داكن بينما الوضع الداكن يستخدم `--primary` ذهبي - يحتاج توحيد
 
 ---
 
-## 19.2 تطبيق PageHeader على جميع الصفحات
-
-| الصفحة | الأيقونة | العنوان | الإحصائيات |
-|--------|----------|---------|------------|
-| `ContractsPage.tsx` | Building2 | Professional Engineering Contracts | Total Contracts, Active, Total Value (gold), Completion % |
-| `ReportsPage.tsx` | BarChart3 | Reports | Total Projects, In Progress, Total Value (gold), Completed |
-| `SettingsPage.tsx` | Settings2 | Settings | (بدون إحصائيات) |
-| `LibraryPage.tsx` | Library | Library | (بدون إحصائيات) |
-| `MaterialPricesPage.tsx` | DollarSign | Price Database | (بدون إحصائيات) |
-| `ProcurementPage.tsx` | Package | Procurement | (بدون إحصائيات) |
-| `SubcontractorsPage.tsx` | Users | Subcontractors | Total, Active, Total Value (gold), Progress % |
-| `BOQItemsPage.tsx` | FileSpreadsheet | BOQ Items | (بدون إحصائيات) |
-| `CalendarPage.tsx` | Calendar | Calendar | (بدون إحصائيات) |
-| `AdminDashboardPage.tsx` | ShieldAlert | Admin Dashboard | (يحتفظ ببطاقاته الخاصة) |
-
----
-
-## 19.3 تحسين CSS للهيدر الموحد
+## 20.1 تحسين CSS Variables - النظام الثلاثي
 
 **الملف:** `src/index.css`
 
-إضافة أنماط جديدة:
-- `.page-header-gradient`: تدرج أزرق داكن موحد لجميع الهيدرات
-- `.page-header-stat`: بطاقة إحصائية شفافة داخل الهيدر
-- `.page-header-stat-gold`: قيمة مالية ذهبية مع تأثير glow
-- تحسين تباين النصوص داخل الهيدر (أبيض على أزرق داكن)
+### Light Mode
+- تعريف `--navy: 218 50% 16%` كلون جديد للخلفيات الداكنة
+- تحسين `--primary` ليبقى الأزرق `218 58% 28%` (الكحلي المائل للأزرق)
+- `--accent` يبقى ذهبي `38 92% 55%`
+- إضافة `.navy-gradient` class: تدرج كحلي-أزرق للاستخدام العام
+- تحسين `.interactive-bg` بإضافة لمسة كحلية خفيفة
+
+### Dark Mode
+- تحسين التناغم: خلفية أكثر كحلية `218 50% 7%`
+- `--card` أكثر عمقاً كحلياً `215 52% 12%`
+
+### CSS جديد
+- `.text-navy`: لون كحلي للعناوين
+- `.bg-navy`: خلفية كحلية
+- `.border-navy`: حدود كحلية
+- تحسين `.page-header-gradient` بتدرج أكثر نعومة
 
 ---
 
-## 19.4 تحسين خلفية التطبيق
+## 20.2 تطبيق PageHeader على الصفحات المتبقية
+
+### الصفحات المستهدفة
+
+| الصفحة | الأيقونة | العنوان |
+|--------|----------|---------|
+| `DashboardPage.tsx` (عبر MainDashboard) | LayoutDashboard | Dashboard |
+| `BOQItemsPage.tsx` | FileSpreadsheet | BOQ Items |
+| `RiskPage.tsx` | AlertTriangle | Risk Management |
+| `AnalysisToolsPage.tsx` | TrendingUp | Analysis Tools |
+| `ProgressCertificatesPage.tsx` | FileCheck | Progress Certificates |
+| `NewProjectPage.tsx` | Plus | New Project |
+| `ResourcesPage.tsx` | Package | Resources |
+| `PricingAccuracyPage.tsx` | Target | Pricing Accuracy |
+| `FastExtractionPage.tsx` | Upload | Fast Extraction |
+| `CostAnalysisPage.tsx` | Calculator | Cost Analysis |
+| `HistoricalPricingPage.tsx` | Database | Historical Pricing |
+| `SavedProjectsPage.tsx` | FolderOpen | Projects |
+
+---
+
+## 20.3 تحسين MainDashboard
+
+**الملف:** `src/components/MainDashboard.tsx`
+
+- استبدال الهيدر المحلي (icon + h2 عادي) بـ `PageHeader` الموحد
+- تطبيق الألوان الثلاثة على:
+  - **StatCards**: أيقونات كحلية + قيم ذهبية للمبالغ المالية
+  - **KPICards**: ألوان كحلي (ممتاز) + أزرق (جيد) + أحمر (ضعيف) بدلاً من ذهبي/أزرق/أحمر
+  - **Chart Cards**: بوردر علوي كحلي بدلاً من ألوان عشوائية
+  - **Radar Chart**: خطوط كحلية + تعبئة ذهبية
+
+---
+
+## 20.4 تحسين HomePage
+
+**الملف:** `src/pages/HomePage.tsx`
+
+- **NavCards**: توحيد ألوان البطاقات لاستخدام النظام الثلاثي:
+  - تدرج كحلي-أزرق كخلفية أساسية لجميع البطاقات
+  - أيقونات ذهبية/بيضاء بدلاً من الألوان المتعددة العشوائية
+  - عند Hover: تأثير glow ذهبي
+- **Stats Strip**: تعزيز اللون الذهبي للأرقام
+- **Footer**: تدرج كحلي أوضح
+
+---
+
+## 20.5 تحسين الخلفية التفاعلية
 
 **الملف:** `src/components/BackgroundImage.tsx`
 
-- تعزيز `.interactive-bg` بتدرج أكثر تناغماً مع الهيدر الأزرق الداكن
-- الوضع الفاتح: تدرج أبيض مائل للأزرق الخفيف
-- الوضع الداكن: تدرج أزرق داكن عميق يتناغم مع هيدرات الصفحات
-- تحسين `.dot-grid` لتكون أكثر نعومة
+- الوضع الفاتح: تدرج أبيض-كحلي خفيف جداً
+- الوضع الداكن: تدرج كحلي عميق مع لمسة أزرق خفيفة
+- تحسين `.dot-grid` بلون كحلي شفاف
 
-**الملف:** `src/index.css`
-- تحسين ألوان `.interactive-bg` لتتلاءم مع التدرج الأزرق الداكن للهيدرات
-- ضمان انتقال سلس بين الهيدر والمحتوى
+---
+
+## 20.6 تحسين PageLayout Footer
+
+**الملف:** `src/components/PageLayout.tsx`
+
+- تطبيق تدرج كحلي خفيف على الفوتر
+- النص بالأبيض/الرمادي الفاتح
 
 ---
 
@@ -104,31 +116,35 @@ interface StatItem {
 
 | الملف | التعديل |
 |-------|---------|
-| `src/components/PageHeader.tsx` | **جديد** - مكوّن هيدر موحد |
-| `src/index.css` | أنماط CSS جديدة للهيدر |
-| `src/components/BackgroundImage.tsx` | تحسين الخلفية |
-| `src/pages/ContractsPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
-| `src/pages/ReportsPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
-| `src/pages/SettingsPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
-| `src/pages/LibraryPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
-| `src/pages/MaterialPricesPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
-| `src/pages/ProcurementPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
-| `src/pages/SubcontractorsPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
-| `src/pages/BOQItemsPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
-| `src/pages/CalendarPage.tsx` | استبدال الهيدر القديم بـ PageHeader |
+| `src/index.css` | CSS Variables + utility classes جديدة |
+| `src/components/BackgroundImage.tsx` | تحسين الخلفية بالألوان الكحلية |
+| `src/components/MainDashboard.tsx` | PageHeader + ألوان ثلاثية |
+| `src/pages/HomePage.tsx` | NavCards + Stats بنظام الألوان الموحد |
+| `src/pages/BOQItemsPage.tsx` | إضافة PageHeader |
+| `src/pages/RiskPage.tsx` | إضافة PageHeader |
+| `src/pages/AnalysisToolsPage.tsx` | إضافة PageHeader |
+| `src/pages/ProgressCertificatesPage.tsx` | إضافة PageHeader |
+| `src/pages/NewProjectPage.tsx` | إضافة PageHeader |
+| `src/pages/ResourcesPage.tsx` | إضافة PageHeader |
+| `src/pages/PricingAccuracyPage.tsx` | إضافة PageHeader |
+| `src/pages/FastExtractionPage.tsx` | إضافة PageHeader |
+| `src/pages/CostAnalysisPage.tsx` | إضافة PageHeader |
+| `src/pages/HistoricalPricingPage.tsx` | إضافة PageHeader |
+| `src/pages/SavedProjectsPage.tsx` | إضافة PageHeader |
+| `src/components/PageLayout.tsx` | تحسين Footer |
 
 ## ترتيب التنفيذ
 
-1. إنشاء `PageHeader.tsx` (المكوّن الأساسي)
-2. إضافة أنماط CSS في `index.css`
-3. تحسين `BackgroundImage.tsx`
-4. تطبيق `PageHeader` على جميع الصفحات (بالتوازي)
+1. تحديث `index.css` (CSS Variables + الألوان الجديدة)
+2. تحسين `BackgroundImage.tsx` و `PageLayout.tsx`
+3. تحسين `MainDashboard.tsx` (PageHeader + الألوان)
+4. تحسين `HomePage.tsx` (NavCards بالنظام الثلاثي)
+5. تطبيق PageHeader على جميع الصفحات المتبقية
 
 ## النتيجة المتوقعة
 
-- هيدر موحد بتدرج أزرق داكن عبر جميع الصفحات (مطابق للصورة المرفقة)
-- عناوين بنفس الخط والحجم واللون في كل مكان
-- القيم المالية دائماً بالذهبي `#F5A623`
-- خلفية تفاعلية متناغمة مع الهيدرات
-- تجربة بصرية متسقة واحترافية
+- ثلاثة ألوان موحدة فقط عبر كامل البرنامج: كحلي + أزرق + ذهبي
+- جميع الصفحات بدون استثناء تستخدم PageHeader الموحد
+- خلفية تفاعلية متناغمة مع النظام اللوني
+- هوية بصرية احترافية ومتسقة بنسبة 100%
 
