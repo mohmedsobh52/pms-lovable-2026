@@ -1,109 +1,113 @@
 
 
-# تحسين نظام التسعير: معاملات ديناميكية + تحذير تقديري + ربط بمصادر حقيقية
+# تحسين أداء ودقة نظام التسعير التلقائي
+
+## تحليل المشكلة الحالية
+
+المشكلة الأساسية واضحة من الصورة: **10 بنود غير مسعرة، 0 مطابقات، 0% ثقة**. السبب الجذري:
+1. مكتبات الأسعار فارغة تماماً (0 مواد، 0 عمالة، 0 معدات، 0 ملفات تاريخية)
+2. بحث أسعار السوق AI لا يعمل تلقائياً - يتطلب ضغط زر يدوي
+3. رابط API في Edge Function خاطئ (`api.lovable.dev` بدلاً من `ai.gateway.lovable.dev`)
+4. لا توجد أسعار مرجعية مدمجة كبديل عند فراغ المكتبات
 
 ---
 
-## 1. إضافة تحذير واضح في شاشة التسعير التلقائي
+## التحسينات المقترحة
 
-### الملف: `src/components/project-details/AutoPriceDialog.tsx`
+### 1. إصلاح رابط API في Edge Function
 
-- إضافة بانر تحذيري بارز (Alert باللون البرتقالي) أعلى نتائج التسعير مباشرة بعد عنوان الحوار
-- النص العربي: "تنبيه: جميع الأسعار المعروضة تقديرية وقد تختلف عن أسعار السوق الفعلية. يجب مراجعتها والتحقق منها قبل الاعتماد."
-- النص الإنجليزي: "Notice: All prices shown are estimates and may differ from actual market prices. Review and verify before approval."
-- أيقونة `AlertTriangle` مع خلفية `bg-amber-50 border-amber-200`
+**الملف:** `supabase/functions/fetch-market-prices/index.ts`
 
-### الملف: `src/components/MarketRateSuggestions.tsx`
-
-- إضافة نفس التحذير في حوار اقتراحات أسعار السوق
-
-### الملف: `src/components/EnhancedPricingAnalysis.tsx`
-
-- إضافة نفس التحذير في حوار التحليل المتقدم للتسعير
-
----
-
-## 2. تحويل معاملات المدن من ثابتة إلى ديناميكية (جدول في قاعدة البيانات)
-
-### جدول جديد: `city_pricing_factors`
-
+الرابط الحالي خاطئ:
 ```text
-الأعمدة:
-  id          UUID (primary key)
-  city_name   TEXT (unique, not null) - اسم المدينة بالإنجليزية
-  city_name_ar TEXT - اسم المدينة بالعربية
-  region      TEXT - المنطقة (saudi, uae, egypt, etc.)
-  factor      NUMERIC(4,2) default 1.00 - معامل السعر
-  label       TEXT - وصف المعامل (مثل "+5%")
-  source      TEXT - مصدر المعامل (manual/api/historical)
-  last_updated TIMESTAMPTZ default now()
-  updated_by  UUID (references auth.users)
+https://api.lovable.dev/v1/chat/completions
+```
+يجب تصحيحه إلى:
+```text
+https://ai.gateway.lovable.dev/v1/chat/completions
 ```
 
-- تعبئة الجدول بالقيم الحالية كبيانات أولية (seed data)
-- إضافة RLS: القراءة للجميع، التعديل للمسؤولين فقط
+---
 
-### الملف: `src/components/MarketRateSuggestions.tsx`
+### 2. بحث AI تلقائي عند فراغ المكتبات
 
-- استبدال `CITY_FACTORS` الثابتة بـ `useQuery` يجلب من جدول `city_pricing_factors`
-- استبدال `REGION_CITIES` الثابتة بتجميع ديناميكي من نتائج الجدول حسب `region`
-- إضافة مؤشر آخر تحديث (عرض `last_updated` بجانب المدينة المختارة)
+**الملف:** `src/components/project-details/AutoPriceDialog.tsx`
 
-### الملف: `supabase/functions/suggest-market-rates/index.ts`
-
-- استبدال `CITY_FACTORS` الثابتة بقراءة من جدول `city_pricing_factors` عبر Supabase client
-- Fallback للقيم الثابتة إذا فشل الاتصال بقاعدة البيانات
-
-### الملف: `src/components/EnhancedPricingAnalysis.tsx`
-
-- تحديث `LOCATIONS` لتُجلب من الجدول بدلاً من الثوابت
+- عند فتح الحوار، إذا كانت المكتبات الأربع فارغة (مواد + عمالة + معدات + تاريخي = 0)، يتم تشغيل بحث أسعار السوق AI تلقائياً بدون انتظار ضغط المستخدم
+- إظهار رسالة توضيحية: "المكتبات فارغة، جاري البحث عن أسعار السوق تلقائياً..."
+- السماح بإعادة البحث حتى بعد البحث الأول (إزالة قفل `marketSearchDone`)
 
 ---
 
-## 3. إضافة صفحة إدارة معاملات المدن (للمسؤول)
+### 3. إضافة أسعار مرجعية مدمجة (Built-in Reference Prices)
 
-### ملف جديد: `src/components/CityFactorsManager.tsx`
+**الملف:** `src/components/project-details/AutoPriceDialog.tsx`
 
-- جدول قابل للتعديل يعرض جميع المدن ومعاملاتها
-- إمكانية تعديل المعامل مباشرة (inline edit)
-- إمكانية إضافة مدينة جديدة
-- عرض مصدر المعامل وتاريخ آخر تحديث
-- زر "إعادة تعيين للافتراضي" لاستعادة القيم الأصلية
+إضافة قاعدة بيانات أسعار مرجعية محلية (حوالي 80 بنداً شائعاً) تغطي:
+- أعمال الخرسانة (خرسانة جاهزة، حديد تسليح، شدات، صب)
+- أعمال الحفر والردم (حفر، ردم، دمك)
+- أعمال الأنابيب والصرف (HDPE, UPVC, غرف تفتيش)
+- أعمال الكهرباء (كابلات، إنارة)
+- أعمال الطرق (أسفلت، إنترلوك، أرصفة)
+- أعمال العزل والدهانات
 
-### الملف: `src/pages/SettingsPage.tsx`
-
-- إضافة تبويب "معاملات المدن" في صفحة الإعدادات يعرض `CityFactorsManager`
+هذه الأسعار تُستخدم كمصدر سادس (Reference) بثقة منخفضة (40-55%) كبديل أخير عند عدم توفر مصادر أخرى.
 
 ---
 
-## 4. ربط بمصدر أسعار حقيقي (Lovable AI - Gemini Flash)
+### 4. تحسين خوارزمية المطابقة
 
-بدلاً من Perplexity، نستخدم **Lovable AI** (نموذج `gemini-2.5-flash`) المتاح مباشرة بدون مفتاح إضافي للبحث عن أسعار السوق الحقيقية.
+**الملف:** `src/components/project-details/AutoPriceDialog.tsx`
 
-### ملف جديد: `supabase/functions/fetch-market-prices/index.ts`
+- إضافة مطابقة **N-gram** (ثلاثيات الأحرف) لتحسين المطابقة الجزئية للنصوص العربية والإنجليزية
+- تخفيض عتبة القبول من 25 إلى 20 نقطة لزيادة التغطية
+- زيادة وزن المطابقة للكلمات العربية المتخصصة
+- إضافة مطابقة بالجذر للكلمات العربية (مثل: "خرسانة" تطابق "خرسانية")
 
-- Edge function تستقبل اسم مادة/بند + مدينة
-- تستدعي Perplexity API (model: `sonar`) للبحث عن "أسعار [المادة] في [المدينة] 2025"
-- تُرجع السعر المقترح مع المصادر (citations)
-- تخزن النتائج مؤقتاً في جدول `market_price_cache` لمدة 7 أيام
+---
 
-### جدول جديد: `market_price_cache`
+### 5. تخفيض الحد الأدنى الافتراضي للثقة
 
+**الملف:** `src/components/project-details/AutoPriceDialog.tsx`
+
+- تغيير الحد الافتراضي من 50% إلى 30%
+- تغيير الحد الأدنى للمنزلق من 30% إلى 15%
+
+---
+
+### 6. تحسين Edge Function
+
+**الملف:** `supabase/functions/fetch-market-prices/index.ts`
+
+- استخدام tool calling بدلاً من طلب JSON خام لضمان استجابة منظمة
+- إضافة معالجة أخطاء 429 و 402
+- تحسين البرومبت ليشمل سياقاً أكثر عن نوع المشروع
+
+---
+
+## التفاصيل التقنية
+
+### الأسعار المرجعية المدمجة
 ```text
-الأعمدة:
-  id           UUID (primary key)
-  search_query TEXT - نص البحث
-  city         TEXT - المدينة
-  result_data  JSONB - النتائج (أسعار + مصادر)
-  fetched_at   TIMESTAMPTZ default now()
-  expires_at   TIMESTAMPTZ - تاريخ انتهاء الصلاحية
+مصفوفة من ~80 بنداً بتنسيق:
+{ keywords: ["concrete", "خرسانة"], unit: "m3", minPrice: 250, maxPrice: 450, avgPrice: 350, category: "concrete" }
 ```
 
-### الملف: `src/components/project-details/AutoPriceDialog.tsx`
+### N-gram Matching
+```text
+function ngramSimilarity(str1, str2, n=3):
+  - استخراج جميع n-grams من كلا النصين
+  - حساب نسبة التقاطع (Jaccard similarity)
+  - إرجاع نتيجة 0-1
+```
 
-- إضافة زر "بحث أسعار السوق الحقيقية" بجانب نتائج التسعير
-- عند الضغط، يبحث عن أسعار البنود غير المسعرة عبر `fetch-market-prices`
-- عرض النتائج مع المصادر كمصدر خامس (بالإضافة للمصادر الأربعة الحالية)
+### Auto-trigger Logic
+```text
+useEffect:
+  if (isOpen && !loadingHistorical && materials.length === 0 && laborRates.length === 0 && 
+      equipmentRates.length === 0 && historicalItems.length === 0 && !marketSearchDone):
+    handleMarketSearch()
+```
 
 ---
 
@@ -111,16 +115,9 @@
 
 | الخطوة | الوصف |
 |--------|-------|
-| 1 | إنشاء جدولي `city_pricing_factors` و `market_price_cache` |
-| 2 | إضافة التحذير التقديري في الحوارات الثلاثة |
-| 3 | إنشاء `CityFactorsManager` وربطه بالإعدادات |
-| 4 | تحديث المكونات والـ Edge Function لاستخدام المعاملات الديناميكية |
-| 5 | ربط Perplexity connector وإنشاء `fetch-market-prices` |
-| 6 | دمج نتائج البحث الحقيقية في واجهة التسعير |
-
----
-
-## ملاحظة مهمة
-
-ربط Perplexity يتطلب تفعيل الـ connector أولاً. سيتم طلب ذلك عند الوصول للخطوة 5.
+| 1 | إصلاح رابط API في Edge Function + إضافة tool calling ومعالجة الأخطاء |
+| 2 | إضافة الأسعار المرجعية المدمجة |
+| 3 | تحسين خوارزمية المطابقة (N-gram + عتبات أقل) |
+| 4 | تفعيل البحث التلقائي عند فراغ المكتبات |
+| 5 | تخفيض الحد الافتراضي للثقة |
 
