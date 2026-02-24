@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -600,7 +601,7 @@ function AutoPriceDialogComponent({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent 
-        className="max-w-4xl max-h-[85vh] overflow-hidden"
+        className="max-w-5xl max-h-[90vh] overflow-hidden"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
@@ -635,9 +636,20 @@ function AutoPriceDialogComponent({
               <label className="text-sm font-medium">
                 {isArabic ? "الحد الأدنى للثقة" : "Minimum Confidence"}
               </label>
-              <Badge variant="outline" className="text-lg font-bold">
-                {confidenceThreshold[0]}%
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="number"
+                  min={15}
+                  max={90}
+                  value={confidenceThreshold[0]}
+                  onChange={(e) => {
+                    const val = Math.min(90, Math.max(15, Number(e.target.value) || 15));
+                    setConfidenceThreshold([val]);
+                  }}
+                  className="w-16 h-8 text-center font-bold text-sm px-1"
+                />
+                <span className="text-sm text-muted-foreground">%</span>
+              </div>
             </div>
             <Slider
               value={confidenceThreshold}
@@ -797,7 +809,7 @@ function AutoPriceDialogComponent({
                 </p>
               </div>
             ) : (
-              <ScrollArea className="h-[220px] rounded-md border">
+              <ScrollArea className="h-[320px] rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -843,22 +855,37 @@ function AutoPriceDialogComponent({
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}>
-            {isArabic ? "إلغاء" : "Cancel"}
-          </Button>
-          <Button 
-            onClick={handleApply} 
-            disabled={pricingResults.length === 0 || isApplying}
-            className="gap-2"
-          >
-            {isApplying ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <CheckCircle className="w-4 h-4" />
-            )}
-            {isArabic ? `تطبيق (${pricingResults.length} بند)` : `Apply (${pricingResults.length} items)`}
-          </Button>
+        <DialogFooter className="flex-col sm:flex-row gap-3 items-center border-t pt-4">
+          {pricingResults.length > 0 && (
+            <div className="flex-1 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{pricingResults.length}</span>{" "}
+              {isArabic ? "بند" : "items"} · {isArabic ? "إجمالي تقديري" : "Est. total"}:{" "}
+              <span className="font-semibold text-foreground">
+                {pricingResults.reduce((sum, r) => {
+                  const item = items.find(i => i.id === r.itemId);
+                  return sum + r.suggestedPrice * (item?.quantity || 1);
+                }, 0).toLocaleString()} {currency}
+              </span>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>
+              {isArabic ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleApply} 
+              disabled={pricingResults.length === 0 || isApplying}
+              size="lg"
+              className="gap-2 min-w-[160px]"
+            >
+              {isApplying ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              {isArabic ? `تطبيق التسعير (${pricingResults.length})` : `Apply Pricing (${pricingResults.length})`}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
