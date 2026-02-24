@@ -588,11 +588,46 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        {/* Skeleton Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => (
+            <Card key={i} className="rounded-2xl border-0">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                  </div>
+                  <div className="w-14 h-14 rounded-2xl bg-muted animate-pulse" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {/* Skeleton Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {[1,2].map(i => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="h-4 w-32 bg-muted animate-pulse rounded mb-4" />
+                <div className="h-48 bg-muted animate-pulse rounded" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {/* Skeleton Table */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="h-4 w-40 bg-muted animate-pulse rounded mb-4" />
+            {[1,2,3,4,5].map(i => (
+              <div key={i} className="flex items-center gap-4 py-3 border-b border-border last:border-0">
+                <div className="h-4 w-full bg-muted animate-pulse rounded" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

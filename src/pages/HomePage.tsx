@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
 import alimtyazLogo from "@/assets/company/alimtyaz-logo.jpg";
 import { useEffect, useState } from "react";
+import { formatDistanceToNow } from "date-fns";
+import { ar, enUS } from "date-fns/locale";
 import {
   FolderOpen,
   Layers,
@@ -38,6 +40,7 @@ const sections = [
 ];
 
 type CountsMap = Record<string, number>;
+type ActivityItem = { type: string; name: string; date: string; icon: string };
 
 const tableKeys = [
   "saved_projects", "project_items", "cost_analysis", "contracts",
@@ -47,7 +50,7 @@ const tableKeys = [
 export default function HomePage() {
   const { isArabic } = useLanguage();
   const [counts, setCounts] = useState<CountsMap>({});
-
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   useEffect(() => {
     const CACHE_KEY = "pms_home_counts";
     const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -81,6 +84,19 @@ export default function HomePage() {
       try {
         sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: results, timestamp: Date.now() }));
       } catch {}
+
+      // Fetch recent activities
+      try {
+        const [projRes, contRes] = await Promise.all([
+          supabase.from("saved_projects").select("name, created_at").order("created_at", { ascending: false }).limit(3),
+          supabase.from("contracts").select("contract_title, created_at").order("created_at", { ascending: false }).limit(2),
+        ]);
+        const acts: ActivityItem[] = [];
+        projRes.data?.forEach(p => acts.push({ type: "project", name: p.name, date: p.created_at, icon: "📊" }));
+        contRes.data?.forEach(c => acts.push({ type: "contract", name: c.contract_title, date: c.created_at, icon: "📄" }));
+        acts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setActivities(acts.slice(0, 5));
+      } catch {}
     };
     fetchCounts();
   }, []);
@@ -112,6 +128,26 @@ export default function HomePage() {
                 <span className="text-white/70">{stat.label}</span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Recent Activity Feed */}
+        {activities.length > 0 && (
+          <div className="max-w-2xl w-full mb-5">
+            <div className="bg-black/30 backdrop-blur-sm rounded-xl border border-white/10 p-3">
+              <p className="text-white/60 text-xs mb-2 px-1">{isArabic ? "آخر الأنشطة" : "Recent Activity"}</p>
+              <div className="space-y-1">
+                {activities.map((act, i) => (
+                  <div key={i} className="flex items-center gap-2 text-white/80 text-xs px-1 py-1">
+                    <span>{act.icon}</span>
+                    <span className="truncate flex-1">{act.name}</span>
+                    <span className="text-white/40 shrink-0">
+                      {formatDistanceToNow(new Date(act.date), { addSuffix: true, locale: isArabic ? ar : enUS })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

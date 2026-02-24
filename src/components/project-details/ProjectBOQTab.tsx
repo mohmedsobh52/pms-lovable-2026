@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Package, Search, Filter, Download, Trash2, Plus, Wand2, RefreshCw,
   ArrowUpDown, Hash, FileText, CheckCircle, MoreVertical, DollarSign,
   Edit, XCircle, Loader2, History, Upload, FileUp,
-  BarChart3, CircleDollarSign, ListChecks, Calculator
+  BarChart3, CircleDollarSign, ListChecks, Calculator, AlertTriangle, BarChart
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ProjectItem, PricingStats } from "./types";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ProjectBOQTabProps {
   items: ProjectItem[];
@@ -68,6 +70,7 @@ interface ProjectBOQTabProps {
   onUnconfirmItem: (itemId: string) => void;
   onDeleteZeroQuantityItems: () => void;
   formatCurrency: (value: number) => string;
+  onInlineEdit?: (itemId: string, field: string, value: number) => void;
 }
 
 export function ProjectBOQTab({
@@ -101,9 +104,71 @@ export function ProjectBOQTab({
   onUnconfirmItem,
   onDeleteZeroQuantityItems,
   formatCurrency,
+  onInlineEdit,
 }: ProjectBOQTabProps) {
   const effectiveItemsPerPage = itemsPerPage >= filteredItems.length ? filteredItems.length : itemsPerPage;
   const hasArabicDescriptions = items.some(item => item.description_ar && item.description_ar.trim() !== '');
+  const isMobile = useIsMobile();
+
+  // Inline editing state
+  const [editingCell, setEditingCell] = useState<{ itemId: string; field: 'unit_price' | 'quantity' } | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [showOutlierList, setShowOutlierList] = useState(false);
+
+  // Outlier detection
+  const outlierItems = useMemo(() => {
+    const pricedItems = items.filter(i => i.unit_price && i.unit_price > 0);
+    if (pricedItems.length < 3) return [];
+
+    // Group by category
+    const categories: Record<string, number[]> = {};
+    pricedItems.forEach(item => {
+      const cat = item.category || '_general';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push(item.unit_price!);
+    });
+
+    // Calculate averages
+    const categoryAvg: Record<string, number> = {};
+    Object.entries(categories).forEach(([cat, prices]) => {
+      categoryAvg[cat] = prices.reduce((s, p) => s + p, 0) / prices.length;
+    });
+
+    // Find outliers
+    return pricedItems.filter(item => {
+      const cat = item.category || '_general';
+      const avg = categoryAvg[cat];
+      if (!avg) return false;
+      const ratio = item.unit_price! / avg;
+      return ratio > 2 || ratio < 0.3;
+    });
+  }, [items]);
+
+  // Inline edit handlers
+  const handleStartEdit = useCallback((itemId: string, field: 'unit_price' | 'quantity', currentValue: number | null) => {
+    if (!onInlineEdit) return;
+    setEditingCell({ itemId, field });
+    setEditValue(currentValue?.toString() || "0");
+  }, [onInlineEdit]);
+
+  const handleCommitEdit = useCallback(() => {
+    if (!editingCell || !onInlineEdit) return;
+    const numValue = parseFloat(editValue);
+    if (!isNaN(numValue) && numValue >= 0) {
+      onInlineEdit(editingCell.itemId, editingCell.field, numValue);
+    }
+    setEditingCell(null);
+    setEditValue("");
+  }, [editingCell, editValue, onInlineEdit]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingCell(null);
+    setEditValue("");
+  }, []);
+
+  const isOutlier = useCallback((itemId: string) => {
+    return outlierItems.some(o => o.id === itemId);
+  }, [outlierItems]);
 
   // If no items at all, show empty state
   if (items.length === 0) {
@@ -138,8 +203,153 @@ export function ProjectBOQTab({
     );
   }
 
+  // Render inline edit cell
+  const renderEditableCell = (item: ProjectItem, field: 'unit_price' | 'quantity', displayValue: string) => {
+    const isEditing = editingCell?.itemId === item.id && editingCell?.field === field;
+    
+    if (isEditing) {
+      return (
+        <Input
+          type="number"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={handleCommitEdit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleCommitEdit();
+            if (e.key === 'Escape') handleCancelEdit();
+          }}
+          className="h-7 w-24 text-right text-sm"
+          autoFocus
+          min={0}
+          step="any"
+        />
+      );
+    }
+
+    return (
+      <span
+        className={cn(
+          onInlineEdit && "cursor-pointer hover:bg-muted/50 px-1.5 py-0.5 rounded transition-colors",
+        )}
+        onDoubleClick={() => handleStartEdit(item.id, field, field === 'unit_price' ? item.unit_price : item.quantity)}
+        title={onInlineEdit ? (isArabic ? "انقر مرتين للتعديل" : "Double-click to edit") : undefined}
+      >
+        {displayValue}
+      </span>
+    );
+  };
+
+  // Mobile card layout
+  const renderMobileCard = (item: ProjectItem) => (
+    <Card 
+      key={item.id} 
+      className={cn(
+        "mb-3",
+        item.unit_price && item.unit_price > 0
+          ? "border-green-500/30 bg-green-50/30 dark:bg-green-950/10"
+          : "border-red-500/20 bg-red-50/20 dark:bg-red-950/10",
+        isOutlier(item.id) && "border-dashed border-destructive/50"
+      )}
+    >
+      <CardContent className="p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Checkbox 
+              checked={selectedItems.has(item.id)}
+              onCheckedChange={(checked) => {
+                const newSet = new Set(selectedItems);
+                if (checked) newSet.add(item.id);
+                else newSet.delete(item.id);
+                onSelectedItemsChange(newSet);
+              }}
+            />
+            <span className="font-mono text-sm font-bold">{item.item_number}</span>
+            {isOutlier(item.id) && <AlertTriangle className="w-3.5 h-3.5 text-destructive" />}
+          </div>
+          <Badge 
+            variant={item.unit_price && item.unit_price > 0 ? "default" : "secondary"}
+            className={item.unit_price && item.unit_price > 0 
+              ? "bg-green-500/10 text-green-600 border-green-500/20" 
+              : ""}
+          >
+            {item.unit_price && item.unit_price > 0 
+              ? (isArabic ? "مسعر" : "Priced") 
+              : (isArabic ? "غير مسعر" : "Unpriced")}
+          </Badge>
+        </div>
+        <p className="text-sm leading-relaxed line-clamp-2">{item.description || '-'}</p>
+        <div className="grid grid-cols-3 gap-2 text-sm">
+          <div>
+            <span className="text-muted-foreground text-xs">{isArabic ? "الوحدة" : "Unit"}</span>
+            <p className="font-medium">{item.unit || '-'}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground text-xs">{isArabic ? "الكمية" : "Qty"}</span>
+            <p className="font-medium">{item.quantity?.toLocaleString() || '-'}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground text-xs">{isArabic ? "سعر الوحدة" : "Unit Price"}</span>
+            <p className="font-medium">{item.unit_price && item.unit_price > 0 ? formatCurrency(item.unit_price) : '-'}</p>
+          </div>
+        </div>
+        {item.total_price && item.total_price > 0 && (
+          <div className="text-right font-bold text-sm">
+            {isArabic ? "الإجمالي" : "Total"}: {currency} {formatCurrency(item.total_price)}
+          </div>
+        )}
+        <div className="flex items-center gap-2 pt-1">
+          <Button size="sm" variant="outline" className="flex-1 gap-1 h-8 text-xs" onClick={() => onQuickPrice(item.id)}>
+            <DollarSign className="w-3 h-3" />{isArabic ? "تسعير" : "Price"}
+          </Button>
+          <Button size="sm" variant="outline" className="flex-1 gap-1 h-8 text-xs" onClick={() => onEditItem(item)}>
+            <Edit className="w-3 h-3" />{isArabic ? "تعديل" : "Edit"}
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1 h-8 text-xs text-destructive" onClick={() => onDeleteItem(item.id)}>
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-4">
+      {/* Outlier Price Alert */}
+      {outlierItems.length > 0 && (
+        <Alert variant="destructive" className="bg-destructive/5 border-destructive/30">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle className="flex items-center justify-between">
+            <span>{isArabic ? "تنبيه: أسعار شاذة" : "Warning: Outlier Prices"}</span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-6 text-xs"
+              onClick={() => setShowOutlierList(!showOutlierList)}
+            >
+              {showOutlierList 
+                ? (isArabic ? "إخفاء" : "Hide") 
+                : (isArabic ? `عرض (${outlierItems.length})` : `Show (${outlierItems.length})`)}
+            </Button>
+          </AlertTitle>
+          <AlertDescription>
+            {isArabic 
+              ? `يوجد ${outlierItems.length} بند بأسعار تتجاوز 200% أو تقل عن 30% من متوسط الفئة`
+              : `${outlierItems.length} items have prices exceeding 200% or below 30% of category average`}
+            {showOutlierList && (
+              <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                {outlierItems.map(item => (
+                  <div key={item.id} className="flex items-center justify-between text-xs bg-background/50 rounded px-2 py-1">
+                    <span className="font-mono">{item.item_number}</span>
+                    <span className="truncate mx-2 flex-1">{item.description?.slice(0, 50)}</span>
+                    <span className="font-bold">{formatCurrency(item.unit_price!)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Statistics Row */}
       <TooltipProvider>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -274,10 +484,12 @@ export function ProjectBOQTab({
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="gap-2">
                     <ArrowUpDown className="w-4 h-4" />
-                    {sortMode === 'file_order' 
-                      ? (isArabic ? "ترتيب الملف" : "File Order")
-                      : (isArabic ? "ترتيب رقمي" : "Numeric Order")
-                    }
+                    <span className="hidden sm:inline">
+                      {sortMode === 'file_order' 
+                        ? (isArabic ? "ترتيب الملف" : "File Order")
+                        : (isArabic ? "ترتيب رقمي" : "Numeric Order")
+                      }
+                    </span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align={isArabic ? "start" : "end"} className="bg-popover">
@@ -299,23 +511,23 @@ export function ProjectBOQTab({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button variant="outline" size="icon">
+              <Button variant="outline" size="icon" className="hidden sm:flex">
                 <Filter className="w-4 h-4" />
               </Button>
-              <Button variant="outline" size="icon">
+              <Button variant="outline" size="icon" className="hidden sm:flex">
                 <RefreshCw className="w-4 h-4" />
               </Button>
-              <Button variant="outline" size="icon">
+              <Button variant="outline" size="icon" className="hidden sm:flex">
                 <Download className="w-4 h-4" />
               </Button>
               <Button 
                 variant="outline" 
-                className="gap-2 text-destructive hover:text-destructive"
+                className="gap-2 text-destructive hover:text-destructive hidden sm:flex"
                 onClick={onDeleteZeroQuantityItems}
                 disabled={zeroQuantityCount === 0}
               >
                 <Trash2 className="w-4 h-4" />
-                {isArabic ? "مسح الكميات الصفرية" : "Delete Zero Qty"}
+                <span className="hidden md:inline">{isArabic ? "مسح الكميات الصفرية" : "Delete Zero Qty"}</span>
                 {zeroQuantityCount > 0 && (
                   <Badge variant="secondary" className="ml-1">
                     {zeroQuantityCount}
@@ -333,16 +545,16 @@ export function ProjectBOQTab({
                 ) : (
                   <Wand2 className="w-4 h-4" />
                 )}
-                {isArabic ? "تسعير تلقائي" : "Auto Price"}
+                <span className="hidden sm:inline">{isArabic ? "تسعير تلقائي" : "Auto Price"}</span>
               </Button>
               {onUploadBOQ && (
                 <Button 
                   variant="outline" 
-                  className="gap-2"
+                  className="gap-2 hidden sm:flex"
                   onClick={onUploadBOQ}
                 >
                   <Upload className="w-4 h-4" />
-                  {isArabic ? "رفع BOQ" : "Upload BOQ"}
+                  <span className="hidden md:inline">{isArabic ? "رفع BOQ" : "Upload BOQ"}</span>
                 </Button>
               )}
               <Button 
@@ -350,158 +562,180 @@ export function ProjectBOQTab({
                 onClick={onAddItem}
               >
                 <Plus className="w-4 h-4" />
-                {isArabic ? "إضافة بند" : "Add Item"}
+                <span className="hidden sm:inline">{isArabic ? "إضافة بند" : "Add Item"}</span>
               </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-background border-b">
-                <TableRow>
-                  <TableHead className="w-[50px]">
-                    <Checkbox 
-                      checked={selectedItems.size === filteredItems.length && filteredItems.length > 0}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          onSelectedItemsChange(new Set(filteredItems.map(i => i.id)));
-                        } else {
-                          onSelectedItemsChange(new Set());
-                        }
-                      }}
-                    />
-                  </TableHead>
-                  <TableHead className="w-[100px]">{isArabic ? "رقم البند" : "Item No."}</TableHead>
-                  <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
-                  {hasArabicDescriptions && (
-                    <TableHead className="min-w-[250px]">الوصف العربي</TableHead>
-                  )}
-                  <TableHead className="w-[80px]">{isArabic ? "الوحدة" : "Unit"}</TableHead>
-                  <TableHead className="w-[100px] text-right">{isArabic ? "الكمية" : "Qty"}</TableHead>
-                  <TableHead className="w-[120px] text-right">{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
-                  <TableHead className="w-[140px] text-right">{isArabic ? "الإجمالي" : "Total"}</TableHead>
-                  <TableHead className="w-[100px]">{isArabic ? "الحالة" : "Status"}</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.length === 0 ? (
+          {/* Mobile: Card Layout */}
+          {isMobile ? (
+            <div>
+              {filteredItems.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">
+                  {isArabic ? "لا توجد بنود" : "No items found"}
+                </p>
+              ) : (
+                displayedItems.map(renderMobileCard)
+              )}
+            </div>
+          ) : (
+            /* Desktop: Table Layout */
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-background border-b">
                   <TableRow>
-                    <TableCell colSpan={hasArabicDescriptions ? 10 : 9} className="text-center py-8 text-muted-foreground">
-                      {isArabic ? "لا توجد بنود" : "No items found"}
-                    </TableCell>
+                    <TableHead className="w-[50px]">
+                      <Checkbox 
+                        checked={selectedItems.size === filteredItems.length && filteredItems.length > 0}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            onSelectedItemsChange(new Set(filteredItems.map(i => i.id)));
+                          } else {
+                            onSelectedItemsChange(new Set());
+                          }
+                        }}
+                      />
+                    </TableHead>
+                    <TableHead className="w-[100px]">{isArabic ? "رقم البند" : "Item No."}</TableHead>
+                    <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
+                    {hasArabicDescriptions && (
+                      <TableHead className="min-w-[250px]">الوصف العربي</TableHead>
+                    )}
+                    <TableHead className="w-[80px]">{isArabic ? "الوحدة" : "Unit"}</TableHead>
+                    <TableHead className="w-[100px] text-right">{isArabic ? "الكمية" : "Qty"}</TableHead>
+                    <TableHead className="w-[120px] text-right">{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
+                    <TableHead className="w-[140px] text-right">{isArabic ? "الإجمالي" : "Total"}</TableHead>
+                    <TableHead className="w-[100px]">{isArabic ? "الحالة" : "Status"}</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
-                ) : (
-                  displayedItems.map((item) => (
-                    <TableRow 
-                      key={item.id}
-                      className={cn(
-                        item.unit_price && item.unit_price > 0
-                          ? "bg-green-50/50 dark:bg-green-950/20 hover:bg-green-100/50 dark:hover:bg-green-950/30"
-                          : "bg-red-50/30 dark:bg-red-950/10 hover:bg-red-100/30 dark:hover:bg-red-950/20"
-                      )}
-                    >
-                      <TableCell>
-                        <Checkbox 
-                          checked={selectedItems.has(item.id)}
-                          onCheckedChange={(checked) => {
-                            const newSet = new Set(selectedItems);
-                            if (checked) newSet.add(item.id);
-                            else newSet.delete(item.id);
-                            onSelectedItemsChange(newSet);
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell className="font-mono text-sm whitespace-nowrap">{item.item_number}</TableCell>
-                      <TableCell className="min-w-[350px] max-w-[500px] whitespace-pre-wrap break-words text-sm leading-relaxed">{item.description || '-'}</TableCell>
-                      {hasArabicDescriptions && (
-                        <TableCell className="min-w-[250px] max-w-[400px] whitespace-pre-wrap break-words text-sm leading-relaxed" dir="rtl">
-                          {item.description_ar || '-'}
-                        </TableCell>
-                      )}
-                      <TableCell>{item.unit || '-'}</TableCell>
-                      <TableCell className="text-right">{item.quantity?.toLocaleString() || '-'}</TableCell>
-                      <TableCell className="text-right">
-                        {item.unit_price && item.unit_price > 0 ? formatCurrency(item.unit_price) : '-'}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {item.total_price && item.total_price > 0 ? formatCurrency(item.total_price) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={item.unit_price && item.unit_price > 0 ? "default" : "secondary"}
-                          className={item.unit_price && item.unit_price > 0 
-                            ? "bg-green-500/10 text-green-600 border-green-500/20" 
-                            : ""}
-                        >
-                          {item.unit_price && item.unit_price > 0 
-                            ? (isArabic ? "مسعر" : "Priced") 
-                            : (isArabic ? "غير مسعر" : "Unpriced")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu modal={false}>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align={isArabic ? "start" : "end"}>
-                            <DropdownMenuItem 
-                              onClick={() => onQuickPrice(item.id)}
-                              className="gap-2"
-                            >
-                              <DollarSign className="w-4 h-4" />
-                              {isArabic ? "تسعير سريع" : "Quick Price"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => onDetailedPrice(item)}
-                              className="gap-2"
-                            >
-                              <History className="w-4 h-4" />
-                              {isArabic ? "بحث تاريخي" : "Historical Lookup"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => onDetailedPrice(item)}
-                              className="gap-2"
-                            >
-                              <FileText className="w-4 h-4" />
-                              {isArabic ? "تسعير مفصل" : "Detailed Price"}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => onEditItem(item)}
-                              className="gap-2"
-                            >
-                              <Edit className="w-4 h-4" />
-                              {isArabic ? "تعديل" : "Edit"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => onUnconfirmItem(item.id)}
-                              className="gap-2"
-                              disabled={!item.unit_price || item.unit_price === 0}
-                            >
-                              <XCircle className="w-4 h-4" />
-                              {isArabic ? "إلغاء التحقق" : "Clear Price"}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => onDeleteItem(item.id)}
-                              className="gap-2 text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              {isArabic ? "حذف" : "Delete"}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                </TableHeader>
+                <TableBody>
+                  {filteredItems.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={hasArabicDescriptions ? 10 : 9} className="text-center py-8 text-muted-foreground">
+                        {isArabic ? "لا توجد بنود" : "No items found"}
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ) : (
+                    displayedItems.map((item) => (
+                      <TableRow 
+                        key={item.id}
+                        className={cn(
+                          item.unit_price && item.unit_price > 0
+                            ? "bg-green-50/50 dark:bg-green-950/20 hover:bg-green-100/50 dark:hover:bg-green-950/30"
+                            : "bg-red-50/30 dark:bg-red-950/10 hover:bg-red-100/30 dark:hover:bg-red-950/20",
+                          isOutlier(item.id) && "border-l-2 border-l-destructive border-dashed"
+                        )}
+                      >
+                        <TableCell>
+                          <Checkbox 
+                            checked={selectedItems.has(item.id)}
+                            onCheckedChange={(checked) => {
+                              const newSet = new Set(selectedItems);
+                              if (checked) newSet.add(item.id);
+                              else newSet.delete(item.id);
+                              onSelectedItemsChange(newSet);
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="font-mono text-sm whitespace-nowrap">
+                          <span className="flex items-center gap-1">
+                            {item.item_number}
+                            {isOutlier(item.id) && <AlertTriangle className="w-3 h-3 text-destructive" />}
+                          </span>
+                        </TableCell>
+                        <TableCell className="min-w-[350px] max-w-[500px] whitespace-pre-wrap break-words text-sm leading-relaxed">{item.description || '-'}</TableCell>
+                        {hasArabicDescriptions && (
+                          <TableCell className="min-w-[250px] max-w-[400px] whitespace-pre-wrap break-words text-sm leading-relaxed" dir="rtl">
+                            {item.description_ar || '-'}
+                          </TableCell>
+                        )}
+                        <TableCell>{item.unit || '-'}</TableCell>
+                        <TableCell className="text-right">
+                          {renderEditableCell(item, 'quantity', item.quantity?.toLocaleString() || '-')}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {renderEditableCell(item, 'unit_price', item.unit_price && item.unit_price > 0 ? formatCurrency(item.unit_price) : '-')}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {item.total_price && item.total_price > 0 ? formatCurrency(item.total_price) : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={item.unit_price && item.unit_price > 0 ? "default" : "secondary"}
+                            className={item.unit_price && item.unit_price > 0 
+                              ? "bg-green-500/10 text-green-600 border-green-500/20" 
+                              : ""}
+                          >
+                            {item.unit_price && item.unit_price > 0 
+                              ? (isArabic ? "مسعر" : "Priced") 
+                              : (isArabic ? "غير مسعر" : "Unpriced")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu modal={false}>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align={isArabic ? "start" : "end"}>
+                              <DropdownMenuItem 
+                                onClick={() => onQuickPrice(item.id)}
+                                className="gap-2"
+                              >
+                                <DollarSign className="w-4 h-4" />
+                                {isArabic ? "تسعير سريع" : "Quick Price"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => onDetailedPrice(item)}
+                                className="gap-2"
+                              >
+                                <History className="w-4 h-4" />
+                                {isArabic ? "بحث تاريخي" : "Historical Lookup"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => onDetailedPrice(item)}
+                                className="gap-2"
+                              >
+                                <FileText className="w-4 h-4" />
+                                {isArabic ? "تسعير مفصل" : "Detailed Price"}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => onEditItem(item)}
+                                className="gap-2"
+                              >
+                                <Edit className="w-4 h-4" />
+                                {isArabic ? "تعديل" : "Edit"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => onUnconfirmItem(item.id)}
+                                className="gap-2"
+                                disabled={!item.unit_price || item.unit_price === 0}
+                              >
+                                <XCircle className="w-4 h-4" />
+                                {isArabic ? "إلغاء التحقق" : "Clear Price"}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => onDeleteItem(item.id)}
+                                className="gap-2 text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                {isArabic ? "حذف" : "Delete"}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
           
           {/* Pagination Controls */}
           {filteredItems.length > 0 && (

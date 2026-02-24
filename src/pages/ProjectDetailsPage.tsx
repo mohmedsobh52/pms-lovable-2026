@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import OnboardingModal from "@/components/OnboardingModal";
 import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Loader2, FolderOpen, Upload, X, Brain, FileText, FileUp } from "lucide-react";
+import { Loader2, FolderOpen, Upload, X, Brain, FileText, FileUp, Wand2, Download, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BOQAnalyzerPanel } from "@/components/BOQAnalyzerPanel";
 import { Button } from "@/components/ui/button";
@@ -1162,6 +1162,22 @@ export default function ProjectDetailsPage() {
               onUnconfirmItem={handleUnconfirmItem}
               onDeleteZeroQuantityItems={handleDeleteZeroQuantityItems}
               formatCurrency={formatCurrency}
+              onInlineEdit={async (itemId, field, value) => {
+                try {
+                  const item = items.find(i => i.id === itemId);
+                  if (!item) return;
+                  const updates: any = { [field]: value };
+                  if (field === 'unit_price') {
+                    updates.total_price = (item.quantity || 0) * value;
+                  } else if (field === 'quantity') {
+                    updates.total_price = value * (item.unit_price || 0);
+                  }
+                  await supabase.from("project_items").update(updates).eq("id", itemId);
+                  setItems(prev => prev.map(i => i.id === itemId ? { ...i, ...updates } : i));
+                } catch (error: any) {
+                  toast({ title: isArabic ? "خطأ في التحديث" : "Update error", description: error.message, variant: "destructive" });
+                }
+              }}
             />
           </TabsContent>
 
@@ -1457,6 +1473,28 @@ export default function ProjectDetailsPage() {
           }
         }}
       />
+
+      {/* Quick Actions Panel - Sticky bottom on mobile */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border p-2 flex items-center justify-center gap-2 md:hidden">
+        <Button size="sm" className="gap-1.5 flex-1" onClick={handleAutoPricing} disabled={isAutoPricing || pricingStats.unpricedItems === 0}>
+          <Wand2 className="w-3.5 h-3.5" />
+          {isArabic ? "تسعير" : "Auto Price"}
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1.5 flex-1" onClick={() => setShowBOQUploadDialog(true)}>
+          <Upload className="w-3.5 h-3.5" />
+          {isArabic ? "رفع" : "Upload"}
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1.5 flex-1" onClick={() => handleTabChange("analysis")}>
+          <Brain className="w-3.5 h-3.5" />
+          {isArabic ? "تحليل" : "Analysis"}
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1.5 flex-1" onClick={() => setShowAddItemDialog(true)}>
+          <FileUp className="w-3.5 h-3.5" />
+          {isArabic ? "إضافة" : "Add"}
+        </Button>
+      </div>
+      {/* Bottom padding for mobile to account for sticky bar */}
+      <div className="h-14 md:hidden" />
     </div>
   );
 }
