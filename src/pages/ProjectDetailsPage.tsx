@@ -223,19 +223,38 @@ export default function ProjectDetailsPage() {
               return isNaN(num) ? 0 : num;
             };
             
-            const rows = analysisItems.map((item: any, idx: number) => ({
-              project_id: projectId,
-              item_number: (item.item_number || String(idx + 1)).toString().trim(),
-              description: (item.description || '').toString().trim(),
-              description_ar: item.description_ar ? item.description_ar.toString().trim() : null,
-              unit: (item.unit || '').toString().trim(),
-              quantity: sanitizeNumber(item.quantity),
-              unit_price: sanitizeNumber(item.unit_price) || null,
-              total_price: sanitizeNumber(item.total_price) || null,
-              sort_order: idx,
-              category: item.category || null,
-              is_section: item.is_section || false,
-            }));
+            const hasArabicChars = (text: string | null | undefined): boolean => {
+              if (!text || text.trim().length < 2) return false;
+              return /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text);
+            };
+
+            const rows = analysisItems.map((item: any, idx: number) => {
+              const desc = (item.description || '').toString().trim();
+              let descAr = item.description_ar ? item.description_ar.toString().trim() : null;
+              
+              // If description_ar is empty/non-Arabic but description has Arabic, copy it
+              if (!hasArabicChars(descAr) && hasArabicChars(desc)) {
+                descAr = desc;
+              }
+              // If description_ar has no actual Arabic characters, clear it
+              if (descAr && !hasArabicChars(descAr)) {
+                descAr = null;
+              }
+
+              return {
+                project_id: projectId,
+                item_number: (item.item_number || String(idx + 1)).toString().trim(),
+                description: desc,
+                description_ar: descAr,
+                unit: (item.unit || '').toString().trim(),
+                quantity: sanitizeNumber(item.quantity),
+                unit_price: sanitizeNumber(item.unit_price) || null,
+                total_price: sanitizeNumber(item.total_price) || null,
+                sort_order: idx,
+                category: item.category || null,
+                is_section: item.is_section || false,
+              };
+            });
             
             const { data: migratedItems, error: migrateError } = await supabase
               .from("project_items")
