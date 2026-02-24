@@ -1087,6 +1087,10 @@ export default function ProjectDetailsPage() {
             <TabsTrigger value="boq" className="flex-shrink-0">
               {isArabic ? "جدول الكميات" : "BOQ"}
             </TabsTrigger>
+            <TabsTrigger value="analyze-boq" className="flex items-center gap-1 flex-shrink-0">
+              <FileUp className="w-3.5 h-3.5" />
+              {isArabic ? "تحليل BOQ" : "Analyze BOQ"}
+            </TabsTrigger>
             <TabsTrigger value="analysis" className="flex items-center gap-1 flex-shrink-0">
               <Brain className="w-3.5 h-3.5" />
               {isArabic ? "تحليل متقدم" : "Analysis"}
@@ -1176,6 +1180,33 @@ export default function ProjectDetailsPage() {
                   setItems(prev => prev.map(i => i.id === itemId ? { ...i, ...updates } : i));
                 } catch (error: any) {
                   toast({ title: isArabic ? "خطأ في التحديث" : "Update error", description: error.message, variant: "destructive" });
+                }
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="analyze-boq">
+            <BOQAnalyzerPanel
+              embedded={true}
+              onProjectSaved={async (savedProjectId) => {
+                // Reload items from project_items after successful analysis
+                if (projectId) {
+                  const { data: updatedItems } = await supabase
+                    .from("project_items")
+                    .select("*")
+                    .eq("project_id", projectId)
+                    .order("sort_order", { ascending: true, nullsFirst: false })
+                    .order("created_at", { ascending: true });
+                  if (updatedItems && updatedItems.length > 0) {
+                    setItems(updatedItems);
+                    toast({
+                      title: isArabic ? "تم تحليل BOQ بنجاح" : "BOQ Analyzed Successfully",
+                      description: isArabic 
+                        ? `تم استخراج ${updatedItems.length} بند وإضافتهم لجدول الكميات`
+                        : `${updatedItems.length} items extracted and added to BOQ`,
+                    });
+                  }
+                  setActiveTab("boq");
                 }
               }}
             />
