@@ -1,5 +1,5 @@
-import { useState, useMemo, memo } from "react";
-import { Sparkles, Info, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { useState, useMemo, useEffect, memo } from "react";
+import { Sparkles, Info, AlertTriangle, CheckCircle, Loader2, Filter, Database, Wrench, Users, History } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -20,9 +27,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useMaterialPrices, MaterialPrice } from "@/hooks/useMaterialPrices";
+import { useMaterialPrices } from "@/hooks/useMaterialPrices";
 import { useLaborRates } from "@/hooks/useLaborRates";
 import { useEquipmentRates } from "@/hooks/useEquipmentRates";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { ProjectItem } from "./types";
 
 interface AutoPriceDialogProps {
@@ -42,6 +51,79 @@ interface PricingResult {
   confidence: number;
   source: string;
   sourceName: string;
+  sourceProject?: string;
+}
+
+interface HistoricalItem {
+  description: string;
+  unit: string;
+  unit_price: number;
+  project_name: string;
+  category?: string;
+}
+
+// Infrastructure & construction expert keywords with weights
+const EXPERT_KEYWORDS: Record<string, number> = {
+  // Concrete works
+  concrete: 8, reinforcement: 8, rebar: 8, formwork: 7, shuttering: 7, casting: 6,
+  curing: 5, precast: 7, prestressed: 7, "ready mix": 7, lean: 5, blinding: 6,
+  // Earthworks
+  excavation: 8, backfill: 8, compaction: 7, grading: 6, embankment: 7, trenching: 7,
+  dewatering: 7, shoring: 7, "soil improvement": 7, fill: 5, cut: 5,
+  // Pipes & utilities
+  pipe: 7, pipeline: 7, hdpe: 8, upvc: 8, "ductile iron": 8, manhole: 8,
+  valve: 7, hydrant: 7, "fire hydrant": 8, fitting: 6, joint: 5, coupling: 6,
+  sewer: 7, drainage: 7, "storm water": 7, culvert: 7, "catch basin": 7, gully: 6,
+  // Electrical
+  cable: 7, conductor: 7, transformer: 8, switchgear: 8, "cable tray": 7,
+  conduit: 7, "street light": 7, lighting: 6, panel: 6, "mdb": 7, "db": 5,
+  // Roads & pavement
+  asphalt: 8, bitumen: 7, subbase: 7, "base course": 7, curb: 7, kerb: 7,
+  pavement: 7, sidewalk: 6, "road marking": 7, guardrail: 7, "traffic sign": 7,
+  interlock: 7, "interlocking": 7, paving: 6,
+  // Structural
+  steel: 7, structural: 6, beam: 6, column: 6, slab: 6, foundation: 7,
+  pile: 8, piling: 8, retaining: 7, "sheet pile": 8, anchor: 6,
+  // Waterproofing & insulation
+  waterproofing: 7, insulation: 7, membrane: 7, epoxy: 7, coating: 6,
+  painting: 5, sealant: 6, "damp proof": 7,
+  // General construction
+  demolition: 7, removal: 5, installation: 4, supply: 3, provide: 3,
+  mobilization: 6, demobilization: 6, temporary: 4, permanent: 4,
+  // Arabic keywords
+  "خرسانة": 8, "حديد": 7, "تسليح": 8, "حفر": 8, "ردم": 8, "دمك": 7,
+  "أنابيب": 7, "مواسير": 7, "غرف": 6, "تفتيش": 6, "كابلات": 7,
+  "أسفلت": 8, "رصف": 7, "إنارة": 6, "صرف": 7, "مياه": 6,
+  "عزل": 7, "دهانات": 5, "بلاط": 6, "أرضيات": 6, "سور": 6,
+};
+
+// Common stop words that should NOT contribute to matching
+const STOP_WORDS = new Set([
+  "the", "and", "for", "with", "from", "all", "any", "per", "etc",
+  "supply", "provide", "install", "including", "complete", "as", "in",
+  "to", "of", "or", "by", "at", "on", "is", "it", "be", "an", "a",
+  "توريد", "تركيب", "شامل", "كامل", "حسب", "طبقا", "وفقا", "من", "إلى",
+]);
+
+// Unit normalization map
+const UNIT_ALIASES: Record<string, string> = {
+  "m3": "m3", "cu.m": "m3", "cum": "m3", "cubic meter": "m3", "م3": "m3", "م.م": "m3",
+  "m2": "m2", "sq.m": "m2", "sqm": "m2", "square meter": "m2", "م2": "m2", "م.م2": "m2",
+  "m": "m", "l.m": "m", "lm": "m", "linear meter": "m", "م.ط": "m", "م ط": "m",
+  "kg": "kg", "kgs": "kg", "kilogram": "kg", "كجم": "kg",
+  "ton": "ton", "t": "ton", "tonnes": "ton", "طن": "ton",
+  "no": "no", "nos": "no", "number": "no", "ea": "no", "each": "no", "pcs": "no", "piece": "no", "عدد": "no",
+  "ls": "ls", "lump sum": "ls", "l.s": "ls", "lumpsum": "ls", "مقطوعية": "ls", "مقطوع": "ls",
+  "day": "day", "days": "day", "يوم": "day",
+  "hr": "hr", "hour": "hr", "hours": "hr", "ساعة": "hr",
+  "set": "set", "sets": "set", "طقم": "set",
+  "roll": "roll", "rolls": "roll", "لفة": "roll",
+};
+
+function normalizeUnit(unit: string): string {
+  if (!unit) return "";
+  const lower = unit.toLowerCase().trim();
+  return UNIT_ALIASES[lower] || lower;
 }
 
 function AutoPriceDialogComponent({
@@ -53,17 +135,164 @@ function AutoPriceDialogComponent({
   currency,
 }: AutoPriceDialogProps) {
   const [confidenceThreshold, setConfidenceThreshold] = useState([50]);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
+  const [historicalItems, setHistoricalItems] = useState<HistoricalItem[]>([]);
+  const [loadingHistorical, setLoadingHistorical] = useState(false);
 
   const { materials, findMatchingPrice } = useMaterialPrices();
   const { laborRates } = useLaborRates();
   const { equipmentRates } = useEquipmentRates();
+  const { user } = useAuth();
+
+  // Fetch historical data when dialog opens
+  useEffect(() => {
+    if (!isOpen || !user) return;
+    
+    const fetchHistorical = async () => {
+      setLoadingHistorical(true);
+      try {
+        const [projectItemsRes, historicalFilesRes] = await Promise.all([
+          supabase
+            .from("project_items")
+            .select("description, unit, unit_price, project_id")
+            .gt("unit_price", 0)
+            .limit(500),
+          supabase
+            .from("historical_pricing_files")
+            .select("project_name, items")
+            .eq("user_id", user.id)
+            .limit(50),
+        ]);
+
+        const items: HistoricalItem[] = [];
+
+        // From project_items
+        if (projectItemsRes.data) {
+          for (const pi of projectItemsRes.data) {
+            if (pi.description && pi.unit_price) {
+              items.push({
+                description: pi.description,
+                unit: pi.unit || "",
+                unit_price: pi.unit_price,
+                project_name: "Saved Project",
+              });
+            }
+          }
+        }
+
+        // From historical_pricing_files
+        if (historicalFilesRes.data) {
+          for (const file of historicalFilesRes.data) {
+            const fileItems = file.items as any[];
+            if (Array.isArray(fileItems)) {
+              for (const hi of fileItems.slice(0, 200)) {
+                const price = Number(hi.unit_price || hi.unitPrice || hi["Unit Price"] || 0);
+                if (price > 0) {
+                  items.push({
+                    description: hi.description || hi.Description || hi["Item Description"] || "",
+                    unit: hi.unit || hi.Unit || "",
+                    unit_price: price,
+                    project_name: file.project_name,
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        setHistoricalItems(items);
+      } catch (e) {
+        console.error("Failed to fetch historical data:", e);
+      } finally {
+        setLoadingHistorical(false);
+      }
+    };
+
+    fetchHistorical();
+  }, [isOpen, user]);
 
   // Get unpriced items
   const unpricedItems = useMemo(() => {
     return items.filter(item => !item.unit_price || item.unit_price === 0);
   }, [items]);
+
+  // Enhanced matching algorithm
+  function calculateEnhancedScore(
+    itemDesc: string,
+    itemUnit: string,
+    refName: string,
+    refNameAr: string | null | undefined,
+    refUnit: string,
+    refCategory?: string | null
+  ): number {
+    const descLower = itemDesc.toLowerCase();
+    const nameLower = refName.toLowerCase();
+    const nameArLower = (refNameAr || "").toLowerCase();
+    
+    let score = 0;
+    
+    // 1. Exact substring match (high value)
+    if (descLower.includes(nameLower) || nameLower.includes(descLower)) {
+      score += 50;
+    }
+    if (nameArLower && (descLower.includes(nameArLower) || nameArLower.includes(descLower))) {
+      score += 50;
+    }
+    
+    // 2. Tokenized word matching with expert weights
+    const descTokens = descLower.split(/[\s,،.\-_/()]+/).filter(w => w.length > 1);
+    const refTokens = [...nameLower.split(/[\s,،.\-_/()]+/), ...nameArLower.split(/[\s,،.\-_/()]+/)].filter(w => w.length > 1);
+    const catTokens = (refCategory || "").toLowerCase().split(/[\s,،.\-_/()]+/).filter(w => w.length > 1);
+    const allRefTokens = [...refTokens, ...catTokens];
+    
+    let matchedSignificantWords = 0;
+    let totalSignificantWords = 0;
+    
+    for (const word of descTokens) {
+      if (STOP_WORDS.has(word)) continue;
+      totalSignificantWords++;
+      
+      const expertWeight = EXPERT_KEYWORDS[word] || 0;
+      const isLongWord = word.length > 4;
+      
+      const matched = allRefTokens.some(rw => rw.includes(word) || word.includes(rw));
+      if (matched) {
+        matchedSignificantWords++;
+        // Expert keywords get bonus
+        if (expertWeight > 0) {
+          score += expertWeight;
+        } else if (isLongWord) {
+          score += 6;
+        } else {
+          score += 4;
+        }
+      }
+    }
+    
+    // 3. Unit matching bonus (+20)
+    const normItemUnit = normalizeUnit(itemUnit);
+    const normRefUnit = normalizeUnit(refUnit);
+    if (normItemUnit && normRefUnit && normItemUnit === normRefUnit) {
+      score += 20;
+    }
+    
+    // 4. Category matching bonus (+15) 
+    if (refCategory) {
+      const catLower = refCategory.toLowerCase();
+      if (descLower.includes(catLower) || catLower.split(/\s+/).some(c => c.length > 3 && descLower.includes(c))) {
+        score += 15;
+      }
+    }
+    
+    // 5. Penalty for low-quality matches
+    if (matchedSignificantWords <= 1 && totalSignificantWords > 3) {
+      score = Math.max(score - 20, 0);
+    }
+    
+    // Normalize to 0-98
+    return Math.min(Math.round(score * 1.2), 98);
+  }
 
   // Calculate pricing suggestions with confidence scores
   const pricingResults = useMemo((): PricingResult[] => {
@@ -71,49 +300,40 @@ function AutoPriceDialogComponent({
 
     for (const item of unpricedItems) {
       const description = item.description || "";
-      const descLower = description.toLowerCase();
+      const itemUnit = item.unit || "";
       
-      let bestMatch: { price: number; confidence: number; source: string; sourceName: string } | null = null;
+      let bestMatch: { price: number; confidence: number; source: string; sourceName: string; sourceProject?: string } | null = null;
 
       // 1. Check material_prices
-      const materialMatch = findMatchingPrice(description, item.category || undefined);
-      if (materialMatch) {
-        const confidence = calculateConfidence(description, materialMatch.name, materialMatch.name_ar);
-        if (!bestMatch || confidence > bestMatch.confidence) {
-          bestMatch = {
-            price: materialMatch.unit_price,
-            confidence,
-            source: "library",
-            sourceName: materialMatch.name,
-          };
+      for (const mat of materials) {
+        const confidence = calculateEnhancedScore(description, itemUnit, mat.name, mat.name_ar, mat.unit, mat.category);
+        if (confidence >= 25 && (!bestMatch || confidence > bestMatch.confidence)) {
+          bestMatch = { price: mat.unit_price, confidence, source: "library", sourceName: mat.name };
         }
       }
 
       // 2. Check labor_rates
       for (const labor of laborRates) {
-        const laborText = `${labor.name} ${labor.name_ar || ""} ${labor.category || ""}`.toLowerCase();
-        const confidence = calculateTextSimilarity(descLower, laborText);
-        if (confidence >= 30 && (!bestMatch || confidence > bestMatch.confidence)) {
-          bestMatch = {
-            price: labor.unit_rate,
-            confidence,
-            source: "labor",
-            sourceName: labor.name,
-          };
+        const confidence = calculateEnhancedScore(description, itemUnit, labor.name, labor.name_ar, labor.unit, labor.category);
+        if (confidence >= 25 && (!bestMatch || confidence > bestMatch.confidence)) {
+          bestMatch = { price: labor.unit_rate, confidence, source: "labor", sourceName: labor.name };
         }
       }
 
       // 3. Check equipment_rates
       for (const equipment of equipmentRates) {
-        const equipText = `${equipment.name} ${equipment.name_ar || ""} ${equipment.category || ""}`.toLowerCase();
-        const confidence = calculateTextSimilarity(descLower, equipText);
-        if (confidence >= 30 && (!bestMatch || confidence > bestMatch.confidence)) {
-          bestMatch = {
-            price: equipment.rental_rate,
-            confidence,
-            source: "equipment",
-            sourceName: equipment.name,
-          };
+        const confidence = calculateEnhancedScore(description, itemUnit, equipment.name, equipment.name_ar, equipment.unit, equipment.category);
+        if (confidence >= 25 && (!bestMatch || confidence > bestMatch.confidence)) {
+          bestMatch = { price: equipment.rental_rate, confidence, source: "equipment", sourceName: equipment.name };
+        }
+      }
+
+      // 4. Check historical items
+      for (const hi of historicalItems) {
+        if (!hi.description) continue;
+        const confidence = calculateEnhancedScore(description, itemUnit, hi.description, null, hi.unit);
+        if (confidence >= 25 && (!bestMatch || confidence > bestMatch.confidence)) {
+          bestMatch = { price: hi.unit_price, confidence, source: "historical", sourceName: hi.description.slice(0, 60), sourceProject: hi.project_name };
         }
       }
 
@@ -126,63 +346,31 @@ function AutoPriceDialogComponent({
           confidence: bestMatch.confidence,
           source: bestMatch.source,
           sourceName: bestMatch.sourceName,
+          sourceProject: bestMatch.sourceProject,
         });
       }
     }
 
-    return results;
-  }, [unpricedItems, materials, laborRates, equipmentRates, findMatchingPrice, confidenceThreshold]);
+    return results.sort((a, b) => b.confidence - a.confidence);
+  }, [unpricedItems, materials, laborRates, equipmentRates, historicalItems, confidenceThreshold]);
 
-  // Calculate confidence based on text similarity
-  function calculateConfidence(itemDesc: string, materialName: string, materialNameAr?: string | null): number {
-    const descLower = itemDesc.toLowerCase();
-    const nameLower = materialName.toLowerCase();
-    const nameArLower = (materialNameAr || "").toLowerCase();
-    
-    let score = 0;
-    
-    // Exact substring match
-    if (descLower.includes(nameLower) || nameLower.includes(descLower)) {
-      score += 60;
+  // Source statistics
+  const sourceStats = useMemo(() => {
+    const stats = { library: 0, labor: 0, equipment: 0, historical: 0 };
+    for (const r of pricingResults) {
+      if (r.source in stats) stats[r.source as keyof typeof stats]++;
     }
-    if (materialNameAr && (descLower.includes(nameArLower) || nameArLower.includes(descLower))) {
-      score += 60;
-    }
-    
-    // Word match
-    const descWords = descLower.split(/[\s,،.-]+/).filter(w => w.length > 2);
-    const nameWords = nameLower.split(/[\s,،.-]+/).filter(w => w.length > 2);
-    const nameArWords = nameArLower.split(/[\s,،.-]+/).filter(w => w.length > 2);
-    
-    for (const word of descWords) {
-      if (nameWords.some(nw => nw.includes(word) || word.includes(nw))) {
-        score += 15;
-      }
-      if (nameArWords.some(nw => nw.includes(word) || word.includes(nw))) {
-        score += 15;
-      }
-    }
-    
-    return Math.min(score, 95);
-  }
+    return stats;
+  }, [pricingResults]);
 
-  function calculateTextSimilarity(text1: string, text2: string): number {
-    const words1 = text1.split(/[\s,،.-]+/).filter(w => w.length > 2);
-    const words2 = text2.split(/[\s,،.-]+/).filter(w => w.length > 2);
-    
-    let matchCount = 0;
-    for (const word of words1) {
-      if (words2.some(w => w.includes(word) || word.includes(w))) {
-        matchCount++;
-      }
-    }
-    
-    return words1.length > 0 ? Math.round((matchCount / words1.length) * 100) : 0;
-  }
+  // Filtered results
+  const filteredResults = useMemo(() => {
+    if (!sourceFilter) return pricingResults;
+    return pricingResults.filter(r => r.source === sourceFilter);
+  }, [pricingResults, sourceFilter]);
 
   const handleApply = async () => {
     if (pricingResults.length === 0) return;
-    
     setIsApplying(true);
     try {
       const pricedItems = pricingResults.map(r => ({
@@ -198,44 +386,75 @@ function AutoPriceDialogComponent({
   };
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 80) return "text-green-600 bg-green-500/10";
-    if (confidence >= 60) return "text-blue-600 bg-blue-500/10";
-    if (confidence >= 40) return "text-amber-600 bg-amber-500/10";
-    return "text-red-600 bg-red-500/10";
+    if (confidence >= 80) return "text-green-600";
+    if (confidence >= 60) return "text-blue-600";
+    if (confidence >= 40) return "text-amber-600";
+    return "text-red-600";
   };
 
-  const getSourceLabel = (source: string) => {
-    switch (source) {
-      case "library": return isArabic ? "مكتبة الأسعار" : "Price Library";
-      case "labor": return isArabic ? "أجور العمالة" : "Labor Rates";
-      case "equipment": return isArabic ? "معدات" : "Equipment";
-      default: return source;
-    }
+  const getConfidenceBarColor = (confidence: number) => {
+    if (confidence >= 80) return "bg-green-500";
+    if (confidence >= 60) return "bg-blue-500";
+    if (confidence >= 40) return "bg-amber-500";
+    return "bg-red-500";
   };
+
+  const getSourceBadge = (source: string, sourceProject?: string) => {
+    const configs: Record<string, { color: string; icon: React.ReactNode; label: string; labelAr: string }> = {
+      library: { color: "bg-green-500/10 text-green-700 border-green-200", icon: <Database className="w-3 h-3" />, label: "Materials", labelAr: "مواد" },
+      labor: { color: "bg-blue-500/10 text-blue-700 border-blue-200", icon: <Users className="w-3 h-3" />, label: "Labor", labelAr: "عمالة" },
+      equipment: { color: "bg-orange-500/10 text-orange-700 border-orange-200", icon: <Wrench className="w-3 h-3" />, label: "Equipment", labelAr: "معدات" },
+      historical: { color: "bg-purple-500/10 text-purple-700 border-purple-200", icon: <History className="w-3 h-3" />, label: "Historical", labelAr: "تاريخي" },
+    };
+    const cfg = configs[source] || configs.library;
+    
+    const badge = (
+      <Badge variant="outline" className={`text-xs gap-1 ${cfg.color}`}>
+        {cfg.icon}
+        {isArabic ? cfg.labelAr : cfg.label}
+      </Badge>
+    );
+
+    if (source === "historical" && sourceProject) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>{badge}</TooltipTrigger>
+            <TooltipContent><p>{sourceProject}</p></TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    return badge;
+  };
+
+  const avgConfidence = pricingResults.length > 0
+    ? Math.round(pricingResults.reduce((s, r) => s + r.confidence, 0) / pricingResults.length)
+    : 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent 
-        className="max-w-3xl max-h-[80vh] overflow-hidden"
+        className="max-w-4xl max-h-[85vh] overflow-hidden"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            {isArabic ? "التسعير التلقائي" : "Auto Pricing"}
+            {isArabic ? "التسعير التلقائي الذكي" : "Smart Auto Pricing"}
           </DialogTitle>
           <DialogDescription>
             {isArabic 
-              ? "تسعير البنود تلقائياً من مكتبة الأسعار المحلية (مواد، عمالة، معدات)"
-              : "Automatically price items from local library (materials, labor, equipment)"
+              ? "تسعير البنود تلقائياً من 4 مصادر: مكتبة المواد، العمالة، المعدات، والبيانات التاريخية"
+              : "Auto-price items from 4 sources: Materials, Labor, Equipment & Historical Data"
             }
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-2">
           {/* Confidence Threshold Slider */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium">
                 {isArabic ? "الحد الأدنى للثقة" : "Minimum Confidence"}
@@ -249,153 +468,185 @@ function AutoPriceDialogComponent({
               onValueChange={setConfidenceThreshold}
               min={30}
               max={90}
-              step={10}
+              step={5}
               className="w-full"
             />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>30%</span>
-              <span>50%</span>
-              <span>70%</span>
-              <span>90%</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {isArabic 
-                ? "البنود ذات الثقة الأعلى من هذا الحد سيتم تسعيرها"
-                : "Items with confidence above this threshold will be priced"
-              }
-            </p>
           </div>
 
           {/* What will happen info */}
-          <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
-            <div className="flex items-start gap-3">
-              <Info className="w-5 h-5 text-primary mt-0.5" />
-              <div className="flex-1">
-                <h4 className="font-medium mb-2">
-                  {isArabic ? "ما الذي سيحدث:" : "What will happen:"}
-                </h4>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  <li>• {isArabic ? "مطابقة أوصاف البنود مع مكتبة الأسعار" : "Match item descriptions with price library"}</li>
-                  <li>• {isArabic ? "تطبيق أسعار السوق المحلي" : "Apply local market prices"}</li>
-                  <li>• {isArabic ? "حساب الإجمالي لكل بند" : "Calculate total for each item"}</li>
-                  <li>• {isArabic ? "البنود المسعرة مسبقاً لن تتأثر" : "Already priced items won't be affected"}</li>
-                </ul>
+          <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <div className="flex-1 text-xs space-y-1 text-muted-foreground">
+                <p>{isArabic ? "• مطابقة ذكية مع مكتبة الأسعار + البيانات التاريخية" : "• Smart matching with price library + historical data"}</p>
+                <p>{isArabic ? "• مطابقة الوحدات والفئات لدقة أعلى" : "• Unit & category matching for higher accuracy"}</p>
+                <p>{isArabic ? "• البنود المسعرة مسبقاً لن تتأثر" : "• Already priced items won't be affected"}</p>
               </div>
             </div>
           </div>
 
-          {/* Statistics */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-3 rounded-lg bg-muted/50">
-              <p className="text-2xl font-bold">{unpricedItems.length}</p>
-              <p className="text-xs text-muted-foreground">
-                {isArabic ? "بنود غير مسعرة" : "Unpriced Items"}
-              </p>
+          {/* Statistics - 4 cards */}
+          <div className="grid grid-cols-4 gap-3">
+            <div className="text-center p-2.5 rounded-lg bg-muted/50">
+              <p className="text-xl font-bold">{unpricedItems.length}</p>
+              <p className="text-[10px] text-muted-foreground">{isArabic ? "غير مسعرة" : "Unpriced"}</p>
             </div>
-            <div className="text-center p-3 rounded-lg bg-green-500/10">
-              <p className="text-2xl font-bold text-green-600">{pricingResults.length}</p>
-              <p className="text-xs text-muted-foreground">
-                {isArabic ? "بنود يمكن تسعيرها" : "Can Be Priced"}
-              </p>
+            <div className="text-center p-2.5 rounded-lg bg-green-500/10">
+              <p className="text-xl font-bold text-green-600">{pricingResults.length}</p>
+              <p className="text-[10px] text-muted-foreground">{isArabic ? "يمكن تسعيرها" : "Can Price"}</p>
             </div>
-            <div className="text-center p-3 rounded-lg bg-amber-500/10">
-              <p className="text-2xl font-bold text-amber-600">{unpricedItems.length - pricingResults.length}</p>
-              <p className="text-xs text-muted-foreground">
-                {isArabic ? "بنود بدون مطابقة" : "No Match Found"}
-              </p>
+            <div className="text-center p-2.5 rounded-lg bg-amber-500/10">
+              <p className="text-xl font-bold text-amber-600">{unpricedItems.length - pricingResults.length}</p>
+              <p className="text-[10px] text-muted-foreground">{isArabic ? "بدون مطابقة" : "No Match"}</p>
+            </div>
+            <div className="text-center p-2.5 rounded-lg bg-primary/10">
+              <p className="text-xl font-bold text-primary">{avgConfidence}%</p>
+              <p className="text-[10px] text-muted-foreground">{isArabic ? "متوسط الثقة" : "Avg Confidence"}</p>
             </div>
           </div>
 
-          {/* Preview Mode */}
-          {isPreviewMode && (
-            <div className="space-y-2">
-              <h4 className="font-medium flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                {isArabic ? "معاينة النتائج" : "Preview Results"}
-              </h4>
-              {pricingResults.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-amber-500" />
-                  <p>{isArabic ? "لم يتم العثور على تطابقات" : "No matches found"}</p>
-                  <p className="text-xs mt-1">
-                    {isArabic 
-                      ? "جرب تقليل الحد الأدنى للثقة أو أضف أسعار للمكتبة"
-                      : "Try lowering the confidence threshold or add prices to library"
-                    }
-                  </p>
-                </div>
-              ) : (
-                <ScrollArea className="h-[200px] rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{isArabic ? "رقم البند" : "Item No."}</TableHead>
-                        <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
-                        <TableHead>{isArabic ? "السعر" : "Price"}</TableHead>
-                        <TableHead>{isArabic ? "الثقة" : "Confidence"}</TableHead>
-                        <TableHead>{isArabic ? "المصدر" : "Source"}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pricingResults.map((result) => (
-                        <TableRow key={result.itemId}>
-                          <TableCell className="font-mono text-xs">{result.itemNumber}</TableCell>
-                          <TableCell className="text-xs max-w-[200px] truncate" title={result.description}>
-                            {result.description}
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {currency} {result.suggestedPrice.toLocaleString()}
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={getConfidenceColor(result.confidence)}>
-                              {result.confidence}%
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {getSourceLabel(result.source)}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
+          {/* Source summary with filter buttons */}
+          {pricingResults.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+              <Button
+                variant={sourceFilter === null ? "default" : "outline"}
+                size="sm"
+                className="h-6 text-xs px-2"
+                onClick={() => setSourceFilter(null)}
+              >
+                {isArabic ? "الكل" : "All"} ({pricingResults.length})
+              </Button>
+              {sourceStats.library > 0 && (
+                <Button
+                  variant={sourceFilter === "library" ? "default" : "outline"}
+                  size="sm"
+                  className="h-6 text-xs px-2 gap-1"
+                  onClick={() => setSourceFilter(sourceFilter === "library" ? null : "library")}
+                >
+                  <Database className="w-3 h-3" /> {sourceStats.library}
+                </Button>
+              )}
+              {sourceStats.labor > 0 && (
+                <Button
+                  variant={sourceFilter === "labor" ? "default" : "outline"}
+                  size="sm"
+                  className="h-6 text-xs px-2 gap-1"
+                  onClick={() => setSourceFilter(sourceFilter === "labor" ? null : "labor")}
+                >
+                  <Users className="w-3 h-3" /> {sourceStats.labor}
+                </Button>
+              )}
+              {sourceStats.equipment > 0 && (
+                <Button
+                  variant={sourceFilter === "equipment" ? "default" : "outline"}
+                  size="sm"
+                  className="h-6 text-xs px-2 gap-1"
+                  onClick={() => setSourceFilter(sourceFilter === "equipment" ? null : "equipment")}
+                >
+                  <Wrench className="w-3 h-3" /> {sourceStats.equipment}
+                </Button>
+              )}
+              {sourceStats.historical > 0 && (
+                <Button
+                  variant={sourceFilter === "historical" ? "default" : "outline"}
+                  size="sm"
+                  className="h-6 text-xs px-2 gap-1"
+                  onClick={() => setSourceFilter(sourceFilter === "historical" ? null : "historical")}
+                >
+                  <History className="w-3 h-3" /> {sourceStats.historical}
+                </Button>
               )}
             </div>
           )}
+
+          {/* Auto Preview Results */}
+          <div className="space-y-2">
+            <h4 className="font-medium flex items-center gap-2 text-sm">
+              <CheckCircle className="w-4 h-4 text-green-500" />
+              {isArabic ? "نتائج المطابقة" : "Match Results"}
+              {loadingHistorical && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+            </h4>
+            {filteredResults.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-amber-500" />
+                <p className="text-sm">{isArabic ? "لم يتم العثور على تطابقات" : "No matches found"}</p>
+                <p className="text-xs mt-1">
+                  {isArabic 
+                    ? "جرب تقليل الحد الأدنى للثقة أو أضف أسعار للمكتبة"
+                    : "Try lowering confidence threshold or add prices to library"
+                  }
+                </p>
+              </div>
+            ) : (
+              <ScrollArea className="h-[220px] rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[60px]">#</TableHead>
+                      <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
+                      <TableHead className="w-[90px]">{isArabic ? "السعر" : "Price"}</TableHead>
+                      <TableHead className="w-[100px]">{isArabic ? "الثقة" : "Confidence"}</TableHead>
+                      <TableHead className="w-[90px]">{isArabic ? "المصدر" : "Source"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredResults.map((result) => (
+                      <TableRow key={result.itemId}>
+                        <TableCell className="font-mono text-xs">{result.itemNumber}</TableCell>
+                        <TableCell className="text-xs max-w-[200px] truncate" title={result.description}>
+                          {result.description}
+                        </TableCell>
+                        <TableCell className="font-medium text-xs">
+                          {result.suggestedPrice.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div 
+                                className={`h-full rounded-full ${getConfidenceBarColor(result.confidence)}`}
+                                style={{ width: `${result.confidence}%` }}
+                              />
+                            </div>
+                            <span className={`text-xs font-medium ${getConfidenceColor(result.confidence)}`}>
+                              {result.confidence}%
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getSourceBadge(result.source, result.sourceProject)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            )}
+          </div>
         </div>
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>
             {isArabic ? "إلغاء" : "Cancel"}
           </Button>
-          {!isPreviewMode ? (
-            <Button onClick={() => setIsPreviewMode(true)} className="gap-2">
-              <Sparkles className="w-4 h-4" />
-              {isArabic ? "معاينة" : "Preview"}
-            </Button>
-          ) : (
-            <Button 
-              onClick={handleApply} 
-              disabled={pricingResults.length === 0 || isApplying}
-              className="gap-2"
-            >
-              {isApplying ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <CheckCircle className="w-4 h-4" />
-              )}
-              {isArabic ? `تطبيق (${pricingResults.length} بند)` : `Apply (${pricingResults.length} items)`}
-            </Button>
-          )}
+          <Button 
+            onClick={handleApply} 
+            disabled={pricingResults.length === 0 || isApplying}
+            className="gap-2"
+          >
+            {isApplying ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <CheckCircle className="w-4 h-4" />
+            )}
+            {isArabic ? `تطبيق (${pricingResults.length} بند)` : `Apply (${pricingResults.length} items)`}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-// Wrap with memo to prevent React ref warnings with Radix UI Dialog
 const AutoPriceDialog = memo(AutoPriceDialogComponent);
 AutoPriceDialog.displayName = "AutoPriceDialog";
 
