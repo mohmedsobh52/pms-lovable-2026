@@ -1,95 +1,106 @@
 
 
-# المرحلة 8: لوحة تحكم إدارية + Dark/Light Mode محسّن + مراجعة التحسينات
+# المرحلة 9: تحسين أداء التحليل المتقدم وربط التسعير بالمشاريع التاريخية
 
 ---
 
-## 8.1 لوحة تحكم إدارية (Admin Dashboard)
+## 9.1 إضافة زر "التسعير التلقائي" في شاشة التحليل المتقدم (Analysis Tab)
 
 ### المشكلة الحالية
-صفحة `AdminVersions.tsx` تستخدم فحص أمان ضعيف (`ADMIN_EMAILS` hardcoded). لا توجد لوحة إدارية شاملة لعرض إحصائيات النظام.
+شاشة BOQ Tab تحتوي على زر "التسعير التلقائي" (`AutoPriceDialog`) الذي يطابق البنود مع مكتبة الأسعار المحلية، لكن شاشة التحليل المتقدم (`AnalysisResults`) لا تحتوي على هذا الزر. المستخدم يحتاج للعودة لتبويب BOQ لاستخدامه.
 
 ### التعديلات المطلوبة
 
-#### أ. إنشاء صفحة إدارية جديدة
-**ملف جديد:** `src/pages/AdminDashboardPage.tsx`
+**الملف:** `src/components/AnalysisResults.tsx`
 
-صفحة تعرض:
-- عدد المستخدمين المسجلين (من `saved_projects` بـ `distinct user_id`)
-- عدد المشاريع الإجمالي والنشطة (آخر 30 يوم)
-- عدد العقود والعروض المقدمة
-- إحصائيات الاستخدام الشهري (رسم بياني خطي)
-- آخر المشاريع المنشأة (جدول)
-- توزيع المشاريع حسب الحالة (رسم دائري)
+- إضافة زر "التسعير التلقائي" بجوار أزرار Suggest Rates و تحليل متقدم في شريط الأدوات (السطر ~1682)
+- ربطه بنفس `AutoPriceDialog` المستخدم في `ProjectBOQTab`
+- عند التطبيق، تحديث `project_items` في قاعدة البيانات + تحديث `data.items` محلياً
+- إضافة state لـ `showAutoPriceDialog` و handler `handleApplyAutoPricing`
 
-**ملاحظة أمنية:** سيتم استخدام جدول `user_roles` الموجود مع دالة `has_role` للتحقق من صلاحية Admin عبر Edge Function آمنة.
+**الملف:** `src/pages/ProjectDetailsPage.tsx`
 
-#### ب. إنشاء Edge Function لجلب الإحصائيات
-**ملف جديد:** `supabase/functions/admin-stats/index.ts`
-
-- تتحقق من أن المستخدم لديه دور `admin` في `user_roles`
-- تجلب الإحصائيات من الجداول المختلفة باستخدام `service_role_key`
-- ترجع البيانات بتنسيق JSON
-
-#### ج. تسجيل المسار في App.tsx
-إضافة route جديد: `/admin/dashboard`
+- تمرير `onAutoPricing` callback جديد إلى `AnalysisResults` لتحديث `items` state بعد التسعير التلقائي
 
 ---
 
-## 8.2 تحسين نظام Dark/Light Mode
-
-### المشكلة الحالية
-- `ThemeToggle.tsx` يدير الثيم محلياً بـ `useState` مستقل
-- `UnifiedHeader.tsx` يكرر نفس المنطق (سطور 106-120)
-- لا يوجد Context مشترك، مما يعني أن التبديل في مكان لا ينعكس فوراً في مكان آخر
-- بعض الصفحات تستخدم `ThemeToggle` مباشرة خارج `UnifiedHeader`
+## 9.2 تحسين أداء التحليل المتقدم (EnhancedPricingAnalysis)
 
 ### التعديلات المطلوبة
 
-#### أ. إنشاء ThemeProvider مركزي
-**ملف جديد:** `src/hooks/useTheme.tsx`
+#### أ. ربط التسعير بالمشاريع التاريخية تلقائياً
+**الملف:** `src/components/EnhancedPricingAnalysis.tsx`
 
-```text
-ThemeProvider:
-- يقرأ الثيم من localStorage عند التحميل
-- يستمع لتغييرات النظام (prefers-color-scheme)
-- يوفر toggleTheme() و theme و setTheme()
-- يطبق الفئة "dark" على document.documentElement
-```
+المشكلة: `fetchHistoricalPrices()` تجلب فقط من `historical_pricing_files` و `saved_projects.analysis_data`. لا تجلب من `project_items` المسعرة فعلياً.
 
-#### ب. تحديث ThemeToggle.tsx
-تبسيط المكون ليستخدم `useTheme()` بدلاً من إدارة الحالة محلياً.
+التحسينات:
+- إضافة مصدر ثالث: `project_items` التي لها `unit_price > 0` من جميع مشاريع المستخدم
+- زيادة الحد الأقصى من 200 إلى 500 عنصر تاريخي
+- إضافة `category` في البيانات التاريخية لتحسين المطابقة
+- عرض عدد المصادر التاريخية في واجهة المستخدم
 
-#### ج. تحديث UnifiedHeader.tsx
-إزالة منطق الثيم المكرر (سطور 106-120) واستخدام `useTheme()`.
+#### ب. زيادة نسبة الثقة
+**الملف:** `supabase/functions/enhanced-pricing-analysis/index.ts`
 
-#### د. تحديث App.tsx
-لف التطبيق بـ `ThemeProvider`.
-
-#### هـ. تحسين ألوان Dark Mode في index.css
-- تحسين تباين `--warning` في الوضع الداكن
-- إضافة `--shadow-*` مخصصة للوضع الداكن
-- ضبط شفافية الحدود لتكون أوضح
+التحسينات:
+- تحسين خوارزمية `matchScore`: إضافة وزن إضافي لمطابقة `category` (+3 نقاط)
+- إضافة وزن للمطابقة الجزئية للكلمات (partial word match) بدلاً من التطابق الكامل فقط
+- تقليل عتبة المطابقة من 6 إلى 5 للبنود ذات الوحدات المتطابقة
+- زيادة وزن قاعدة البيانات المرجعية للمطابقات القوية (score >= 12) من 40% إلى 50%
+- إضافة fallback ذكي: إذا لم يتم إيجاد مطابقة مرجعية، البحث في البنود التاريخية المرسلة
 
 ---
 
-## 8.3 مراجعة وإصلاح التحسينات السابقة
+## 9.3 تحسين أداء Suggest Rates (MarketRateSuggestions)
 
-### التحققات المطلوبة
+### التعديلات المطلوبة
 
-#### أ. فحص كونسول المتصفح
-- التأكد من عدم وجود أخطاء JavaScript
-- فحص التحذيرات المتعلقة بـ React keys أو deprecated APIs
+**الملف:** `src/components/MarketRateSuggestions.tsx`
 
-#### ب. فحص الشبكة
-- التأكد من نجاح استعلامات Supabase
-- فحص أي طلبات فاشلة (4xx/5xx)
+- إضافة جلب البيانات التاريخية من `project_items` (المسعرة فعلياً) بالإضافة إلى مكتبة المواد/العمالة/المعدات
+- إرسال البيانات التاريخية مع طلب التحليل إلى Edge Function
+- عرض مصدر "Historical" كمصدر رابع بجوار Library/Reference/AI
 
-#### ج. إصلاح مشاكل معروفة
-- التأكد من أن Skeleton Loading يظهر بشكل صحيح
-- التأكد من عمل فلاتر حالة التسعير
-- التأكد من عمل نظام المفضلة
-- التأكد من عمل البحث الشامل في العقود
+**الملف:** `supabase/functions/suggest-market-rates/index.ts`
+
+- إضافة مرحلة بحث جديدة: بعد Library وقبل Reference، البحث في البيانات التاريخية المرسلة
+- إذا تم إيجاد تطابق تاريخي بثقة عالية (>70%)، استخدام السعر مع تعديل (inflation 3-5%)
+- إضافة `source: "historical"` للبنود المسعرة من التاريخ
+
+---
+
+## 9.4 ربط مباشر بالمشاريع التاريخية من واجهة التسعير
+
+### التعديلات المطلوبة
+
+**الملف:** `src/components/EnhancedPricingAnalysis.tsx`
+
+- إضافة زر "ربط بالمشاريع التاريخية" بجوار أزرار الأدوات الثانوية
+- عند الضغط: فتح dialog يعرض قائمة المشاريع التاريخية المتاحة مع عدد البنود المتطابقة
+- إمكانية اختيار مشروع تاريخي محدد لاستخدام أسعاره كمرجع أساسي
+
+**الملف:** `src/components/MarketRateSuggestions.tsx`
+
+- إضافة مؤشر بصري للبنود التي تم تسعيرها من مصدر تاريخي
+- إضافة tooltip يعرض اسم المشروع التاريخي المرجعي
+
+---
+
+## 9.5 تحسين عرض النتائج ونسبة الثقة
+
+### التعديلات المطلوبة
+
+**الملف:** `src/components/EnhancedPricingAnalysis.tsx`
+
+- عرض `confidence` بنسبة مئوية مع شريط تقدم ملون
+- إضافة ملخص: "X بند بثقة عالية، Y بند بثقة متوسطة، Z بند بثقة منخفضة"
+- إضافة فلتر لعرض البنود حسب مستوى الثقة
+- عرض المصدر الرئيسي لكل بند (مرجعي/تاريخي/AI)
+
+**الملف:** `src/components/MarketRateSuggestions.tsx`
+
+- إضافة عمود "المصدر التاريخي" في جدول النتائج
+- تلوين صفوف البنود حسب المصدر (أخضر=مكتبة، أزرق=مرجعي، بنفسجي=AI، برتقالي=تاريخي)
 
 ---
 
@@ -97,20 +108,25 @@ ThemeProvider:
 
 | الملف | التعديل |
 |-------|---------|
-| `src/pages/AdminDashboardPage.tsx` | ملف جديد - لوحة تحكم إدارية |
-| `supabase/functions/admin-stats/index.ts` | ملف جديد - Edge Function للإحصائيات |
-| `src/hooks/useTheme.tsx` | ملف جديد - ThemeProvider مركزي |
-| `src/components/ThemeToggle.tsx` | تبسيط لاستخدام useTheme |
-| `src/components/UnifiedHeader.tsx` | إزالة منطق الثيم المكرر |
-| `src/App.tsx` | إضافة ThemeProvider + route admin |
-| `src/index.css` | تحسين ألوان Dark Mode |
-| `supabase/config.toml` | تسجيل admin-stats function |
+| `src/components/AnalysisResults.tsx` | إضافة زر التسعير التلقائي + AutoPriceDialog |
+| `src/pages/ProjectDetailsPage.tsx` | تمرير callback لتحديث items بعد التسعير |
+| `src/components/EnhancedPricingAnalysis.tsx` | ربط بـ project_items التاريخية + فلتر ثقة + زر ربط تاريخي |
+| `src/components/MarketRateSuggestions.tsx` | جلب بيانات تاريخية + عرض مصدر تاريخي |
+| `supabase/functions/enhanced-pricing-analysis/index.ts` | تحسين المطابقة + خفض العتبة + وزن category |
+| `supabase/functions/suggest-market-rates/index.ts` | إضافة مرحلة بحث تاريخي + source historical |
 
 ## ترتيب التنفيذ
 
-1. ThemeProvider + تحديث ThemeToggle + UnifiedHeader (أساسي)
-2. تحسين ألوان Dark Mode في CSS
-3. Edge Function للإحصائيات الإدارية
-4. صفحة Admin Dashboard + Route
-5. مراجعة وإصلاح التحسينات السابقة
+1. تحسين Edge Functions (enhanced-pricing-analysis + suggest-market-rates)
+2. تحسين EnhancedPricingAnalysis (جلب تاريخي + فلتر ثقة + عرض محسن)
+3. تحسين MarketRateSuggestions (مصدر تاريخي + عرض محسن)
+4. إضافة زر التسعير التلقائي في AnalysisResults
+5. ربط الكل مع ProjectDetailsPage
+
+## النتيجة المتوقعة
+
+- زيادة نسبة الثقة في التسعير من ~80% إلى ~90%+ عبر الربط بالمشاريع التاريخية
+- تسعير تلقائي متاح من تبويب التحليل المتقدم دون الحاجة للعودة لـ BOQ
+- عرض مصادر التسعير بشكل أوضح (مكتبة/مرجعي/تاريخي/AI)
+- تحسين المطابقة عبر إضافة category matching و partial word matching
 
