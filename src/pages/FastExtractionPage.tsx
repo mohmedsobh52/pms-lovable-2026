@@ -81,11 +81,10 @@ export default function FastExtractionPage() {
 
   return (
     <div
-      className="min-h-screen bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: "url('/images/construction-bg.png')" }}
+      className="min-h-screen bg-background"
       dir={isArabic ? "rtl" : "ltr"}
     >
-      <div className="min-h-screen bg-background/80 backdrop-blur-sm">
+      <div className="min-h-screen">
         {/* Header */}
         <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3">

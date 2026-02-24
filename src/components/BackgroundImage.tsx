@@ -1,26 +1,14 @@
-interface BackgroundImageProps {
-  activePhase?: number;
-}
-
-const BackgroundImage = ({ activePhase = 1 }: BackgroundImageProps) => {
+const BackgroundImage = () => {
   return (
     <>
-      {/* Circuit Board Background Image */}
-      <div
-        className="fixed inset-0 -z-50"
-        style={{
-          backgroundImage: 'url(/images/pms-dashboard-bg.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-        }}
-      />
+      {/* Animated Gradient Background */}
+      <div className="fixed inset-0 -z-50 interactive-bg" />
 
-      {/* Dark Overlay for readability */}
-      <div className="fixed inset-0 -z-40 bg-black/55 dark:bg-black/65" />
+      {/* Dot Grid Pattern */}
+      <div className="fixed inset-0 -z-40 dot-grid" />
 
       {/* Light/Dark Mode Overlay */}
-      <div className="fixed inset-0 -z-10 bg-background/40 dark:bg-background/35 pointer-events-none" />
+      <div className="fixed inset-0 -z-10 bg-background/60 dark:bg-background/50 pointer-events-none" />
     </>
   );
 };

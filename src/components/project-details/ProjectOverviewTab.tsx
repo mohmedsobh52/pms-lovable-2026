@@ -187,7 +187,7 @@ export function ProjectOverviewTab({
             </div>
             <div className="flex justify-between items-center py-2">
               <span className="text-muted-foreground">{isArabic ? "إجمالي القيمة" : "Total Value"}</span>
-              <span className="font-bold text-lg text-green-600">
+              <span className="font-bold text-lg text-gold">
                 {project.currency || 'SAR'} {formatCurrency(pricingStats.totalValue)}
               </span>
             </div>

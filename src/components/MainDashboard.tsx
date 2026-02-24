@@ -67,7 +67,12 @@ import {
   Cell,
   Legend,
   Area,
-  AreaChart
+  AreaChart,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis
 } from "recharts";
 
 interface DashboardStats {
@@ -678,12 +683,50 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             <StatCard label={isArabic ? "متوسط العرض" : "Avg. Quotation"} value={formatCurrency(stats.averageQuotationValue)} icon={TrendingUp} bgColor="bg-purple-100 dark:bg-purple-500/20" iconColor="text-purple-600 dark:text-purple-400" />
           </div>
 
-          {/* KPI Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <KPICard icon={HeartPulse} label={isArabic ? "صحة المشاريع" : "Project Health"} value={kpiData.projectHealth} color={getKPIColor(kpiData.projectHealth)} status={getKPIStatus(kpiData.projectHealth)} isArabic={isArabic} />
-            <KPICard icon={Target} label={isArabic ? "كفاءة التسعير" : "Pricing Efficiency"} value={kpiData.pricingEfficiency} color={getKPIColor(kpiData.pricingEfficiency)} status={getKPIStatus(kpiData.pricingEfficiency)} isArabic={isArabic} />
-            <KPICard icon={Shield} label={isArabic ? "مؤشر الأمان" : "Safety Score"} value={kpiData.riskScore} color={getKPIColor(kpiData.riskScore)} status={getKPIStatus(kpiData.riskScore)} isArabic={isArabic} />
-            <KPICard icon={FileCheck} label={isArabic ? "صحة العقود" : "Contract Health"} value={kpiData.contractHealth} color={getKPIColor(kpiData.contractHealth)} status={getKPIStatus(kpiData.contractHealth)} isArabic={isArabic} />
+          {/* KPI Row with Radar Chart */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* KPI Cards - 2 columns */}
+            <div className="lg:col-span-2 grid grid-cols-2 gap-4">
+              <KPICard icon={HeartPulse} label={isArabic ? "صحة المشاريع" : "Project Health"} value={kpiData.projectHealth} color={getKPIColor(kpiData.projectHealth)} status={getKPIStatus(kpiData.projectHealth)} isArabic={isArabic} />
+              <KPICard icon={Target} label={isArabic ? "كفاءة التسعير" : "Pricing Efficiency"} value={kpiData.pricingEfficiency} color={getKPIColor(kpiData.pricingEfficiency)} status={getKPIStatus(kpiData.pricingEfficiency)} isArabic={isArabic} />
+              <KPICard icon={Shield} label={isArabic ? "مؤشر الأمان" : "Safety Score"} value={kpiData.riskScore} color={getKPIColor(kpiData.riskScore)} status={getKPIStatus(kpiData.riskScore)} isArabic={isArabic} />
+              <KPICard icon={FileCheck} label={isArabic ? "صحة العقود" : "Contract Health"} value={kpiData.contractHealth} color={getKPIColor(kpiData.contractHealth)} status={getKPIStatus(kpiData.contractHealth)} isArabic={isArabic} />
+            </div>
+
+            {/* Radar Chart */}
+            <Card className="rounded-2xl border-0 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-gold" />
+                  {isArabic ? "نظرة شاملة على الأداء" : "Performance Overview"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-2">
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={[
+                      { subject: isArabic ? "صحة المشاريع" : "Projects", value: kpiData.projectHealth, fullMark: 100 },
+                      { subject: isArabic ? "التسعير" : "Pricing", value: kpiData.pricingEfficiency, fullMark: 100 },
+                      { subject: isArabic ? "الأمان" : "Safety", value: kpiData.riskScore, fullMark: 100 },
+                      { subject: isArabic ? "العقود" : "Contracts", value: kpiData.contractHealth, fullMark: 100 },
+                    ]}>
+                      <PolarGrid stroke="hsl(var(--border))" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                      <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
+                      <Radar
+                        name={isArabic ? "الأداء" : "Performance"}
+                        dataKey="value"
+                        stroke="#F5A623"
+                        fill="#F5A623"
+                        fillOpacity={0.25}
+                        strokeWidth={2}
+                        animationDuration={800}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Charts Row */}

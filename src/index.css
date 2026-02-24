@@ -331,6 +331,62 @@
   .bg-gold {
     background-color: hsl(var(--gold));
   }
+
+  /* Interactive Background */
+  .interactive-bg {
+    background: linear-gradient(
+      135deg,
+      hsl(218 45% 12%) 0%,
+      hsl(215 48% 16%) 25%,
+      hsl(218 45% 10%) 50%,
+      hsl(220 50% 14%) 75%,
+      hsl(218 45% 12%) 100%
+    );
+    background-size: 400% 400%;
+    animation: gradient-shift 15s ease infinite;
+  }
+
+  .dark .interactive-bg {
+    background: linear-gradient(
+      135deg,
+      hsl(218 45% 8%) 0%,
+      hsl(215 48% 12%) 25%,
+      hsl(218 45% 6%) 50%,
+      hsl(220 50% 10%) 75%,
+      hsl(218 45% 8%) 100%
+    );
+    background-size: 400% 400%;
+    animation: gradient-shift 15s ease infinite;
+  }
+
+  :root .interactive-bg {
+    background: linear-gradient(
+      135deg,
+      hsl(214 32% 96%) 0%,
+      hsl(214 40% 93%) 25%,
+      hsl(218 35% 95%) 50%,
+      hsl(214 32% 97%) 75%,
+      hsl(214 32% 96%) 100%
+    );
+    background-size: 400% 400%;
+    animation: gradient-shift 20s ease infinite;
+  }
+
+  .dark .interactive-bg {
+    background: linear-gradient(
+      135deg,
+      hsl(218 45% 8%) 0%,
+      hsl(215 48% 12%) 25%,
+      hsl(218 45% 6%) 50%,
+      hsl(220 50% 10%) 75%,
+      hsl(218 45% 8%) 100%
+    );
+  }
+
+  .dot-grid {
+    background-image: radial-gradient(circle, hsl(var(--border) / 0.3) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
 }
 
 @keyframes float {
@@ -362,6 +418,12 @@
 @keyframes progressShimmer {
   0% { background-position: 200% 50%; }
   100% { background-position: -200% 50%; }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .animate-bounceIn { animation: bounceIn 0.4s ease-out; }
