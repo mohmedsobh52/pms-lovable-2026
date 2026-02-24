@@ -92,7 +92,7 @@ async function fetchHistoricalPrices(): Promise<any[]> {
       .select('project_name, items, currency, project_date')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(20);
 
     const historicalData: any[] = [];
 
@@ -110,7 +110,8 @@ async function fetchHistoricalPrices(): Promise<any[]> {
                 unit_price: item.unit_price || item['Unit Price'] || 0,
                 source: file.project_name,
                 date: file.project_date,
-                currency: file.currency || 'SAR'
+                currency: file.currency || 'SAR',
+                category: item.category || ''
               });
             }
           }
@@ -118,38 +119,32 @@ async function fetchHistoricalPrices(): Promise<any[]> {
       }
     }
 
-    // Fetch from project_items that have prices (via saved_projects)
-    const { data: savedProjects } = await supabase
-      .from('saved_projects')
-      .select('id, name, analysis_data')
-      .eq('user_id', user.id)
+    // Fetch from project_items that have prices (via project_items table directly for better performance)
+    const { data: projectItems } = await supabase
+      .from('project_items')
+      .select('description, description_ar, unit, unit_price, category, project_data(name, created_at)')
+      .gt('unit_price', 0)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(300);
 
-    // Extract items from saved projects' analysis_data
-    if (savedProjects) {
-      for (const project of savedProjects) {
-        const analysisData = project.analysis_data as any;
-        const items = analysisData?.items || analysisData?.boqItems || [];
-        if (Array.isArray(items)) {
-          for (const item of items.slice(0, 50)) {
-            const unitPrice = item.unit_price || item.unitPrice || 0;
-            if (unitPrice > 0) {
-              historicalData.push({
-                description: item.description || '',
-                description_ar: item.description_ar || '',
-                unit: item.unit || '',
-                unit_price: unitPrice,
-                source: project.name,
-                currency: 'SAR'
-              });
-            }
-          }
+    if (projectItems) {
+      for (const item of projectItems) {
+        if (item.project_data) {
+          historicalData.push({
+            description: item.description || '',
+            description_ar: item.description_ar || '',
+            unit: item.unit || '',
+            unit_price: item.unit_price || 0,
+            source: (item.project_data as any).name || 'Previous Project',
+            date: (item.project_data as any).created_at,
+            currency: 'SAR',
+            category: item.category || ''
+          });
         }
       }
     }
 
-    return historicalData.slice(0, 200); // Limit to 200 items
+    return historicalData.slice(0, 500); // Limit to 500 items
   } catch (error) {
     console.error('Error fetching historical prices:', error);
     return [];
@@ -473,6 +468,18 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
             </Button>
           </Link>
           <AnalyzerWeightsDialog onWeightsChange={setCustomWeights} />
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2"
+            onClick={() => {
+              // Open historical pricing dialog (could be implemented as a separate dialog or route)
+              window.open('/historical-pricing', '_blank');
+            }}
+          >
+            <Database className="w-4 h-4 text-blue-500" />
+            ربط بالمشاريع التاريخية
+          </Button>
         </div>
       )}
 
@@ -493,9 +500,12 @@ export function EnhancedPricingAnalysis({ items, onApplyRates }: EnhancedPricing
             <p className="text-xl font-bold text-primary">{summary.analyzed_items}</p>
             <p className="text-[11px] text-muted-foreground">بند تم تحليله</p>
           </div>
-          <div className="p-2.5 bg-green-100 dark:bg-green-900/30 rounded-lg text-center border border-green-200 dark:border-green-800">
-            <p className="text-xl font-bold text-green-600 dark:text-green-400">{summary.average_confidence}%</p>
-            <p className="text-[11px] text-muted-foreground">متوسط الثقة</p>
+          <div className="p-2.5 bg-green-100 dark:bg-green-900/30 rounded-lg text-center border border-green-200 dark:border-green-800 flex flex-col justify-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <span className="text-xl font-bold text-green-600 dark:text-green-400">{summary.average_confidence}%</span>
+            </div>
+            <Progress value={summary.average_confidence} className="h-1.5 w-full bg-green-200 dark:bg-green-900" />
+            <p className="text-[11px] text-muted-foreground mt-1">متوسط الثقة</p>
           </div>
           <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-center border border-blue-200 dark:border-blue-800">
             <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{summary.average_consensus}%</p>
