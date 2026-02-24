@@ -439,39 +439,38 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
     
     setIsLoading(true);
     try {
-      // Fetch projects with date filter
+      // Fetch projects and quotations in parallel
       let projectsQuery = supabase
         .from("saved_projects")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(50);
 
-      if (dateFrom) {
-        projectsQuery = projectsQuery.gte("created_at", dateFrom);
-      }
-      if (dateTo) {
-        projectsQuery = projectsQuery.lte("created_at", dateTo + "T23:59:59");
-      }
-
-      const { data: projects, error: projectsError } = await projectsQuery;
-
-      if (projectsError) throw projectsError;
-
-      // Fetch quotations with date filter
       let quotationsQuery = supabase
         .from("price_quotations")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(50);
 
       if (dateFrom) {
+        projectsQuery = projectsQuery.gte("created_at", dateFrom);
         quotationsQuery = quotationsQuery.gte("created_at", dateFrom);
       }
       if (dateTo) {
+        projectsQuery = projectsQuery.lte("created_at", dateTo + "T23:59:59");
         quotationsQuery = quotationsQuery.lte("created_at", dateTo + "T23:59:59");
       }
 
-      const { data: quotations, error: quotationsError } = await quotationsQuery;
+      const [projectsResult, quotationsResult] = await Promise.all([
+        projectsQuery,
+        quotationsQuery
+      ]);
 
-      if (quotationsError) throw quotationsError;
+      if (projectsResult.error) throw projectsResult.error;
+      if (quotationsResult.error) throw quotationsResult.error;
+
+      const projects = projectsResult.data;
+      const quotations = quotationsResult.data;
 
       // Calculate stats
       const totalValue = quotations?.reduce((sum, q) => sum + (q.total_amount || 0), 0) || 0;
