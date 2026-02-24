@@ -1,108 +1,86 @@
 
-# المرحلة 20.2: التحديث الشامل النهائي
 
-تأثيرات حركية ذهبية + ألوان موحدة للجداول + إصلاح الخلفية + PageHeader للصفحات المتبقية
+# إضافة زر Home + Back ثابت أعلى اليسار + تغيير خلفية الهوم
 
 ---
 
-## 1. تأثيرات حركية ذهبية (hover + click)
+## 1. إنشاء زر ثابت أعلى اليسار (Home + Back)
 
-### `src/index.css`
-اضافة أنماط CSS جديدة في نهاية قسم `@layer components`:
+**ملف جديد:** `src/components/FixedTopNav.tsx`
+
+- زر ثابت (`fixed top-4 left-4 z-50`) يظهر في **جميع الصفحات** ما عدا الصفحة الرئيسية `/`
+- يحتوي على زرين مدمجين في شريط واحد أنيق:
+  - **سهم رجوع** (ArrowLeft) - للعودة للصفحة السابقة
+  - **أيقونة Home** - للذهاب للرئيسية مباشرة
+- تصميم: خلفية شبه شفافة مع `backdrop-blur` وحدود ناعمة، بنظام الألوان الكحلي
+- يدعم RTL (العربية): يظهر أعلى اليمين بدلاً من اليسار
+- في صفحة الهوم `/`: يظهر فقط زر Dashboard صغير (اختياري)
+
+**التعديل في:** `src/App.tsx`
+
+- إضافة `<FixedTopNav />` بجانب `<FloatingBackButton />` في الـ layout العام
+
+**التعديل في:** `src/components/NavigationBar.tsx`
+
+- إزالة أزرار Back و Home من NavigationBar لتجنب التكرار (الآن موجودة في FixedTopNav)
+- الإبقاء على Breadcrumbs فقط
+
+---
+
+## 2. تغيير خلفية صفحة الهوم
+
+**الملف:** `src/pages/HomePage.tsx`
+
+- تغيير الخلفية من الأزرق/الكحلي الغامق الحالي إلى تدرج أكثر حيوية:
+  - تدرج من كحلي عميق `#0f1729` إلى أزرق متوسط `#1a365d` مع لمسة ذهبية خفيفة
+- تحسين تباين النصوص البيضاء مع الخلفية الجديدة
+- إزالة اعتماد الهوم على `BackgroundImage` واستخدام خلفية مخصصة خاصة بها
+
+**الملف:** `src/index.css`
+
+- إضافة class جديد `.home-bg` بتدرج كحلي-أزرق مميز مختلف عن باقي الصفحات
+
+---
+
+## التفاصيل التقنية
+
+### FixedTopNav Component
 
 ```text
-.card-gold-hover    -> hover: border-gold/40, shadow gold/15, translateY(-2px)
-.btn-gold-hover     -> hover: shadow gold/20, border-gold/50
-.btn-gold-press     -> active: scale(0.97), inset shadow gold/30
++---------------------------+
+|  [<-] [Home]              |   <-- fixed top-left, z-50
++---------------------------+
 ```
 
-### `src/components/ui/card.tsx`
-- تغيير `transition` من بدون الى `transition-all duration-200`
-- اضافة `hover:shadow-md hover:-translate-y-0.5` للـ Card الافتراضي
+- `position: fixed; top: 1rem; left: 1rem` (أو `right` في RTL)
+- `z-index: 50` ليظهر فوق المحتوى
+- `bg-background/80 backdrop-blur-md border rounded-full shadow-lg`
+- الأزرار بحجم صغير `size="icon"` مع `gap-1`
 
-### `src/components/ui/button.tsx`
-- تغيير `transition-colors` الى `transition-all duration-200`
-- اضافة `active:scale-[0.98]` لتأثير الضغط على جميع الأزرار
+### خلفية الهوم الجديدة
 
----
-
-## 2. ألوان كحلي/أزرق/ذهبي للجداول
-
-### `src/components/ui/table.tsx`
-- `TableHead`: تغيير من `text-muted-foreground` الى `bg-[#1a2744]/5 dark:bg-[#1a2744]/20 text-[#1a2744] dark:text-white/80 font-semibold`
-- `TableRow`: تغيير من `hover:bg-muted/50` الى `hover:bg-[#2563EB]/5 dark:hover:bg-[#2563EB]/10`
+```text
+الحالي:  interactive-bg (رمادي فاتح / كحلي غامق)
+الجديد:  تدرج مخصص من كحلي عميق (#0f1729) 
+         الى أزرق ملكي (#1e3a5f) 
+         مع وهج ذهبي خفيف في المنتصف
+```
 
 ---
 
-## 3. اصلاح الخلفية والتباين
-
-### `src/components/BackgroundImage.tsx`
-- تعديل overlay من `bg-background/80 dark:bg-background/40` الى `bg-background/85 dark:bg-background/50`
-
-### `src/index.css`
-- تفتيح `.interactive-bg` اكثر في الوضع الفاتح (99% lightness)
-- تحسين `--foreground` في الوضع الفاتح ليكون اغمق لتباين افضل
-
----
-
-## 4. تطبيق PageHeader على الصفحات المتبقية
-
-### 4.1 `src/pages/SavedProjectsPage.tsx`
-- استبدال الهيدر المحلي (سطور 806-837) بـ `PageHeader`
-- ايقونة: `FolderOpen`
-- عنوان: "Projects" / "المشاريع"
-- وصف: "Manage projects and analyze BOQ files"
-- stats: عدد المشاريع، القيمة الاجمالية (gold)، البنود الاجمالية
-- الاحتفاظ بأزرار اللغة/الثيم/الاعدادات/المستخدم في `actions`
-
-### 4.2 `src/pages/CostAnalysisPage.tsx`
-- استبدال الهيدر المحلي (سطور 986-1004) بـ `PageHeader`
-- ايقونة: `Calculator`
-- عنوان: "Cost Analysis" / "تحليل تكاليف البنود"
-- الاحتفاظ بزر العودة وThemeToggle في actions
-
-### 4.3 `src/pages/FastExtractionPage.tsx`
-- استبدال الهيدر المحلي (سطور 89-160) بـ `PageHeader`
-- ايقونة: `Upload`
-- عنوان: "Fast Extraction" / "الاستخراج السريع"
-- وصف: "Upload, classify and extract files"
-- الاحتفاظ بالأزرار الوظيفية في actions
-
-### 4.4 `src/pages/TenderSummaryPage.tsx`
-- استبدال الهيدر المحلي (سطور 552-647) بـ `PageHeader`
-- ايقونة: `Calculator`
-- عنوان: "Tender Summary" / "ملخص العطاء"
-- وصف: اسم المشروع
-- الاحتفاظ بالBreadcrumbs وSaveStatus وأزرار الاجراءات في actions
-
----
-
-## ملخص الملفات المتأثرة
+## الملفات المتأثرة
 
 | الملف | التعديل |
 |-------|---------|
-| `src/index.css` | تأثيرات حركية ذهبية + تحسين خلفية |
-| `src/components/ui/card.tsx` | hover + transition |
-| `src/components/ui/button.tsx` | active scale + transition-all |
-| `src/components/ui/table.tsx` | ألوان كحلي/أزرق |
-| `src/components/BackgroundImage.tsx` | تحسين overlay |
-| `src/pages/SavedProjectsPage.tsx` | PageHeader موحد |
-| `src/pages/CostAnalysisPage.tsx` | PageHeader موحد |
-| `src/pages/FastExtractionPage.tsx` | PageHeader موحد |
-| `src/pages/TenderSummaryPage.tsx` | PageHeader موحد |
+| `src/components/FixedTopNav.tsx` | ملف جديد - زر Home + Back ثابت |
+| `src/App.tsx` | إضافة FixedTopNav في Layout |
+| `src/components/NavigationBar.tsx` | إزالة أزرار Home/Back (الآن في FixedTopNav) |
+| `src/pages/HomePage.tsx` | تغيير الخلفية لتدرج كحلي-أزرق مميز |
+| `src/index.css` | إضافة `.home-bg` class |
 
 ## ترتيب التنفيذ
 
-1. تحديث `index.css` (تأثيرات + خلفية)
-2. تحديث `card.tsx` + `button.tsx` + `table.tsx` (بالتوازي)
-3. تحسين `BackgroundImage.tsx`
-4. تطبيق `PageHeader` على الصفحات الأربع (بالتوازي)
-
-## النتيجة المتوقعة
-
-- تأثيرات hover ذهبية على جميع البطاقات في البرنامج
-- تأثير ضغط (active scale) على جميع الأزرار
-- رؤوس الجداول بلون كحلي خفيف
-- صفوف الجداول بتأثير hover أزرق خفيف
-- خلفية واضحة مع تباين عالي في كلا الوضعين
-- جميع الصفحات تستخدم PageHeader الموحد بدون استثناء
+1. إنشاء `FixedTopNav.tsx`
+2. تحديث `App.tsx` لإضافة المكون
+3. تحديث `NavigationBar.tsx` لإزالة التكرار
+4. تحديث خلفية الهوم (`HomePage.tsx` + `index.css`)
