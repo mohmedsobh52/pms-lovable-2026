@@ -1366,11 +1366,19 @@ export function ProjectTimeline({ wbsData, projectName = "المشروع", proje
         </div>
       )}
 
-      {/* Loading State */}
+      {/* Loading State - Skeleton */}
       {isGenerating && timelineData.length === 0 && (
-        <div className="p-12 text-center">
-          <Loader2 className="w-12 h-12 mx-auto mb-4 text-primary animate-spin" />
-          <p className="text-sm text-muted-foreground">جاري تحليل البيانات وتقدير المدد...</p>
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-3 mb-6">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            <p className="text-sm text-muted-foreground">جاري تحليل البيانات وتقدير المدد...</p>
+          </div>
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="flex items-center gap-4 animate-pulse">
+              <div className="w-32 h-4 bg-muted rounded" />
+              <div className="flex-1 h-8 bg-muted/60 rounded-lg" style={{ marginLeft: `${i * 40}px`, width: `${60 - i * 8}%` }} />
+            </div>
+          ))}
         </div>
       )}
     </div>

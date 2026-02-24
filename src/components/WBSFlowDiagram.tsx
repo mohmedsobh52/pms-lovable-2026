@@ -47,8 +47,9 @@ export function WBSFlowDiagram({ wbsData }: WBSFlowDiagramProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // Build flow nodes with positions
+  // Build flow nodes with positions and null guards
   const flowNodes = useMemo(() => {
+    if (!wbsData || wbsData.length === 0) return [];
     const nodes: FlowNode[] = [];
     const nodeWidth = 180;
     const nodeHeight = 60;
@@ -93,7 +94,7 @@ export function WBSFlowDiagram({ wbsData }: WBSFlowDiagramProps) {
     return nodes;
   }, [wbsData]);
 
-  // Get connections between nodes
+  // Get connections between nodes with null guards
   const connections = useMemo(() => {
     const lines: Array<{ from: FlowNode; to: FlowNode }> = [];
     

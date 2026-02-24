@@ -293,6 +293,30 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
   };
 
   if (!result) {
+    if (isLoading) {
+      return (
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-3 mb-6">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            <p className="text-sm text-muted-foreground">Building Cost-Loaded Schedule...</p>
+          </div>
+          <div className="grid grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-24 bg-muted/40 rounded-xl animate-pulse" />
+            ))}
+          </div>
+          <div className="space-y-3 mt-6">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center gap-4 animate-pulse">
+                <div className="w-24 h-4 bg-muted rounded" />
+                <div className="flex-1 h-6 bg-muted/60 rounded" />
+                <div className="w-20 h-4 bg-muted rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center py-16 space-y-6">
         <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
@@ -310,17 +334,8 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
           size="lg"
           className="gap-2"
         >
-          {isLoading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Building Cost-Loaded Schedule...
-            </>
-          ) : (
-            <>
-              <Calendar className="w-5 h-5" />
-              Generate Cost-Loaded Schedule
-            </>
-          )}
+          <Calendar className="w-5 h-5" />
+          Generate Cost-Loaded Schedule
         </Button>
       </div>
     );
