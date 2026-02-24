@@ -1,92 +1,83 @@
 
-# المرحلة 10: تفعيل Auto Price + تحسين أداء الشاشات الجانبية
+# المرحلة 11: نظام ألوان البنود + تحسين Auto Pricing + ربط تاريخي
 
 ---
 
-## 10.1 إصلاح وتفعيل زر Auto Price (خلل حرج)
+## 11.1 تطبيق نظام الألوان على صفوف جدول التحليل المتقدم
 
-**المشكلة:** زر "Auto Price" موجود في شريط الأدوات (سطر 1689-1697) ويفتح `showAutoPriceDialog` state، لكن مكون `<AutoPriceDialog>` **لم يتم عرضه (render) في JSX** - فالضغط على الزر لا يفعل شيئاً.
+### المشكلة الحالية
+جدول البنود في شاشة التحليل المتقدم (`AnalysisResults.tsx`) يستخدم ألوان صفوف بسيطة (أبيض/رمادي بالتناوب)، بينما جدول BOQ Tab (`ProjectBOQTab.tsx`) يطبق نظام ألوان ذكي:
+- **أخضر** للبنود المسعرة (`bg-green-50/50 dark:bg-green-950/20`)
+- **أحمر** للبنود غير المسعرة (`bg-red-50/30 dark:bg-red-950/10`)
+- **حد أحمر متقطع** للبنود الشاذة (outliers)
+
+### التعديلات المطلوبة
 
 **الملف:** `src/components/AnalysisResults.tsx`
 
-التعديلات:
-- إضافة `<AutoPriceDialog>` في نهاية JSX (بجوار QuickPriceDialog و DetailedPriceDialog حوالي سطر 3010)
-- تحويل بنود `data.items` إلى نوع `ProjectItem` المطلوب من AutoPriceDialog (إضافة `id` field)
-- ربط `onApplyPricing` بدالة تحدث `updateAIRate` لكل بند مسعر + استدعاء `onApplyAutoPricing` إن وجد
-- تصميم الحوار يطابق الصورة المرفقة: شريط Confidence، معلومات "What will happen"، وإحصائيات (Unpriced / Can Be Priced / No Match)
+**سطور 2347-2353** - تعديل className للصف `<tr>`:
+- استبدال نظام التناوب الحالي بنظام ألوان مبني على حالة التسعير
+- إذا كان `aiRate > 0` (البند مسعر): استخدام `bg-green-50/50 dark:bg-green-950/20`
+- إذا كان `aiRate === 0` (البند غير مسعر): استخدام `bg-red-50/30 dark:bg-red-950/10`
+- الحفاظ على `hover:bg-primary/5 transition-colors`
+
+**سطور 2355-2364** - تعديل خلفيات الخلايا المثبتة (pinned cells):
+- تحديث خلفيات الخلايا في الأعمدة المثبتة (index, item_number, item_code, description) لتتبع لون الصف بدلاً من الأبيض/الرمادي الثابت
 
 ---
 
-## 10.2 تحسين أداء شاشة WBS
+## 11.2 تحسين شاشة Auto Pricing مع ربط تاريخي
 
-**الملف:** `src/components/WBSTreeDiagram.tsx` (262 سطر)
+### المشكلة الحالية
+`AutoPriceDialog` يبحث فقط في 3 مصادر محلية (materials, labor, equipment) ولا يستفيد من المشاريع التاريخية. دقة المطابقة منخفضة نسبياً.
 
-التحسينات:
-- إضافة `useMemo` لدالة `buildTree` لتجنب إعادة البناء عند كل render
-- إضافة `React.memo` على TreeNode الداخلي
-- تحسين أداء expand/collapse عبر Set operations بدلاً من إعادة إنشاء المصفوفة
-- إضافة مؤشر عدد العناصر لكل فرع في العقد المغلقة
+### التعديلات المطلوبة
 
----
+**الملف:** `src/components/project-details/AutoPriceDialog.tsx`
 
-## 10.3 تحسين أداء شاشة Cost (التكاليف)
+#### أ. إضافة مصدر البيانات التاريخية
+- إضافة `import { supabase } from "@/integrations/supabase/client"` و `useAuth`
+- جلب `project_items` من قاعدة البيانات (بنود مسعرة بـ `unit_price > 0`) عند فتح الحوار
+- جلب `historical_pricing_files` كمصدر إضافي
+- إضافة مرحلة رابعة في `pricingResults`: البحث في البيانات التاريخية
 
-**الملف:** `src/components/CostAnalysis.tsx` (1386 سطر)
+#### ب. تحسين خوارزمية المطابقة (رفع الدقة لـ 98%+)
+- إضافة مطابقة الوحدات (unit matching) كعامل ترجيح (+20 نقطة عند تطابق الوحدة)
+- إضافة مطابقة الفئة (category matching) (+15 نقطة)
+- إضافة مطابقة جزئية محسنة: كلمات أطول من 4 أحرف تحصل على وزن أعلى
+- إضافة مطابقة عربية محسنة: البحث في `description_ar` + `name_ar`
+- تعديل `calculateConfidence` ليأخذ الوحدة والفئة كمعايير
+- إضافة penalty للمطابقات منخفضة الجودة (إذا تطابقت كلمة واحدة فقط عامة مثل "supply" أو "provide")
+- إضافة "infrastructure expert" keywords: قائمة كلمات مفتاحية متخصصة في البنية التحتية والإنشاءات (concrete, reinforcement, excavation, backfill, pipe, cable, manhole, etc.) لتحسين المطابقة
 
-التحسينات:
-- النظام يستخدم cache بالفعل (24 ساعة) وهذا جيد
-- إضافة `useMemo` للرسوم البيانية (Pie/Bar/Treemap) لتجنب إعادة الحساب
-- تحسين ExcelJS import بجعله dynamic import بدلاً من static (سطر 16)
-- إضافة loading skeleton أثناء تحميل التحليل بدلاً من spinner فقط
-- تحسين عرض التوصيات مع أيقونات ملونة
+#### ج. تحسين واجهة المستخدم
+- إضافة مصدر "Historical" في إحصائيات المطابقة (4 بطاقات بدلاً من 3)
+- إضافة عمود "المصدر" ملون في جدول Preview:
+  - أخضر: مكتبة المواد
+  - أزرق: عمالة
+  - برتقالي: معدات  
+  - بنفسجي: تاريخي
+- إضافة شريط تقدم للثقة بألوان متدرجة في كل صف
+- إضافة `getSourceLabel` لمصدر "historical"
+- إضافة tooltip على المصدر التاريخي يعرض اسم المشروع المرجعي
 
----
-
-## 10.4 تحسين أداء شاشة Brief (الملخص)
-
-**الملف:** `src/components/AnalysisResults.tsx` (قسم summary tab، سطور 2725-2761)
-
-التحسينات:
-- إضافة بطاقات إحصائية إضافية: متوسط سعر الوحدة، أغلى بند، أرخص بند
-- تحسين عرض الفئات بألوان متدرجة
-- إضافة رسم بياني صغير (mini chart) لتوزيع القيم
-- إضافة مؤشر تقدم التسعير في الملخص
-
----
-
-## 10.5 تحسين أداء شاشة Charts (الرسوم البيانية)
-
-**الملف:** `src/components/DataCharts.tsx` (639 سطر)
-
-التحسينات:
-- إضافة `useMemo` لحسابات `categoryData` (سطر 95) - حالياً يُحسب في كل render
-- إضافة `useCallback` لدوال التفاعل
-- تحسين responsive الرسوم لشاشات الموبايل
-- إضافة animation سلسة عند تبديل نوع الرسم (pie/bar/line/area)
+#### د. تحسين تجربة المستخدم
+- عرض Preview تلقائياً بدلاً من زر "Preview" منفصل (إظهار النتائج مباشرة)
+- إضافة فلتر سريع حسب المصدر في جدول Preview
+- إضافة ملخص: "X من مكتبة، Y من عمالة، Z من معدات، W من تاريخي"
 
 ---
 
-## 10.6 تحسين أداء شاشة Time Schedule (الجدول الزمني)
+## 11.3 إصلاح نظام الألوان في الخلايا المثبتة
 
-**الملف:** `src/components/ProjectTimeline.tsx` (1378 سطر)
+### المشكلة
+الخلايا المثبتة (sticky) في الأعمدة (index, item_number, item_code, description) تستخدم خلفية ثابتة (أبيض/رمادي) لا تتغير مع لون الصف، مما يخلق تناقضاً بصرياً.
 
-التحسينات:
-- إضافة `useMemo` لحسابات Gantt chart
-- تحسين dynamic import لـ XLSX (موجود بالفعل - التأكد من عدم تكراره)
-- إضافة skeleton loading أثناء إنشاء الجدول الزمني
-- تحسين عرض الـ critical path بلون مميز أكثر وضوحاً
+### التعديلات
+**الملف:** `src/components/AnalysisResults.tsx`
 
----
-
-## 10.7 تحسين أداء شاشة Schedule Integration (تكامل الجدول)
-
-**الملف:** `src/components/ScheduleIntegration.tsx` (1302 سطر)
-
-التحسينات:
-- إضافة `useMemo` لحسابات EVM و S-Curve data
-- تحسين عرض Gantt Chart المدمج
-- إضافة cache لنتائج التحليل عبر `localStorage`
-- تحسين loading state أثناء الجلب من AI
+في كل خلية مثبتة (حوالي 4 مواضع بين سطور 2355-2400):
+- استبدال `idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50"` بنفس منطق اللون المبني على حالة التسعير
 
 ---
 
@@ -94,17 +85,18 @@
 
 | الملف | التعديل |
 |-------|---------|
-| `src/components/AnalysisResults.tsx` | تفعيل AutoPriceDialog + تحسين Brief tab |
-| `src/components/WBSTreeDiagram.tsx` | useMemo + React.memo |
-| `src/components/CostAnalysis.tsx` | useMemo + dynamic import + skeleton |
-| `src/components/DataCharts.tsx` | useMemo + useCallback + animations |
-| `src/components/ProjectTimeline.tsx` | useMemo + skeleton loading |
-| `src/components/ScheduleIntegration.tsx` | useMemo + cache + loading |
+| `src/components/AnalysisResults.tsx` | نظام ألوان الصفوف (أخضر/أحمر) حسب حالة التسعير |
+| `src/components/project-details/AutoPriceDialog.tsx` | ربط تاريخي + تحسين المطابقة + واجهة محسنة |
 
 ## ترتيب التنفيذ
 
-1. إصلاح AutoPriceDialog (الأكثر أهمية - الزر لا يعمل حالياً)
-2. تحسين Brief tab مع إحصائيات إضافية
-3. تحسين WBS + Charts (useMemo)
-4. تحسين CostAnalysis + Timeline (dynamic imports + skeleton)
-5. تحسين ScheduleIntegration (cache + loading)
+1. تحسين `AutoPriceDialog` (خوارزمية المطابقة + مصدر تاريخي + واجهة)
+2. تطبيق نظام ألوان الصفوف في `AnalysisResults`
+3. إصلاح ألوان الخلايا المثبتة
+
+## النتيجة المتوقعة
+
+- ألوان الصفوف تطابق نظام BOQ Tab (أخضر للمسعر، أحمر لغير المسعر)
+- Auto Pricing يبحث في 4 مصادر بدلاً من 3 (+ تاريخي)
+- دقة المطابقة ترتفع بشكل ملحوظ عبر مطابقة الوحدات والفئات والكلمات المتخصصة
+- واجهة Auto Pricing أوضح مع ألوان مصادر وشريط ثقة
