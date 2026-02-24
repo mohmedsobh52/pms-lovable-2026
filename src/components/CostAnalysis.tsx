@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, forwardRef } from "react";
 import { Calculator, TrendingUp, Users, Package, Wrench, Building2, AlertCircle, Sparkles, Loader2, Edit2, Save, X, Check, PieChart as PieChartIcon, Trash2, RefreshCw, ArrowUpDown, Lightbulb, Shield, DollarSign, FileDown, FileSpreadsheet, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -124,7 +124,7 @@ const clearCostCache = () => {
 const BATCH_SIZE = 15;
 const MAX_ITEMS = 50;
 
-export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
+export const CostAnalysis = forwardRef<HTMLDivElement, CostAnalysisProps>(function CostAnalysis({ items, currency = "ر.س" }, ref) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<CostAnalysisResult | null>(null);
   const [editedResult, setEditedResult] = useState<CostAnalysisResult | null>(null);
@@ -608,7 +608,7 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div ref={ref} className="space-y-6">
       {/* Controls */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
@@ -1401,4 +1401,4 @@ export function CostAnalysis({ items, currency = "ر.س" }: CostAnalysisProps) {
       )}
     </div>
   );
-}
+});

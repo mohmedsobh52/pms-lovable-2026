@@ -168,10 +168,23 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   const { isArabic } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">("items");
+  const [activeTab, setActiveTab] = useState<"items" | "wbs" | "costs" | "summary" | "charts" | "timeline" | "integration">(() => {
+    const saved = sessionStorage.getItem(`analysis_active_tab_${savedProjectId}`);
+    if (saved && ["items", "wbs", "costs", "summary", "charts", "timeline", "integration"].includes(saved)) {
+      return saved as typeof activeTab;
+    }
+    return "items";
+  });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(getSavedCompanyInfo());
+
+  // Persist active tab in sessionStorage
+  useEffect(() => {
+    if (savedProjectId) {
+      sessionStorage.setItem(`analysis_active_tab_${savedProjectId}`, activeTab);
+    }
+  }, [activeTab, savedProjectId]);
   
   // Dynamic cost calculator hook
   const {

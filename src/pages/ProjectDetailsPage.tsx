@@ -1181,7 +1181,7 @@ export default function ProjectDetailsPage() {
             />
           </TabsContent>
 
-          <TabsContent value="analysis">
+          <TabsContent value="analysis" forceMount className={activeTab !== "analysis" ? "hidden" : ""}>
             <Suspense fallback={<div className="flex items-center justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>}>
             {projectAnalysisData ? (
               <AnalysisResults

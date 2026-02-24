@@ -133,20 +133,26 @@ export function WBSTreeDiagram({ wbsData }: WBSTreeDiagramProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(() => new Set(wbsData.map(w => w.code)));
   const [zoom, setZoom] = useState(100);
 
-  // Memoized tree building
+  // Memoized tree building with deduplication and null guards
   const tree = useMemo(() => {
+    if (!wbsData || wbsData.length === 0) return [];
+    
     const nodeMap: Record<string, TreeNode> = {};
     const roots: TreeNode[] = [];
+    const seenCodes = new Set<string>();
 
     wbsData.forEach(item => {
+      if (!item?.code || seenCodes.has(item.code)) return;
+      seenCodes.add(item.code);
       nodeMap[item.code] = { item, children: [], totalDescendants: 0 };
     });
 
     wbsData.forEach(item => {
+      if (!item?.code || !nodeMap[item.code]) return;
       const node = nodeMap[item.code];
       if (item.parent_code && nodeMap[item.parent_code]) {
         nodeMap[item.parent_code].children.push(node);
-      } else if (item.level === 1) {
+      } else if (item.level === 1 || !item.parent_code) {
         roots.push(node);
       }
     });
