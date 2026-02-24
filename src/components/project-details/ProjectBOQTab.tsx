@@ -107,8 +107,32 @@ export function ProjectBOQTab({
   onInlineEdit,
 }: ProjectBOQTabProps) {
   const effectiveItemsPerPage = itemsPerPage >= filteredItems.length ? filteredItems.length : itemsPerPage;
-  const hasArabicDescriptions = items.some(item => item.description_ar && item.description_ar.trim() !== '');
   const isMobile = useIsMobile();
+
+  // Arabic character detection helper
+  const hasArabicChars = useCallback((text: string | null | undefined): boolean => {
+    if (!text || text.trim().length < 2) return false;
+    return /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text);
+  }, []);
+
+  // Process items to ensure Arabic descriptions are correctly populated
+  const processedItems = useMemo(() => {
+    return displayedItems.map(item => {
+      let descAr = item.description_ar || '';
+      // If description_ar has no Arabic but description does, copy it
+      if (!hasArabicChars(descAr) && hasArabicChars(item.description)) {
+        descAr = item.description!;
+      }
+      return { ...item, description_ar: hasArabicChars(descAr) ? descAr : null };
+    });
+  }, [displayedItems, hasArabicChars]);
+
+  const hasArabicDescriptions = useMemo(() => {
+    // Check all items (not just displayed page) for Arabic content
+    return items.some(item => 
+      hasArabicChars(item.description_ar) || hasArabicChars(item.description)
+    );
+  }, [items, hasArabicChars]);
 
   // Inline editing state
   const [editingCell, setEditingCell] = useState<{ itemId: string; field: 'unit_price' | 'quantity' } | null>(null);
@@ -618,7 +642,7 @@ export function ProjectBOQTab({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    displayedItems.map((item) => (
+                    processedItems.map((item) => (
                       <TableRow 
                         key={item.id}
                         className={cn(
