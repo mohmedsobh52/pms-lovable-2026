@@ -1,62 +1,69 @@
 
+# إصلاح مشكلة عدم ظهور الوصف العربي
 
-# إصلاح مشكلة حذف المشاريع
+## المشكلة
+عمود "الوصف العربي" يظهر في رأس الجدول لكن محتواه فارغ (`-`) لجميع البنود، رغم أن البيانات قد تحتوي على نصوص عربية في حقل `description`.
 
-## المشكلة الجذرية
+## السبب الجذري
+ثلاث مشاكل متداخلة:
 
-هناك مشكلتان رئيسيتان تمنعان الحذف من العمل بشكل صحيح:
-
-1. **ذاكرة التخزين المؤقت (Cache)**: بعد حذف المشروع، يتم استدعاء `fetchProjects()` الذي يقرأ البيانات من cache في `sessionStorage` (مدة 3 دقائق) بدلاً من قاعدة البيانات، مما يُظهر المشروع المحذوف مجدداً
-2. **عدم فحص أخطاء الحذف**: استدعاءات Supabase لا تتحقق من وجود أخطاء في الاستجابة - الكود يعرض رسالة نجاح دائماً حتى لو فشل الحذف فعلياً
-3. **جداول مرتبطة لا يتم تنظيفها**: مثل `item_costs`، `edited_boq_prices`، `item_pricing_details` وغيرها
+1. **فحص ضعيف لوجود الوصف العربي**: الفحص الحالي `item.description_ar && item.description_ar.trim() !== ''` لا يتحقق من وجود أحرف عربية فعلية، فقد يُفعّل العمود بسبب نص إنجليزي أو رموز في الحقل
+2. **عدم نقل النص العربي من حقل `description`**: عند وجود وصف عربي في `description` بدون نسخه إلى `description_ar`، لا يتم ذلك تلقائياً أثناء تحميل البنود أو ترحيلها
+3. **الذكاء الاصطناعي لا يُرجع `description_ar` دائماً**: خاصة للمستندات الإنجليزية فقط
 
 ---
 
 ## التغييرات المطلوبة
 
-### الملف: `src/pages/SavedProjectsPage.tsx`
+### 1. تحسين فحص `hasArabicDescriptions` في `ProjectBOQTab.tsx`
 
-#### 1. إصلاح دالة الحذف الفردي `handleDelete`
-- إضافة فحص الأخطاء لكل عملية حذف (`.delete()` ثم التحقق من `error`)
-- حذف البيانات المرتبطة قبل حذف المشروع:
-  - `item_costs` (عبر `project_items`)
-  - `item_pricing_details` (عبر `project_items`)
-  - `edited_boq_prices`
-  - `project_items`
-  - `project_data`
-  - `saved_projects`
-- **مسح cache من `sessionStorage`** بعد الحذف الناجح قبل استدعاء `fetchProjects`
-- أو استدعاء `fetchProjects(true)` لتخطي الـ cache
+**السطر 110**: تغيير الفحص ليشمل التحقق من وجود أحرف عربية فعلية:
+```text
+الحالي: item.description_ar && item.description_ar.trim() !== ''
+الجديد: فحص regex للأحرف العربية في description_ar أو description
+```
 
-#### 2. إصلاح دالة الحذف الجماعي `handleBulkDelete`
-- نفس الإصلاحات: فحص الأخطاء، حذف الجداول المرتبطة، ومسح الـ cache
+### 2. إضافة دالة `ensureArabicDescriptions` في `ProjectBOQTab.tsx`
 
-#### 3. تحديث `fetchProjects` بعد الحذف
-- استخدام `fetchProjects(true)` (skipCache) في كلا دالتي الحذف لضمان تحميل البيانات الحقيقية من قاعدة البيانات
+إضافة `useMemo` يعالج البنود المعروضة ليضمن:
+- إذا كان `description` يحتوي على عربي و `description_ar` فارغ: نسخ النص العربي إلى `description_ar`
+- إذا كان `description_ar` لا يحتوي على عربي فعلي: تفريغه
+
+### 3. تحسين الترحيل في `ProjectDetailsPage.tsx`
+
+**السطر 230**: إضافة فحص وتصحيح `description_ar` أثناء ترحيل البنود من `analysis_data` إلى `project_items`:
+- فحص `description` للمحتوى العربي ونسخه إلى `description_ar` إذا كان فارغاً
+- تنظيف `description_ar` من النصوص غير العربية
 
 ---
 
 ## التفاصيل التقنية
 
-### ترتيب الحذف الصحيح (من الأعمق للأعلى)
+### Regex للكشف عن العربية
 ```text
-1. item_costs         (مرتبط بـ project_items.id)
-2. item_pricing_details (مرتبط بـ project_items.id)  
-3. edited_boq_prices  (مرتبط بـ project_id)
-4. project_items      (مرتبط بـ project_id)
-5. project_data       (المشروع المؤقت)
-6. saved_projects     (المشروع الدائم)
+/[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/
 ```
 
-### فحص الأخطاء
+### المنطق المحسن في ProjectBOQTab
 ```text
-const { error } = await supabase.from("table").delete().eq("id", id);
-if (error) throw error;  // بدلاً من تجاهل الخطأ
+const processedItems = useMemo(() => {
+  return displayedItems.map(item => {
+    let descAr = item.description_ar || '';
+    // إذا كان description يحتوي عربي ولا يوجد description_ar
+    if (!hasArabicChars(descAr) && hasArabicChars(item.description)) {
+      descAr = item.description;
+    }
+    return { ...item, description_ar: hasArabicChars(descAr) ? descAr : null };
+  });
+}, [displayedItems]);
+
+const hasArabicDescriptions = processedItems.some(item => 
+  item.description_ar && hasArabicChars(item.description_ar)
+);
 ```
 
-### مسح الـ Cache
-```text
-sessionStorage.removeItem(`pms_projects_${user.id}`);
-fetchProjects(true);  // skipCache = true
-```
-
+### الملفات المتأثرة
+| الملف | التغيير |
+|-------|---------|
+| `src/components/project-details/ProjectBOQTab.tsx` | تحسين فحص العربية + معالجة البنود |
+| `src/pages/ProjectDetailsPage.tsx` | تصحيح الترحيل ليشمل نسخ الوصف العربي |
