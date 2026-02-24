@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload, FileUp, RotateCcw, Link2, ArrowLeftRight } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 import { extractDataFromExcel } from "@/lib/excel-utils";
 import {
   DndContext,
@@ -983,25 +984,22 @@ export default function CostAnalysisPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Calculator className="w-6 h-6 text-primary" />
-              <h1 className="text-xl font-bold">تحليل تكاليف البنود</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <Link to="/">
-                <Button variant="outline" size="sm" className="gap-1">
-                  <ArrowRight className="w-4 h-4" />
-                  العودة للرئيسية
-                </Button>
-              </Link>
-            </div>
+      <PageHeader
+        icon={Calculator}
+        title="تحليل تكاليف البنود"
+        subtitle="Cost Analysis"
+        actions={
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Link to="/">
+              <Button variant="outline" size="sm" className="gap-1 text-white/80 border-white/20 hover:bg-white/10 hover:text-white">
+                <ArrowRight className="w-4 h-4" />
+                العودة للرئيسية
+              </Button>
+            </Link>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       <main className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
