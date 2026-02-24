@@ -76,9 +76,9 @@
 
 ---
 
-## 4. ربط بمصدر أسعار حقيقي (Perplexity AI Search)
+## 4. ربط بمصدر أسعار حقيقي (Lovable AI - Gemini Flash)
 
-بدلاً من API أسعار مواد بناء مخصص (غير متوفر كخدمة موحدة)، سنستخدم **Perplexity** المتاح كـ connector للبحث عن أسعار السوق الحقيقية.
+بدلاً من Perplexity، نستخدم **Lovable AI** (نموذج `gemini-2.5-flash`) المتاح مباشرة بدون مفتاح إضافي للبحث عن أسعار السوق الحقيقية.
 
 ### ملف جديد: `supabase/functions/fetch-market-prices/index.ts`
 

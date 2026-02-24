@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, memo } from "react";
-import { Sparkles, Info, AlertTriangle, CheckCircle, Loader2, Filter, Database, Wrench, Users, History } from "lucide-react";
+import { Sparkles, Info, AlertTriangle, CheckCircle, Loader2, Filter, Database, Wrench, Users, History, Globe, Search } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -139,6 +139,9 @@ function AutoPriceDialogComponent({
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [historicalItems, setHistoricalItems] = useState<HistoricalItem[]>([]);
   const [loadingHistorical, setLoadingHistorical] = useState(false);
+  const [marketPrices, setMarketPrices] = useState<Record<string, any>>({});
+  const [loadingMarket, setLoadingMarket] = useState(false);
+  const [marketSearchDone, setMarketSearchDone] = useState(false);
 
   const { materials, findMatchingPrice } = useMaterialPrices();
   const { laborRates } = useLaborRates();
@@ -351,12 +354,36 @@ function AutoPriceDialogComponent({
       }
     }
 
+    // 5. Check market prices from AI search
+    for (const item of unpricedItems) {
+      const description = item.description || "";
+      const mp = marketPrices[item.item_number];
+      if (mp && mp.avg_price > 0) {
+        const existingResult = results.find(r => r.itemId === item.id);
+        const marketConfidence = mp.confidence === "high" ? 85 : mp.confidence === "medium" ? 65 : 45;
+        if (!existingResult || marketConfidence > existingResult.confidence) {
+          // Remove existing if market is better
+          const idx = results.findIndex(r => r.itemId === item.id);
+          if (idx >= 0) results.splice(idx, 1);
+          results.push({
+            itemId: item.id,
+            itemNumber: item.item_number,
+            description: description.slice(0, 80) + (description.length > 80 ? "..." : ""),
+            suggestedPrice: mp.avg_price,
+            confidence: marketConfidence,
+            source: "market",
+            sourceName: mp.notes || "AI Market Search",
+          });
+        }
+      }
+    }
+
     return results.sort((a, b) => b.confidence - a.confidence);
-  }, [unpricedItems, materials, laborRates, equipmentRates, historicalItems, confidenceThreshold]);
+  }, [unpricedItems, materials, laborRates, equipmentRates, historicalItems, confidenceThreshold, marketPrices]);
 
   // Source statistics
   const sourceStats = useMemo(() => {
-    const stats = { library: 0, labor: 0, equipment: 0, historical: 0 };
+    const stats = { library: 0, labor: 0, equipment: 0, historical: 0, market: 0 };
     for (const r of pricingResults) {
       if (r.source in stats) stats[r.source as keyof typeof stats]++;
     }
@@ -368,6 +395,42 @@ function AutoPriceDialogComponent({
     if (!sourceFilter) return pricingResults;
     return pricingResults.filter(r => r.source === sourceFilter);
   }, [pricingResults, sourceFilter]);
+
+  // Market price search handler
+  const handleMarketSearch = async () => {
+    const itemsToSearch = unpricedItems.filter(item => {
+      const hasResult = pricingResults.find(r => r.itemId === item.id);
+      return !hasResult || (hasResult && hasResult.confidence < 60);
+    }).slice(0, 10);
+
+    if (itemsToSearch.length === 0) return;
+
+    setLoadingMarket(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-market-prices", {
+        body: {
+          items: itemsToSearch.map(item => ({
+            description: item.description || "",
+            unit: item.unit || "",
+            item_number: item.item_number,
+          })),
+          city: "Riyadh",
+          language: isArabic ? "ar" : "en",
+        },
+      });
+
+      if (error) {
+        console.error("Market search error:", error);
+      } else if (data?.results) {
+        setMarketPrices(prev => ({ ...prev, ...data.results }));
+      }
+    } catch (e) {
+      console.error("Market search failed:", e);
+    } finally {
+      setLoadingMarket(false);
+      setMarketSearchDone(true);
+    }
+  };
 
   const handleApply = async () => {
     if (pricingResults.length === 0) return;
@@ -405,6 +468,7 @@ function AutoPriceDialogComponent({
       labor: { color: "bg-blue-500/10 text-blue-700 border-blue-200", icon: <Users className="w-3 h-3" />, label: "Labor", labelAr: "عمالة" },
       equipment: { color: "bg-orange-500/10 text-orange-700 border-orange-200", icon: <Wrench className="w-3 h-3" />, label: "Equipment", labelAr: "معدات" },
       historical: { color: "bg-purple-500/10 text-purple-700 border-purple-200", icon: <History className="w-3 h-3" />, label: "Historical", labelAr: "تاريخي" },
+      market: { color: "bg-teal-500/10 text-teal-700 border-teal-200", icon: <Globe className="w-3 h-3" />, label: "Market AI", labelAr: "سوق AI" },
     };
     const cfg = configs[source] || configs.library;
     
@@ -446,8 +510,8 @@ function AutoPriceDialogComponent({
           </DialogTitle>
           <DialogDescription>
             {isArabic 
-              ? "تسعير البنود تلقائياً من 4 مصادر: مكتبة المواد، العمالة، المعدات، والبيانات التاريخية"
-              : "Auto-price items from 4 sources: Materials, Labor, Equipment & Historical Data"
+              ? "تسعير البنود تلقائياً من 5 مصادر: مكتبة المواد، العمالة، المعدات، البيانات التاريخية، وأسعار السوق AI"
+              : "Auto-price items from 5 sources: Materials, Labor, Equipment, Historical Data & AI Market Prices"
             }
           </DialogDescription>
         </DialogHeader>
@@ -568,9 +632,41 @@ function AutoPriceDialogComponent({
                   <History className="w-3 h-3" /> {sourceStats.historical}
                 </Button>
               )}
+              {sourceStats.market > 0 && (
+                <Button
+                  variant={sourceFilter === "market" ? "default" : "outline"}
+                  size="sm"
+                  className="h-6 text-xs px-2 gap-1"
+                  onClick={() => setSourceFilter(sourceFilter === "market" ? null : "market")}
+                >
+                  <Globe className="w-3 h-3" /> {sourceStats.market}
+                </Button>
+              )}
             </div>
           )}
 
+          {/* Market Search Button */}
+          {unpricedItems.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 border-teal-200 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400 dark:hover:bg-teal-950/30"
+              onClick={handleMarketSearch}
+              disabled={loadingMarket || marketSearchDone}
+            >
+              {loadingMarket ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Search className="w-4 h-4" />
+              )}
+              {loadingMarket
+                ? (isArabic ? "جاري البحث عن أسعار السوق..." : "Searching market prices...")
+                : marketSearchDone
+                  ? (isArabic ? "تم البحث عن أسعار السوق ✓" : "Market prices searched ✓")
+                  : (isArabic ? "🔍 بحث أسعار السوق الحقيقية (AI)" : "🔍 Search Real Market Prices (AI)")
+              }
+            </Button>
+          )}
           {/* Auto Preview Results */}
           <div className="space-y-2">
             <h4 className="font-medium flex items-center gap-2 text-sm">
