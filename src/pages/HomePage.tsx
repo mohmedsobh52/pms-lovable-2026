@@ -169,31 +169,37 @@ export default function HomePage() {
       <main className="flex-1 flex flex-col items-center justify-center px-3 md:px-4 py-6 md:py-8">
         {/* Quick Stats Strip */}
         {isLoading ? (
-          <div className="flex items-center justify-center gap-4 md:gap-6 mb-5 flex-wrap">
+          <div className="flex items-center justify-center gap-3 md:gap-4 mb-8 flex-wrap max-w-4xl">
             {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-9 w-28 rounded-full bg-white/10" />
+              <Skeleton key={i} className="h-16 w-36 rounded-2xl bg-white/10" />
             ))}
           </div>
         ) : Object.keys(counts).length > 0 && (
-          <div className="flex items-center justify-center gap-4 md:gap-6 mb-5 flex-wrap">
+          <div className="flex items-center justify-center gap-3 md:gap-4 mb-8 flex-wrap max-w-4xl">
             {[
-              { label: isArabic ? "مشروع" : "Projects", value: counts.saved_projects || 0, icon: "📊" },
-              { label: isArabic ? "عقد" : "Contracts", value: counts.contracts || 0, icon: "📄" },
-              { label: isArabic ? "بند" : "Items", value: counts.project_items || 0, icon: "📋" },
-              { label: isArabic ? "مادة" : "Materials", value: counts.material_prices || 0, icon: "🏗️" },
+              { label: isArabic ? "مشروع" : "Projects", value: counts.saved_projects || 0, Icon: FolderOpen, color: "text-blue-400" },
+              { label: isArabic ? "عقد" : "Contracts", value: counts.contracts || 0, Icon: Briefcase, color: "text-emerald-400" },
+              { label: isArabic ? "بند" : "Items", value: counts.project_items || 0, Icon: Layers, color: "text-purple-400" },
+              { label: isArabic ? "مادة" : "Materials", value: counts.material_prices || 0, Icon: Package, color: "text-orange-400" },
             ].map((stat, i) => (
               <div
                 key={stat.label}
-                className="flex items-center gap-1.5 bg-white/15 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 text-white text-sm shadow-md hover:bg-white/20 transition-colors"
+                className="flex items-center gap-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl px-5 py-3 text-white shadow-lg hover:bg-white/15 hover:border-[#F5A623]/30 transition-all duration-200 group"
                 style={{
-                  animation: 'stat-enter 0.3s ease-out forwards',
-                  animationDelay: `${i * 80}ms`,
+                  animation: 'stat-enter 0.4s ease-out forwards',
+                  animationDelay: `${i * 100}ms`,
                   opacity: 0,
                 }}
               >
-                <span>{stat.icon}</span>
-                <span className="font-bold text-[#F5A623]">{stat.value.toLocaleString()}</span>
-                <span className="text-white/75">{stat.label}</span>
+                <div className="w-9 h-9 rounded-xl bg-white/10 group-hover:bg-white/15 flex items-center justify-center transition-colors">
+                  <stat.Icon className={`w-5 h-5 ${stat.color}`} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-lg text-[#F5A623] leading-tight" style={{ textShadow: '0 0 12px rgba(245,166,35,0.3)' }}>
+                    {stat.value.toLocaleString()}
+                  </span>
+                  <span className="text-white/60 text-[11px]">{stat.label}</span>
+                </div>
               </div>
             ))}
           </div>
@@ -232,30 +238,50 @@ export default function HomePage() {
 
         {/* Welcome Header */}
         <div
-          className="flex items-center gap-3 mb-6 md:mb-8"
+          className="flex flex-col items-center gap-4 mb-8 md:mb-10 max-w-4xl relative"
           style={{ animation: 'hero-enter 0.5s ease-out forwards' }}
         >
-          <div className="relative">
-            <PMSLogo size="xl" />
-            <div className="absolute inset-0 rounded-lg bg-primary/20 blur-xl -z-10" />
+          {/* Radial glow behind hero */}
+          <div className="absolute inset-0 -z-10 opacity-30" style={{ background: 'radial-gradient(ellipse at center, rgba(59,130,246,0.2) 0%, transparent 70%)' }} />
+          
+          <div className="flex items-center gap-4">
+            <img
+              src={alimtyazLogo}
+              alt="Alimtyaz Logo"
+              className="w-14 h-14 md:w-16 md:h-16 rounded-xl object-contain bg-white/10 p-1.5 border border-white/20 shadow-lg"
+              loading="lazy"
+            />
+            <div className="relative">
+              <PMSLogo size="xl" />
+              <div className="absolute inset-0 rounded-lg bg-blue-500/20 blur-xl -z-10" />
+            </div>
+            <img
+              src={alimtyazLogo}
+              alt="Alimtyaz Logo"
+              className="w-14 h-14 md:w-16 md:h-16 rounded-xl object-contain bg-white/10 p-1.5 border border-white/20 shadow-lg opacity-0 pointer-events-none"
+              aria-hidden="true"
+            />
           </div>
+
           <div className="text-center">
             <h1
-              className="text-2xl md:text-4xl font-bold text-white"
-              style={{ textShadow: '0 2px 12px rgba(0,0,0,0.6), 0 0 40px rgba(59,130,246,0.15)' }}
+              className="text-3xl md:text-5xl font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent"
+              style={{ textShadow: '0 2px 20px rgba(59,130,246,0.2)' }}
             >
               {isArabic ? "نظام إدارة المشاريع" : "Project Management System"}
             </h1>
-            <p className="text-white/75 text-sm md:text-base mt-1">
+            
+            {/* Decorative gold line */}
+            <div className="flex items-center justify-center gap-2 my-3">
+              <div className="h-px w-16 bg-gradient-to-r from-transparent to-[#F5A623]/60" />
+              <div className="w-1.5 h-1.5 rounded-full bg-[#F5A623]/80" />
+              <div className="h-px w-16 bg-gradient-to-l from-transparent to-[#F5A623]/60" />
+            </div>
+
+            <p className="text-[#F5A623]/80 text-sm md:text-base font-medium">
               {isArabic ? "اختر القسم للبدء" : "Select a section to begin"}
             </p>
           </div>
-          <img
-            src={alimtyazLogo}
-            alt="Alimtyaz Logo"
-            className="w-12 h-12 md:w-14 md:h-14 rounded-lg object-contain bg-white/10 p-1"
-            loading="lazy"
-          />
         </div>
 
         {/* Navigation Grid */}
