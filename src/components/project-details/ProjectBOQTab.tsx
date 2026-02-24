@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Package, Search, Filter, Download, Trash2, Plus, Wand2, RefreshCw,
   ArrowUpDown, Hash, FileText, CheckCircle, MoreVertical, DollarSign,
-  Edit, XCircle, Loader2, History
+  Edit, XCircle, Loader2, History, Upload, FileUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,7 @@ interface ProjectBOQTabProps {
   onItemsPerPageChange: (value: string) => void;
   onAutoPricing: () => void;
   onAddItem: () => void;
+  onUploadBOQ?: () => void;
   onQuickPrice: (itemId: string) => void;
   onDetailedPrice: (item: ProjectItem) => void;
   onEditItem: (item: ProjectItem) => void;
@@ -89,6 +90,7 @@ export function ProjectBOQTab({
   onItemsPerPageChange,
   onAutoPricing,
   onAddItem,
+  onUploadBOQ,
   onQuickPrice,
   onDetailedPrice,
   onEditItem,
@@ -99,6 +101,39 @@ export function ProjectBOQTab({
 }: ProjectBOQTabProps) {
   const effectiveItemsPerPage = itemsPerPage >= filteredItems.length ? filteredItems.length : itemsPerPage;
   const hasArabicDescriptions = items.some(item => item.description_ar && item.description_ar.trim() !== '');
+
+  // If no items at all, show empty state
+  if (items.length === 0) {
+    return (
+      <div className="space-y-4">
+        <Card className="border-dashed border-2 border-border">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <FileUp className="w-16 h-16 text-muted-foreground mb-4" />
+            <h3 className="text-xl font-semibold mb-2">
+              {isArabic ? "لا توجد بنود في جدول الكميات" : "No BOQ Items Yet"}
+            </h3>
+            <p className="text-muted-foreground mb-6 max-w-md">
+              {isArabic 
+                ? "قم برفع ملف BOQ (Excel أو PDF) لاستخراج البنود تلقائياً، أو أضف بنوداً يدوياً"
+                : "Upload a BOQ file (Excel or PDF) to extract items automatically, or add items manually"}
+            </p>
+            <div className="flex items-center gap-3">
+              {onUploadBOQ && (
+                <Button onClick={onUploadBOQ} className="gap-2" size="lg">
+                  <Upload className="w-5 h-5" />
+                  {isArabic ? "رفع ملف BOQ" : "Upload BOQ File"}
+                </Button>
+              )}
+              <Button variant="outline" onClick={onAddItem} className="gap-2" size="lg">
+                <Plus className="w-5 h-5" />
+                {isArabic ? "إضافة بند يدوياً" : "Add Item Manually"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -238,6 +273,16 @@ export function ProjectBOQTab({
                 )}
                 {isArabic ? "تسعير تلقائي" : "Auto Price"}
               </Button>
+              {onUploadBOQ && (
+                <Button 
+                  variant="outline" 
+                  className="gap-2"
+                  onClick={onUploadBOQ}
+                >
+                  <Upload className="w-4 h-4" />
+                  {isArabic ? "رفع BOQ" : "Upload BOQ"}
+                </Button>
+              )}
               <Button 
                 className="gap-2"
                 onClick={onAddItem}

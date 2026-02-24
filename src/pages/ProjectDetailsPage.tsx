@@ -207,7 +207,56 @@ export default function ProjectDetailsPage() {
           .order("created_at", { ascending: true });
 
         if (itemsError) throw itemsError;
-        setItems(itemsData || []);
+        
+        // Auto-migrate items from analysis_data if project_items is empty
+        if ((!itemsData || itemsData.length === 0) && projectData) {
+          const analysisData = projectData.analysis_data as any;
+          const analysisItems = analysisData?.items;
+          
+          if (analysisItems && Array.isArray(analysisItems) && analysisItems.length > 0) {
+            console.log(`Migrating ${analysisItems.length} items from analysis_data to project_items`);
+            
+            const sanitizeNumber = (val: any): number => {
+              const num = parseFloat(val);
+              return isNaN(num) ? 0 : num;
+            };
+            
+            const rows = analysisItems.map((item: any, idx: number) => ({
+              project_id: projectId,
+              item_number: (item.item_number || String(idx + 1)).toString().trim(),
+              description: (item.description || '').toString().trim(),
+              description_ar: item.description_ar ? item.description_ar.toString().trim() : null,
+              unit: (item.unit || '').toString().trim(),
+              quantity: sanitizeNumber(item.quantity),
+              unit_price: sanitizeNumber(item.unit_price) || null,
+              total_price: sanitizeNumber(item.total_price) || null,
+              sort_order: idx,
+              category: item.category || null,
+              is_section: item.is_section || false,
+            }));
+            
+            const { data: migratedItems, error: migrateError } = await supabase
+              .from("project_items")
+              .insert(rows)
+              .select("*");
+            
+            if (migrateError) {
+              console.error("Migration error:", migrateError);
+            } else if (migratedItems) {
+              setItems(migratedItems);
+              toast({
+                title: isArabic ? "تم تحميل البنود" : "Items loaded",
+                description: isArabic 
+                  ? `تم تحميل ${migratedItems.length} بند في جدول الكميات`
+                  : `${migratedItems.length} items loaded into BOQ`,
+              });
+            }
+          } else {
+            setItems([]);
+          }
+        } else {
+          setItems(itemsData || []);
+        }
 
         // Fetch attachments
         await fetchAttachments();
@@ -1089,6 +1138,7 @@ export default function ProjectDetailsPage() {
               onPageChange={setCurrentPage}
               onItemsPerPageChange={handleItemsPerPageChange}
               onAutoPricing={handleAutoPricing}
+              onUploadBOQ={() => setShowBOQUploadDialog(true)}
               onAddItem={() => setShowAddItemDialog(true)}
               onQuickPrice={(itemId) => {
                 const item = items.find(i => i.id === itemId);
