@@ -15,6 +15,7 @@ import {
 interface BOQItem {
   item_number?: string;
   description?: string;
+  description_ar?: string;
   unit?: string;
   quantity?: number;
   unit_price?: number;
@@ -43,15 +44,24 @@ const addCompanyHeaderToWorksheet = async (
 // Export BOQ to Excel with RTL support and company header
 export const exportBOQToExcel = async (items: BOQItem[], projectName: string, isArabic = false) => {
   const workbook = new ExcelJS.Workbook();
+  
+  // Detect if any items have Arabic descriptions
+  const hasArabicDesc = items.some(item => 
+    item.description_ar && item.description_ar.trim().length > 1
+  );
+  
   const worksheet = workbook.addWorksheet('BOQ', {
-    views: [{ rightToLeft: isArabic }]
+    views: [{ rightToLeft: isArabic || hasArabicDesc }]
   });
 
   // Add company header
   const dataStartRow = await addCompanyHeaderToWorksheet(workbook, worksheet, isArabic);
 
+  // Determine last column letter based on Arabic description presence
+  const lastCol = hasArabicDesc ? 'G' : 'F';
+
   // Add project name row
-  worksheet.mergeCells(`A${dataStartRow}:F${dataStartRow}`);
+  worksheet.mergeCells(`A${dataStartRow}:${lastCol}${dataStartRow}`);
   worksheet.getCell(`A${dataStartRow}`).value = projectName;
   worksheet.getCell(`A${dataStartRow}`).font = { bold: true, size: 14, color: { argb: 'FF3B82F6' } };
   worksheet.getCell(`A${dataStartRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
@@ -60,14 +70,22 @@ export const exportBOQToExcel = async (items: BOQItem[], projectName: string, is
   const headerRow = dataStartRow + 2;
 
   // Header row with proper font for Arabic
-  const headers = [
+  const headers: { header: string; key: string; width: number }[] = [
     { header: isArabic ? 'رقم البند' : 'Item No.', key: 'item_number', width: 12 },
     { header: isArabic ? 'الوصف' : 'Description', key: 'description', width: 50 },
+  ];
+
+  // Insert Arabic description column if data exists
+  if (hasArabicDesc) {
+    headers.push({ header: 'الوصف العربي', key: 'description_ar', width: 45 });
+  }
+
+  headers.push(
     { header: isArabic ? 'الوحدة' : 'Unit', key: 'unit', width: 10 },
     { header: isArabic ? 'الكمية' : 'Quantity', key: 'quantity', width: 12 },
     { header: isArabic ? 'سعر الوحدة' : 'Unit Price', key: 'unit_price', width: 15 },
     { header: isArabic ? 'الإجمالي' : 'Total Price', key: 'total_price', width: 18 },
-  ];
+  );
 
   // Set column widths
   worksheet.columns = headers.map(h => ({ key: h.key, width: h.width }));
@@ -87,18 +105,37 @@ export const exportBOQToExcel = async (items: BOQItem[], projectName: string, is
   };
   headerRowObj.alignment = { horizontal: isArabic ? 'right' : 'left', vertical: 'middle' };
 
+  // If Arabic description column exists, style its header cell as RTL
+  if (hasArabicDesc) {
+    const arColIndex = 3; // 3rd column (after item_number, description)
+    headerRowObj.getCell(arColIndex).alignment = { horizontal: 'right', readingOrder: 2 as any, vertical: 'middle' };
+  }
+
   // Add data
   let currentRow = headerRow + 1;
+  const colCount = headers.length;
   items.forEach((item) => {
     const row = worksheet.getRow(currentRow);
-    row.getCell(1).value = item.item_number || '';
-    row.getCell(2).value = item.description || '';
-    row.getCell(3).value = item.unit || '';
-    row.getCell(4).value = item.quantity || 0;
-    row.getCell(5).value = item.unit_price || 0;
-    row.getCell(6).value = item.total_price || (item.quantity || 0) * (item.unit_price || 0);
+    let col = 1;
+    row.getCell(col++).value = item.item_number || '';
+    row.getCell(col++).value = item.description || '';
+    if (hasArabicDesc) {
+      const arCell = row.getCell(col++);
+      arCell.value = item.description_ar || '';
+      arCell.font = { name: 'Arial', size: 10 };
+      arCell.alignment = { horizontal: 'right', readingOrder: 2 as any, vertical: 'middle', wrapText: true };
+    }
+    row.getCell(col++).value = item.unit || '';
+    row.getCell(col++).value = item.quantity || 0;
+    row.getCell(col++).value = item.unit_price || 0;
+    row.getCell(col++).value = item.total_price || (item.quantity || 0) * (item.unit_price || 0);
     row.font = { name: 'Arial', size: 10 };
     row.alignment = { horizontal: isArabic ? 'right' : 'left', vertical: 'middle' };
+    // Re-apply RTL for Arabic description cell specifically
+    if (hasArabicDesc) {
+      row.getCell(3).alignment = { horizontal: 'right', readingOrder: 2 as any, vertical: 'middle', wrapText: true };
+      row.getCell(3).font = { name: 'Arial', size: 10 };
+    }
     currentRow++;
   });
 
@@ -110,10 +147,7 @@ export const exportBOQToExcel = async (items: BOQItem[], projectName: string, is
   const totalRow = worksheet.getRow(currentRow);
   totalRow.getCell(1).value = '';
   totalRow.getCell(2).value = isArabic ? 'الإجمالي' : 'TOTAL';
-  totalRow.getCell(3).value = '';
-  totalRow.getCell(4).value = '';
-  totalRow.getCell(5).value = '';
-  totalRow.getCell(6).value = totalValue;
+  totalRow.getCell(colCount).value = totalValue;
   totalRow.font = { bold: true, name: 'Arial', size: 11 };
   totalRow.fill = {
     type: 'pattern',
@@ -144,15 +178,24 @@ export const exportEnhancedBOQToExcel = async (
 ) => {
   const workbook = new ExcelJS.Workbook();
   const isRTL = language === 'ar';
+  
+  // Detect if any items have Arabic descriptions
+  const hasArabicDesc = items.some(item => 
+    item.description_ar && item.description_ar.trim().length > 1
+  );
+  
   const worksheet = workbook.addWorksheet('Enhanced BOQ', {
-    views: [{ rightToLeft: isRTL }]
+    views: [{ rightToLeft: isRTL || hasArabicDesc }]
   });
 
   // Add company header
   const dataStartRow = await addCompanyHeaderToWorksheet(workbook, worksheet, isRTL);
 
+  // Determine last column letter based on Arabic description presence
+  const lastCol = hasArabicDesc ? 'H' : 'G';
+
   // Add project name row
-  worksheet.mergeCells(`A${dataStartRow}:G${dataStartRow}`);
+  worksheet.mergeCells(`A${dataStartRow}:${lastCol}${dataStartRow}`);
   worksheet.getCell(`A${dataStartRow}`).value = projectName;
   worksheet.getCell(`A${dataStartRow}`).font = { bold: true, size: 14, color: { argb: 'FF3B82F6' } };
   worksheet.getCell(`A${dataStartRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
@@ -160,19 +203,33 @@ export const exportEnhancedBOQToExcel = async (
 
   const headerRow = dataStartRow + 2;
 
-  const headers = {
-    en: ['Item No.', 'Description', 'Unit', 'Quantity', 'Unit Price', 'Total Price', 'Category'],
-    ar: ['رقم البند', 'الوصف', 'الوحدة', 'الكمية', 'سعر الوحدة', 'السعر الإجمالي', 'القسم'],
+  const baseHeaders = {
+    en: ['Item No.', 'Description'],
+    ar: ['رقم البند', 'الوصف'],
+  };
+  const afterHeaders = {
+    en: ['Unit', 'Quantity', 'Unit Price', 'Total Price', 'Category'],
+    ar: ['الوحدة', 'الكمية', 'سعر الوحدة', 'السعر الإجمالي', 'القسم'],
   };
 
-  const selectedHeaders = language === 'both' 
-    ? headers.en.map((h, i) => `${h} / ${headers.ar[i]}`)
-    : headers[language];
+  // Build selected headers with optional Arabic description column
+  let selectedHeaders: string[];
+  if (language === 'both') {
+    selectedHeaders = baseHeaders.en.map((h, i) => `${h} / ${baseHeaders.ar[i]}`);
+    if (hasArabicDesc) selectedHeaders.push('الوصف العربي / Arabic Desc.');
+    selectedHeaders.push(...afterHeaders.en.map((h, i) => `${h} / ${afterHeaders.ar[i]}`));
+  } else {
+    selectedHeaders = [...baseHeaders[language]];
+    if (hasArabicDesc) selectedHeaders.push('الوصف العربي');
+    selectedHeaders.push(...afterHeaders[language]);
+  }
 
-  const columnWidths = [12, 50, 10, 12, 15, 18, 20];
+  const columnWidths = hasArabicDesc 
+    ? [12, 50, 45, 10, 12, 15, 18, 20]
+    : [12, 50, 10, 12, 15, 18, 20];
 
   // Set column widths
-  worksheet.columns = columnWidths.map((w, i) => ({ width: w }));
+  worksheet.columns = columnWidths.map((w) => ({ width: w }));
 
   // Add header row
   const headerRowObj = worksheet.getRow(headerRow);
@@ -188,6 +245,19 @@ export const exportEnhancedBOQToExcel = async (
     fgColor: { argb: 'FF4472C4' }
   };
   headerRowObj.alignment = { horizontal: isRTL ? 'right' : 'left', vertical: 'middle' };
+
+  // Style Arabic description header cell as RTL
+  if (hasArabicDesc) {
+    headerRowObj.getCell(3).alignment = { horizontal: 'right', readingOrder: 2 as any, vertical: 'middle' };
+  }
+
+  // Column index offsets
+  const descArCol = hasArabicDesc ? 3 : -1;
+  const unitCol = hasArabicDesc ? 4 : 3;
+  const qtyCol = hasArabicDesc ? 5 : 4;
+  const upCol = hasArabicDesc ? 6 : 5;
+  const tpCol = hasArabicDesc ? 7 : 6;
+  const catCol = hasArabicDesc ? 8 : 7;
 
   // Group by category
   const groupedItems = items.reduce((acc: Record<string, BOQItem[]>, item) => {
@@ -205,13 +275,24 @@ export const exportEnhancedBOQToExcel = async (
       const row = worksheet.getRow(currentRow);
       row.getCell(1).value = item.item_number || '';
       row.getCell(2).value = item.description || '';
-      row.getCell(3).value = item.unit || '';
-      row.getCell(4).value = item.quantity || 0;
-      row.getCell(5).value = item.unit_price || 0;
-      row.getCell(6).value = item.total_price || (item.quantity || 0) * (item.unit_price || 0);
-      row.getCell(7).value = category;
+      if (hasArabicDesc) {
+        const arCell = row.getCell(descArCol);
+        arCell.value = item.description_ar || '';
+        arCell.font = { name: 'Arial', size: 10 };
+        arCell.alignment = { horizontal: 'right', readingOrder: 2 as any, vertical: 'middle', wrapText: true };
+      }
+      row.getCell(unitCol).value = item.unit || '';
+      row.getCell(qtyCol).value = item.quantity || 0;
+      row.getCell(upCol).value = item.unit_price || 0;
+      row.getCell(tpCol).value = item.total_price || (item.quantity || 0) * (item.unit_price || 0);
+      row.getCell(catCol).value = category;
       row.font = { name: 'Arial', size: 10 };
       row.alignment = { horizontal: isRTL ? 'right' : 'left', vertical: 'middle' };
+      // Re-apply RTL for Arabic description
+      if (hasArabicDesc) {
+        row.getCell(descArCol).alignment = { horizontal: 'right', readingOrder: 2 as any, vertical: 'middle', wrapText: true };
+        row.getCell(descArCol).font = { name: 'Arial', size: 10 };
+      }
       currentRow++;
     });
 
@@ -222,7 +303,7 @@ export const exportEnhancedBOQToExcel = async (
     const subtotalRow = worksheet.getRow(currentRow);
     subtotalRow.getCell(1).value = '';
     subtotalRow.getCell(2).value = language === 'ar' ? `المجموع الفرعي - ${category}` : `Subtotal - ${category}`;
-    subtotalRow.getCell(6).value = subtotal;
+    subtotalRow.getCell(tpCol).value = subtotal;
     subtotalRow.font = { bold: true, italic: true, name: 'Arial', size: 10 };
     subtotalRow.fill = {
       type: 'pattern',
@@ -239,7 +320,7 @@ export const exportEnhancedBOQToExcel = async (
   
   const totalRow = worksheet.getRow(currentRow);
   totalRow.getCell(2).value = language === 'ar' ? 'المجموع الكلي' : 'GRAND TOTAL';
-  totalRow.getCell(6).value = grandTotal;
+  totalRow.getCell(tpCol).value = grandTotal;
   totalRow.font = { bold: true, size: 12, name: 'Arial' };
   totalRow.fill = {
     type: 'pattern',
