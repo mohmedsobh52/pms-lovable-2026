@@ -35,7 +35,7 @@ interface MarketRateSuggestion {
   trend: "Increasing" | "Stable" | "Decreasing";
   variance_percent: number;
   notes: string;
-  source?: "library" | "reference" | "ai";
+  source?: "library" | "reference" | "ai" | "historical";
 }
 
 interface MarketRateSuggestionsProps {
@@ -57,16 +57,72 @@ interface CachedResults {
 const CACHE_KEY = "market_rate_suggestions_cache";
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
-const SAUDI_CITIES = [
-  { value: "Riyadh", label: "الرياض / Riyadh" },
-  { value: "Jeddah", label: "جدة / Jeddah" },
-  { value: "Dammam", label: "الدمام / Dammam" },
-  { value: "Makkah", label: "مكة / Makkah" },
-  { value: "Madinah", label: "المدينة / Madinah" },
-  { value: "Khobar", label: "الخبر / Khobar" },
-  { value: "Tabuk", label: "تبوك / Tabuk" },
-  { value: "Abha", label: "أبها / Abha" },
-];
+// City factors matching edge function
+const CITY_FACTORS: Record<string, { factor: number; label: string }> = {
+  "Riyadh": { factor: 1.00, label: "Baseline" },
+  "Jeddah": { factor: 1.05, label: "+5%" },
+  "Dammam": { factor: 0.97, label: "-3%" },
+  "Makkah": { factor: 1.08, label: "+8%" },
+  "Madinah": { factor: 1.04, label: "+4%" },
+  "Khobar": { factor: 0.98, label: "-2%" },
+  "Tabuk": { factor: 1.12, label: "+12%" },
+  "Abha": { factor: 1.10, label: "+10%" },
+  "Dubai": { factor: 1.25, label: "+25%" },
+  "Abu Dhabi": { factor: 1.20, label: "+20%" },
+  "Sharjah": { factor: 1.15, label: "+15%" },
+  "Ajman": { factor: 1.10, label: "+10%" },
+  "Cairo": { factor: 0.45, label: "-55%" },
+  "Alexandria": { factor: 0.42, label: "-58%" },
+  "Giza": { factor: 0.44, label: "-56%" },
+  "Doha": { factor: 1.30, label: "+30%" },
+  "Al Wakrah": { factor: 1.25, label: "+25%" },
+  "Kuwait City": { factor: 1.15, label: "+15%" },
+  "Hawalli": { factor: 1.12, label: "+12%" },
+  "Manama": { factor: 1.10, label: "+10%" },
+  "Muharraq": { factor: 1.08, label: "+8%" },
+  "Muscat": { factor: 1.05, label: "+5%" },
+  "Salalah": { factor: 1.08, label: "+8%" },
+};
+
+const REGION_CITIES: Record<string, Array<{ value: string; label: string }>> = {
+  saudi: [
+    { value: "Riyadh", label: "الرياض / Riyadh" },
+    { value: "Jeddah", label: "جدة / Jeddah" },
+    { value: "Dammam", label: "الدمام / Dammam" },
+    { value: "Makkah", label: "مكة / Makkah" },
+    { value: "Madinah", label: "المدينة / Madinah" },
+    { value: "Khobar", label: "الخبر / Khobar" },
+    { value: "Tabuk", label: "تبوك / Tabuk" },
+    { value: "Abha", label: "أبها / Abha" },
+  ],
+  uae: [
+    { value: "Dubai", label: "دبي / Dubai" },
+    { value: "Abu Dhabi", label: "أبو ظبي / Abu Dhabi" },
+    { value: "Sharjah", label: "الشارقة / Sharjah" },
+    { value: "Ajman", label: "عجمان / Ajman" },
+  ],
+  egypt: [
+    { value: "Cairo", label: "القاهرة / Cairo" },
+    { value: "Alexandria", label: "الإسكندرية / Alexandria" },
+    { value: "Giza", label: "الجيزة / Giza" },
+  ],
+  qatar: [
+    { value: "Doha", label: "الدوحة / Doha" },
+    { value: "Al Wakrah", label: "الوكرة / Al Wakrah" },
+  ],
+  kuwait: [
+    { value: "Kuwait City", label: "مدينة الكويت / Kuwait City" },
+    { value: "Hawalli", label: "حولي / Hawalli" },
+  ],
+  bahrain: [
+    { value: "Manama", label: "المنامة / Manama" },
+    { value: "Muharraq", label: "المحرق / Muharraq" },
+  ],
+  oman: [
+    { value: "Muscat", label: "مسقط / Muscat" },
+    { value: "Salalah", label: "صلالة / Salalah" },
+  ],
+};
 
 const REGIONS = [
   { value: "saudi", label: "Saudi Arabia", labelAr: "السعودية", emoji: "🇸🇦" },
@@ -101,6 +157,19 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
     'Market Rate Suggestions',
     'اقتراحات أسعار السوق'
   );
+
+  // Reset city when region changes
+  const handleRegionChange = (newRegion: string) => {
+    setRegion(newRegion);
+    const cities = REGION_CITIES[newRegion];
+    if (cities && cities.length > 0) {
+      setLocation(cities[0].value);
+    }
+  };
+
+  // Get current city factor
+  const currentCityFactor = CITY_FACTORS[location] || { factor: 1.0, label: "Baseline" };
+  const currentCities = REGION_CITIES[region] || REGION_CITIES.saudi;
 
   // Load cached results on mount
   useEffect(() => {
@@ -162,6 +231,7 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
   const libCount = suggestions.filter(s => s.source === "library").length;
   const refCount = suggestions.filter(s => s.source === "reference").length;
   const aiCount = suggestions.filter(s => s.source === "ai").length;
+  const histCount = suggestions.filter(s => s.source === "historical").length;
   const highConfCount = suggestions.filter(s => s.confidence === "High").length;
   const avgVariance = suggestions.length > 0
     ? Math.round(suggestions.reduce((sum, s) => sum + Math.abs(s.variance_percent), 0) / suggestions.length * 10) / 10
@@ -452,7 +522,7 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
           </div>
 
           {/* Visual Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
             <div className="p-2.5 rounded-lg bg-green-500/10 border border-green-500/20 text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
                 <BookOpen className="w-3.5 h-3.5 text-green-600" />
@@ -466,6 +536,13 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
                 <span className="text-xs font-medium text-blue-700 dark:text-blue-400">{isArabic ? "مرجعي" : "Reference"}</span>
               </div>
               <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{refCount}</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <History className="w-3.5 h-3.5 text-amber-600" />
+                <span className="text-xs font-medium text-amber-700 dark:text-amber-400">{isArabic ? "تاريخي" : "Historical"}</span>
+              </div>
+              <p className="text-lg font-bold text-amber-700 dark:text-amber-300">{histCount}</p>
             </div>
             <div className="p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
@@ -493,7 +570,7 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
             <Globe className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm font-medium">{isArabic ? "المنطقة:" : "Region:"}</span>
           </div>
-          <Select value={region} onValueChange={setRegion}>
+          <Select value={region} onValueChange={handleRegionChange}>
             <SelectTrigger className="w-44">
               <SelectValue />
             </SelectTrigger>
@@ -520,13 +597,34 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {SAUDI_CITIES.map(city => (
+              {currentCities.map(city => (
                 <SelectItem key={city.value} value={city.value}>
                   {city.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {/* City Factor Badge */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge 
+                  variant={currentCityFactor.factor > 1 ? "destructive" : currentCityFactor.factor < 1 ? "default" : "secondary"}
+                  className="gap-1 text-xs cursor-help"
+                >
+                  <MapPin className="w-3 h-3" />
+                  {currentCityFactor.label}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">
+                  {isArabic 
+                    ? `معامل المدينة: ${currentCityFactor.factor}x - يؤثر على جميع الأسعار المقترحة`
+                    : `City factor: ${currentCityFactor.factor}x - affects all suggested prices`}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button 
             onClick={handleSuggestRates} 
             disabled={isLoading || !items?.length}
