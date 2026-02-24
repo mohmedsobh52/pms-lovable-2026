@@ -553,8 +553,8 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
           {/* Header with reorganized buttons */}
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <LayoutDashboard className="w-5 h-5 text-primary-foreground" />
+              <div className="w-10 h-10 rounded-xl bg-navy flex items-center justify-center">
+                <LayoutDashboard className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold">{isArabic ? "لوحة التحكم" : "Dashboard"}</h2>
