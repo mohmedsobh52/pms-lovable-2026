@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Save, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Save, Loader2, AlertCircle, CheckCircle2, Replace, FilePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -35,6 +43,8 @@ export function SaveProjectDialog({
   const [nameExists, setNameExists] = useState(false);
   const [isCheckingName, setIsCheckingName] = useState(false);
   const [nameChecked, setNameChecked] = useState(false);
+  const [showOverwriteDialog, setShowOverwriteDialog] = useState(false);
+  const [existingProjectIds, setExistingProjectIds] = useState<{ savedId?: string; dataId?: string }>({});
   const { user } = useAuth();
   const { toast } = useToast();
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -45,6 +55,7 @@ export function SaveProjectDialog({
     if (!trimmed || !user) {
       setNameExists(false);
       setNameChecked(false);
+      setExistingProjectIds({});
       return;
     }
 
@@ -71,6 +82,10 @@ export function SaveProjectDialog({
 
         const exists = (saved && saved.length > 0) || (proj && proj.length > 0);
         setNameExists(exists);
+        setExistingProjectIds({
+          savedId: saved?.[0]?.id,
+          dataId: proj?.[0]?.id,
+        });
       } catch {
         setNameExists(false);
       } finally {
@@ -84,12 +99,11 @@ export function SaveProjectDialog({
     };
   }, [projectName, user]);
 
-  const saveProject = async () => {
+  const handleSaveClick = () => {
     if (!user) {
       toast({ title: "يجب تسجيل الدخول", variant: "destructive" });
       return;
     }
-
     const trimmedName = projectName.trim();
     if (!trimmedName) {
       toast({ title: "اسم المشروع مطلوب", variant: "destructive" });
@@ -97,24 +111,54 @@ export function SaveProjectDialog({
     }
 
     if (nameExists) {
-      toast({ title: "هذا الاسم مستخدم بالفعل، اختر اسماً آخر", variant: "destructive" });
-      return;
+      setShowOverwriteDialog(true);
+    } else {
+      doSave(trimmedName);
     }
+  };
 
+  const handleOverwriteAndDelete = async () => {
+    setShowOverwriteDialog(false);
+    const trimmedName = projectName.trim();
+    setIsSaving(true);
+    try {
+      // Delete old project data from all tables
+      const idToDelete = existingProjectIds.savedId || existingProjectIds.dataId;
+      if (idToDelete) {
+        await supabase.from("project_items").delete().eq("project_id", idToDelete);
+        await supabase.from("project_data").delete().eq("id", idToDelete);
+        await supabase.from("saved_projects").delete().eq("id", idToDelete);
+      }
+      await doSave(trimmedName);
+    } catch (error: any) {
+      toast({ title: "خطأ في استبدال المشروع", description: error.message, variant: "destructive" });
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveWithNewName = () => {
+    setShowOverwriteDialog(false);
+    const timestamp = new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
+    const newName = `${projectName.trim()} (${timestamp})`;
+    setProjectName(newName);
+    doSave(newName);
+  };
+
+  const doSave = async (name: string) => {
+    if (!user) return;
     setIsSaving(true);
 
     try {
       const items = analysisData?.items || [];
-      const totalValue = analysisData?.summary?.total_value || 
+      const totalValue = analysisData?.summary?.total_value ||
         items.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
       const itemsCount = items.length;
 
-      // 1. Create in project_data
       const { data: pdData, error: pdError } = await supabase
         .from("project_data")
         .insert({
           user_id: user.id,
-          name: trimmedName,
+          name,
           file_name: fileName || null,
           analysis_data: analysisData,
           wbs_data: wbsData,
@@ -129,13 +173,12 @@ export function SaveProjectDialog({
 
       const projectId = pdData.id;
 
-      // 2. Create in saved_projects
       const { error: spError } = await supabase
         .from("saved_projects")
         .insert({
           id: projectId,
           user_id: user.id,
-          name: trimmedName,
+          name,
           file_name: fileName || null,
           analysis_data: analysisData,
           wbs_data: wbsData,
@@ -145,7 +188,6 @@ export function SaveProjectDialog({
         console.warn("saved_projects insert warning:", spError.message);
       }
 
-      // 3. Create project_items
       if (items.length > 0) {
         const projectItems = items.map((item: any, index: number) => ({
           project_id: projectId,
@@ -160,7 +202,6 @@ export function SaveProjectDialog({
           sort_order: index,
         }));
 
-        // Insert in batches of 50
         for (let i = 0; i < projectItems.length; i += 50) {
           const batch = projectItems.slice(i, i + 50);
           const { error: itemsError } = await supabase
@@ -187,79 +228,116 @@ export function SaveProjectDialog({
     }
   };
 
-  const canSave = projectName.trim().length > 0 && !nameExists && !isCheckingName && !isSaving;
+  const canSave = projectName.trim().length > 0 && !isCheckingName && !isSaving;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Save className="w-4 h-4" />
-          حفظ المشروع
-        </Button>
-      </DialogTrigger>
-      <DialogContent dir="rtl">
-        <DialogHeader>
-          <DialogTitle>حفظ المشروع</DialogTitle>
-          <DialogDescription>
-            أدخل اسماً فريداً للمشروع لحفظه واسترجاعه لاحقاً
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="project-name">اسم المشروع</Label>
-            <div className="relative">
-              <Input
-                id="project-name"
-                placeholder="مشروع بناء..."
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                className={nameExists ? "border-destructive pr-10" : nameChecked && projectName.trim() && !nameExists ? "border-green-500 pr-10" : ""}
-              />
-              {isCheckingName && (
-                <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-              )}
-              {nameChecked && projectName.trim() && !isCheckingName && nameExists && (
-                <AlertCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-destructive" />
-              )}
-              {nameChecked && projectName.trim() && !isCheckingName && !nameExists && (
-                <CheckCircle2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Save className="w-4 h-4" />
+            حفظ المشروع
+          </Button>
+        </DialogTrigger>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle>حفظ المشروع</DialogTitle>
+            <DialogDescription>
+              أدخل اسماً للمشروع لحفظه واسترجاعه لاحقاً
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="project-name">اسم المشروع</Label>
+              <div className="relative">
+                <Input
+                  id="project-name"
+                  placeholder="مشروع بناء..."
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  className={nameExists ? "border-yellow-500 pr-10" : nameChecked && projectName.trim() && !nameExists ? "border-green-500 pr-10" : ""}
+                />
+                {isCheckingName && (
+                  <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                )}
+                {nameChecked && projectName.trim() && !isCheckingName && nameExists && (
+                  <AlertCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-yellow-500" />
+                )}
+                {nameChecked && projectName.trim() && !isCheckingName && !nameExists && (
+                  <CheckCircle2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+                )}
+              </div>
+              {nameExists && (
+                <p className="text-sm text-yellow-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  يوجد مشروع بهذا الاسم - يمكنك الاستبدال أو الحفظ باسم جديد
+                </p>
               )}
             </div>
-            {nameExists && (
-              <p className="text-sm text-destructive flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                هذا الاسم مستخدم بالفعل، اختر اسماً آخر
+            {fileName && (
+              <p className="text-sm text-muted-foreground">الملف: {fileName}</p>
+            )}
+            {analysisData?.items?.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                عدد البنود: {analysisData.items.length} |
+                القيمة: {(analysisData.summary?.total_value || 0).toLocaleString()} {analysisData.summary?.currency || "SAR"}
               </p>
             )}
           </div>
-          {fileName && (
-            <p className="text-sm text-muted-foreground">الملف: {fileName}</p>
-          )}
-          {analysisData?.items?.length > 0 && (
-            <p className="text-sm text-muted-foreground">
-              عدد البنود: {analysisData.items.length} | 
-              القيمة: {(analysisData.summary?.total_value || 0).toLocaleString()} {analysisData.summary?.currency || "SAR"}
-            </p>
-          )}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            إلغاء
-          </Button>
-          <Button
-            onClick={saveProject}
-            disabled={!canSave}
-            className="btn-gradient gap-2"
-          >
-            {isSaving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
-            حفظ
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleSaveClick}
+              disabled={!canSave}
+              className="btn-gradient gap-2"
+            >
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              حفظ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={showOverwriteDialog} onOpenChange={setShowOverwriteDialog}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>يوجد مشروع بنفس الاسم</AlertDialogTitle>
+            <AlertDialogDescription>
+              المشروع "<strong>{projectName.trim()}</strong>" موجود بالفعل. ماذا تريد أن تفعل؟
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowOverwriteDialog(false)}
+            >
+              إلغاء
+            </Button>
+            <Button
+              variant="secondary"
+              className="gap-2"
+              onClick={handleSaveWithNewName}
+            >
+              <FilePlus className="w-4 h-4" />
+              حفظ باسم جديد
+            </Button>
+            <Button
+              variant="destructive"
+              className="gap-2"
+              onClick={handleOverwriteAndDelete}
+            >
+              <Replace className="w-4 h-4" />
+              استبدال وحذف القديم
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
