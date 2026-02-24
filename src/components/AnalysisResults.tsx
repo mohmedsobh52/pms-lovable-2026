@@ -49,6 +49,7 @@ import { ContractManagement } from "./ContractManagement";
 import { CostBenefitAnalysis } from "./CostBenefitAnalysis";
 import { ProjectComparisonPDFExport } from "./ProjectComparisonPDFExport";
 import { QuickPriceDialog } from "@/components/project-details/QuickPriceDialog";
+import { AutoPriceDialog } from "@/components/project-details/AutoPriceDialog";
 import DetailedPriceDialog from "@/components/pricing/DetailedPriceDialog";
 import { EVMAlertSettings } from "./EVMAlertSettings";
 import { RiskDetailedReport } from "./RiskDetailedReport";
@@ -152,6 +153,7 @@ interface AnalysisResultsProps {
   savedProjectId?: string;
   onGenerateWBS?: () => void;
   isGeneratingWBS?: boolean;
+  onApplyAutoPricing?: (items: { id: string; price: number; source: string }[]) => Promise<void>;
 }
 
 // Cost range definitions
@@ -161,7 +163,7 @@ const getCostRange = (price: number): string => {
   return "high";
 };
 
-export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId, onGenerateWBS, isGeneratingWBS }: AnalysisResultsProps) {
+export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedProjectId, onGenerateWBS, isGeneratingWBS, onApplyAutoPricing }: AnalysisResultsProps) {
   const { isArabic } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -213,6 +215,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   
   // State for bulk apply dialog
   const [bulkApplyOpen, setBulkApplyOpen] = useState(false);
+  
+  // State for auto price dialog
+  const [showAutoPriceDialog, setShowAutoPriceDialog] = useState(false);
   
   // State for tracking recently applied AI rates (for visual confirmation)
   const [recentlyAppliedItems, setRecentlyAppliedItems] = useState<Set<string>>(new Set());
@@ -1681,6 +1686,15 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
 
             {/* Price Analysis Buttons */}
             <div className="flex items-center gap-2 project-actions-section">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 analysis-action-btn hover:bg-primary/10 hover:border-primary/50 transition-all duration-100"
+                onClick={() => setShowAutoPriceDialog(true)}
+              >
+                <Wand2 className="w-4 h-4 text-emerald-500" />
+                <span className="hidden sm:inline">{isArabic ? "تسعير تلقائي" : "Auto Price"}</span>
+              </Button>
               <MarketRateSuggestions 
                 items={data.items || []} 
                 projectId={savedProjectId}

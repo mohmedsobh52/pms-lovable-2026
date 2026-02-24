@@ -47,7 +47,14 @@ interface MarketRateSuggestion {
   trend: "Increasing" | "Stable" | "Decreasing";
   variance_percent: number;
   notes: string;
-  source: "library" | "reference" | "ai";
+  source: "library" | "reference" | "ai" | "historical";
+}
+
+interface HistoricalItem {
+  description: string;
+  unit: string;
+  unit_price: number;
+  source?: string;
 }
 
 // ==========================================
@@ -342,6 +349,35 @@ function findLibraryPrice(description: string, unit: string, libraryData?: Libra
 }
 
 // ==========================================
+// 📜 FIND PRICE FROM HISTORICAL DATA
+// ==========================================
+function findHistoricalPrice(description: string, unit: string, historicalData?: HistoricalItem[]): { price: number; confidence: number; source: string; projectName: string } | null {
+  if (!historicalData || historicalData.length === 0) return null;
+  
+  const descNorm = normalizeText(description);
+  
+  for (const hist of historicalData) {
+    const histText = normalizeText(hist.description || '');
+    const score = fuzzyMatch(descNorm, histText);
+    
+    // Check unit match too
+    const unitMatch = (hist.unit || '').toLowerCase().trim() === unit.toLowerCase().trim();
+    
+    if (score >= 0.7 && unitMatch && hist.unit_price > 0) {
+      // Apply 4% inflation adjustment for historical prices
+      const adjustedPrice = Math.round(hist.unit_price * 1.04 * 100) / 100;
+      return { price: adjustedPrice, confidence: 88, source: 'historical', projectName: hist.source || 'Historical Project' };
+    }
+    if (score >= 0.6 && unitMatch && hist.unit_price > 0) {
+      const adjustedPrice = Math.round(hist.unit_price * 1.04 * 100) / 100;
+      return { price: adjustedPrice, confidence: 75, source: 'historical', projectName: hist.source || 'Historical Project' };
+    }
+  }
+  
+  return null;
+}
+
+// ==========================================
 // ✅ VALIDATE AND ADJUST AI PRICE
 // ==========================================
 function validatePrice(aiPrice: number, refPrice: { min: number; max: number } | null, libraryPrice?: number): { 
@@ -462,11 +498,12 @@ async function processBatch(
   location: string,
   apiKey: string,
   model: string = "google/gemini-2.5-flash",
-  libraryData?: LibraryData
-): Promise<{ suggestions: MarketRateSuggestion[]; aiCount: number; refCount: number; libCount: number }> {
+  libraryData?: LibraryData,
+  historicalData?: HistoricalItem[]
+): Promise<{ suggestions: MarketRateSuggestion[]; aiCount: number; refCount: number; libCount: number; histCount: number }> {
   
   const suggestions: MarketRateSuggestion[] = [];
-  let aiCount = 0, refCount = 0, libCount = 0;
+  let aiCount = 0, refCount = 0, libCount = 0, histCount = 0;
   
   // First pass: Try to match from library and reference
   const itemsNeedingAI: typeof items = [];
@@ -493,6 +530,30 @@ async function processBatch(
         source: "library"
       });
       libCount++;
+      continue;
+    }
+    
+    // Try historical prices (second priority)
+    const histPrice = findHistoricalPrice(item.description, item.unit, historicalData);
+    if (histPrice && histPrice.confidence >= 75) {
+      const variance = item.unit_price && item.unit_price > 0 
+        ? Math.round(((histPrice.price - item.unit_price) / item.unit_price) * 100)
+        : 0;
+      
+      suggestions.push({
+        item_number: item.item_number,
+        description: item.description,
+        current_price: item.unit_price || 0,
+        suggested_min: Math.round(histPrice.price * 0.9),
+        suggested_max: Math.round(histPrice.price * 1.1),
+        suggested_avg: histPrice.price,
+        confidence: histPrice.confidence >= 85 ? "High" : "Medium",
+        trend: "Stable",
+        variance_percent: variance,
+        notes: `From historical: ${histPrice.projectName} (+4% inflation adj.)`,
+        source: "historical"
+      });
+      histCount++;
       continue;
     }
     
@@ -712,7 +773,7 @@ Return accurate 2025 market rates.`;
     }
   }
   
-  return { suggestions, aiCount, refCount, libCount };
+  return { suggestions, aiCount, refCount, libCount, histCount };
 }
 
 serve(async (req) => {
@@ -731,12 +792,14 @@ serve(async (req) => {
       items, 
       location = "Riyadh", 
       model = "google/gemini-2.5-flash",
-      libraryData 
+      libraryData,
+      historicalData
     }: { 
       items: BOQItem[]; 
       location: string; 
       model?: string;
       libraryData?: LibraryData;
+      historicalData?: HistoricalItem[];
     } = await req.json();
 
     if (!items || items.length === 0) {
@@ -747,7 +810,7 @@ serve(async (req) => {
     }
 
     console.log(`Analyzing ${items.length} items for ${location} with model: ${model}`);
-    console.log(`Library data: materials=${libraryData?.materials?.length || 0}, labor=${libraryData?.labor?.length || 0}, equipment=${libraryData?.equipment?.length || 0}`);
+    console.log(`Library data: materials=${libraryData?.materials?.length || 0}, labor=${libraryData?.labor?.length || 0}, equipment=${libraryData?.equipment?.length || 0}, historical=${historicalData?.length || 0}`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -756,7 +819,7 @@ serve(async (req) => {
 
     const BATCH_SIZE = 20;
     const allSuggestions: MarketRateSuggestion[] = [];
-    let totalAI = 0, totalRef = 0, totalLib = 0;
+    let totalAI = 0, totalRef = 0, totalLib = 0, totalHist = 0;
     const totalBatches = Math.ceil(items.length / BATCH_SIZE);
     
     console.log(`Processing ${totalBatches} batches`);
@@ -766,11 +829,12 @@ serve(async (req) => {
       const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
       console.log(`Batch ${batchNumber}/${totalBatches}: ${batchItems.length} items`);
       
-      const result = await processBatch(batchItems, location, LOVABLE_API_KEY, model, libraryData);
+      const result = await processBatch(batchItems, location, LOVABLE_API_KEY, model, libraryData, historicalData);
       allSuggestions.push(...result.suggestions);
       totalAI += result.aiCount;
       totalRef += result.refCount;
       totalLib += result.libCount;
+      totalHist += result.histCount;
       
       if (i + BATCH_SIZE < items.length) {
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -821,7 +885,7 @@ serve(async (req) => {
     }
 
     console.log(`Analysis complete: ${allSuggestions.length} items`);
-    console.log(`Sources: Library=${totalLib}, Reference=${totalRef}, AI=${totalAI}`);
+    console.log(`Sources: Library=${totalLib}, Reference=${totalRef}, AI=${totalAI}, Historical=${totalHist}`);
     console.log(`Estimated accuracy: ${estimatedAccuracy}%`);
 
     return new Response(JSON.stringify({ 
@@ -836,6 +900,7 @@ serve(async (req) => {
         library_count: totalLib,
         reference_count: totalRef,
         ai_count: totalAI,
+        historical_count: totalHist,
         estimated_accuracy: `${estimatedAccuracy}%`
       },
       accuracy_metrics: {

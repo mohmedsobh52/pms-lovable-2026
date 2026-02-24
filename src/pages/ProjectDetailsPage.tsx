@@ -1206,6 +1206,7 @@ export default function ProjectDetailsPage() {
                     .order("created_at", { ascending: true });
                   if (updatedItems) setItems(updatedItems);
                 }}
+                onApplyAutoPricing={handleApplyAutoPricing}
               />
             ) : (
               <BOQAnalyzerPanel 

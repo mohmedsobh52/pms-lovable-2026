@@ -2070,7 +2070,7 @@ function matchToReferencePrice(description: string | null | undefined, unit: str
       score *= 1.5;
     }
     
-    // Check unit compatibility (higher weight)
+  // Check unit compatibility (higher weight)
     const refUnit = ref.unit.toLowerCase();
     const unitMatches = unitLower === refUnit || 
       unitLower.includes(refUnit) || 
@@ -2081,6 +2081,29 @@ function matchToReferencePrice(description: string | null | undefined, unit: str
       (unitLower === "lm" && refUnit === "m");
     if (unitMatches && unitLower.length > 0) {
       score += 8;
+    }
+    
+    // Category matching bonus (+3 points)
+    if (ref.category && desc.includes(ref.category.toLowerCase())) {
+      score += 3;
+    }
+    if (ref.categoryAr && desc.includes(ref.categoryAr)) {
+      score += 3;
+    }
+    
+    // Partial word matching - check if description tokens partially match keywords
+    for (const keyword of ref.keywords) {
+      const kwTokens = keyword.toLowerCase().split(/[\s\-\/]+/).filter(t => t.length > 3);
+      for (const kt of kwTokens) {
+        for (const dt of descTokens) {
+          if (dt.length > 3 && kt.length > 3 && dt !== kt) {
+            // Check if one starts with the other (partial match)
+            if (dt.startsWith(kt.substring(0, Math.min(4, kt.length))) || kt.startsWith(dt.substring(0, Math.min(4, dt.length)))) {
+              score += 1;
+            }
+          }
+        }
+      }
     }
     
     // Check full description match
@@ -2105,8 +2128,9 @@ function matchToReferencePrice(description: string | null | undefined, unit: str
     }
   }
   
-  // Higher threshold (6) to prevent false matches
-  return highestScore >= 6 ? bestMatch : null;
+  // Lower threshold to 5 for items with matching units, else 6
+  const threshold = (bestMatch && unitLower.length > 0 && bestMatch.ref.unit.toLowerCase() === unitLower) ? 5 : 6;
+  return highestScore >= threshold ? bestMatch : null;
 }
 
 async function runAnalyzer(
@@ -2306,8 +2330,8 @@ function aggregateResults(
     }
 
     // Dynamic weight adjustment based on reference match strength
-    const hasStrongRef = match && match.matchScore >= 15;
-    const hasMediumRef = match && match.matchScore >= 8;
+    const hasStrongRef = match && match.matchScore >= 12;
+    const hasMediumRef = match && match.matchScore >= 6;
     
     // Calculate weighted average using dynamic weights
     let weightedSum = 0;
@@ -2373,7 +2397,7 @@ function aggregateResults(
     if (match && (hasStrongRef || hasMediumRef)) {
       const refMid = ((match.ref.min + match.ref.max) / 2) * locationFactor;
       const refConfidence = hasStrongRef ? 95 : 85;
-      const refWeight = hasStrongRef ? 0.40 : 0.25;
+      const refWeight = hasStrongRef ? 0.50 : 0.30;
       
       weightedSum += refMid * refWeight * (refConfidence / 100);
       totalWeight += refWeight * (refConfidence / 100);

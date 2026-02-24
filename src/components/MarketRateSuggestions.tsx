@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3, Bot, Globe, BookOpen, Database, Search, RefreshCw, Info } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Sparkles, MapPin, Loader2, Check, AlertTriangle, CheckCheck, BarChart3, Bot, Globe, BookOpen, Database, Search, RefreshCw, Info, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -179,6 +179,8 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
         return { icon: <Database className="w-3 h-3" />, label: isArabic ? "مرجعي" : "Reference", color: "bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-400" };
       case "ai":
         return { icon: <Bot className="w-3 h-3" />, label: "AI", color: "bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-400" };
+      case "historical":
+        return { icon: <History className="w-3 h-3" />, label: isArabic ? "تاريخي" : "Historical", color: "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400" };
       default:
         return { icon: <Bot className="w-3 h-3" />, label: "—", color: "bg-muted border-border text-muted-foreground" };
     }
@@ -211,15 +213,27 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
   // Fetch library data for enhanced pricing
   const fetchLibraryData = async () => {
     try {
-      const [materialsRes, laborRes, equipmentRes] = await Promise.all([
+      const [materialsRes, laborRes, equipmentRes, historicalRes] = await Promise.all([
         supabase.from('material_prices').select('name, name_ar, unit_price, unit, category, is_verified, price_date'),
         supabase.from('labor_rates').select('name, name_ar, unit_rate, unit, category'),
-        supabase.from('equipment_rates').select('name, name_ar, rental_rate, unit, category')
+        supabase.from('equipment_rates').select('name, name_ar, rental_rate, unit, category'),
+        supabase.from('project_items').select('description, description_ar, unit, unit_price, project_data(name)').gt('unit_price', 0).order('created_at', { ascending: false }).limit(200)
       ]);
+      
+      // Transform historical data
+      const historicalData = (historicalRes.data || []).map((item: any) => ({
+        description: item.description || '',
+        description_ar: item.description_ar,
+        unit: item.unit || '',
+        unit_price: item.unit_price || 0,
+        source: item.project_data?.name
+      }));
+
       return {
         materials: materialsRes.data || [],
         labor: laborRes.data || [],
-        equipment: equipmentRes.data || []
+        equipment: equipmentRes.data || [],
+        historicalData
       };
     } catch (error) {
       console.error('Error fetching library data:', error);
@@ -249,7 +263,7 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
       const libraryData = await fetchLibraryData();
       const regionInfo = REGIONS.find(r => r.value === region);
       const { data, error } = await supabase.functions.invoke("suggest-market-rates", {
-        body: { items: validItems, location, region: regionInfo?.label || "Saudi Arabia", model: selectedModel, libraryData },
+        body: { items: validItems, location, region: regionInfo?.label || "Saudi Arabia", model: selectedModel, libraryData, historicalData: libraryData?.historicalData },
       });
 
       if (error) throw error;
@@ -283,8 +297,8 @@ export function MarketRateSuggestions({ items, projectId, onApplyRate, onApplyAI
       toast({
         title: isArabic ? `تم التحليل بدقة ${accuracy}%` : `Analysis complete - ${accuracy}% accuracy`,
         description: isArabic
-          ? `${data.analyzed_items} بند: مكتبة(${sourceInfo?.library_count || 0}) + مرجعي(${sourceInfo?.reference_count || 0}) + AI(${sourceInfo?.ai_count || 0})`
-          : `${data.analyzed_items} items: Library(${sourceInfo?.library_count || 0}) + Reference(${sourceInfo?.reference_count || 0}) + AI(${sourceInfo?.ai_count || 0})`,
+          ? `${data.analyzed_items} items: Library(${sourceInfo?.library_count || 0}) + Reference(${sourceInfo?.reference_count || 0}) + AI(${sourceInfo?.ai_count || 0}) + Historical(${sourceInfo?.historical_count || 0})`
+          : `${data.analyzed_items} بند: مكتبة(${sourceInfo?.library_count || 0}) + مرجعي(${sourceInfo?.reference_count || 0}) + AI(${sourceInfo?.ai_count || 0}) + تاريخي(${sourceInfo?.historical_count || 0})`,
       });
     } catch (error: any) {
       console.error("Error getting market rates:", error);
