@@ -1,4 +1,4 @@
-import { useState, Fragment } from "react";
+import { useState, useMemo, useCallback, Fragment } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -203,21 +203,38 @@ interface ScheduleIntegrationProps {
 
 export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: ScheduleIntegrationProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<ScheduleIntegrationResult | null>(null);
+  const [result, setResult] = useState<ScheduleIntegrationResult | null>(() => {
+    // Load from cache on mount
+    try {
+      const cached = localStorage.getItem('schedule_integration_cache');
+      if (cached) {
+        const { data, timestamp, hash } = JSON.parse(cached);
+        const itemsHash = items.slice(0, 20).map(i => i.item_number).join('|');
+        if (hash === itemsHash && (Date.now() - timestamp) < 12 * 60 * 60 * 1000) {
+          return data;
+        }
+      }
+    } catch {}
+    return null;
+  });
   const [activeSection, setActiveSection] = useState<"schedule" | "gantt" | "scurve" | "cashflow" | "evm" | "orphans" | "risks">("schedule");
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
-  const toggleRow = (index: number) => {
-    const newSet = new Set(expandedRows);
-    if (newSet.has(index)) {
-      newSet.delete(index);
-    } else {
-      newSet.add(index);
-    }
-    setExpandedRows(newSet);
-  };
+  const toggleRow = useCallback((index: number) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }, []);
 
-  const analyzeIntegration = async () => {
+  // Memoized EVM and S-Curve data
+  const evmChartData = useMemo(() => result?.evm_data || [], [result?.evm_data]);
+  const sCurveData = useMemo(() => result?.s_curve_data || [], [result?.s_curve_data]);
+  const cashFlowData = useMemo(() => result?.cost_flow_monthly || [], [result?.cost_flow_monthly]);
+
+  const analyzeIntegration = useCallback(async () => {
     if (!items || items.length === 0) {
       toast.error("No BOQ items available for analysis");
       return;
@@ -235,6 +252,13 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
       if (error) throw error;
       
       setResult(data);
+      // Cache results
+      try {
+        const itemsHash = items.slice(0, 20).map(i => i.item_number).join('|');
+        localStorage.setItem('schedule_integration_cache', JSON.stringify({
+          data, timestamp: Date.now(), hash: itemsHash
+        }));
+      } catch {}
       toast.success("Cost-loaded schedule analysis complete");
     } catch (error) {
       console.error("Analysis error:", error);
@@ -242,7 +266,7 @@ export function ScheduleIntegration({ items, wbsData, currency = "SAR" }: Schedu
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [items, wbsData]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
