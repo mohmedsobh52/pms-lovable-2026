@@ -1,69 +1,61 @@
 
-# إصلاح مشكلة عدم ظهور الوصف العربي
 
-## المشكلة
-عمود "الوصف العربي" يظهر في رأس الجدول لكن محتواه فارغ (`-`) لجميع البنود، رغم أن البيانات قد تحتوي على نصوص عربية في حقل `description`.
+# تحسين شاشة التسعير التلقائي الذكي (Smart Auto Pricing)
 
-## السبب الجذري
-ثلاث مشاكل متداخلة:
+## التحسينات المطلوبة
 
-1. **فحص ضعيف لوجود الوصف العربي**: الفحص الحالي `item.description_ar && item.description_ar.trim() !== ''` لا يتحقق من وجود أحرف عربية فعلية، فقد يُفعّل العمود بسبب نص إنجليزي أو رموز في الحقل
-2. **عدم نقل النص العربي من حقل `description`**: عند وجود وصف عربي في `description` بدون نسخه إلى `description_ar`، لا يتم ذلك تلقائياً أثناء تحميل البنود أو ترحيلها
-3. **الذكاء الاصطناعي لا يُرجع `description_ar` دائماً**: خاصة للمستندات الإنجليزية فقط
+### 1. تحسين حجم الشاشة والتخطيط
+- زيادة الحد الأقصى للعرض من `max-w-4xl` إلى `max-w-5xl`
+- زيادة ارتفاع الشاشة من `max-h-[85vh]` إلى `max-h-[90vh]`
+- زيادة ارتفاع جدول النتائج (ScrollArea) من `h-[220px]` إلى `h-[320px]` لعرض المزيد من البنود
+- تحسين المسافات والأبعاد الداخلية
 
----
+### 2. تغيير نسبة الثقة يدوياً
+- إضافة حقل إدخال رقمي (Input) بجانب الشريط المنزلق (Slider) يسمح بكتابة النسبة مباشرة
+- الحقل يتزامن ثنائي الاتجاه مع الشريط المنزلق
+- التحقق من صحة الإدخال (15-90)
 
-## التغييرات المطلوبة
-
-### 1. تحسين فحص `hasArabicDescriptions` في `ProjectBOQTab.tsx`
-
-**السطر 110**: تغيير الفحص ليشمل التحقق من وجود أحرف عربية فعلية:
-```text
-الحالي: item.description_ar && item.description_ar.trim() !== ''
-الجديد: فحص regex للأحرف العربية في description_ar أو description
-```
-
-### 2. إضافة دالة `ensureArabicDescriptions` في `ProjectBOQTab.tsx`
-
-إضافة `useMemo` يعالج البنود المعروضة ليضمن:
-- إذا كان `description` يحتوي على عربي و `description_ar` فارغ: نسخ النص العربي إلى `description_ar`
-- إذا كان `description_ar` لا يحتوي على عربي فعلي: تفريغه
-
-### 3. تحسين الترحيل في `ProjectDetailsPage.tsx`
-
-**السطر 230**: إضافة فحص وتصحيح `description_ar` أثناء ترحيل البنود من `analysis_data` إلى `project_items`:
-- فحص `description` للمحتوى العربي ونسخه إلى `description_ar` إذا كان فارغاً
-- تنظيف `description_ar` من النصوص غير العربية
+### 3. زر تطبيق التسعير بارز
+- نقل زر "تطبيق" إلى مكان أبرز مع حجم أكبر وتصميم واضح
+- إضافة ملخص سريع بجانب الزر (عدد البنود + إجمالي القيمة المقدرة)
 
 ---
 
 ## التفاصيل التقنية
 
-### Regex للكشف عن العربية
+### الملف: `src/components/project-details/AutoPriceDialog.tsx`
+
+#### تحسين حجم DialogContent (سطر 602-603)
 ```text
-/[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/
+الحالي: className="max-w-4xl max-h-[85vh] overflow-hidden"
+الجديد: className="max-w-5xl max-h-[90vh] overflow-hidden"
 ```
 
-### المنطق المحسن في ProjectBOQTab
+#### إضافة حقل إدخال الثقة (سطر 633-649)
+استبدال Badge الحالي بحقل Input رقمي قابل للتعديل:
 ```text
-const processedItems = useMemo(() => {
-  return displayedItems.map(item => {
-    let descAr = item.description_ar || '';
-    // إذا كان description يحتوي عربي ولا يوجد description_ar
-    if (!hasArabicChars(descAr) && hasArabicChars(item.description)) {
-      descAr = item.description;
-    }
-    return { ...item, description_ar: hasArabicChars(descAr) ? descAr : null };
-  });
-}, [displayedItems]);
-
-const hasArabicDescriptions = processedItems.some(item => 
-  item.description_ar && hasArabicChars(item.description_ar)
-);
+<Input
+  type="number"
+  min={15}
+  max={90}
+  value={confidenceThreshold[0]}
+  onChange={...}  // يحدث الـ Slider
+  className="w-16 h-8 text-center font-bold"
+/>
 ```
+
+#### زيادة ارتفاع ScrollArea (سطر 800)
+```text
+الحالي: h-[220px]
+الجديد: h-[320px]
+```
+
+#### تحسين DialogFooter (سطر 846-862)
+- إضافة ملخص القيمة الإجمالية المقدرة
+- زر تطبيق أكبر وأوضح مع `size="lg"`
 
 ### الملفات المتأثرة
 | الملف | التغيير |
 |-------|---------|
-| `src/components/project-details/ProjectBOQTab.tsx` | تحسين فحص العربية + معالجة البنود |
-| `src/pages/ProjectDetailsPage.tsx` | تصحيح الترحيل ليشمل نسخ الوصف العربي |
+| `src/components/project-details/AutoPriceDialog.tsx` | تحسين التخطيط + إدخال الثقة + زر التطبيق |
+
