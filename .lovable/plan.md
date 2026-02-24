@@ -1,62 +1,62 @@
 
 
-# إضافة تبويب "Analyze BOQ" في صفحة تفاصيل المشروع
+# إصلاح مشكلة حذف المشاريع
 
-## الهدف
-إضافة تبويب جديد "Analyze BOQ" بين تبويب "BOQ" وتبويب "Analysis" في صفحة تفاصيل المشروع، يعرض واجهة رفع ملفات BOQ (PDF/Excel) مع السحب والإفلات كما في الصورة المرفقة.
+## المشكلة الجذرية
+
+هناك مشكلتان رئيسيتان تمنعان الحذف من العمل بشكل صحيح:
+
+1. **ذاكرة التخزين المؤقت (Cache)**: بعد حذف المشروع، يتم استدعاء `fetchProjects()` الذي يقرأ البيانات من cache في `sessionStorage` (مدة 3 دقائق) بدلاً من قاعدة البيانات، مما يُظهر المشروع المحذوف مجدداً
+2. **عدم فحص أخطاء الحذف**: استدعاءات Supabase لا تتحقق من وجود أخطاء في الاستجابة - الكود يعرض رسالة نجاح دائماً حتى لو فشل الحذف فعلياً
+3. **جداول مرتبطة لا يتم تنظيفها**: مثل `item_costs`، `edited_boq_prices`، `item_pricing_details` وغيرها
+
+---
 
 ## التغييرات المطلوبة
 
-### 1. إضافة التبويب في صفحة تفاصيل المشروع
+### الملف: `src/pages/SavedProjectsPage.tsx`
 
-**الملف:** `src/pages/ProjectDetailsPage.tsx`
+#### 1. إصلاح دالة الحذف الفردي `handleDelete`
+- إضافة فحص الأخطاء لكل عملية حذف (`.delete()` ثم التحقق من `error`)
+- حذف البيانات المرتبطة قبل حذف المشروع:
+  - `item_costs` (عبر `project_items`)
+  - `item_pricing_details` (عبر `project_items`)
+  - `edited_boq_prices`
+  - `project_items`
+  - `project_data`
+  - `saved_projects`
+- **مسح cache من `sessionStorage`** بعد الحذف الناجح قبل استدعاء `fetchProjects`
+- أو استدعاء `fetchProjects(true)` لتخطي الـ cache
 
-- إضافة `TabsTrigger` جديد باسم "analyze-boq" بين تبويب "boq" و "analysis"
-- إضافة `TabsContent` جديد يحتوي على مكون `BOQAnalyzerPanel` (موجود بالفعل ومستورد في الصفحة)
-- عند نجاح تحليل الملف، يتم تحديث بنود المشروع (`project_items`) تلقائياً وإعادة تحميلها في تبويب BOQ
-- أيقونة التبويب: `Upload` أو `FileUp`
+#### 2. إصلاح دالة الحذف الجماعي `handleBulkDelete`
+- نفس الإصلاحات: فحص الأخطاء، حذف الجداول المرتبطة، ومسح الـ cache
 
-### 2. ربط نتائج التحليل بالمشروع الحالي
-
-عند اكتمال التحليل بنجاح من داخل التبويب الجديد:
-- حفظ البنود المستخرجة في جدول `project_items` مرتبطة بـ `projectId` الحالي
-- تحديث `analysis_data` في `project_data`
-- إعادة تحميل قائمة البنود في الصفحة لتظهر فوراً في تبويب BOQ
-- إظهار رسالة نجاح للمستخدم
+#### 3. تحديث `fetchProjects` بعد الحذف
+- استخدام `fetchProjects(true)` (skipCache) في كلا دالتي الحذف لضمان تحميل البيانات الحقيقية من قاعدة البيانات
 
 ---
 
 ## التفاصيل التقنية
 
-### التبويب الجديد في TabsList (سطر ~1089)
+### ترتيب الحذف الصحيح (من الأعمق للأعلى)
 ```text
-<TabsTrigger value="analyze-boq" className="flex items-center gap-1 flex-shrink-0">
-  <FileUp className="w-3.5 h-3.5" />
-  {isArabic ? "تحليل BOQ" : "Analyze BOQ"}
-</TabsTrigger>
+1. item_costs         (مرتبط بـ project_items.id)
+2. item_pricing_details (مرتبط بـ project_items.id)  
+3. edited_boq_prices  (مرتبط بـ project_id)
+4. project_items      (مرتبط بـ project_id)
+5. project_data       (المشروع المؤقت)
+6. saved_projects     (المشروع الدائم)
 ```
 
-### محتوى التبويب (TabsContent)
+### فحص الأخطاء
 ```text
-<TabsContent value="analyze-boq">
-  <BOQAnalyzerPanel
-    embedded={true}
-    onProjectSaved={handleBOQAnalyzerSuccess}
-  />
-</TabsContent>
+const { error } = await supabase.from("table").delete().eq("id", id);
+if (error) throw error;  // بدلاً من تجاهل الخطأ
 ```
 
-### دالة معالجة النجاح
+### مسح الـ Cache
 ```text
-handleBOQAnalyzerSuccess:
-  - إعادة تحميل بنود المشروع من project_items
-  - تحديث الحالة المحلية (items state)
-  - التبديل تلقائياً إلى تبويب "boq" لعرض النتائج
+sessionStorage.removeItem(`pms_projects_${user.id}`);
+fetchProjects(true);  // skipCache = true
 ```
 
-### الملفات المتأثرة
-| الملف | نوع التغيير |
-|-------|-------------|
-| `src/pages/ProjectDetailsPage.tsx` | إضافة TabsTrigger + TabsContent + handler |
-
-لا حاجة لإنشاء ملفات جديدة - المكون `BOQAnalyzerPanel` موجود بالفعل ومستورد في الصفحة.
