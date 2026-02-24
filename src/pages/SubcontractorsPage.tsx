@@ -6,13 +6,12 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
   Users, 
   LayoutDashboard, 
   Link2, 
-  CheckCircle,
-  TrendingUp,
   DollarSign
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -98,95 +97,18 @@ const SubcontractorsPage = () => {
   return (
     <PageLayout>
       <div className="space-y-6">
-        {/* Page Header */}
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-violet-500/20">
-            <Users className="w-8 h-8 text-purple-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">
-              {isArabic ? "مقاولي الباطن" : "Subcontractors"}
-            </h1>
-            <p className="text-muted-foreground">
-              {isArabic 
-                ? "إدارة شاملة لمقاولي الباطن والمهام" 
-                : "Comprehensive subcontractor and task management"}
-            </p>
-          </div>
-        </div>
-
-        {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/20">
-                  <Users className="w-5 h-5 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.totalSubcontractors}</p>
-                  <p className="text-xs text-muted-foreground">{isArabic ? "المقاولين" : "Total"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/20">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.activeSubcontractors}</p>
-                  <p className="text-xs text-muted-foreground">{isArabic ? "نشط" : "Active"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/20">
-                  <TrendingUp className="w-5 h-5 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.activeAssignments}</p>
-                  <p className="text-xs text-muted-foreground">{isArabic ? "مهام جارية" : "In Progress"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/20">
-                  <CheckCircle className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.completedAssignments}</p>
-                  <p className="text-xs text-muted-foreground">{isArabic ? "مكتمل" : "Completed"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border-cyan-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-cyan-500/20">
-                  <DollarSign className="w-5 h-5 text-cyan-600" />
-                </div>
-                <div>
-                  <p className="text-lg font-bold">{formatCurrency(stats.totalContractValue)}</p>
-                  <p className="text-xs text-muted-foreground">{isArabic ? "القيمة" : "Value"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <PageHeader
+          icon={Users}
+          title={isArabic ? "مقاولي الباطن" : "Subcontractors"}
+          subtitle={isArabic ? "إدارة شاملة لمقاولي الباطن والمهام" : "Comprehensive subcontractor and task management"}
+          stats={[
+            { value: stats.totalSubcontractors, label: isArabic ? "المقاولين" : "Total" },
+            { value: stats.activeSubcontractors, label: isArabic ? "نشط" : "Active" },
+            { value: formatCurrency(stats.totalContractValue), label: isArabic ? "القيمة" : "Value", type: 'gold' },
+            { value: stats.activeAssignments, label: isArabic ? "مهام جارية" : "In Progress" },
+            { value: stats.completedAssignments, label: isArabic ? "مكتمل" : "Completed" },
+          ]}
+        />
 
         {/* Main Tabs - FIDIC removed */}
         <Tabs defaultValue="dashboard" className="space-y-4">

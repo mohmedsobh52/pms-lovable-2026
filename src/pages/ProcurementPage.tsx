@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ProcurementResourcesSchedule } from "@/components/ProcurementResourcesSchedule";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -42,29 +43,19 @@ const ProcurementPage = () => {
   return (
     <PageLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">
-              {isArabic ? "المشتريات" : "Procurement"}
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              {isArabic
-                ? "إدارة الشركاء والمشتريات والعقود"
-                : "Manage partners, procurement, and contracts"}
-            </p>
-          </div>
-
-          <RequestOfferDialog>
-            <Button
-              type="button"
-              className="relative z-[60] pointer-events-auto bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
-            >
-              <Sparkles className="w-4 h-4 me-2" />
-              {isArabic ? "طلب عرض سعر" : "Request Offer"}
-            </Button>
-          </RequestOfferDialog>
-        </div>
+        <PageHeader
+          icon={Package}
+          title={isArabic ? "المشتريات" : "Procurement"}
+          subtitle={isArabic ? "إدارة الشركاء والمشتريات والعقود" : "Manage partners, procurement, and contracts"}
+          actions={
+            <RequestOfferDialog>
+              <Button className="bg-[#F5A623] hover:bg-[#e09515] text-white shadow-lg">
+                <Sparkles className="w-4 h-4 me-2" />
+                {isArabic ? "طلب عرض سعر" : "Request Offer"}
+              </Button>
+            </RequestOfferDialog>
+          }
+        />
 
         {/* Tabs */}
         <Tabs defaultValue="partners" className="space-y-4">

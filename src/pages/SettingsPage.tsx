@@ -5,8 +5,9 @@ import { CompanySettingsPanel } from "@/components/CompanySettingsPanel";
 import { DeveloperInfo } from "@/components/DeveloperInfo";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Bell, Activity, Building2, Info } from "lucide-react";
+import { Brain, Bell, Activity, Building2, Info, Settings2 } from "lucide-react";
 
 const SettingsPage = () => {
   const { isArabic } = useLanguage();
@@ -14,9 +15,11 @@ const SettingsPage = () => {
   return (
     <PageLayout>
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold">
-          {isArabic ? "الإعدادات" : "Settings"}
-        </h2>
+        <PageHeader
+          icon={Settings2}
+          title={isArabic ? "الإعدادات" : "Settings"}
+          subtitle={isArabic ? "إعدادات النظام والشركة والإشعارات" : "System, company, and notification settings"}
+        />
         
         <Tabs defaultValue="company" className="w-full">
           <TabsList className="grid w-full grid-cols-5 tabs-navigation-safe">
