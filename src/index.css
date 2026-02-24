@@ -386,6 +386,11 @@
   .progress-gold .bg-primary {
     background: linear-gradient(90deg, hsl(38 92% 50%), hsl(38 92% 60%)) !important;
   }
+
+  /* Unified Page Header Gradient */
+  .page-header-gradient {
+    background: linear-gradient(135deg, #1a2744 0%, #1e3054 40%, #2563EB 100%);
+  }
 }
 
 @keyframes float {

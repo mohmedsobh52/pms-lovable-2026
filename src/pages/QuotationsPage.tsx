@@ -3,7 +3,9 @@ import { QuotationComparison } from "@/components/QuotationComparison";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { FileText } from "lucide-react";
 
 const QuotationsPage = () => {
   const { isArabic } = useLanguage();
@@ -11,6 +13,11 @@ const QuotationsPage = () => {
   return (
     <PageLayout>
       <ErrorBoundary>
+        <PageHeader
+          icon={FileText}
+          title={isArabic ? "عروض الأسعار" : "Quotations"}
+          subtitle={isArabic ? "رفع ومقارنة عروض الأسعار" : "Upload and compare price quotations"}
+        />
         <Tabs defaultValue="upload" className="space-y-4">
           <TabsList className="tabs-navigation-safe">
             <TabsTrigger value="upload">

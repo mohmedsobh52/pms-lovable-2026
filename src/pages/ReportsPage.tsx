@@ -21,6 +21,7 @@ import { RecentProjectsTab } from "@/components/reports/RecentProjectsTab";
 import { ProjectsComparisonExport } from "@/components/reports/ProjectsComparisonExport";
 import { AdvancedReportsTab } from "@/components/reports/AdvancedReportsTab";
 import { ReportsStatCards } from "@/components/reports/ReportsStatCards";
+import { PageHeader } from "@/components/PageHeader";
 import { 
   RefreshCw, 
   Filter, 
@@ -221,59 +222,48 @@ const ReportsPage = () => {
   return (
     <PageLayout>
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">
-              {isArabic ? "التقارير" : "Reports"}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {isArabic 
-                ? "عرض وتصدير تقارير المشاريع والتسعير" 
-                : "View and export project and pricing reports"}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={isArabic ? "بحث..." : "Search..."}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 w-40"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-36">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder={isArabic ? "الحالة" : "Status"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{isArabic ? "كل الحالات" : "All Status"}</SelectItem>
-                {PROJECT_STATUSES.map(status => (
-                  <SelectItem key={status.value} value={status.value}>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${status.dotColor}`} />
-                      {isArabic ? status.label : status.label_en}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" size="icon" onClick={fetchProjects} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            </Button>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <ReportsStatCards 
-          totalProjects={stats.totalProjects}
-          inProgressProjects={stats.inProgressProjects}
-          completedProjects={stats.completedProjects}
-          draftProjects={stats.draftProjects}
-          pendingProjects={stats.pendingProjects}
-          totalBOQValue={stats.totalBOQValue}
+        <PageHeader
+          icon={BarChart3}
+          title={isArabic ? "التقارير" : "Reports"}
+          subtitle={isArabic ? "عرض وتصدير تقارير المشاريع والتسعير" : "View and export project and pricing reports"}
+          actions={
+            <>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
+                <Input
+                  placeholder={isArabic ? "بحث..." : "Search..."}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 w-40 bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-36 bg-white/10 border-white/20 text-white">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder={isArabic ? "الحالة" : "Status"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{isArabic ? "كل الحالات" : "All Status"}</SelectItem>
+                  {PROJECT_STATUSES.map(status => (
+                    <SelectItem key={status.value} value={status.value}>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${status.dotColor}`} />
+                        {isArabic ? status.label : status.label_en}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="icon" onClick={fetchProjects} disabled={loading} className="border-white/20 text-white hover:bg-white/10">
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              </Button>
+            </>
+          }
+          stats={[
+            { value: stats.totalProjects, label: isArabic ? "المشاريع" : "Projects" },
+            { value: stats.inProgressProjects, label: isArabic ? "جارية" : "In Progress" },
+            { value: stats.completedProjects, label: isArabic ? "مكتملة" : "Completed" },
+          ]}
         />
 
         {/* Tabs */}
