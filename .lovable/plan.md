@@ -1,67 +1,80 @@
 
+# تحسين شامل لشاشة المكتبة - المواد والعمالة والمعدات
 
-# تحسين شاشة المكتبة وإضافة أسعار مواد شبكات المياه والصرف الصحي
+## الملخص
+تحسين أداء وتجربة استخدام شاشة المكتبة الكاملة عبر إضافة تصنيفات متقدمة لتبويبي العمالة والمعدات (مطابقة لما تم في المواد)، وإضافة ترقيم صفحات ومذكرة أداء (memoization)، وتوسيع بيانات العمالة والمعدات المتخصصة لأعمال شبكات المياه والصرف الصحي، مع تعزيز الربط مع نظام التسعير.
 
-## 1. إضافة تصنيفات جديدة لشبكات المياه والصرف الصحي
+---
 
-توسيع `MATERIAL_CATEGORIES` في `useMaterialPrices.tsx` لتشمل تصنيفات فرعية متخصصة:
+## 1. تحسين تبويب العمالة (LaborTab)
 
-| التصنيف | الوصف بالعربي | الوصف بالانجليزي |
-|---------|--------------|-----------------|
-| pipes_pvc | مواسير PVC/uPVC | PVC/uPVC Pipes |
-| pipes_hdpe | مواسير HDPE | HDPE Pipes |
-| pipes_di | مواسير حديد دكتايل | Ductile Iron Pipes |
-| pipes_grp | مواسير GRP | GRP/FRP Pipes |
-| pipes_concrete | مواسير خرسانية | Concrete Pipes |
-| pipes_steel | مواسير حديد | Steel Pipes |
-| fittings_valves | وصلات ومحابس | Fittings & Valves |
-| manholes | غرف تفتيش | Manholes |
-| water_tanks | خزانات مياه | Water Tanks |
-| pumps_stations | مضخات ومحطات | Pumps & Stations |
-| water_treatment | معالجة مياه | Water Treatment |
+### أ. إضافة تصنيفات جديدة للعمالة المتخصصة
+توسيع `LABOR_CATEGORIES` في `useLaborRates.tsx` لتشمل:
 
-## 2. إضافة بيانات أسعار شاملة (~80 مادة)
+| التصنيف | العربي | الانجليزي |
+|---------|--------|----------|
+| pipe_fitter | فني مواسير | Pipe Fitter |
+| surveyor | مساح | Surveyor |
+| driver | سائق | Driver |
+| safety_officer | مسؤول سلامة | Safety Officer |
+| foreman | ملاحظ/فورمان | Foreman |
+| diver | غواص | Diver |
+| insulator | عازل | Insulator |
 
-إضافة مصفوفة `WATER_SEWAGE_MATERIALS` في `useSampleLibraryData.tsx` تتضمن:
+### ب. إضافة فلتر تصنيف + ترقيم صفحات + memoization
+- إضافة `Select` لتصفية العمالة حسب التصنيف (مثل المواد)
+- إضافة ترقيم صفحات (25 عنصر/صفحة)
+- تغليف المكون بـ `React.memo` واستخدام `useMemo` للقوائم المفلترة
 
-**مواسير uPVC (صرف صحي):**
-- uPVC 110mm, 160mm, 200mm, 250mm, 315mm, 400mm - بالمتر الطولي
+### ج. إضافة بيانات عمالة متخصصة (~15 عنصر جديد)
+في `useSampleLibraryData.tsx` توسيع `SAMPLE_LABOR` بعمالة شبكات المياه:
+- فني مواسير HDPE، فني لحام مواسير، فني محابس
+- مساح، غواص صيانة شبكات
+- مشغل مضخات، فني معالجة مياه
+- ملاحظ أعمال شبكات
 
-**مواسير HDPE (مياه):**
-- HDPE PE100 PN10/PN16 بأقطار 63mm حتى 630mm
+---
 
-**مواسير حديد دكتايل (DI):**
-- DN100 حتى DN600 - Class K9
+## 2. تحسين تبويب المعدات (EquipmentTab)
 
-**وصلات ومحابس:**
-- Gate Valve, Butterfly Valve, Check Valve, Air Release Valve
-- Tee, Elbow, Reducer, Coupling - بمختلف الأقطار
+### أ. إضافة تصنيفات جديدة للمعدات المتخصصة
+توسيع `EQUIPMENT_CATEGORIES` في `useEquipmentRates.tsx`:
 
-**غرف التفتيش:**
-- غرف خرسانية جاهزة بأعماق مختلفة (1م، 1.5م، 2م، 3م)
-- أغطية حديد زهر (Heavy/Light Duty)
+| التصنيف | العربي | الانجليزي |
+|---------|--------|----------|
+| trencher | حفارة خنادق | Trencher |
+| dewatering | نزح مياه | Dewatering |
+| pipe_laying | تمديد مواسير | Pipe Laying |
+| testing | فحص واختبار | Testing |
+| survey | مساحة | Survey |
+| compressor | ضاغط هواء | Air Compressor |
 
-**معدات:**
-- مضخات غاطسة، مضخات طرد مركزي
-- خزانات مياه (GRP, خرسانية)
+### ب. إضافة فلتر تصنيف + ترقيم صفحات + memoization
+- نفس نمط المواد: `Select` للتصنيف + pagination + `React.memo`
 
-## 3. تحسين أداء شاشة المكتبة
+### ج. إضافة بيانات معدات متخصصة (~15 عنصر جديد)
+في `useSampleLibraryData.tsx` توسيع `SAMPLE_EQUIPMENT`:
+- حفارة خنادق، ماكينة لحام HDPE
+- مضخة نزح مياه، ماكينة اختبار ضغط
+- رافعة أنابيب (Pipe Layer)
+- جهاز كشف تسربات، جهاز CCTV لفحص المواسير
 
-### أ. إضافة فلتر التصنيف في MaterialsTab
-- إضافة `Select` للتصفية حسب التصنيف بجانب حقل البحث
-- تجميع التصنيفات في مجموعات (عام، مواسير، شبكات) باستخدام `SelectGroup`
+---
 
-### ب. إضافة ترقيم الصفحات (Pagination)
-- عرض 25 مادة في كل صفحة بدلاً من عرض الكل
-- استخدام `usePagination` الموجود في المشروع
+## 3. توسيع بيانات العينة لتشمل كافة التخصصات
 
-### ج. تحسين الأداء بالـ Memoization
-- `React.memo` على `MaterialsTab`
-- `useMemo` للقوائم المفلترة
+### إضافة دالة `addNetworkLaborEquipment` في `useSampleLibraryData.tsx`
+- تضيف ~15 عمالة متخصصة + ~15 معدة متخصصة لأعمال الشبكات
+- زر مخصص في `LibraryDatabase.tsx` لإضافة "عمالة ومعدات الشبكات"
 
-## 4. زر مخصص لإضافة بيانات شبكات المياه والصرف
+---
 
-إضافة زر "إضافة مواد الشبكات" في حالة المكتبة الفارغة وفي الحالة العادية، يضيف ~80 مادة متخصصة بأسعار السوق السعودي (2025).
+## 4. تعزيز الربط مع التسعير
+
+### تحسين دوال المطابقة في hooks العمالة والمعدات
+- تحسين `findMatchingRate` في `useLaborRates.tsx` و `useEquipmentRates.tsx`
+- إضافة `findAllMatchingRates` (مشابهة لـ `findAllMatchingPrices` في المواد) لدعم اقتراحات متعددة
+- هذا يحسن تلقائياً أداء حوار التسعير السريع (`QuickPriceDialog`) الذي يستخدم هذه الـ hooks
 
 ---
 
@@ -71,45 +84,73 @@
 
 | الملف | التغيير |
 |-------|---------|
-| `src/hooks/useMaterialPrices.tsx` | إضافة تصنيفات جديدة لشبكات المياه |
-| `src/hooks/useSampleLibraryData.tsx` | إضافة ~80 مادة شبكات مياه وصرف صحي |
-| `src/components/library/MaterialsTab.tsx` | فلتر تصنيف + ترقيم صفحات + memoization |
-| `src/components/LibraryDatabase.tsx` | زر إضافة مواد الشبكات |
+| `src/hooks/useLaborRates.tsx` | تصنيفات جديدة + `findAllMatchingRates` |
+| `src/hooks/useEquipmentRates.tsx` | تصنيفات جديدة + `findAllMatchingRates` |
+| `src/components/library/LaborTab.tsx` | فلتر تصنيف + pagination + memo |
+| `src/components/library/EquipmentTab.tsx` | فلتر تصنيف + pagination + memo |
+| `src/hooks/useSampleLibraryData.tsx` | بيانات عمالة ومعدات شبكات جديدة |
+| `src/components/LibraryDatabase.tsx` | زر إضافة عمالة ومعدات الشبكات |
 
-### نموذج البيانات الجديدة
-
-```typescript
-// مثال على مادة من البيانات الجديدة
-{
-  name: "uPVC Pipe 200mm SN4",
-  name_ar: "ماسورة يو بي في سي 200مم SN4",
-  category: "pipes_pvc",
-  unit: "m",
-  unit_price: 45,
-  brand: "Amiantit",
-  specifications: "SN4, SDR41, Wall thickness 4.9mm"
-}
-```
-
-### فلتر التصنيف في MaterialsTab
+### نمط فلتر التصنيف (LaborTab / EquipmentTab)
 
 ```typescript
-// تجميع التصنيفات في مجموعات
-const CATEGORY_GROUPS = [
-  { label: "عام", categories: ["concrete", "steel", "cement", ...] },
-  { label: "مواسير", categories: ["pipes_pvc", "pipes_hdpe", "pipes_di", ...] },
-  { label: "شبكات", categories: ["fittings_valves", "manholes", "pumps_stations", ...] },
-];
-```
-
-### ترقيم الصفحات
-
-```typescript
+// فلتر التصنيف بجانب البحث
+const [categoryFilter, setCategoryFilter] = useState<string>("all");
 const ITEMS_PER_PAGE = 25;
-const [currentPage, setCurrentPage] = useState(1);
-const paginatedMaterials = filteredMaterials.slice(
-  (currentPage - 1) * ITEMS_PER_PAGE,
-  currentPage * ITEMS_PER_PAGE
-);
+
+const filteredItems = useMemo(() => {
+  return items.filter(item => {
+    if (!matchesSearch) return false;
+    if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
+    if (validityFilter) { /* ... */ }
+    return true;
+  });
+}, [items, search, categoryFilter, validityFilter]);
+
+const paginatedItems = useMemo(() => {
+  const start = (currentPage - 1) * ITEMS_PER_PAGE;
+  return filteredItems.slice(start, start + ITEMS_PER_PAGE);
+}, [filteredItems, currentPage]);
 ```
 
+### دالة المطابقة المتعددة (findAllMatchingRates)
+
+```typescript
+const findAllMatchingRates = (description: string, category?: string, limit = 5) => {
+  const descLower = description.toLowerCase();
+  const searchTerms = descLower.split(/[\s,،.-]+/).filter(t => t.length > 2);
+  
+  const scored = rates.map(rate => {
+    const rateText = (rate.name + ' ' + (rate.name_ar || '')).toLowerCase();
+    let score = 0;
+    if (rateText.includes(descLower)) score += 50;
+    for (const term of searchTerms) {
+      if (rateText.includes(term)) score += 10;
+    }
+    if (category && rate.category === category) score += 15;
+    return { rate, score };
+  });
+  
+  return scored.filter(s => s.score >= 10)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit).map(s => s.rate);
+};
+```
+
+### عمالة الشبكات الجديدة (نموذج)
+
+```typescript
+{ code: "L011", name: "HDPE Pipe Fitter", name_ar: "فني مواسير HDPE", 
+  category: "pipe_fitter", skill_level: "skilled", unit_rate: 350 },
+{ code: "L012", name: "Pipe Welder (Butt Fusion)", name_ar: "لحام مواسير (لحام حراري)", 
+  category: "welder", skill_level: "skilled", unit_rate: 400 },
+```
+
+### معدات الشبكات الجديدة (نموذج)
+
+```typescript
+{ code: "E011", name: "HDPE Butt Fusion Machine 315mm", name_ar: "ماكينة لحام HDPE 315مم", 
+  category: "pipe_laying", rental_rate: 1200 },
+{ code: "E012", name: "Dewatering Pump 6 inch", name_ar: "مضخة نزح مياه 6 بوصة", 
+  category: "dewatering", rental_rate: 500 },
+```
