@@ -22,6 +22,9 @@ const loadPdfJs = async () => {
   if (!pdfjsLib) {
     try {
       pdfjsLib = await import('pdfjs-dist');
+      if (pdfjsLib) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+      }
     } catch (e) {
       console.warn('Failed to load pdfjs-dist:', e);
     }
