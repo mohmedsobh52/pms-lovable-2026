@@ -334,7 +334,7 @@ const boqAnalysisTool = {
             properties: {
               item_no: { type: "string" },
               description: { type: "string" },
-              description_ar: { type: ["string", "null"], description: "Arabic description if available in the source document" },
+              description_ar: { type: ["string", "null"], description: "Arabic description - MANDATORY. Extract from source if available, otherwise translate the English description to Arabic." },
               unit: { type: "string" },
               quantity: { type: "number" },
               rate: { type: "number" },
@@ -344,7 +344,7 @@ const boqAnalysisTool = {
               validation_status: { type: "string", enum: ["valid", "warning", "error"] },
               validation_notes: { type: "array", items: { type: "string" } }
             },
-            required: ["item_no", "description", "unit", "quantity", "rate", "amount", "section_trade", "validation_status", "validation_notes"]
+            required: ["item_no", "description", "description_ar", "unit", "quantity", "rate", "amount", "section_trade", "validation_status", "validation_notes"]
           }
         },
         validation: {
@@ -525,8 +525,8 @@ serve(async (req) => {
 **تعليمات الاستخراج:**
 1. استخرج كل بند بـ:
     - item_no: رقم البند
-    - description: الوصف (بالإنجليزية إذا متوفر، أو الوصف الأساسي)
-    - description_ar: الوصف العربي (إذا كان النص يحتوي على وصف عربي منفصل أو إذا كان الوصف بالعربية)
+    - description: الوصف بالإنجليزية (إذا متوفر، وإلا ترجم الوصف العربي للإنجليزية)
+    - description_ar: **إجباري** - الوصف العربي. إذا كان النص يحتوي على وصف عربي استخرجه مباشرة. إذا لم يتوفر وصف عربي، قم بترجمة الوصف الإنجليزي إلى العربية ترجمة فنية دقيقة.
     - unit: الوحدة (م، م²، م³، كجم، عدد، طن، L.S)
    - quantity: الكمية (رقم)
    - rate: سعر الوحدة (رقم)
@@ -550,12 +550,16 @@ serve(async (req) => {
 
 3. **التحقق:** تأكد أن المبلغ ≈ الكمية × السعر
 
+**مهم جداً:** يجب أن يحتوي كل بند على حقل description_ar بشكل إجباري.
+
 استخدم دالة submit_boq_analysis لإرجاع النتيجة.`
       : `You are a Quantity Surveyor analyzing BOQ documents. Respond in ${outputLanguage}.
 
 EXTRACT ALL ITEMS with:
-- item_no, description, description_ar (Arabic description if present in source), unit (normalized: m, m², m³, kg, pcs, ton, L.S), quantity, rate, amount
+- item_no, description, description_ar (MANDATORY - Arabic description. If Arabic text exists in the source, extract it. If not, translate the English description to Arabic with accurate technical terminology.), unit (normalized: m, m², m³, kg, pcs, ton, L.S), quantity, rate, amount
 - section_trade: categorize into Site Preparation, Foundations, Concrete, Steel, Masonry, Roofing, MEP-Plumbing, MEP-Electrical, MEP-HVAC, Doors & Windows, Finishes, External Works, or Preliminaries
+
+IMPORTANT: Every item MUST have a description_ar field. If the source is English-only, provide a professional Arabic technical translation.
 
 VALIDATION: Check Amount ≈ Qty × Rate. Flag issues.
 
