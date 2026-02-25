@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import OnboardingModal from "@/components/OnboardingModal";
 import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Loader2, FolderOpen, Upload, X, Brain, FileText, FileUp, Wand2, Download, BarChart3 } from "lucide-react";
+import { Loader2, FolderOpen, Upload, X, FileText, FileUp, Wand2, Download, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BOQAnalyzerPanel } from "@/components/BOQAnalyzerPanel";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ import { QuickPriceDialog } from "@/components/project-details/QuickPriceDialog"
 // Import refactored components
 import { ProjectHeader } from "@/components/project-details/ProjectHeader";
 import { ProjectOverviewTab } from "@/components/project-details/ProjectOverviewTab";
-import { ProjectBOQTab } from "@/components/project-details/ProjectBOQTab";
+
 import { ProjectDocumentsTab } from "@/components/project-details/ProjectDocumentsTab";
 import { ProjectSettingsTab } from "@/components/project-details/ProjectSettingsTab";
 import { 
@@ -71,7 +71,7 @@ export default function ProjectDetailsPage() {
   const [items, setItems] = useState<ProjectItem[]>([]);
   const [attachments, setAttachments] = useState<ProjectAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("boq");
+  const [activeTab, setActiveTab] = useState("overview");
   const [itemsSearch, setItemsSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(() => {
@@ -1110,16 +1110,9 @@ export default function ProjectDetailsPage() {
             <TabsTrigger value="overview" className="flex-shrink-0">
               {isArabic ? "نظرة عامة" : "Overview"}
             </TabsTrigger>
-            <TabsTrigger value="boq" className="flex-shrink-0">
-              {isArabic ? "جدول الكميات" : "BOQ"}
-            </TabsTrigger>
             <TabsTrigger value="analyze-boq" className="flex items-center gap-1 flex-shrink-0">
               <FileUp className="w-3.5 h-3.5" />
               {isArabic ? "تحليل BOQ" : "Analyze BOQ"}
-            </TabsTrigger>
-            <TabsTrigger value="analysis" className="flex items-center gap-1 flex-shrink-0">
-              <Brain className="w-3.5 h-3.5" />
-              {isArabic ? "تحليل متقدم" : "Analysis"}
             </TabsTrigger>
             <TabsTrigger value="documents" className="flex-shrink-0">
               {isArabic ? "المستندات" : "Documents"}
@@ -1147,73 +1140,6 @@ export default function ProjectDetailsPage() {
             />
           </TabsContent>
 
-          <TabsContent value="boq">
-            <ProjectBOQTab
-              items={items}
-              filteredItems={filteredItems}
-              displayedItems={displayedItems}
-              pricingStats={pricingStats}
-              selectedItems={selectedItems}
-              itemsSearch={itemsSearch}
-              sortMode={sortMode}
-              currentPage={currentPage}
-              itemsPerPage={itemsPerPage}
-              totalPages={totalPages}
-              startIndex={startIndex}
-              zeroQuantityCount={zeroQuantityCount}
-              isAutoPricing={isAutoPricing}
-              isArabic={isArabic}
-              currency={project.currency || "SAR"}
-              onSearchChange={setItemsSearch}
-              onSortModeChange={handleSortModeChange}
-              onSelectedItemsChange={setSelectedItems}
-              onPageChange={setCurrentPage}
-              onItemsPerPageChange={handleItemsPerPageChange}
-              onAutoPricing={handleAutoPricing}
-              onUploadBOQ={() => setShowBOQUploadDialog(true)}
-              onFileSelected={(file: File) => {
-                setPendingFile(file);
-                setShowBOQUploadDialog(true);
-              }}
-              onAddItem={() => setShowAddItemDialog(true)}
-              onQuickPrice={(itemId) => {
-                const item = items.find(i => i.id === itemId);
-                if (item) {
-                  setSelectedItemForQuickPrice(item);
-                  setShowQuickPriceDialog(itemId);
-                  setQuickPriceValue(item?.unit_price?.toString() || "");
-                }
-              }}
-              onDetailedPrice={(item) => {
-                setSelectedItemForPricing(item);
-                setShowDetailedPriceDialog(true);
-              }}
-              onEditItem={(item) => {
-                setSelectedItemForEdit(item);
-                setShowEditItemDialog(true);
-              }}
-              onDeleteItem={handleDeleteItem}
-              onUnconfirmItem={handleUnconfirmItem}
-              onDeleteZeroQuantityItems={handleDeleteZeroQuantityItems}
-              formatCurrency={formatCurrency}
-              onInlineEdit={async (itemId, field, value) => {
-                try {
-                  const item = items.find(i => i.id === itemId);
-                  if (!item) return;
-                  const updates: any = { [field]: value };
-                  if (field === 'unit_price') {
-                    updates.total_price = (item.quantity || 0) * value;
-                  } else if (field === 'quantity') {
-                    updates.total_price = value * (item.unit_price || 0);
-                  }
-                  await supabase.from("project_items").update(updates).eq("id", itemId);
-                  setItems(prev => prev.map(i => i.id === itemId ? { ...i, ...updates } : i));
-                } catch (error: any) {
-                  toast({ title: isArabic ? "خطأ في التحديث" : "Update error", description: error.message, variant: "destructive" });
-                }
-              }}
-            />
-          </TabsContent>
 
           <TabsContent value="analyze-boq">
             <BOQAnalyzerPanel
@@ -1236,49 +1162,12 @@ export default function ProjectDetailsPage() {
                         : `${updatedItems.length} items extracted and added to BOQ`,
                     });
                   }
-                  setActiveTab("boq");
+                  setActiveTab("analyze-boq");
                 }
               }}
             />
           </TabsContent>
 
-          <TabsContent value="analysis" forceMount className={activeTab !== "analysis" ? "hidden" : ""}>
-            <Suspense fallback={<div className="flex items-center justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>}>
-            {projectAnalysisData ? (
-              <AnalysisResults
-                data={projectAnalysisData}
-                wbsData={effectiveWbsData}
-                fileName={(project as any).file_name || project.name}
-                savedProjectId={projectId}
-                onGenerateWBS={handleGenerateWBS}
-                isGeneratingWBS={isGeneratingWBS}
-                onApplyRate={async (itemNumber: string, newRate: number) => {
-                  const item = items.find(i => i.item_number === itemNumber);
-                  if (!item) return;
-                  await supabase
-                    .from("project_items")
-                    .update({ unit_price: newRate, total_price: (item.quantity || 0) * newRate })
-                    .eq("id", item.id);
-                  const { data: updatedItems } = await supabase
-                    .from("project_items")
-                    .select("*")
-                    .eq("project_id", projectId)
-                    .order("sort_order", { ascending: true, nullsFirst: false })
-                    .order("created_at", { ascending: true });
-                  if (updatedItems) setItems(updatedItems);
-                }}
-                onApplyAutoPricing={handleApplyAutoPricing}
-              />
-            ) : (
-              <BOQAnalyzerPanel 
-                embedded={true}
-                onProjectSaved={(savedProjectId) => {
-                  window.location.reload();
-                }}
-              />
-            )}
-            </Suspense>
-          </TabsContent>
 
           <TabsContent value="documents">
             <ProjectDocumentsTab
@@ -1550,9 +1439,9 @@ export default function ProjectDetailsPage() {
           <Upload className="w-3.5 h-3.5" />
           {isArabic ? "رفع" : "Upload"}
         </Button>
-        <Button size="sm" variant="outline" className="gap-1.5 flex-1" onClick={() => handleTabChange("analysis")}>
-          <Brain className="w-3.5 h-3.5" />
-          {isArabic ? "تحليل" : "Analysis"}
+        <Button size="sm" variant="outline" className="gap-1.5 flex-1" onClick={() => handleTabChange("analyze-boq")}>
+          <FileUp className="w-3.5 h-3.5" />
+          {isArabic ? "تحليل" : "Analyze"}
         </Button>
         <Button size="sm" variant="outline" className="gap-1.5 flex-1" onClick={() => setShowAddItemDialog(true)}>
           <FileUp className="w-3.5 h-3.5" />
