@@ -130,11 +130,8 @@ export function ProjectBOQTab({
     });
   }, [displayedItems, hasArabicChars]);
 
-  const hasArabicDescriptions = useMemo(() => {
-    return items.some(item => 
-      hasArabicChars(item.description_ar) || hasArabicChars(item.description)
-    );
-  }, [items, hasArabicChars]);
+  // Always show Arabic column
+  const hasArabicDescriptions = true;
 
   // Inline editing state
   const [editingCell, setEditingCell] = useState<{ itemId: string; field: 'unit_price' | 'quantity' } | null>(null);
@@ -192,11 +189,13 @@ export function ProjectBOQTab({
 
   // Drag-and-drop handlers for empty state
   const isAcceptedFile = useCallback((file: File): boolean => {
-    const acceptedExtensions = ['.pdf', '.xlsx', '.xls'];
+    const acceptedExtensions = ['.pdf', '.xlsx', '.xls', '.png', '.jpg', '.jpeg'];
     const acceptedMimes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/vnd.ms-excel',
+      'image/png',
+      'image/jpeg',
     ];
     return acceptedMimes.includes(file.type) || 
            acceptedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
@@ -257,7 +256,7 @@ export function ProjectBOQTab({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.xlsx,.xls"
+            accept=".pdf,.xlsx,.xls,.png,.jpg,.jpeg"
             onChange={handleFileInput}
             className="hidden"
           />
@@ -279,7 +278,7 @@ export function ProjectBOQTab({
                 : "Drag file here or click to upload"}
             </p>
             <p className="text-sm text-muted-foreground mb-6">
-              {isArabic ? "يدعم ملفات PDF و Excel" : "Supports PDF and Excel files"}
+              {isArabic ? "يدعم ملفات PDF و Excel والصور" : "Supports PDF, Excel and Image files"}
             </p>
             <div className="flex flex-wrap gap-2 justify-center mb-6">
               <span className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-lg text-sm font-medium">
@@ -289,6 +288,10 @@ export function ProjectBOQTab({
               <span className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg text-sm font-medium">
                 <FileSpreadsheet className="w-4 h-4" />
                 Excel
+              </span>
+              <span className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded-lg text-sm font-medium">
+                <FileText className="w-4 h-4" />
+                PNG / JPG
               </span>
             </div>
             <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>

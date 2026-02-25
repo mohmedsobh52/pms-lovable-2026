@@ -27,6 +27,7 @@ import { extractDataFromExcel, formatExcelDataForAnalysis } from "@/lib/excel-ut
 import { performLocalExcelAnalysis } from "@/lib/local-excel-analysis";
 import { performLocalTextAnalysis } from "@/lib/local-text-analysis";
 import { cn } from "@/lib/utils";
+import { Image } from "lucide-react";
 import type { ExcelExtractionResult } from "@/lib/excel-utils";
 
 interface BOQUploadDialogProps {
@@ -55,8 +56,13 @@ function isExcelFile(file: File): boolean {
   );
 }
 
+function isImageFile(file: File): boolean {
+  return file.type.startsWith('image/') || 
+    ['.png', '.jpg', '.jpeg'].some(ext => file.name.toLowerCase().endsWith(ext));
+}
+
 function isAcceptedFile(file: File): boolean {
-  const exts = [".pdf", ".xlsx", ".xls"];
+  const exts = [".pdf", ".xlsx", ".xls", ".png", ".jpg", ".jpeg"];
   return exts.some((ext) => file.name.toLowerCase().endsWith(ext));
 }
 
@@ -294,7 +300,43 @@ export function BOQUploadDialog({
       setStatusMessage(isArabic ? "جارٍ قراءة الملف..." : "Reading file...");
       setProgressValue(15);
 
-      if (isExcelFile(file)) {
+      if (isImageFile(file)) {
+        // ── Image file: use OCR to extract text first ──
+        setStatusMessage(isArabic ? "جارٍ استخراج النص من الصورة (OCR)..." : "Extracting text from image (OCR)...");
+        const reader = new FileReader();
+        const imageBase64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        
+        const { data: ocrResult, error: ocrError } = await supabase.functions.invoke("ocr-extract", {
+          body: { imageBase64, pageNumber: 1, totalPages: 1, fileName: file.name },
+        });
+        if (ocrError) throw ocrError;
+        const ocrText = ocrResult?.text || '';
+        if (!ocrText || ocrText.trim().length < 20) {
+          throw new Error(isArabic ? "لم يتم استخراج نص كافٍ من الصورة" : "Could not extract enough text from the image");
+        }
+        
+        setCompletedSteps([1]);
+        setProgressValue(33);
+        toast({ title: isArabic ? "✓ تم استخراج النص من الصورة" : "✓ Text extracted from image" });
+
+        // ── Step 2: Analyze extracted text ──
+        setCurrentStep(2);
+        setStatusMessage(isArabic ? "جارٍ تحليل البنود..." : "Analyzing items...");
+        const localResult = performLocalTextAnalysis(ocrText, { fileName: file.name });
+        if (localResult.items.length > 0) {
+          items = localResult.items;
+        } else {
+          const { data, error } = await supabase.functions.invoke("analyze-boq", {
+            body: { boqText: ocrText, fileName: file.name, projectId },
+          });
+          if (error) throw error;
+          items = data?.items || [];
+        }
+      } else if (isExcelFile(file)) {
         const excelData = await extractDataFromExcel(file);
         setCompletedSteps([1]);
         setProgressValue(33);
@@ -414,7 +456,7 @@ export function BOQUploadDialog({
           {/* ─── Drop zone ─── */}
           {showDropZone && (
             <>
-              <input ref={fileInputRef} type="file" accept=".pdf,.xlsx,.xls" onChange={handleFileInput} className="hidden" />
+              <input ref={fileInputRef} type="file" accept=".pdf,.xlsx,.xls,.png,.jpg,.jpeg" onChange={handleFileInput} className="hidden" />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -447,6 +489,9 @@ export function BOQUploadDialog({
                   </span>
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg text-xs font-medium">
                     <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded-lg text-xs font-medium">
+                    <FileText className="w-3.5 h-3.5" /> PNG / JPG
                   </span>
                 </div>
               </button>

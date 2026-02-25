@@ -283,18 +283,11 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     return saved ? JSON.parse(saved) : BOQ_TABLE_COLUMNS.map(col => col.id);
   });
 
-  // Auto-detect Arabic descriptions and add column if present
-  const hasArabicDescriptions = useMemo(() => {
-    return data?.items?.some(item => {
-      const descAr = (item as any).description_ar;
-      return descAr && typeof descAr === 'string' && descAr.trim().length > 1 
-        && /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(descAr);
-    }) ?? false;
-  }, [data?.items]);
+  // Always show Arabic description column
+  const hasArabicDescriptions = true;
 
   useEffect(() => {
-    if (hasArabicDescriptions && !visibleColumns.includes("description_ar")) {
-      // Always add description_ar when Arabic data is present, even if user had saved columns before
+    if (!visibleColumns.includes("description_ar")) {
       setVisibleColumns(prev => {
         const descIdx = prev.indexOf("description");
         if (descIdx >= 0) {
@@ -305,7 +298,7 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
         return [...prev, "description_ar"];
       });
     }
-  }, [hasArabicDescriptions]);
+  }, []);
 
   // ---- Manual edits persistence using database (instead of localStorage) ----
   const {
