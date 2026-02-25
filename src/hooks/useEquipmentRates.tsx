@@ -40,6 +40,12 @@ export const EQUIPMENT_CATEGORIES = [
   { value: 'scaffold', label: 'سقالات', label_en: 'Scaffolding' },
   { value: 'welding', label: 'معدات لحام', label_en: 'Welding Equipment' },
   { value: 'cutting', label: 'معدات قطع', label_en: 'Cutting Equipment' },
+  { value: 'trencher', label: 'حفارة خنادق', label_en: 'Trencher' },
+  { value: 'dewatering', label: 'نزح مياه', label_en: 'Dewatering' },
+  { value: 'pipe_laying', label: 'تمديد مواسير', label_en: 'Pipe Laying' },
+  { value: 'testing', label: 'فحص واختبار', label_en: 'Testing' },
+  { value: 'survey', label: 'مساحة', label_en: 'Survey' },
+  { value: 'compressor', label: 'ضاغط هواء', label_en: 'Air Compressor' },
   { value: 'other', label: 'أخرى', label_en: 'Other' },
 ];
 
@@ -228,6 +234,30 @@ export const useEquipmentRates = () => {
     return bestMatch && bestMatch.score >= 20 ? bestMatch.rate : null;
   };
 
+  const findAllMatchingRates = (description: string, category?: string, limit = 5): EquipmentRate[] => {
+    if (!description || equipmentRates.length === 0) return [];
+    
+    const descLower = description.toLowerCase();
+    const searchTerms = descLower.split(/[\s,،.-]+/).filter(t => t.length > 2);
+    
+    const scored = equipmentRates.map(rate => {
+      const rateText = (rate.name + ' ' + (rate.name_ar || '') + ' ' + (rate.description || '')).toLowerCase();
+      let score = 0;
+      if (rateText.includes(descLower) || descLower.includes(rate.name.toLowerCase())) score += 50;
+      for (const term of searchTerms) {
+        if (rateText.includes(term)) score += 10;
+      }
+      if (category && rate.category === category) score += 15;
+      return { rate, score };
+    });
+    
+    return scored
+      .filter(s => s.score >= 10)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(s => s.rate);
+  };
+
   return {
     equipmentRates,
     loading,
@@ -236,6 +266,7 @@ export const useEquipmentRates = () => {
     deleteEquipmentRate,
     importFromExcel,
     findMatchingRate,
+    findAllMatchingRates,
     refreshEquipmentRates: fetchEquipmentRates,
   };
 };

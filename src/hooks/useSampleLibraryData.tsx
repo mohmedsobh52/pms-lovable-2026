@@ -125,7 +125,7 @@ const WATER_SEWAGE_MATERIALS = [
   { name: "Pressure Gauge DN63", name_ar: "مقياس ضغط DN63", category: "water_treatment", unit: "unit", unit_price: 120, specifications: "0-16 bar, Glycerin Filled" },
 ];
 
-// Sample Labor Data (10 items)
+// Sample Labor Data (10 + 15 network)
 const SAMPLE_LABOR = [
   { code: "L001", name: "Master Mason", name_ar: "معلم بناء", category: "mason", skill_level: "skilled", unit_rate: 250, working_hours_per_day: 8 },
   { code: "L002", name: "Mason Helper", name_ar: "مساعد بناء", category: "mason", skill_level: "unskilled", unit_rate: 120, working_hours_per_day: 8 },
@@ -139,7 +139,26 @@ const SAMPLE_LABOR = [
   { code: "L010", name: "General Helper", name_ar: "عامل مساعد", category: "helper", skill_level: "unskilled", unit_rate: 100, working_hours_per_day: 8 },
 ];
 
-// Sample Equipment Data (10 items)
+// Network-specific Labor
+const NETWORK_LABOR = [
+  { code: "L011", name: "HDPE Pipe Fitter", name_ar: "فني مواسير HDPE", category: "pipe_fitter", skill_level: "skilled", unit_rate: 350, working_hours_per_day: 8 },
+  { code: "L012", name: "Pipe Welder (Butt Fusion)", name_ar: "لحام مواسير (لحام حراري)", category: "welder", skill_level: "skilled", unit_rate: 400, working_hours_per_day: 8 },
+  { code: "L013", name: "DI Pipe Fitter", name_ar: "فني مواسير حديد دكتايل", category: "pipe_fitter", skill_level: "skilled", unit_rate: 380, working_hours_per_day: 8 },
+  { code: "L014", name: "Valve Technician", name_ar: "فني محابس", category: "technician", skill_level: "skilled", unit_rate: 320, working_hours_per_day: 8 },
+  { code: "L015", name: "Network Surveyor", name_ar: "مساح شبكات", category: "surveyor", skill_level: "skilled", unit_rate: 450, working_hours_per_day: 8 },
+  { code: "L016", name: "Network Diver", name_ar: "غواص صيانة شبكات", category: "diver", skill_level: "skilled", unit_rate: 600, working_hours_per_day: 6 },
+  { code: "L017", name: "Pump Operator", name_ar: "مشغل مضخات", category: "operator", skill_level: "semi-skilled", unit_rate: 280, working_hours_per_day: 8 },
+  { code: "L018", name: "Water Treatment Technician", name_ar: "فني معالجة مياه", category: "technician", skill_level: "skilled", unit_rate: 400, working_hours_per_day: 8 },
+  { code: "L019", name: "Network Foreman", name_ar: "ملاحظ أعمال شبكات", category: "foreman", skill_level: "skilled", unit_rate: 500, working_hours_per_day: 8 },
+  { code: "L020", name: "Safety Officer (Networks)", name_ar: "مسؤول سلامة شبكات", category: "safety_officer", skill_level: "skilled", unit_rate: 420, working_hours_per_day: 8 },
+  { code: "L021", name: "Excavation Driver", name_ar: "سائق حفارة", category: "driver", skill_level: "skilled", unit_rate: 350, working_hours_per_day: 8 },
+  { code: "L022", name: "Pipe Layer Helper", name_ar: "مساعد تمديد مواسير", category: "helper", skill_level: "unskilled", unit_rate: 130, working_hours_per_day: 8 },
+  { code: "L023", name: "GRP Pipe Installer", name_ar: "فني تركيب مواسير GRP", category: "pipe_fitter", skill_level: "skilled", unit_rate: 380, working_hours_per_day: 8 },
+  { code: "L024", name: "Waterproofing Insulator", name_ar: "عازل مائي", category: "insulator", skill_level: "skilled", unit_rate: 300, working_hours_per_day: 8 },
+  { code: "L025", name: "Pressure Test Technician", name_ar: "فني اختبار ضغط", category: "technician", skill_level: "skilled", unit_rate: 350, working_hours_per_day: 8 },
+];
+
+// Sample Equipment Data (10 + 15 network)
 const SAMPLE_EQUIPMENT = [
   { code: "E001", name: "Caterpillar Excavator 320", name_ar: "حفار كاتربلر 320", category: "excavator", rental_rate: 1800, includes_operator: true, includes_fuel: false },
   { code: "E002", name: "Caterpillar Wheel Loader 950", name_ar: "شيول كاتربلر 950", category: "loader", rental_rate: 1500, includes_operator: true, includes_fuel: false },
@@ -151,6 +170,25 @@ const SAMPLE_EQUIPMENT = [
   { code: "E008", name: "Generator 100 KVA", name_ar: "مولد كهرباء 100 KVA", category: "generator", rental_rate: 600, includes_operator: false, includes_fuel: false },
   { code: "E009", name: "Forklift", name_ar: "رافعة شوكية", category: "forklift", rental_rate: 500, includes_operator: true, includes_fuel: false },
   { code: "E010", name: "Steel Scaffolding", name_ar: "سقالة حديد", category: "scaffold", rental_rate: 5, unit: "m2", includes_operator: false, includes_fuel: false },
+];
+
+// Network-specific Equipment
+const NETWORK_EQUIPMENT = [
+  { code: "E011", name: "HDPE Butt Fusion Machine 315mm", name_ar: "ماكينة لحام HDPE 315مم", category: "pipe_laying", rental_rate: 1200, includes_operator: false, includes_fuel: false },
+  { code: "E012", name: "HDPE Butt Fusion Machine 630mm", name_ar: "ماكينة لحام HDPE 630مم", category: "pipe_laying", rental_rate: 2500, includes_operator: false, includes_fuel: false },
+  { code: "E013", name: "Electrofusion Machine", name_ar: "ماكينة لحام كهربائي", category: "pipe_laying", rental_rate: 800, includes_operator: false, includes_fuel: false },
+  { code: "E014", name: "Dewatering Pump 4 inch", name_ar: "مضخة نزح مياه 4 بوصة", category: "dewatering", rental_rate: 350, includes_operator: false, includes_fuel: false },
+  { code: "E015", name: "Dewatering Pump 6 inch", name_ar: "مضخة نزح مياه 6 بوصة", category: "dewatering", rental_rate: 500, includes_operator: false, includes_fuel: false },
+  { code: "E016", name: "Wellpoint Dewatering System", name_ar: "نظام نزح مياه ويلبوينت", category: "dewatering", rental_rate: 1500, includes_operator: true, includes_fuel: false },
+  { code: "E017", name: "Pressure Testing Pump", name_ar: "مضخة اختبار ضغط", category: "testing", rental_rate: 400, includes_operator: false, includes_fuel: false },
+  { code: "E018", name: "CCTV Pipe Inspection Unit", name_ar: "جهاز فحص مواسير CCTV", category: "testing", rental_rate: 2000, includes_operator: true, includes_fuel: false },
+  { code: "E019", name: "Pipe Layer (Side Boom)", name_ar: "رافعة أنابيب جانبية", category: "pipe_laying", rental_rate: 2200, includes_operator: true, includes_fuel: false },
+  { code: "E020", name: "Trencher Machine", name_ar: "حفارة خنادق", category: "trencher", rental_rate: 1800, includes_operator: true, includes_fuel: false },
+  { code: "E021", name: "Mini Excavator 3 Ton", name_ar: "حفار صغير 3 طن", category: "excavator", rental_rate: 800, includes_operator: true, includes_fuel: false },
+  { code: "E022", name: "Leak Detection Equipment", name_ar: "جهاز كشف تسربات", category: "testing", rental_rate: 1500, includes_operator: true, includes_fuel: false },
+  { code: "E023", name: "Air Compressor 185 CFM", name_ar: "ضاغط هواء 185 CFM", category: "compressor", rental_rate: 450, includes_operator: false, includes_fuel: false },
+  { code: "E024", name: "Total Station Survey", name_ar: "جهاز مساحة توتال ستيشن", category: "survey", rental_rate: 300, includes_operator: false, includes_fuel: false },
+  { code: "E025", name: "GPS RTK Survey Kit", name_ar: "جهاز مساحة GPS RTK", category: "survey", rental_rate: 500, includes_operator: false, includes_fuel: false },
 ];
 
 export const useSampleLibraryData = () => {
@@ -309,6 +347,57 @@ export const useSampleLibraryData = () => {
     }
   }, [user]);
 
+  const addNetworkLaborEquipment = useCallback(async () => {
+    if (!user) return false;
+
+    try {
+      const today = new Date();
+      const validUntil = new Date(today);
+      validUntil.setMonth(validUntil.getMonth() + 3);
+
+      // Insert network labor
+      const laborToInsert = NETWORK_LABOR.map((l, index) => ({
+        user_id: user.id,
+        code: l.code, name: l.name, name_ar: l.name_ar,
+        category: l.category, skill_level: l.skill_level,
+        unit: "day", unit_rate: l.unit_rate,
+        working_hours_per_day: l.working_hours_per_day,
+        hourly_rate: l.unit_rate / l.working_hours_per_day,
+        currency: "SAR", overtime_percentage: 50,
+        price_date: today.toISOString().split('T')[0],
+        valid_until: new Date(validUntil.getTime() - (index * 3 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+      }));
+
+      const { error: laborError } = await supabase.from('labor_rates').insert(laborToInsert);
+      if (laborError) throw laborError;
+
+      // Insert network equipment
+      const equipmentToInsert = NETWORK_EQUIPMENT.map((e, index) => ({
+        user_id: user.id,
+        code: e.code, name: e.name, name_ar: e.name_ar,
+        category: e.category, unit: "day",
+        rental_rate: e.rental_rate, operation_rate: 0,
+        hourly_rate: e.rental_rate / 8,
+        monthly_rate: e.rental_rate * 26,
+        currency: "SAR",
+        includes_operator: e.includes_operator,
+        includes_fuel: e.includes_fuel,
+        price_date: today.toISOString().split('T')[0],
+        valid_until: new Date(validUntil.getTime() - (index * 4 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+      }));
+
+      const { error: equipError } = await supabase.from('equipment_rates').insert(equipmentToInsert);
+      if (equipError) throw equipError;
+
+      toast.success(`تم إضافة ${laborToInsert.length} عمالة و ${equipmentToInsert.length} معدة شبكات`);
+      return true;
+    } catch (error) {
+      console.error('Error adding network labor/equipment:', error);
+      toast.error('فشل في إضافة عمالة ومعدات الشبكات');
+      return false;
+    }
+  }, [user]);
+
   const addAllSampleData = useCallback(async () => {
     try {
       const results = await Promise.all([
@@ -337,11 +426,14 @@ export const useSampleLibraryData = () => {
     addSampleEquipment,
     addAllSampleData,
     addWaterSewageMaterials,
+    addNetworkLaborEquipment,
     sampleCounts: {
       materials: SAMPLE_MATERIALS.length,
       labor: SAMPLE_LABOR.length,
       equipment: SAMPLE_EQUIPMENT.length,
       waterSewage: WATER_SEWAGE_MATERIALS.length,
+      networkLabor: NETWORK_LABOR.length,
+      networkEquipment: NETWORK_EQUIPMENT.length,
     },
   };
 };
