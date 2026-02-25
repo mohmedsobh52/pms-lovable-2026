@@ -1,7 +1,7 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import {
   Package, Search, Filter, Download, Trash2, Plus, Wand2, RefreshCw,
-  ArrowUpDown, Hash, FileText, CheckCircle, MoreVertical, DollarSign,
+  ArrowUpDown, Hash, FileText, FileSpreadsheet, CheckCircle, MoreVertical, DollarSign,
   Edit, XCircle, Loader2, History, Upload, FileUp,
   BarChart3, CircleDollarSign, ListChecks, Calculator, AlertTriangle, BarChart
 } from "lucide-react";
@@ -63,6 +63,7 @@ interface ProjectBOQTabProps {
   onAutoPricing: () => void;
   onAddItem: () => void;
   onUploadBOQ?: () => void;
+  onFileSelected?: (file: File) => void;
   onQuickPrice: (itemId: string) => void;
   onDetailedPrice: (item: ProjectItem) => void;
   onEditItem: (item: ProjectItem) => void;
@@ -97,6 +98,7 @@ export function ProjectBOQTab({
   onAutoPricing,
   onAddItem,
   onUploadBOQ,
+  onFileSelected,
   onQuickPrice,
   onDetailedPrice,
   onEditItem,
@@ -108,6 +110,8 @@ export function ProjectBOQTab({
 }: ProjectBOQTabProps) {
   const effectiveItemsPerPage = itemsPerPage >= filteredItems.length ? filteredItems.length : itemsPerPage;
   const isMobile = useIsMobile();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Arabic character detection helper
   const hasArabicChars = useCallback((text: string | null | undefined): boolean => {
@@ -119,7 +123,6 @@ export function ProjectBOQTab({
   const processedItems = useMemo(() => {
     return displayedItems.map(item => {
       let descAr = item.description_ar || '';
-      // If description_ar has no Arabic but description does, copy it
       if (!hasArabicChars(descAr) && hasArabicChars(item.description)) {
         descAr = item.description!;
       }
@@ -128,7 +131,6 @@ export function ProjectBOQTab({
   }, [displayedItems, hasArabicChars]);
 
   const hasArabicDescriptions = useMemo(() => {
-    // Check all items (not just displayed page) for Arabic content
     return items.some(item => 
       hasArabicChars(item.description_ar) || hasArabicChars(item.description)
     );
@@ -143,22 +145,16 @@ export function ProjectBOQTab({
   const outlierItems = useMemo(() => {
     const pricedItems = items.filter(i => i.unit_price && i.unit_price > 0);
     if (pricedItems.length < 3) return [];
-
-    // Group by category
     const categories: Record<string, number[]> = {};
     pricedItems.forEach(item => {
       const cat = item.category || '_general';
       if (!categories[cat]) categories[cat] = [];
       categories[cat].push(item.unit_price!);
     });
-
-    // Calculate averages
     const categoryAvg: Record<string, number> = {};
     Object.entries(categories).forEach(([cat, prices]) => {
       categoryAvg[cat] = prices.reduce((s, p) => s + p, 0) / prices.length;
     });
-
-    // Find outliers
     return pricedItems.filter(item => {
       const cat = item.category || '_general';
       const avg = categoryAvg[cat];
@@ -194,22 +190,108 @@ export function ProjectBOQTab({
     return outlierItems.some(o => o.id === itemId);
   }, [outlierItems]);
 
-  // If no items at all, show empty state
+  // Drag-and-drop handlers for empty state
+  const isAcceptedFile = useCallback((file: File): boolean => {
+    const acceptedExtensions = ['.pdf', '.xlsx', '.xls'];
+    const acceptedMimes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ];
+    return acceptedMimes.includes(file.type) || 
+           acceptedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0 && isAcceptedFile(files[0])) {
+      if (onFileSelected) {
+        onFileSelected(files[0]);
+      } else if (onUploadBOQ) {
+        onUploadBOQ();
+      }
+    }
+  }, [isAcceptedFile, onFileSelected, onUploadBOQ]);
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      if (onFileSelected) {
+        onFileSelected(files[0]);
+      } else if (onUploadBOQ) {
+        onUploadBOQ();
+      }
+    }
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [onFileSelected, onUploadBOQ]);
+
+  // If no items at all, show empty state with drag-and-drop upload
   if (items.length === 0) {
     return (
       <div className="space-y-4">
-        <Card className="border-dashed border-2 border-border">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <FileUp className="w-16 h-16 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">
+        <div
+          className={cn(
+            "border-2 border-dashed rounded-xl transition-all duration-200 cursor-pointer",
+            isDragOver
+              ? "border-primary bg-primary/5 scale-[1.01]"
+              : "border-border hover:border-primary/50 hover:bg-muted/30"
+          )}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.xlsx,.xls"
+            onChange={handleFileInput}
+            className="hidden"
+          />
+          <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+            <div className={cn(
+              "w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center transition-colors",
+              isDragOver
+                ? "bg-primary/20"
+                : "bg-gradient-to-br from-primary/20 to-accent/20"
+            )}>
+              <Upload className={cn("w-8 h-8 transition-colors", isDragOver ? "text-primary" : "text-primary")} />
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-foreground">
               {isArabic ? "لا توجد بنود في جدول الكميات" : "No BOQ Items Yet"}
             </h3>
-            <p className="text-muted-foreground mb-6 max-w-md">
+            <p className="text-muted-foreground mb-2">
               {isArabic 
-                ? "قم برفع ملف BOQ (Excel أو PDF) لاستخراج البنود تلقائياً، أو أضف بنوداً يدوياً"
-                : "Upload a BOQ file (Excel or PDF) to extract items automatically, or add items manually"}
+                ? "اسحب الملف هنا أو انقر للرفع"
+                : "Drag file here or click to upload"}
             </p>
-            <div className="flex items-center gap-3">
+            <p className="text-sm text-muted-foreground mb-6">
+              {isArabic ? "يدعم ملفات PDF و Excel" : "Supports PDF and Excel files"}
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center mb-6">
+              <span className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-lg text-sm font-medium">
+                <FileText className="w-4 h-4" />
+                PDF
+              </span>
+              <span className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg text-sm font-medium">
+                <FileSpreadsheet className="w-4 h-4" />
+                Excel
+              </span>
+            </div>
+            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
               {onUploadBOQ && (
                 <Button onClick={onUploadBOQ} className="gap-2" size="lg">
                   <Upload className="w-5 h-5" />
@@ -221,8 +303,8 @@ export function ProjectBOQTab({
                 {isArabic ? "إضافة بند يدوياً" : "Add Item Manually"}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     );
   }

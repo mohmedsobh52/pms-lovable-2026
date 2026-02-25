@@ -1170,6 +1170,10 @@ export default function ProjectDetailsPage() {
               onItemsPerPageChange={handleItemsPerPageChange}
               onAutoPricing={handleAutoPricing}
               onUploadBOQ={() => setShowBOQUploadDialog(true)}
+              onFileSelected={(file: File) => {
+                // Directly open the upload dialog - the file will be handled there
+                setShowBOQUploadDialog(true);
+              }}
               onAddItem={() => setShowAddItemDialog(true)}
               onQuickPrice={(itemId) => {
                 const item = items.find(i => i.id === itemId);
