@@ -48,22 +48,40 @@ export interface Supplier {
 }
 
 export const MATERIAL_CATEGORIES = [
-  { value: 'concrete', label: 'خرسانة ومواد بناء', label_en: 'Concrete & Building' },
-  { value: 'steel', label: 'حديد وصلب', label_en: 'Steel & Iron' },
-  { value: 'cement', label: 'أسمنت', label_en: 'Cement' },
-  { value: 'blocks', label: 'بلوك وطوب', label_en: 'Blocks & Bricks' },
-  { value: 'sand_aggregate', label: 'رمل وحصى', label_en: 'Sand & Aggregate' },
-  { value: 'tiles', label: 'سيراميك وبلاط', label_en: 'Tiles & Ceramics' },
-  { value: 'paint', label: 'دهانات', label_en: 'Paints' },
-  { value: 'doors_windows', label: 'أبواب ونوافذ', label_en: 'Doors & Windows' },
-  { value: 'aluminum', label: 'ألمنيوم', label_en: 'Aluminum' },
-  { value: 'electrical', label: 'كهرباء', label_en: 'Electrical' },
-  { value: 'plumbing', label: 'سباكة', label_en: 'Plumbing' },
-  { value: 'insulation', label: 'عزل', label_en: 'Insulation' },
-  { value: 'wood', label: 'خشب', label_en: 'Wood' },
-  { value: 'glass', label: 'زجاج', label_en: 'Glass' },
-  { value: 'hvac', label: 'تكييف وتبريد', label_en: 'HVAC' },
-  { value: 'other', label: 'أخرى', label_en: 'Other' },
+  { value: 'concrete', label: 'خرسانة ومواد بناء', label_en: 'Concrete & Building', group: 'general' },
+  { value: 'steel', label: 'حديد وصلب', label_en: 'Steel & Iron', group: 'general' },
+  { value: 'cement', label: 'أسمنت', label_en: 'Cement', group: 'general' },
+  { value: 'blocks', label: 'بلوك وطوب', label_en: 'Blocks & Bricks', group: 'general' },
+  { value: 'sand_aggregate', label: 'رمل وحصى', label_en: 'Sand & Aggregate', group: 'general' },
+  { value: 'tiles', label: 'سيراميك وبلاط', label_en: 'Tiles & Ceramics', group: 'general' },
+  { value: 'paint', label: 'دهانات', label_en: 'Paints', group: 'general' },
+  { value: 'doors_windows', label: 'أبواب ونوافذ', label_en: 'Doors & Windows', group: 'general' },
+  { value: 'aluminum', label: 'ألمنيوم', label_en: 'Aluminum', group: 'general' },
+  { value: 'electrical', label: 'كهرباء', label_en: 'Electrical', group: 'general' },
+  { value: 'plumbing', label: 'سباكة', label_en: 'Plumbing', group: 'general' },
+  { value: 'insulation', label: 'عزل', label_en: 'Insulation', group: 'general' },
+  { value: 'wood', label: 'خشب', label_en: 'Wood', group: 'general' },
+  { value: 'glass', label: 'زجاج', label_en: 'Glass', group: 'general' },
+  { value: 'hvac', label: 'تكييف وتبريد', label_en: 'HVAC', group: 'general' },
+  // Water & Sewage Network Categories
+  { value: 'pipes_pvc', label: 'مواسير PVC/uPVC', label_en: 'PVC/uPVC Pipes', group: 'pipes' },
+  { value: 'pipes_hdpe', label: 'مواسير HDPE', label_en: 'HDPE Pipes', group: 'pipes' },
+  { value: 'pipes_di', label: 'مواسير حديد دكتايل', label_en: 'Ductile Iron Pipes', group: 'pipes' },
+  { value: 'pipes_grp', label: 'مواسير GRP', label_en: 'GRP/FRP Pipes', group: 'pipes' },
+  { value: 'pipes_concrete', label: 'مواسير خرسانية', label_en: 'Concrete Pipes', group: 'pipes' },
+  { value: 'pipes_steel', label: 'مواسير حديد', label_en: 'Steel Pipes', group: 'pipes' },
+  { value: 'fittings_valves', label: 'وصلات ومحابس', label_en: 'Fittings & Valves', group: 'networks' },
+  { value: 'manholes', label: 'غرف تفتيش', label_en: 'Manholes', group: 'networks' },
+  { value: 'water_tanks', label: 'خزانات مياه', label_en: 'Water Tanks', group: 'networks' },
+  { value: 'pumps_stations', label: 'مضخات ومحطات', label_en: 'Pumps & Stations', group: 'networks' },
+  { value: 'water_treatment', label: 'معالجة مياه', label_en: 'Water Treatment', group: 'networks' },
+  { value: 'other', label: 'أخرى', label_en: 'Other', group: 'general' },
+];
+
+export const CATEGORY_GROUPS = [
+  { key: 'general', label: 'عام', label_en: 'General' },
+  { key: 'pipes', label: 'مواسير', label_en: 'Pipes' },
+  { key: 'networks', label: 'شبكات', label_en: 'Networks' },
 ];
 
 export const CURRENCIES = [
