@@ -59,6 +59,7 @@ export default function ProjectDetailsPage() {
   const [showBOQUploadBanner, setShowBOQUploadBanner] = useState(isNewProject);
   const [showOnboarding, setShowOnboarding] = useState(isNewProject && !alreadyOnboarded);
   const [showBOQUploadDialog, setShowBOQUploadDialog] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const handleCloseOnboarding = () => {
     localStorage.setItem(onboardingKey, "true");
@@ -1171,7 +1172,7 @@ export default function ProjectDetailsPage() {
               onAutoPricing={handleAutoPricing}
               onUploadBOQ={() => setShowBOQUploadDialog(true)}
               onFileSelected={(file: File) => {
-                // Directly open the upload dialog - the file will be handled there
+                setPendingFile(file);
                 setShowBOQUploadDialog(true);
               }}
               onAddItem={() => setShowAddItemDialog(true)}
@@ -1516,7 +1517,11 @@ export default function ProjectDetailsPage() {
 
       <BOQUploadDialog
         open={showBOQUploadDialog}
-        onClose={() => setShowBOQUploadDialog(false)}
+        onClose={() => {
+          setShowBOQUploadDialog(false);
+          setPendingFile(null);
+        }}
+        initialFile={pendingFile}
         projectId={projectId!}
         isArabic={isArabic}
         onSuccess={() => {

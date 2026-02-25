@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +36,7 @@ interface BOQUploadDialogProps {
   isArabic: boolean;
   onSuccess: () => void;
   onSuccessWithData?: (data: any) => void;
+  initialFile?: File | null;
 }
 
 type UploadStatus = "idle" | "processing" | "success" | "error";
@@ -112,6 +113,7 @@ export function BOQUploadDialog({
   isArabic,
   onSuccess,
   onSuccessWithData,
+  initialFile,
 }: BOQUploadDialogProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [status, setStatus] = useState<UploadStatus>("idle");
@@ -125,6 +127,13 @@ export function BOQUploadDialog({
   const { user } = useAuth();
 
   const steps = isArabic ? STEPS.ar : STEPS.en;
+
+  // Auto-set file when opened with initialFile
+  useEffect(() => {
+    if (open && initialFile && !selectedFile) {
+      setSelectedFile(initialFile);
+    }
+  }, [open, initialFile]);
 
   const resetState = () => {
     setSelectedFile(null);
