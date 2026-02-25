@@ -1,55 +1,69 @@
 
+# اصلاح مشكلة استخراج النصوص من PDF وضمان عمود الوصف العربي
 
-# تحسين لوحة مؤشرات الأداء (KPI Dashboard) وتحليل المخاطر
+## المشكلة الجذرية
 
-## المشاكل المحددة
+خطأ في وحدة التحكم (Console):
+```
+The API version "4.10.38" does not match the Worker version "4.4.168"
+```
 
-### 1. القيمة الإجمالية تظهر صفر (0)
-السبب: في `AnalysisResults.tsx` (سطر 891)، يعتمد `totalValue` على `data.summary?.total_value` أولاً، وإذا كان صفراً يحسب مجموع `total_price` للبنود. لكن عندما تكون البنود غير مسعرة يظهر 0. المشكلة الأخرى أن `projectAnalysisData` في `ProjectDetailsPage` يمرر `pricingStats.totalValue` بشكل صحيح لكن `AnalysisResults` لا يعيد حساب القيمة عند تغيير الأسعار لأن `useMemo` يعتمد على `[data]` فقط.
+مكتبة `pdfjs-dist` مثبتة بالإصدار `^4.4.168` (مع علامة `^` التي تسمح بالترقية التلقائية للإصدار 4.10.38)، لكن بعض الملفات تستخدم رقم الإصدار `4.4.168` بشكل ثابت في روابط الـ Worker، مما يسبب عدم تطابق بين إصدار المكتبة والـ Worker ويمنع استخراج النصوص بالكامل.
 
-**الحل**: تحسين حساب `totalValue` ليشمل حساب `quantity * unit_price` كبديل عندما يكون `total_price` صفراً، وإضافة `items` كتبعية للـ memo.
+**النتيجة**: فشل استخراج النص من PDF => لا توجد بيانات => لا يظهر عمود الوصف العربي.
 
-### 2. تحليل المخاطر غير مرتبط بقاعدة البيانات
-حالياً `highRiskCount` يعتمد على فحص بدائي (البحث عن كلمة "risk" في الملاحظات أو بنود أكبر من 5% من القيمة). لا يقرأ من جدول `risks` في قاعدة البيانات.
+## الحل
 
-**الحل**: ربط `EnhancedKPIDashboard` ببيانات المخاطر الفعلية من جدول `risks` عبر `projectId`.
+### 1. تثبيت إصدار pdfjs-dist (package.json)
+تغيير `"pdfjs-dist": "^4.4.168"` إلى `"pdfjs-dist": "4.4.168"` (إزالة `^`) لمنع الترقية التلقائية.
 
-### 3. تحسين الشكل والأداء
-- تحسين بطاقات KPI بألوان وأيقونات أوضح
-- إضافة تأثيرات حركية أفضل
-- تحسين عرض القيمة الإجمالية بتنسيق مالي واضح مع عرض الرقم كاملاً
+### 2. توحيد رابط Worker في جميع الملفات
+استبدال كل الروابط الثابتة (`4.4.168` hardcoded) باستخدام `pdfjsLib.version` الديناميكي:
 
----
+| الملف | التغيير |
+|-------|---------|
+| `src/components/FastExtractionDrawingAnalyzer.tsx` (سطر 22) | استبدال `4.4.168` بـ `pdfjsLib.version` |
+| `src/components/QuotationUpload.tsx` | التأكد من استخدام الإصدار الديناميكي |
+| `src/pages/HistoricalPricingPage.tsx` (سطر 249) | استبدال `pdfjsLib.version` مع التأكد من صيغة `.mjs` |
 
-## التغييرات التقنية
-
-### الملف 1: `src/components/AnalysisResults.tsx`
-**تحسين حساب `kpiData` (سطر 889-911)**:
-- تعديل حساب `totalValue` ليحسب `sum(quantity * unit_price)` كبديل عند غياب `total_price`
-- تحسين حساب `highRiskCount` ليكون أكثر دقة (استبعاد القيمة الصفرية من حساب نسبة 5%)
-- إضافة خاصية `projectId` لربط المخاطر
-
-### الملف 2: `src/components/EnhancedKPIDashboard.tsx`
-**تحسين الشكل والأداء**:
-- تعديل `formatCurrency` لعرض الأرقام كاملة بفواصل الآلاف بدلاً من الاختصار (M/K)
-- إضافة `projectId` كخاصية اختيارية وجلب عدد المخاطر الفعلي من جدول `risks`
-- تحسين تصميم بطاقة القيمة الإجمالية بخلفية مميزة وخط أكبر
-- إضافة عداد المخاطر الفعلي من قاعدة البيانات عند توفر `projectId`
-- تحسين ألوان الأيقونات والخلفيات
-
-### الملف 3: `src/pages/ProjectDetailsPage.tsx`
-**ربط المخاطر بالمشروع**:
-- تمرير `projectId` إلى `projectAnalysisData` ليتم استخدامه في `AnalysisResults`
-- تحسين حساب `pricingStats.totalValue` ليحسب `quantity * unit_price` عند غياب `total_price`
+### 3. ضمان عمود الوصف العربي
+المنطق الحالي في `AnalysisResults.tsx` يعمل بشكل صحيح بالفعل - يكتشف النصوص العربية ويفعّل العمود تلقائياً. المشكلة الوحيدة هي أن فشل استخراج PDF يمنع وصول البيانات. بمجرد إصلاح المشكلة الأولى، سيظهر العمود العربي تلقائياً.
 
 ---
 
-## ملخص التحسينات
+## التفاصيل التقنية
 
-| التحسين | الملف | التأثير |
-|---------|-------|---------|
-| إصلاح القيمة الإجمالية | AnalysisResults + ProjectDetailsPage | القيمة تظهر صحيحة حتى بدون total_price |
-| ربط تحليل المخاطر | EnhancedKPIDashboard | عرض عدد المخاطر الفعلي من قاعدة البيانات |
-| تنسيق مالي محسن | EnhancedKPIDashboard | عرض الأرقام كاملة بفواصل الآلاف |
-| تحسين بصري | EnhancedKPIDashboard | بطاقات أوضح بألوان وتأثيرات محسنة |
+### الملف 1: `package.json`
+```text
+تغيير: "pdfjs-dist": "^4.4.168"
+إلى:   "pdfjs-dist": "4.4.168"
+```
 
+### الملف 2: `src/components/FastExtractionDrawingAnalyzer.tsx`
+```text
+السطر 22 - تغيير:
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
+
+إلى:
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+```
+
+### الملف 3: `src/components/QuotationUpload.tsx`
+ضبط الـ Worker عند التحميل الديناميكي ليستخدم الإصدار الصحيح.
+
+### الملف 4: `src/pages/HistoricalPricingPage.tsx`
+```text
+السطر 249 - تغيير:
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+إلى:
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+```
+
+### الملفات المتأثرة
+| الملف | التغيير |
+|-------|---------|
+| `package.json` | تثبيت إصدار pdfjs-dist |
+| `FastExtractionDrawingAnalyzer.tsx` | توحيد رابط Worker |
+| `QuotationUpload.tsx` | ضبط Worker ديناميكي |
+| `HistoricalPricingPage.tsx` | توحيد رابط Worker |
