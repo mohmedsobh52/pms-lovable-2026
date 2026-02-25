@@ -1,69 +1,67 @@
 
-# اصلاح مشكلة استخراج النصوص من PDF وضمان عمود الوصف العربي
+# توحيد شاشة الحالة الفارغة في جدول الكميات مع شاشة رفع الملفات
 
-## المشكلة الجذرية
+## الهدف
+تحويل الحالة الفارغة (Empty State) في تبويب BOQ بصفحة تفاصيل المشروع (الصورة الثانية) لتعمل بنفس إمكانيات ومواصفات شاشة رفع الملفات في BOQ Analyzer (الصورة الأولى)، بما يشمل السحب والإفلات المباشر ومعالجة الملفات فوراً.
 
-خطأ في وحدة التحكم (Console):
-```
-The API version "4.10.38" does not match the Worker version "4.4.168"
-```
+## التغييرات المطلوبة
 
-مكتبة `pdfjs-dist` مثبتة بالإصدار `^4.4.168` (مع علامة `^` التي تسمح بالترقية التلقائية للإصدار 4.10.38)، لكن بعض الملفات تستخدم رقم الإصدار `4.4.168` بشكل ثابت في روابط الـ Worker، مما يسبب عدم تطابق بين إصدار المكتبة والـ Worker ويمنع استخراج النصوص بالكامل.
+### الملف 1: `src/components/project-details/ProjectBOQTab.tsx`
 
-**النتيجة**: فشل استخراج النص من PDF => لا توجد بيانات => لا يظهر عمود الوصف العربي.
+**تحويل الحالة الفارغة (أسطر 198-228) إلى منطقة رفع كاملة:**
 
-## الحل
+- إضافة حالة `isDragOver` للتحكم في تأثير السحب البصري
+- إضافة معالجات السحب والإفلات (`onDragOver`, `onDragLeave`, `onDrop`)
+- تضمين `<input type="file">` مخفي يقبل `.pdf,.xlsx,.xls`
+- عند إسقاط/اختيار ملف، يتم استدعاء callback جديد `onFileSelected` بدلاً من فتح Dialog
+- الاحتفاظ بزر "Add Item Manually"
+- تطبيق نفس التصميم البصري: حدود متقطعة، أيقونة Upload كبيرة، نص "Drag file here or click to upload"، ونص فرعي "Supports PDF and Excel files"
 
-### 1. تثبيت إصدار pdfjs-dist (package.json)
-تغيير `"pdfjs-dist": "^4.4.168"` إلى `"pdfjs-dist": "4.4.168"` (إزالة `^`) لمنع الترقية التلقائية.
+**إضافة props جديدة:**
 
-### 2. توحيد رابط Worker في جميع الملفات
-استبدال كل الروابط الثابتة (`4.4.168` hardcoded) باستخدام `pdfjsLib.version` الديناميكي:
+| Prop | النوع | الوصف |
+|------|-------|-------|
+| `onFileSelected` | `(file: File) => void` (اختياري) | يُستدعى عند سحب/اختيار ملف مباشرة |
 
-| الملف | التغيير |
-|-------|---------|
-| `src/components/FastExtractionDrawingAnalyzer.tsx` (سطر 22) | استبدال `4.4.168` بـ `pdfjsLib.version` |
-| `src/components/QuotationUpload.tsx` | التأكد من استخدام الإصدار الديناميكي |
-| `src/pages/HistoricalPricingPage.tsx` (سطر 249) | استبدال `pdfjsLib.version` مع التأكد من صيغة `.mjs` |
+### الملف 2: `src/pages/ProjectDetailsPage.tsx`
 
-### 3. ضمان عمود الوصف العربي
-المنطق الحالي في `AnalysisResults.tsx` يعمل بشكل صحيح بالفعل - يكتشف النصوص العربية ويفعّل العمود تلقائياً. المشكلة الوحيدة هي أن فشل استخراج PDF يمنع وصول البيانات. بمجرد إصلاح المشكلة الأولى، سيظهر العمود العربي تلقائياً.
+**تمرير معالج الملف الجديد:**
+
+- إضافة دالة `handleDirectFileUpload(file: File)` تقوم بـ:
+  1. فتح `BOQUploadDialog` مع تمرير الملف مباشرة
+  2. أو معالجة الملف مباشرة (استخراج + حفظ البنود)
+- تمرير `onFileSelected={handleDirectFileUpload}` إلى `ProjectBOQTab`
 
 ---
 
 ## التفاصيل التقنية
 
-### الملف 1: `package.json`
+### تصميم منطقة الرفع الجديدة في الحالة الفارغة
+
 ```text
-تغيير: "pdfjs-dist": "^4.4.168"
-إلى:   "pdfjs-dist": "4.4.168"
++--------------------------------------------------+
+|  (حدود متقطعة مع تأثير hover/drag)               |
+|                                                    |
+|              [أيقونة Upload كبيرة]                 |
+|                                                    |
+|         "No BOQ Items Yet"                         |
+|    "Drag file here or click to upload"             |
+|       "Supports PDF and Excel files"               |
+|                                                    |
+|   [Upload BOQ File]  [+ Add Item Manually]         |
+|                                                    |
++--------------------------------------------------+
 ```
 
-### الملف 2: `src/components/FastExtractionDrawingAnalyzer.tsx`
-```text
-السطر 22 - تغيير:
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
-
-إلى:
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-```
-
-### الملف 3: `src/components/QuotationUpload.tsx`
-ضبط الـ Worker عند التحميل الديناميكي ليستخدم الإصدار الصحيح.
-
-### الملف 4: `src/pages/HistoricalPricingPage.tsx`
-```text
-السطر 249 - تغيير:
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-
-إلى:
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-```
+### منطق السحب والإفلات
+- `handleDragOver`: منع السلوك الافتراضي + تفعيل `isDragOver`
+- `handleDragLeave`: إلغاء `isDragOver`
+- `handleDrop`: استخراج الملف + التحقق من النوع + استدعاء `onFileSelected` أو `onUploadBOQ`
+- التحقق من أنواع الملفات المقبولة: `.pdf`, `.xlsx`, `.xls`
 
 ### الملفات المتأثرة
+
 | الملف | التغيير |
 |-------|---------|
-| `package.json` | تثبيت إصدار pdfjs-dist |
-| `FastExtractionDrawingAnalyzer.tsx` | توحيد رابط Worker |
-| `QuotationUpload.tsx` | ضبط Worker ديناميكي |
-| `HistoricalPricingPage.tsx` | توحيد رابط Worker |
+| `src/components/project-details/ProjectBOQTab.tsx` | إعادة تصميم الحالة الفارغة مع دعم السحب والإفلات |
+| `src/pages/ProjectDetailsPage.tsx` | إضافة معالج الملف المباشر وتمريره |
