@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Upload, Search, Trash2, Edit2, Package } from "lucide-react";
-import { useMaterialPrices, MATERIAL_CATEGORIES, CURRENCIES } from "@/hooks/useMaterialPrices";
+import { Plus, Upload, Search, Trash2, Edit2, Package, ChevronLeft, ChevronRight } from "lucide-react";
+import { useMaterialPrices, MATERIAL_CATEGORIES, CURRENCIES, CATEGORY_GROUPS } from "@/hooks/useMaterialPrices";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PriceValidityIndicator, getValidityStatus } from "./PriceValidityIndicator";
@@ -16,10 +16,14 @@ interface MaterialsTabProps {
   validityFilter?: string | null;
 }
 
-export function MaterialsTab({ validityFilter }: MaterialsTabProps) {
+const ITEMS_PER_PAGE = 25;
+
+export const MaterialsTab = memo(function MaterialsTab({ validityFilter }: MaterialsTabProps) {
   const { isArabic } = useLanguage();
   const { materials, suppliers, loading, addMaterial, deleteMaterial, importFromExcel } = useMaterialPrices();
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -92,26 +96,48 @@ export function MaterialsTab({ validityFilter }: MaterialsTabProps) {
     e.target.value = '';
   };
 
-  // Filter materials based on search and validity
-  const filteredMaterials = materials.filter(m => {
-    const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase()) ||
-      (m.name_ar && m.name_ar.includes(search)) ||
-      m.category.toLowerCase().includes(search.toLowerCase()) ||
-      (m.brand && m.brand.toLowerCase().includes(search.toLowerCase()));
-    
-    if (!matchesSearch) return false;
-    
-    if (validityFilter) {
-      const status = getValidityStatus(m.valid_until, m.price_date);
-      return status === validityFilter;
-    }
-    
-    return true;
-  });
+  // Memoized filtered materials
+  const filteredMaterials = useMemo(() => {
+    return materials.filter(m => {
+      const matchesSearch = !search || 
+        m.name.toLowerCase().includes(search.toLowerCase()) ||
+        (m.name_ar && m.name_ar.includes(search)) ||
+        m.category.toLowerCase().includes(search.toLowerCase()) ||
+        (m.brand && m.brand.toLowerCase().includes(search.toLowerCase()));
+      
+      if (!matchesSearch) return false;
+
+      if (categoryFilter && categoryFilter !== "all" && m.category !== categoryFilter) return false;
+      
+      if (validityFilter) {
+        const status = getValidityStatus(m.valid_until, m.price_date);
+        return status === validityFilter;
+      }
+      
+      return true;
+    });
+  }, [materials, search, categoryFilter, validityFilter]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredMaterials.length / ITEMS_PER_PAGE);
+  const paginatedMaterials = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredMaterials.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredMaterials, currentPage]);
+
+  // Reset page when filters change
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [search, categoryFilter, validityFilter]);
 
   const getCurrencyLabel = (currency: string) => {
     const found = CURRENCIES.find(c => c.value === currency);
     return found ? found.label : currency;
+  };
+
+  const getCategoryLabel = (catValue: string) => {
+    const found = MATERIAL_CATEGORIES.find(c => c.value === catValue);
+    return found ? (isArabic ? found.label : found.label_en) : catValue;
   };
 
   if (loading) {
@@ -127,14 +153,34 @@ export function MaterialsTab({ validityFilter }: MaterialsTabProps) {
     <div className="space-y-4">
       {/* Header Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={isArabic ? "بحث في المواد..." : "Search materials..."}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pr-10"
-          />
+        <div className="flex flex-1 items-center gap-2 min-w-[200px]">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={isArabic ? "بحث في المواد..." : "Search materials..."}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pr-10"
+            />
+          </div>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder={isArabic ? "كل التصنيفات" : "All Categories"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{isArabic ? "كل التصنيفات" : "All Categories"}</SelectItem>
+              {CATEGORY_GROUPS.map(group => (
+                <SelectGroup key={group.key}>
+                  <SelectLabel>{isArabic ? group.label : group.label_en}</SelectLabel>
+                  {MATERIAL_CATEGORIES.filter(c => c.group === group.key).map(cat => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {isArabic ? cat.label : cat.label_en}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         
         <div className="flex items-center gap-2">
@@ -196,10 +242,15 @@ export function MaterialsTab({ validityFilter }: MaterialsTabProps) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {MATERIAL_CATEGORIES.map(cat => (
-                          <SelectItem key={cat.value} value={cat.value}>
-                            {isArabic ? cat.label : cat.label_en}
-                          </SelectItem>
+                        {CATEGORY_GROUPS.map(group => (
+                          <SelectGroup key={group.key}>
+                            <SelectLabel>{isArabic ? group.label : group.label_en}</SelectLabel>
+                            {MATERIAL_CATEGORIES.filter(c => c.group === group.key).map(cat => (
+                              <SelectItem key={cat.value} value={cat.value}>
+                                {isArabic ? cat.label : cat.label_en}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
                         ))}
                       </SelectContent>
                     </Select>
@@ -322,6 +373,16 @@ export function MaterialsTab({ validityFilter }: MaterialsTabProps) {
         </div>
       </div>
 
+      {/* Results count */}
+      {filteredMaterials.length > 0 && (
+        <div className="text-sm text-muted-foreground">
+          {isArabic 
+            ? `عرض ${paginatedMaterials.length} من ${filteredMaterials.length} مادة`
+            : `Showing ${paginatedMaterials.length} of ${filteredMaterials.length} materials`
+          }
+        </div>
+      )}
+
       {/* Table */}
       {filteredMaterials.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -335,6 +396,7 @@ export function MaterialsTab({ validityFilter }: MaterialsTabProps) {
               <TableRow className="bg-muted/50">
                 <TableHead className="text-right">{isArabic ? "الكود" : "Code"}</TableHead>
                 <TableHead className="text-right">{isArabic ? "الاسم" : "Name"}</TableHead>
+                <TableHead className="text-right">{isArabic ? "التصنيف" : "Category"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "الوحدة" : "Unit"}</TableHead>
                 <TableHead className="text-center">{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
                 <TableHead className="text-right">{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
@@ -343,16 +405,19 @@ export function MaterialsTab({ validityFilter }: MaterialsTabProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredMaterials.map((material, index) => (
+              {paginatedMaterials.map((material, index) => (
                 <TableRow key={material.id}>
-                  <TableCell className="font-mono text-sm">{`M${String(index + 1).padStart(3, '0')}`}</TableCell>
+                  <TableCell className="font-mono text-sm">{`M${String((currentPage - 1) * ITEMS_PER_PAGE + index + 1).padStart(3, '0')}`}</TableCell>
                   <TableCell>
                     <div>
                       <div>{isArabic && material.name_ar ? material.name_ar : material.name}</div>
-                      {material.description && (
-                        <div className="text-xs text-muted-foreground truncate max-w-[200px]">{material.description}</div>
+                      {material.specifications && (
+                        <div className="text-xs text-muted-foreground truncate max-w-[200px]">{material.specifications}</div>
                       )}
                     </div>
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {getCategoryLabel(material.category)}
                   </TableCell>
                   <TableCell className="text-center">{material.unit}</TableCell>
                   <TableCell className="text-center font-medium">
@@ -387,6 +452,34 @@ export function MaterialsTab({ validityFilter }: MaterialsTabProps) {
           </Table>
         </div>
       )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {isArabic 
+              ? `صفحة ${currentPage} من ${totalPages}`
+              : `Page ${currentPage} of ${totalPages}`
+            }
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
-}
+});
