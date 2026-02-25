@@ -36,6 +36,13 @@ export const LABOR_CATEGORIES = [
   { value: 'engineer', label: 'مهندس', label_en: 'Engineer' },
   { value: 'technician', label: 'فني', label_en: 'Technician' },
   { value: 'helper', label: 'مساعد', label_en: 'Helper' },
+  { value: 'pipe_fitter', label: 'فني مواسير', label_en: 'Pipe Fitter' },
+  { value: 'surveyor', label: 'مساح', label_en: 'Surveyor' },
+  { value: 'driver', label: 'سائق', label_en: 'Driver' },
+  { value: 'safety_officer', label: 'مسؤول سلامة', label_en: 'Safety Officer' },
+  { value: 'foreman', label: 'ملاحظ/فورمان', label_en: 'Foreman' },
+  { value: 'diver', label: 'غواص', label_en: 'Diver' },
+  { value: 'insulator', label: 'عازل', label_en: 'Insulator' },
   { value: 'other', label: 'أخرى', label_en: 'Other' },
 ];
 
@@ -253,6 +260,30 @@ export const useLaborRates = () => {
     return bestMatch && bestMatch.score >= 20 ? bestMatch.rate : null;
   };
 
+  const findAllMatchingRates = (description: string, category?: string, limit = 5): LaborRate[] => {
+    if (!description || laborRates.length === 0) return [];
+    
+    const descLower = description.toLowerCase();
+    const searchTerms = descLower.split(/[\s,،.-]+/).filter(t => t.length > 2);
+    
+    const scored = laborRates.map(rate => {
+      const rateText = (rate.name + ' ' + (rate.name_ar || '')).toLowerCase();
+      let score = 0;
+      if (rateText.includes(descLower) || descLower.includes(rate.name.toLowerCase())) score += 50;
+      for (const term of searchTerms) {
+        if (rateText.includes(term)) score += 10;
+      }
+      if (category && rate.category === category) score += 15;
+      return { rate, score };
+    });
+    
+    return scored
+      .filter(s => s.score >= 10)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(s => s.rate);
+  };
+
   return {
     laborRates,
     loading,
@@ -261,6 +292,7 @@ export const useLaborRates = () => {
     deleteLaborRate,
     importFromExcel,
     findMatchingRate,
+    findAllMatchingRates,
     refreshLaborRates: fetchLaborRates,
     calculateHourlyRate,
   };
