@@ -1,67 +1,64 @@
 
-# توحيد شاشة الحالة الفارغة في جدول الكميات مع شاشة رفع الملفات
 
-## الهدف
-تحويل الحالة الفارغة (Empty State) في تبويب BOQ بصفحة تفاصيل المشروع (الصورة الثانية) لتعمل بنفس إمكانيات ومواصفات شاشة رفع الملفات في BOQ Analyzer (الصورة الأولى)، بما يشمل السحب والإفلات المباشر ومعالجة الملفات فوراً.
+# إصلاح رفع الملف المباشر من جدول الكميات
 
-## التغييرات المطلوبة
+## المشكلة
+عند سحب/اختيار ملف من الحالة الفارغة في تبويب BOQ، يتم فتح نافذة الرفع فارغة بدون الملف المحدد. السبب أن `onFileSelected` في `ProjectDetailsPage` يفتح `BOQUploadDialog` فقط دون تمرير الملف إليه.
 
-### الملف 1: `src/components/project-details/ProjectBOQTab.tsx`
+## الحل
 
-**تحويل الحالة الفارغة (أسطر 198-228) إلى منطقة رفع كاملة:**
-
-- إضافة حالة `isDragOver` للتحكم في تأثير السحب البصري
-- إضافة معالجات السحب والإفلات (`onDragOver`, `onDragLeave`, `onDrop`)
-- تضمين `<input type="file">` مخفي يقبل `.pdf,.xlsx,.xls`
-- عند إسقاط/اختيار ملف، يتم استدعاء callback جديد `onFileSelected` بدلاً من فتح Dialog
-- الاحتفاظ بزر "Add Item Manually"
-- تطبيق نفس التصميم البصري: حدود متقطعة، أيقونة Upload كبيرة، نص "Drag file here or click to upload"، ونص فرعي "Supports PDF and Excel files"
-
-**إضافة props جديدة:**
-
-| Prop | النوع | الوصف |
-|------|-------|-------|
-| `onFileSelected` | `(file: File) => void` (اختياري) | يُستدعى عند سحب/اختيار ملف مباشرة |
+### الملف 1: `src/components/project-details/BOQUploadDialog.tsx`
+- إضافة prop جديد `initialFile?: File` إلى `BOQUploadDialogProps`
+- إضافة `useEffect` يستمع لتغير `initialFile` + `open`: عندما يفتح الـ dialog مع ملف مبدئي، يتم ضبط `selectedFile` تلقائياً
 
 ### الملف 2: `src/pages/ProjectDetailsPage.tsx`
-
-**تمرير معالج الملف الجديد:**
-
-- إضافة دالة `handleDirectFileUpload(file: File)` تقوم بـ:
-  1. فتح `BOQUploadDialog` مع تمرير الملف مباشرة
-  2. أو معالجة الملف مباشرة (استخراج + حفظ البنود)
-- تمرير `onFileSelected={handleDirectFileUpload}` إلى `ProjectBOQTab`
-
----
+- إضافة state جديد `pendingFile` من نوع `File | null`
+- تعديل `onFileSelected` ليحفظ الملف في `pendingFile` ثم يفتح الـ dialog
+- تمرير `initialFile={pendingFile}` إلى `BOQUploadDialog`
+- مسح `pendingFile` عند إغلاق الـ dialog
 
 ## التفاصيل التقنية
 
-### تصميم منطقة الرفع الجديدة في الحالة الفارغة
+### التغيير في BOQUploadDialog
 
-```text
-+--------------------------------------------------+
-|  (حدود متقطعة مع تأثير hover/drag)               |
-|                                                    |
-|              [أيقونة Upload كبيرة]                 |
-|                                                    |
-|         "No BOQ Items Yet"                         |
-|    "Drag file here or click to upload"             |
-|       "Supports PDF and Excel files"               |
-|                                                    |
-|   [Upload BOQ File]  [+ Add Item Manually]         |
-|                                                    |
-+--------------------------------------------------+
+```typescript
+// إضافة للـ interface
+interface BOQUploadDialogProps {
+  // ... الخصائص الحالية
+  initialFile?: File;
+}
+
+// إضافة useEffect داخل المكون
+useEffect(() => {
+  if (open && initialFile && !selectedFile) {
+    setSelectedFile(initialFile);
+  }
+}, [open, initialFile]);
 ```
 
-### منطق السحب والإفلات
-- `handleDragOver`: منع السلوك الافتراضي + تفعيل `isDragOver`
-- `handleDragLeave`: إلغاء `isDragOver`
-- `handleDrop`: استخراج الملف + التحقق من النوع + استدعاء `onFileSelected` أو `onUploadBOQ`
-- التحقق من أنواع الملفات المقبولة: `.pdf`, `.xlsx`, `.xls`
+### التغيير في ProjectDetailsPage
 
-### الملفات المتأثرة
+```typescript
+// إضافة state
+const [pendingFile, setPendingFile] = useState<File | null>(null);
 
-| الملف | التغيير |
-|-------|---------|
-| `src/components/project-details/ProjectBOQTab.tsx` | إعادة تصميم الحالة الفارغة مع دعم السحب والإفلات |
-| `src/pages/ProjectDetailsPage.tsx` | إضافة معالج الملف المباشر وتمريره |
+// تعديل onFileSelected
+onFileSelected={(file: File) => {
+  setPendingFile(file);
+  setShowBOQUploadDialog(true);
+}}
+
+// تمرير للـ dialog
+<BOQUploadDialog
+  open={showBOQUploadDialog}
+  onClose={() => {
+    setShowBOQUploadDialog(false);
+    setPendingFile(null);
+  }}
+  initialFile={pendingFile}
+  // ... باقي الخصائص
+/>
+```
+
+### النتيجة المتوقعة
+عند سحب ملف PDF أو Excel على المنطقة الفارغة في تبويب BOQ، سيفتح الـ dialog مع الملف محدد مسبقاً وجاهز للتحليل مباشرة - تماماً كما يعمل BOQ Analyzer.
