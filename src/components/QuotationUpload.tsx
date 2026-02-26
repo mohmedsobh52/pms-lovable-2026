@@ -149,6 +149,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   const [selectedImportItems, setSelectedImportItems] = useState<Set<number>>(new Set());
   const [isImporting, setIsImporting] = useState(false);
   const [importType, setImportType] = useState<'materials' | 'labor' | 'equipment'>('materials');
+  const [importSearchQuery, setImportSearchQuery] = useState('');
 
   // Batch analysis state
   const [selectedForBatch, setSelectedForBatch] = useState<Set<string>>(new Set());
@@ -1743,7 +1744,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
       </Dialog>
 
       {/* Import to Library Dialog */}
-      <Dialog open={importDialogOpen} onOpenChange={(open) => { if (!open) { setImportDialogOpen(false); setImportQuotation(null); } }}>
+      <Dialog open={importDialogOpen} onOpenChange={(open) => { if (!open) { setImportDialogOpen(false); setImportQuotation(null); setImportSearchQuery(''); } }}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1777,53 +1778,109 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
               </Tabs>
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Checkbox
-                  checked={selectedImportItems.size === (importQuotation?.ai_analysis?.items?.length || 0)}
-                  onCheckedChange={(checked) => {
-                    const items = importQuotation?.ai_analysis?.items || [];
-                    setSelectedImportItems(checked ? new Set(items.map((_, i) => i)) : new Set());
-                  }}
-                />
-                <span className="text-sm font-medium">تحديد الكل</span>
-              </label>
-              <Badge variant="secondary">{selectedImportItems.size} بند محدد</Badge>
+            {/* Search field */}
+            <div className="relative">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="البحث في البنود..."
+                value={importSearchQuery}
+                onChange={(e) => setImportSearchQuery(e.target.value)}
+                className="pr-9 h-9 text-sm"
+              />
             </div>
-            
-            <ScrollArea className="h-[300px] rounded-md border p-2">
-              <div className="space-y-2">
-                {(importQuotation?.ai_analysis?.items || []).map((item, idx) => (
-                  <label
-                    key={idx}
-                    className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                      selectedImportItems.has(idx) ? 'border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950/30' : 'border-border hover:bg-muted/50'
-                    }`}
-                  >
-                    <Checkbox
-                      checked={selectedImportItems.has(idx)}
-                      onCheckedChange={(checked) => {
-                        setSelectedImportItems(prev => {
-                          const next = new Set(prev);
-                          if (checked) next.add(idx); else next.delete(idx);
-                          return next;
-                        });
-                      }}
-                    />
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <p className="text-sm break-words line-clamp-2">{idx + 1}. {item.description}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(item.unit_price ?? 0).toLocaleString()} {importQuotation?.currency || 'SAR'}/{item.unit || '-'}
-                      </p>
+
+            {(() => {
+              const allItems = importQuotation?.ai_analysis?.items || [];
+              const filteredItems = importSearchQuery.trim()
+                ? allItems.map((item, idx) => ({ item, idx })).filter(({ item }) =>
+                    (item.description || '').toLowerCase().includes(importSearchQuery.toLowerCase())
+                  )
+                : allItems.map((item, idx) => ({ item, idx }));
+              
+              const filteredIndices = new Set(filteredItems.map(f => f.idx));
+              const allFilteredSelected = filteredItems.length > 0 && filteredItems.every(f => selectedImportItems.has(f.idx));
+
+              const selectedTotalPrice = Array.from(selectedImportItems).reduce((sum, idx) => {
+                const item = allItems[idx];
+                return sum + ((item?.unit_price ?? 0) * (item?.quantity ?? 1));
+              }, 0);
+
+              return (
+                <>
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={allFilteredSelected}
+                        onCheckedChange={(checked) => {
+                          setSelectedImportItems(prev => {
+                            const next = new Set(prev);
+                            filteredItems.forEach(f => {
+                              if (checked) next.add(f.idx); else next.delete(f.idx);
+                            });
+                            return next;
+                          });
+                        }}
+                      />
+                      <span className="text-sm font-medium">
+                        تحديد الكل {importSearchQuery.trim() ? `(${filteredItems.length})` : ''}
+                      </span>
+                    </label>
+                    <Badge variant="secondary">{selectedImportItems.size} بند محدد</Badge>
+                  </div>
+                  
+                  <ScrollArea className="h-[250px] rounded-md border p-2">
+                    <div className="space-y-2">
+                      {filteredItems.map(({ item, idx }) => (
+                        <label
+                          key={idx}
+                          className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                            selectedImportItems.has(idx) ? 'border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950/30' : 'border-border hover:bg-muted/50'
+                          }`}
+                        >
+                          <Checkbox
+                            checked={selectedImportItems.has(idx)}
+                            onCheckedChange={(checked) => {
+                              setSelectedImportItems(prev => {
+                                const next = new Set(prev);
+                                if (checked) next.add(idx); else next.delete(idx);
+                                return next;
+                              });
+                            }}
+                          />
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <p className="text-sm break-words line-clamp-2">{idx + 1}. {item.description}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(item.unit_price ?? 0).toLocaleString()} {importQuotation?.currency || 'SAR'}/{item.unit || '-'}
+                              {item.quantity ? ` × ${item.quantity}` : ''}
+                            </p>
+                          </div>
+                        </label>
+                      ))}
+                      {filteredItems.length === 0 && importSearchQuery.trim() && (
+                        <p className="text-sm text-muted-foreground text-center py-4">لا توجد نتائج للبحث</p>
+                      )}
                     </div>
-                  </label>
-                ))}
-              </div>
-            </ScrollArea>
+                  </ScrollArea>
+
+                  {/* Total price summary */}
+                  {selectedImportItems.size > 0 && (
+                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                      <div className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-400">
+                        <Calculator className="h-4 w-4" />
+                        إجمالي البنود المحددة
+                      </div>
+                      <span className="text-sm font-bold text-green-700 dark:text-green-400">
+                        {selectedTotalPrice.toLocaleString()} {importQuotation?.currency || 'SAR'}
+                      </span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
           
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => { setImportDialogOpen(false); setImportQuotation(null); }}>
+            <Button variant="outline" onClick={() => { setImportDialogOpen(false); setImportQuotation(null); setImportSearchQuery(''); }}>
               إلغاء
             </Button>
             <Button
