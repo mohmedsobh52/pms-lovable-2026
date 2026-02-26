@@ -26,6 +26,7 @@ import {
   Mail,
   BarChart3,
   LayoutDashboard,
+  Calculator,
 } from "lucide-react";
 
 const sections = [
@@ -33,6 +34,7 @@ const sections = [
   { nameAr: "المشاريع", nameEn: "Projects", descAr: "إدارة ومتابعة المشاريع", descEn: "Manage & track projects", path: "/projects", icon: FolderOpen, countKey: "saved_projects" },
   { nameAr: "جدول الكميات", nameEn: "BOQ Items", descAr: "بنود الأعمال والكميات", descEn: "Work items & quantities", path: "/items", icon: Layers, countKey: "project_items" },
   { nameAr: "التسعير والتحليل", nameEn: "Cost Analysis", descAr: "تحليل التكاليف والأسعار", descEn: "Cost & price analysis", path: "/cost-analysis", icon: DollarSign, countKey: "cost_analysis" },
+  { nameAr: "ملخص المناقصة", nameEn: "Tender Summary", descAr: "ملخص تكاليف المناقصة", descEn: "Tender cost summary", path: "/cost-analysis", icon: Calculator, countKey: null },
   { nameAr: "العقود", nameEn: "Contracts", descAr: "إدارة العقود والضمانات", descEn: "Contracts & warranties", path: "/contracts", icon: Briefcase, countKey: "contracts" },
   { nameAr: "عروض الاسعار", nameEn: "Quotations", descAr: "مقارنة ورفع العروض", descEn: "Upload & compare quotes", path: "/quotations", icon: FileSearch, countKey: null },
   { nameAr: "المشتريات", nameEn: "Procurement", descAr: "طلبات الشراء والموردين", descEn: "Procurement & suppliers", path: "/procurement", icon: Package, countKey: "external_partners" },
