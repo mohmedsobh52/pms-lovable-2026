@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
-import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle, Zap, CheckSquare, X, Square, Search, Library, ExternalLink, Package, Users, Truck } from "lucide-react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle, Zap, CheckSquare, X, Square, Search, Library, ExternalLink, Package, Users, Truck, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -155,6 +155,19 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   const [selectedForBatch, setSelectedForBatch] = useState<Set<string>>(new Set());
   const [isBatchAnalyzing, setIsBatchAnalyzing] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, currentName: '' });
+
+  // Batch import to library state
+  const [isBatchImporting, setIsBatchImporting] = useState(false);
+  const [batchImportProgress, setBatchImportProgress] = useState({ current: 0, total: 0 });
+  const [batchImportReportOpen, setBatchImportReportOpen] = useState(false);
+  const [batchImportReport, setBatchImportReport] = useState<{
+    totalQuotations: number;
+    totalItems: number;
+    successCount: number;
+    failCount: number;
+    totalValue: number;
+    details: { supplierName: string; itemsCount: number; value: number }[];
+  } | null>(null);
 
   // Batch selection handlers
   const handleSelectAll = useCallback(() => {
@@ -411,6 +424,12 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     }
 
     try {
+      // Ensure pdfjs is loaded before use
+      await loadPdfJs();
+      if (!pdfjsLib) {
+        throw new Error('فشل تحميل مكتبة PDF. يرجى تحديث الصفحة والمحاولة مرة أخرى.');
+      }
+
       // Get signed URL for the PDF
       const signedUrl = await getQuotationSignedUrl(quotation);
       
@@ -998,6 +1017,121 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     }
   };
 
+  // Batch import all analyzed quotations to library
+  const handleBatchImportToLibrary = async () => {
+    if (!user) return;
+    const analyzedQuotations = quotations.filter(q => q.status === 'analyzed' && q.ai_analysis?.items?.length);
+    if (analyzedQuotations.length === 0) {
+      toast({ title: "لا توجد عروض محللة", description: "يرجى تحليل العروض أولاً", variant: "destructive" });
+      return;
+    }
+
+    setIsBatchImporting(true);
+    const allItems = analyzedQuotations.flatMap(q => (q.ai_analysis?.items || []).map(item => ({ item, quotation: q })));
+    setBatchImportProgress({ current: 0, total: allItems.length });
+
+    let successCount = 0;
+    let failCount = 0;
+    const details: { supplierName: string; itemsCount: number; value: number }[] = [];
+
+    for (const q of analyzedQuotations) {
+      const items = q.ai_analysis?.items || [];
+      const supplierName = q.ai_analysis?.supplier?.name || q.supplier_name || q.name;
+      let qSuccess = 0;
+      let qValue = 0;
+
+      for (const item of items) {
+        if (!item.unit_price || item.unit_price <= 0) { failCount++; setBatchImportProgress(p => ({ ...p, current: p.current + 1 })); continue; }
+        try {
+          await addMaterial({
+            name: (item.description || '').slice(0, 100),
+            name_ar: item.description || '',
+            category: 'other',
+            unit: item.unit || 'no',
+            unit_price: item.unit_price,
+            currency: q.currency || 'SAR',
+            supplier_name: supplierName,
+            source: 'quotation',
+            is_verified: false,
+            price_date: new Date().toISOString().split('T')[0],
+          });
+          qSuccess++;
+          successCount++;
+          qValue += (item.unit_price || 0) * (item.quantity || 1);
+        } catch { failCount++; }
+        setBatchImportProgress(p => ({ ...p, current: p.current + 1 }));
+        await new Promise(r => setTimeout(r, 50));
+      }
+      details.push({ supplierName, itemsCount: qSuccess, value: qValue });
+    }
+
+    setIsBatchImporting(false);
+    setBatchImportReport({
+      totalQuotations: analyzedQuotations.length,
+      totalItems: allItems.length,
+      successCount,
+      failCount,
+      totalValue: details.reduce((s, d) => s + d.value, 0),
+      details,
+    });
+    setBatchImportReportOpen(true);
+    toast({ title: `تم استيراد ${successCount} بند إلى المكتبة`, description: `من ${analyzedQuotations.length} عرض سعر` });
+  };
+
+  // Export selected items from import dialog to Excel
+  const exportSelectedItemsToExcel = async () => {
+    if (!importQuotation) return;
+    const items = importQuotation.ai_analysis?.items || [];
+    const selected = Array.from(selectedImportItems).map(idx => items[idx]).filter(Boolean);
+    if (selected.length === 0) return;
+
+    try {
+      const ExcelJS = await import('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('بنود عرض السعر');
+
+      sheet.columns = [
+        { header: '#', key: 'num', width: 8 },
+        { header: 'الوصف', key: 'description', width: 50 },
+        { header: 'الوحدة', key: 'unit', width: 12 },
+        { header: 'الكمية', key: 'quantity', width: 12 },
+        { header: 'سعر الوحدة', key: 'unit_price', width: 15 },
+        { header: 'الإجمالي', key: 'total', width: 15 },
+      ];
+
+      sheet.getRow(1).font = { bold: true };
+      sheet.views = [{ rightToLeft: true }];
+
+      selected.forEach((item, i) => {
+        sheet.addRow({
+          num: i + 1,
+          description: item.description || '',
+          unit: item.unit || '',
+          quantity: item.quantity || 0,
+          unit_price: item.unit_price || 0,
+          total: (item.unit_price || 0) * (item.quantity || 1),
+        });
+      });
+
+      // Grand total row
+      const totalRow = sheet.addRow({ num: '', description: 'الإجمالي', unit: '', quantity: '', unit_price: '', total: selected.reduce((s, i) => s + (i.unit_price || 0) * (i.quantity || 1), 0) });
+      totalRow.font = { bold: true };
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `quotation_items_${Date.now()}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast({ title: "تم التصدير بنجاح", description: `${selected.length} بند إلى ملف Excel` });
+    } catch (error) {
+      toast({ title: "خطأ في التصدير", description: "فشل تصدير البنود إلى Excel", variant: "destructive" });
+    }
+  };
+
   const deleteQuotation = async (quotation: Quotation) => {
     if (!user) return;
 
@@ -1248,6 +1382,20 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                   )}
                   تحليل المحدد ({selectedForBatch.size})
                 </Button>
+
+                {/* Batch Import All to Library */}
+                {quotations.some(q => q.status === 'analyzed' && q.ai_analysis?.items?.length) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBatchImportToLibrary}
+                    disabled={isBatchImporting}
+                    className="gap-1.5 border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950/30"
+                  >
+                    {isBatchImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Library className="w-3.5 h-3.5" />}
+                    استيراد الكل إلى المكتبة
+                  </Button>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -1884,6 +2032,15 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
               إلغاء
             </Button>
             <Button
+              variant="outline"
+              onClick={exportSelectedItemsToExcel}
+              disabled={selectedImportItems.size === 0}
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
+              تصدير Excel ({selectedImportItems.size})
+            </Button>
+            <Button
               onClick={handleImportToLibrary}
               disabled={selectedImportItems.size === 0 || isImporting}
               className="gap-2 bg-green-600 hover:bg-green-700"
@@ -1934,6 +2091,83 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
               <ScanText className="w-4 h-4" />
               بدء OCR
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Import Progress */}
+      {isBatchImporting && (
+        <div className="fixed bottom-4 right-4 z-50 bg-background border rounded-lg shadow-lg p-4 w-80 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Loader2 className="w-4 h-4 animate-spin text-green-600" />
+            جاري الاستيراد الجماعي...
+          </div>
+          <Progress value={(batchImportProgress.current / Math.max(batchImportProgress.total, 1)) * 100} className="h-2" />
+          <p className="text-xs text-muted-foreground text-center">
+            {batchImportProgress.current} من {batchImportProgress.total} بند
+          </p>
+        </div>
+      )}
+
+      {/* Batch Import Report Dialog */}
+      <Dialog open={batchImportReportOpen} onOpenChange={setBatchImportReportOpen}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              تقرير الاستيراد الجماعي
+            </DialogTitle>
+            <DialogDescription>
+              ملخص عملية استيراد البنود إلى المكتبة
+            </DialogDescription>
+          </DialogHeader>
+
+          {batchImportReport && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg bg-muted/50 text-center">
+                  <p className="text-2xl font-bold text-primary">{batchImportReport.totalQuotations}</p>
+                  <p className="text-xs text-muted-foreground">عرض سعر</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50 text-center">
+                  <p className="text-2xl font-bold text-green-600">{batchImportReport.successCount}</p>
+                  <p className="text-xs text-muted-foreground">بند تم استيراده</p>
+                </div>
+                {batchImportReport.failCount > 0 && (
+                  <div className="p-3 rounded-lg bg-destructive/10 text-center">
+                    <p className="text-2xl font-bold text-destructive">{batchImportReport.failCount}</p>
+                    <p className="text-xs text-muted-foreground">بند فاشل</p>
+                  </div>
+                )}
+                <div className="p-3 rounded-lg bg-muted/50 text-center">
+                  <p className="text-lg font-bold text-primary">{batchImportReport.totalValue.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">إجمالي القيمة</p>
+                </div>
+              </div>
+
+              {batchImportReport.details.length > 0 && (
+                <div className="space-y-2">
+                  <h5 className="text-sm font-medium">تفاصيل كل عرض:</h5>
+                  <ScrollArea className="h-[150px]">
+                    <div className="space-y-1.5">
+                      {batchImportReport.details.map((d, i) => (
+                        <div key={i} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30">
+                          <span className="truncate flex-1">{d.supplierName}</span>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span>{d.itemsCount} بند</span>
+                            <span className="font-medium">{d.value.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setBatchImportReportOpen(false)}>إغلاق</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
