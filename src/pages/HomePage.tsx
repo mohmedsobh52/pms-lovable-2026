@@ -25,9 +25,11 @@ import {
   Phone,
   Mail,
   BarChart3,
+  LayoutDashboard,
 } from "lucide-react";
 
 const sections = [
+  { nameAr: "لوحة المعلومات", nameEn: "Dashboard", descAr: "نظرة عامة على الأداء", descEn: "Performance overview", path: "/dashboard", icon: LayoutDashboard, countKey: null },
   { nameAr: "المشاريع", nameEn: "Projects", descAr: "إدارة ومتابعة المشاريع", descEn: "Manage & track projects", path: "/projects", icon: FolderOpen, countKey: "saved_projects" },
   { nameAr: "جدول الكميات", nameEn: "BOQ Items", descAr: "بنود الأعمال والكميات", descEn: "Work items & quantities", path: "/items", icon: Layers, countKey: "project_items" },
   { nameAr: "التسعير والتحليل", nameEn: "Cost Analysis", descAr: "تحليل التكاليف والأسعار", descEn: "Cost & price analysis", path: "/cost-analysis", icon: DollarSign, countKey: "cost_analysis" },
