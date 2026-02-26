@@ -1,39 +1,64 @@
 
-# تحسين شكل جداول المكتبة وتوحيد التصنيفات
+# تحسين المكتبة: تعديل مباشر من الجدول + تصدير Excel
 
-## 1. تحسين شكل الجداول (الثلاث تبويبات)
+## الملخص
+إضافة خاصية التعديل المباشر (inline editing) للأسعار والأسماء في جداول المكتبة الثلاثة، مع زر تصدير Excel شامل لكل تبويب.
 
-تطبيق نمط الجداول الموحد المستخدم في باقي التطبيق (BOQ tables) على جداول المكتبة:
+---
 
-### التغييرات المرئية:
-- **رؤوس الجداول**: استبدال `bg-muted/50` بخلفية navy احترافية `bg-[hsl(218,50%,18%)]/5` مع نص `font-semibold`
-- **الصفوف**: إضافة تأثير hover أزرق فاتح `hover:bg-blue-50/50 dark:hover:bg-blue-900/10`
-- **الحدود**: تحسين `rounded-lg border shadow-sm` للجدول
-- **الخلايا**: تحسين padding وتنسيق الأعمدة (محاذاة الأسعار في المنتصف، الأكواد بخط monospace)
-- **أزرار الإجراءات**: تحسين أزرار التعديل والحذف بتأثيرات hover ملونة
-- **عدد النتائج**: نقله لأعلى الجدول في شريط معلومات أنيق
+## 1. التعديل المباشر من الجدول (Inline Editing)
 
-## 2. توحيد وتحسين التصنيفات
+### الآلية
+عند الضغط على زر التعديل (Edit) في أي صف، يتحول الصف إلى وضع التعديل حيث تظهر حقول إدخال بدلاً من النصوص الثابتة. يمكن للمستخدم تعديل الحقول ثم الحفظ أو الإلغاء.
 
-### تحسين عرض التصنيفات في الثلاث تبويبات:
-- استبدال `Badge variant="outline"` العادي بـ badges ملونة حسب المجموعة:
-  - مواسير: لون أزرق
-  - شبكات: لون بنفسجي  
-  - عام: لون رمادي
-  - حفر ونقل: لون برتقالي
-  - إشراف: لون أخضر
+### الحقول القابلة للتعديل في كل تبويب
 
-## 3. تحسين Pagination موحد
+**المواد (MaterialsTab):**
+- الاسم (name)
+- سعر الوحدة (unit_price)
+- الوحدة (unit)
+- العلامة التجارية (brand)
 
-توحيد شكل ترقيم الصفحات في الثلاث تبويبات ليكون متطابقاً:
-- عرض "Showing X-Y of Z" على اليسار
-- أزرار التنقل على اليمين مع رقم الصفحة
+**العمالة (LaborTab):**
+- الاسم (name)
+- سعر اليوم (unit_rate)
+- مستوى المهارة (skill_level)
 
-## 4. تحسين شريط البحث والفلاتر
+**المعدات (EquipmentTab):**
+- الاسم (name)
+- سعر اليوم (rental_rate)
 
-- توسيع شريط البحث ليأخذ مساحة أكبر
-- تحسين تصميم فلتر التصنيف مع أيقونة Filter
-- إضافة عدد النتائج بجانب الفلتر
+### التصميم
+- State: `editingId` لتتبع الصف قيد التعديل، و `editData` لتخزين القيم المؤقتة
+- عند الضغط على Edit: يتم تعيين `editingId` وتعبئة `editData` بالقيم الحالية
+- حقول الإدخال تظهر بحجم مصغر (`h-8`) داخل خلايا الجدول
+- أزرار Save (Check) و Cancel (X) تحل محل أزرار Edit/Delete
+- Enter للحفظ، Escape للإلغاء
+- عند الحفظ يتم استدعاء `updateMaterial` / `updateLaborRate` / `updateEquipmentRate`
+
+---
+
+## 2. تصدير بيانات المكتبة إلى Excel
+
+### الآلية
+إضافة زر "تصدير" بجانب زر "استيراد" في كل تبويب. عند الضغط عليه يتم إنشاء ملف Excel باستخدام `exceljs` يحتوي على جميع البيانات المفلترة حالياً.
+
+### محتوى ملف Excel لكل تبويب
+
+**المواد:**
+الكود | الاسم | الاسم العربي | التصنيف | الوحدة | سعر الوحدة | العملة | العلامة التجارية | المورد | المواصفات
+
+**العمالة:**
+الكود | المسمى | الاسم العربي | التصنيف | مستوى المهارة | الوحدة | سعر اليوم | سعر الساعة | العملة
+
+**المعدات:**
+الكود | الاسم | الاسم العربي | التصنيف | سعر اليوم | سعر الساعة | سعر الشهر | العملة | يشمل المشغل | يشمل الوقود
+
+### التنسيق
+- رأس الجدول بخلفية ملونة وخط عريض
+- عمود الاسم العربي بتنسيق RTL
+- تنسيق العملة للأعمدة الرقمية
+- اسم الملف: `Library_Materials_YYYY-MM-DD.xlsx`
 
 ---
 
@@ -43,58 +68,91 @@
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/library/MaterialsTab.tsx` | تحسين شكل الجدول + pagination + badges ملونة |
-| `src/components/library/LaborTab.tsx` | تحسين شكل الجدول + pagination + badges ملونة |
-| `src/components/library/EquipmentTab.tsx` | تحسين شكل الجدول + pagination + badges ملونة |
+| `src/components/library/MaterialsTab.tsx` | inline editing + export Excel |
+| `src/components/library/LaborTab.tsx` | inline editing + export Excel |
+| `src/components/library/EquipmentTab.tsx` | inline editing + export Excel |
 
-### نمط الجدول المحسّن
-
-```typescript
-// Header row
-<TableRow className="bg-[hsl(218,50%,18%)]/5 dark:bg-[hsl(218,45%,18%)]/20">
-  <TableHead className="font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">...</TableHead>
-</TableRow>
-
-// Data row  
-<TableRow className="hover:bg-[hsl(217,91%,60%)]/5 dark:hover:bg-[hsl(217,91%,60%)]/10">
-
-// Category badge with color
-<Badge className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-0">
-  {categoryLabel}
-</Badge>
-```
-
-### Pagination موحد
+### نمط التعديل المباشر
 
 ```typescript
-<div className="flex items-center justify-between px-2 pt-3">
-  <span className="text-sm text-muted-foreground">
-    Showing {from}-{to} of {total}
-  </span>
-  <div className="flex items-center gap-1">
-    <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage === 1}>
-      <ChevronRight className="h-4 w-4" />
-    </Button>
-    <span className="text-sm min-w-[60px] text-center">{currentPage} / {totalPages}</span>
-    <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage === totalPages}>
-      <ChevronLeft className="h-4 w-4" />
-    </Button>
-  </div>
-</div>
-```
+// State للتعديل
+const [editingId, setEditingId] = useState<string | null>(null);
+const [editData, setEditData] = useState<Record<string, any>>({});
 
-### ألوان التصنيفات حسب المجموعة
-
-```typescript
-const getCategoryBadgeColor = (category: string) => {
-  // Pipes
-  if (category.startsWith('pipes_')) return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30';
-  // Networks  
-  if (['fittings_valves','manholes','pumps_stations','water_tanks','water_treatment'].includes(category))
-    return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30';
-  // Construction
-  if (['concrete','steel','cement'].includes(category))
-    return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30';
-  return 'bg-gray-100 text-gray-700 dark:bg-gray-800';
+// بدء التعديل
+const startEdit = (item: MaterialPrice) => {
+  setEditingId(item.id);
+  setEditData({ name: item.name, unit_price: item.unit_price, unit: item.unit, brand: item.brand });
 };
+
+// حفظ التعديل
+const saveEdit = async () => {
+  if (!editingId) return;
+  await updateMaterial(editingId, editData);
+  setEditingId(null);
+};
+
+// في الجدول - خلية السعر
+<TableCell>
+  {editingId === item.id ? (
+    <Input type="number" className="h-8 w-24" value={editData.unit_price}
+      onChange={(e) => setEditData(prev => ({...prev, unit_price: parseFloat(e.target.value)}))}
+      onKeyDown={(e) => e.key === 'Enter' ? saveEdit() : e.key === 'Escape' ? cancelEdit() : null}
+    />
+  ) : (
+    <span>{item.unit_price.toLocaleString()}</span>
+  )}
+</TableCell>
+```
+
+### نمط تصدير Excel
+
+```typescript
+const exportToExcel = async () => {
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Materials');
+  
+  // Headers
+  sheet.addRow(['Code','Name','Name (AR)','Category','Unit','Unit Price','Currency','Brand']);
+  sheet.getRow(1).font = { bold: true };
+  sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a2744' } };
+  sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  
+  // Data rows
+  filteredMaterials.forEach(m => {
+    sheet.addRow([`M${...}`, m.name, m.name_ar, getCategoryLabel(m.category), m.unit, m.unit_price, m.currency, m.brand]);
+  });
+  
+  // Download
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Library_Materials_${new Date().toISOString().split('T')[0]}.xlsx`;
+  a.click();
+};
+```
+
+### تعديل زر Edit الحالي
+
+حالياً الزر موجود لكنه لا يفعل شيئاً. سيتم ربطه بدالة `startEdit`:
+
+```typescript
+// قبل (لا يعمل)
+<Button variant="ghost" size="icon"><Edit2 /></Button>
+
+// بعد (يعمل)
+<Button variant="ghost" size="icon" onClick={() => startEdit(material)}>
+  <Edit2 />
+</Button>
+
+// في وضع التعديل - أزرار حفظ وإلغاء
+{editingId === material.id && (
+  <>
+    <Button size="icon" onClick={saveEdit}><Check /></Button>
+    <Button size="icon" onClick={cancelEdit}><X /></Button>
+  </>
+)}
 ```
