@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, memo } from "react";
+import { useState, useMemo, useEffect, useCallback, useDeferredValue, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +39,7 @@ export const MaterialsTab = memo(function MaterialsTab({ validityFilter }: Mater
   const { isArabic } = useLanguage();
   const { materials, suppliers, loading, addMaterial, updateMaterial, deleteMaterial, importFromExcel } = useMaterialPrices();
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -134,13 +135,13 @@ export const MaterialsTab = memo(function MaterialsTab({ validityFilter }: Mater
 
   const filteredMaterials = useMemo(() => {
     return materials.filter(m => {
-      const matchesSearch = !search || m.name.toLowerCase().includes(search.toLowerCase()) || (m.name_ar && m.name_ar.includes(search)) || m.category.toLowerCase().includes(search.toLowerCase()) || (m.brand && m.brand.toLowerCase().includes(search.toLowerCase()));
+      const matchesSearch = !deferredSearch || m.name.toLowerCase().includes(deferredSearch.toLowerCase()) || (m.name_ar && m.name_ar.includes(deferredSearch)) || m.category.toLowerCase().includes(deferredSearch.toLowerCase()) || (m.brand && m.brand.toLowerCase().includes(deferredSearch.toLowerCase()));
       if (!matchesSearch) return false;
       if (categoryFilter && categoryFilter !== "all" && m.category !== categoryFilter) return false;
       if (validityFilter) { const status = getValidityStatus(m.valid_until, m.price_date); return status === validityFilter; }
       return true;
     });
-  }, [materials, search, categoryFilter, validityFilter]);
+  }, [materials, deferredSearch, categoryFilter, validityFilter]);
 
   const totalPages = Math.ceil(filteredMaterials.length / ITEMS_PER_PAGE);
   const paginatedMaterials = useMemo(() => {
