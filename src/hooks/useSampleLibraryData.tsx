@@ -230,13 +230,26 @@ export const useSampleLibraryData = () => {
     }
   }, [user]);
 
-  const addWaterSewageMaterials = useCallback(async () => {
+  const checkExistingNetworkMaterials = useCallback(async (): Promise<number> => {
+    if (!user) return 0;
+    try {
+      const { count, error } = await supabase
+        .from('material_prices')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('source', 'water_sewage_data');
+      if (error) throw error;
+      return count || 0;
+    } catch { return 0; }
+  }, [user]);
+
+  const addWaterSewageMaterials = useCallback(async (onProgress?: (percent: number) => void) => {
     if (!user) return false;
 
     try {
       const today = new Date();
       const validUntil = new Date(today);
-      validUntil.setMonth(validUntil.getMonth() + 6); // Valid for 6 months
+      validUntil.setMonth(validUntil.getMonth() + 6);
 
       const materialsToInsert = WATER_SEWAGE_MATERIALS.map((m, index) => ({
         user_id: user.id,
@@ -255,14 +268,16 @@ export const useSampleLibraryData = () => {
         waste_percentage: 0,
       }));
 
-      // Insert in batches of 30 to avoid payload limits
       const batchSize = 30;
+      const totalBatches = Math.ceil(materialsToInsert.length / batchSize);
       for (let i = 0; i < materialsToInsert.length; i += batchSize) {
         const batch = materialsToInsert.slice(i, i + batchSize);
         const { error } = await supabase
           .from('material_prices')
           .insert(batch);
         if (error) throw error;
+        const completedBatches = Math.floor(i / batchSize) + 1;
+        onProgress?.(Math.round((completedBatches / totalBatches) * 100));
       }
 
       return true;
@@ -347,7 +362,7 @@ export const useSampleLibraryData = () => {
     }
   }, [user]);
 
-  const addNetworkLaborEquipment = useCallback(async () => {
+  const addNetworkLaborEquipment = useCallback(async (onProgress?: (percent: number) => void) => {
     if (!user) return false;
 
     try {
@@ -355,7 +370,6 @@ export const useSampleLibraryData = () => {
       const validUntil = new Date(today);
       validUntil.setMonth(validUntil.getMonth() + 3);
 
-      // Insert network labor
       const laborToInsert = NETWORK_LABOR.map((l, index) => ({
         user_id: user.id,
         code: l.code, name: l.name, name_ar: l.name_ar,
@@ -370,8 +384,8 @@ export const useSampleLibraryData = () => {
 
       const { error: laborError } = await supabase.from('labor_rates').insert(laborToInsert);
       if (laborError) throw laborError;
+      onProgress?.(50);
 
-      // Insert network equipment
       const equipmentToInsert = NETWORK_EQUIPMENT.map((e, index) => ({
         user_id: user.id,
         code: e.code, name: e.name, name_ar: e.name_ar,
@@ -388,6 +402,7 @@ export const useSampleLibraryData = () => {
 
       const { error: equipError } = await supabase.from('equipment_rates').insert(equipmentToInsert);
       if (equipError) throw equipError;
+      onProgress?.(100);
 
       toast.success(`تم إضافة ${laborToInsert.length} عمالة و ${equipmentToInsert.length} معدة شبكات`);
       return true;
@@ -420,6 +435,22 @@ export const useSampleLibraryData = () => {
     }
   }, [addSampleMaterials, addSampleLabor, addSampleEquipment]);
 
+  const addAllNetworkData = useCallback(async (onProgress?: (percent: number) => void) => {
+    if (!user) return false;
+    try {
+      const materialsResult = await addWaterSewageMaterials((p) => onProgress?.(Math.round(p * 0.6)));
+      if (!materialsResult) return false;
+      onProgress?.(60);
+      const leResult = await addNetworkLaborEquipment((p) => onProgress?.(60 + Math.round(p * 0.4)));
+      if (!leResult) return false;
+      onProgress?.(100);
+      return true;
+    } catch (error) {
+      console.error('Error adding all network data:', error);
+      return false;
+    }
+  }, [user, addWaterSewageMaterials, addNetworkLaborEquipment]);
+
   return {
     addSampleMaterials,
     addSampleLabor,
@@ -427,6 +458,8 @@ export const useSampleLibraryData = () => {
     addAllSampleData,
     addWaterSewageMaterials,
     addNetworkLaborEquipment,
+    addAllNetworkData,
+    checkExistingNetworkMaterials,
     sampleCounts: {
       materials: SAMPLE_MATERIALS.length,
       labor: SAMPLE_LABOR.length,

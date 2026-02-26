@@ -1,8 +1,8 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Package, Users, Truck, Database, Loader2, Droplets, Wrench, BarChart3 } from "lucide-react";
+import { Package, Users, Truck, Database, Loader2, Droplets, Wrench, BarChart3, PackagePlus } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { MaterialsTab } from "./library/MaterialsTab";
 import { LaborTab } from "./library/LaborTab";
@@ -15,6 +15,7 @@ import { useSampleLibraryData } from "@/hooks/useSampleLibraryData";
 import { PriceValiditySummary } from "./library/PriceValiditySummary";
 import { getValidityStats } from "./library/PriceValidityIndicator";
 import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -25,25 +26,38 @@ export const LibraryDatabase = () => {
   const { materials, refreshMaterials } = useMaterialPrices();
   const { laborRates, refreshLaborRates } = useLaborRates();
   const { equipmentRates, refreshEquipmentRates } = useEquipmentRates();
-  const { addAllSampleData, addWaterSewageMaterials, addNetworkLaborEquipment, sampleCounts } = useSampleLibraryData();
+  const { addAllSampleData, addWaterSewageMaterials, addNetworkLaborEquipment, addAllNetworkData, checkExistingNetworkMaterials, sampleCounts } = useSampleLibraryData();
   const [isAddingSampleData, setIsAddingSampleData] = useState(false);
   const [isAddingNetworkData, setIsAddingNetworkData] = useState(false);
   const [isAddingNetworkLE, setIsAddingNetworkLE] = useState(false);
+  const [isAddingAllNetwork, setIsAddingAllNetwork] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [showProgress, setShowProgress] = useState(false);
+  const [duplicateCount, setDuplicateCount] = useState<number | null>(null);
   const [validityFilter, setValidityFilter] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("materials");
 
-  const handleAddSampleData = async () => {
+  const isAnyLoading = isAddingSampleData || isAddingNetworkData || isAddingNetworkLE || isAddingAllNetwork;
+
+  const handleAddSampleData = useCallback(async () => {
     setIsAddingSampleData(true);
     const success = await addAllSampleData();
     if (success) {
       await Promise.all([refreshMaterials(), refreshLaborRates(), refreshEquipmentRates()]);
     }
     setIsAddingSampleData(false);
-  };
+  }, [addAllSampleData, refreshMaterials, refreshLaborRates, refreshEquipmentRates]);
 
-  const handleAddNetworkData = async () => {
+  const handleCheckAndAddNetworkData = useCallback(async () => {
+    const existing = await checkExistingNetworkMaterials();
+    setDuplicateCount(existing);
+  }, [checkExistingNetworkMaterials]);
+
+  const handleAddNetworkData = useCallback(async () => {
     setIsAddingNetworkData(true);
-    const success = await addWaterSewageMaterials();
+    setShowProgress(true);
+    setProgress(0);
+    const success = await addWaterSewageMaterials((p) => setProgress(p));
     if (success) {
       toast.success(isArabic ? `تم إضافة ${sampleCounts.waterSewage} مادة شبكات` : `Added ${sampleCounts.waterSewage} network materials`);
       await refreshMaterials();
@@ -51,16 +65,42 @@ export const LibraryDatabase = () => {
       toast.error(isArabic ? "فشل في إضافة مواد الشبكات" : "Failed to add network materials");
     }
     setIsAddingNetworkData(false);
-  };
+    setShowProgress(false);
+    setProgress(0);
+    setDuplicateCount(null);
+  }, [addWaterSewageMaterials, refreshMaterials, isArabic, sampleCounts.waterSewage]);
 
-  const handleAddNetworkLE = async () => {
+  const handleAddNetworkLE = useCallback(async () => {
     setIsAddingNetworkLE(true);
-    const success = await addNetworkLaborEquipment();
+    setShowProgress(true);
+    setProgress(0);
+    const success = await addNetworkLaborEquipment((p) => setProgress(p));
     if (success) {
       await Promise.all([refreshLaborRates(), refreshEquipmentRates()]);
     }
     setIsAddingNetworkLE(false);
-  };
+    setShowProgress(false);
+    setProgress(0);
+  }, [addNetworkLaborEquipment, refreshLaborRates, refreshEquipmentRates]);
+
+  const handleAddAllNetworkData = useCallback(async () => {
+    setIsAddingAllNetwork(true);
+    setShowProgress(true);
+    setProgress(0);
+    const success = await addAllNetworkData((p) => setProgress(p));
+    if (success) {
+      toast.success(isArabic 
+        ? `تم إضافة ${sampleCounts.waterSewage} مادة + ${sampleCounts.networkLabor} عمالة + ${sampleCounts.networkEquipment} معدة`
+        : `Added ${sampleCounts.waterSewage} materials + ${sampleCounts.networkLabor} labor + ${sampleCounts.networkEquipment} equipment`
+      );
+      await Promise.all([refreshMaterials(), refreshLaborRates(), refreshEquipmentRates()]);
+    } else {
+      toast.error(isArabic ? "فشل في إضافة بيانات الشبكات" : "Failed to add network data");
+    }
+    setIsAddingAllNetwork(false);
+    setShowProgress(false);
+    setProgress(0);
+  }, [addAllNetworkData, refreshMaterials, refreshLaborRates, refreshEquipmentRates, isArabic, sampleCounts]);
 
   const getCurrentTabData = () => {
     switch (activeTab) {
@@ -75,6 +115,22 @@ export const LibraryDatabase = () => {
   const totalItems = materials.length + laborRates.length + equipmentRates.length;
   const showEmptyState = totalItems === 0;
 
+  const ProgressBar = () => showProgress ? (
+    <div className="mt-3 space-y-1">
+      <Progress value={progress} className="h-2" />
+      <p className="text-xs text-muted-foreground text-center">{progress}%</p>
+    </div>
+  ) : null;
+
+  const DuplicateWarning = () => duplicateCount && duplicateCount > 0 ? (
+    <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-sm text-yellow-700 dark:text-yellow-400">
+      {isArabic 
+        ? `⚠️ يوجد ${duplicateCount} مادة شبكات موجودة بالفعل. سيتم إضافة نسخ جديدة.`
+        : `⚠️ ${duplicateCount} network materials already exist. New copies will be added.`
+      }
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-4">
       {showEmptyState && (
@@ -87,9 +143,9 @@ export const LibraryDatabase = () => {
           <div className="flex flex-wrap items-center justify-center gap-3">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button className="gap-2" disabled={isAddingSampleData}>
+                <Button className="gap-2" disabled={isAnyLoading}>
                   {isAddingSampleData ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-                  {isArabic ? "إضافة بيانات تجريبية" : "Add Sample Data"}
+                  {isAddingSampleData ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "إضافة بيانات تجريبية" : "Add Sample Data")}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -111,11 +167,11 @@ export const LibraryDatabase = () => {
               </AlertDialogContent>
             </AlertDialog>
 
-            <AlertDialog>
+            <AlertDialog onOpenChange={(open) => { if (open) handleCheckAndAddNetworkData(); else setDuplicateCount(null); }}>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" className="gap-2" disabled={isAddingNetworkData}>
+                <Button variant="outline" className="gap-2" disabled={isAnyLoading}>
                   {isAddingNetworkData ? <Loader2 className="h-4 w-4 animate-spin" /> : <Droplets className="h-4 w-4" />}
-                  {isArabic ? "إضافة مواد الشبكات" : "Add Network Materials"}
+                  {isAddingNetworkData ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? `إضافة مواد الشبكات (${sampleCounts.waterSewage})` : `Add Network Materials (${sampleCounts.waterSewage})`)}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -129,19 +185,23 @@ export const LibraryDatabase = () => {
                     <li>{isArabic ? "محابس ووصلات" : "Valves & Fittings"}</li>
                     <li>{isArabic ? "غرف تفتيش ومضخات" : "Manholes & Pumps"}</li>
                   </ul>
+                  <DuplicateWarning />
+                  <ProgressBar />
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleAddNetworkData}>{isArabic ? "إضافة" : "Add"}</AlertDialogAction>
+                  <AlertDialogCancel disabled={isAddingNetworkData}>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleAddNetworkData} disabled={isAddingNetworkData}>
+                    {isAddingNetworkData ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "إضافة" : "Add")}
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" className="gap-2" disabled={isAddingNetworkLE}>
+                <Button variant="outline" className="gap-2" disabled={isAnyLoading}>
                   {isAddingNetworkLE ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wrench className="h-4 w-4" />}
-                  {isArabic ? "عمالة ومعدات الشبكات" : "Network Labor & Equipment"}
+                  {isAddingNetworkLE ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "عمالة ومعدات الشبكات" : "Network Labor & Equipment")}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -154,10 +214,46 @@ export const LibraryDatabase = () => {
                     <li>{sampleCounts.networkLabor} {isArabic ? "عمالة متخصصة (فني مواسير، لحام، غواص...)" : "Specialized labor (pipe fitter, welder, diver...)"}</li>
                     <li>{sampleCounts.networkEquipment} {isArabic ? "معدة متخصصة (لحام HDPE، نزح مياه، CCTV...)" : "Specialized equipment (HDPE fusion, dewatering, CCTV...)"}</li>
                   </ul>
+                  <ProgressBar />
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleAddNetworkLE}>{isArabic ? "إضافة" : "Add"}</AlertDialogAction>
+                  <AlertDialogCancel disabled={isAddingNetworkLE}>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleAddNetworkLE} disabled={isAddingNetworkLE}>
+                    {isAddingNetworkLE ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "إضافة" : "Add")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Combined Add All Network Data Button */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="default" className="gap-2" disabled={isAnyLoading}>
+                  {isAddingAllNetwork ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
+                  {isAddingAllNetwork ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "إضافة جميع بيانات الشبكات" : "Add All Network Data")}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{isArabic ? "إضافة جميع بيانات الشبكات" : "Add All Network Data"}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {isArabic ? "سيتم إضافة جميع البيانات التالية دفعة واحدة:" : "All the following data will be added at once:"}
+                  </AlertDialogDescription>
+                  <ul className="list-disc list-inside text-sm text-muted-foreground">
+                    <li>{sampleCounts.waterSewage} {isArabic ? "مادة شبكات" : "Network materials"}</li>
+                    <li>{sampleCounts.networkLabor} {isArabic ? "عمالة متخصصة" : "Specialized labor"}</li>
+                    <li>{sampleCounts.networkEquipment} {isArabic ? "معدة متخصصة" : "Specialized equipment"}</li>
+                  </ul>
+                  <div className="mt-2 p-2 bg-muted rounded text-sm font-medium text-center">
+                    {isArabic ? `المجموع: ${sampleCounts.waterSewage + sampleCounts.networkLabor + sampleCounts.networkEquipment} عنصر` : `Total: ${sampleCounts.waterSewage + sampleCounts.networkLabor + sampleCounts.networkEquipment} items`}
+                  </div>
+                  <ProgressBar />
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isAddingAllNetwork}>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleAddAllNetworkData} disabled={isAddingAllNetwork}>
+                    {isAddingAllNetwork ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "إضافة الكل" : "Add All")}
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -167,13 +263,13 @@ export const LibraryDatabase = () => {
 
       {/* Contextual add buttons when library is not empty */}
       {!showEmptyState && (
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 flex-wrap">
           {activeTab === "materials" && (
-            <AlertDialog>
+            <AlertDialog onOpenChange={(open) => { if (open) handleCheckAndAddNetworkData(); else setDuplicateCount(null); }}>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2" disabled={isAddingNetworkData}>
+                <Button variant="outline" size="sm" className="gap-2" disabled={isAnyLoading}>
                   {isAddingNetworkData ? <Loader2 className="h-4 w-4 animate-spin" /> : <Droplets className="h-4 w-4" />}
-                  {isArabic ? "إضافة مواد الشبكات" : "Add Network Materials"}
+                  {isAddingNetworkData ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? `إضافة مواد الشبكات (${sampleCounts.waterSewage})` : `Add Network Materials (${sampleCounts.waterSewage})`)}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -182,10 +278,14 @@ export const LibraryDatabase = () => {
                   <AlertDialogDescription>
                     {isArabic ? `سيتم إضافة ${sampleCounts.waterSewage} مادة متخصصة.` : `${sampleCounts.waterSewage} specialized materials will be added.`}
                   </AlertDialogDescription>
+                  <DuplicateWarning />
+                  <ProgressBar />
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleAddNetworkData}>{isArabic ? "إضافة" : "Add"}</AlertDialogAction>
+                  <AlertDialogCancel disabled={isAddingNetworkData}>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleAddNetworkData} disabled={isAddingNetworkData}>
+                    {isAddingNetworkData ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "إضافة" : "Add")}
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -193,9 +293,9 @@ export const LibraryDatabase = () => {
           {(activeTab === "labor" || activeTab === "equipment") && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2" disabled={isAddingNetworkLE}>
+                <Button variant="outline" size="sm" className="gap-2" disabled={isAnyLoading}>
                   {isAddingNetworkLE ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wrench className="h-4 w-4" />}
-                  {isArabic ? "عمالة ومعدات الشبكات" : "Network Labor & Equipment"}
+                  {isAddingNetworkLE ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "عمالة ومعدات الشبكات" : "Network Labor & Equipment")}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -207,14 +307,46 @@ export const LibraryDatabase = () => {
                       : `${sampleCounts.networkLabor} labor roles and ${sampleCounts.networkEquipment} equipment items will be added.`
                     }
                   </AlertDialogDescription>
+                  <ProgressBar />
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleAddNetworkLE}>{isArabic ? "إضافة" : "Add"}</AlertDialogAction>
+                  <AlertDialogCancel disabled={isAddingNetworkLE}>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleAddNetworkLE} disabled={isAddingNetworkLE}>
+                    {isAddingNetworkLE ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "إضافة" : "Add")}
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           )}
+          {/* Add All Network Data - always visible */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2" disabled={isAnyLoading}>
+                {isAddingAllNetwork ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
+                {isAddingAllNetwork ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "إضافة جميع بيانات الشبكات" : "Add All Network Data")}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{isArabic ? "إضافة جميع بيانات الشبكات" : "Add All Network Data"}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {isArabic ? "سيتم إضافة:" : "Will be added:"}
+                </AlertDialogDescription>
+                <ul className="list-disc list-inside text-sm text-muted-foreground">
+                  <li>{sampleCounts.waterSewage} {isArabic ? "مادة" : "Materials"}</li>
+                  <li>{sampleCounts.networkLabor} {isArabic ? "عمالة" : "Labor"}</li>
+                  <li>{sampleCounts.networkEquipment} {isArabic ? "معدة" : "Equipment"}</li>
+                </ul>
+                <ProgressBar />
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isAddingAllNetwork}>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+                <AlertDialogAction onClick={handleAddAllNetworkData} disabled={isAddingAllNetwork}>
+                  {isAddingAllNetwork ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "إضافة الكل" : "Add All")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
 
