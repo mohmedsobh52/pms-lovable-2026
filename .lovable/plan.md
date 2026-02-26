@@ -1,37 +1,62 @@
 
 
-# معالجة مشكلة حوار استيراد بنود عرض السعر إلى المكتبة
+# تحسين حوار استيراد البنود إلى المكتبة
 
-## المشكلة
+## 1. التحقق من عدم تجاوز العناصر
 
-حوار "استيراد بنود عرض السعر إلى المكتبة" يعاني من مشكلة تجاوز العناصر (overflow) حيث تمتد حدود البنود الخضراء خارج حدود الحوار. السبب الرئيسي:
-1. `DialogContent` لا يحتوي على `overflow-hidden`
-2. أوصاف البنود الطويلة (مثل "PRESSURE REDUCING VALVE DN400 PN16 GGG50") تتجاوز عرض الحاوية رغم وجود `truncate`
-3. `ScrollArea` لا تقيد المحتوى بشكل صحيح
+الإصلاحات السابقة (overflow-hidden + break-words + line-clamp-2) مطبقة بالفعل. سأتحقق عملياً بعد التنفيذ.
 
-## الحل
+## 2. إضافة خاصية البحث والفلترة
 
-### الملف: `src/components/QuotationUpload.tsx` (سطر 1747-1820)
+### الملف: `src/components/QuotationUpload.tsx`
 
-1. **إضافة `overflow-hidden` إلى `DialogContent`** لمنع تجاوز المحتوى:
-   - تغيير: `className="max-w-lg max-h-[80vh]"` 
-   - إلى: `className="max-w-lg max-h-[80vh] overflow-hidden"`
+**إضافة state جديد:**
+```typescript
+const [importSearchQuery, setImportSearchQuery] = useState('');
+```
 
-2. **إضافة `overflow-hidden` إلى حاوية كل بند** لمنع تجاوز النص:
-   - تغيير: `className="flex-1 min-w-0"`
-   - إلى: `className="flex-1 min-w-0 overflow-hidden"`
+**إضافة حقل بحث** بين "تحديد الكل" و ScrollArea (سطر ~1793):
+- حقل Input مع أيقونة Search
+- placeholder: "البحث في البنود..."
+- يبحث في `item.description` بتطابق جزئي (case-insensitive)
 
-3. **تحسين عرض الوصف** ليكون `break-words` بدلاً من `truncate` لأن البنود التقنية الطويلة تحتاج لعرض كامل:
-   - تغيير: `className="text-sm truncate"`
-   - إلى: `className="text-sm break-words line-clamp-2"` (عرض سطرين كحد أقصى)
+**تصفية البنود المعروضة:**
+- إنشاء `filteredItems` من `importQuotation?.ai_analysis?.items` بناءً على `importSearchQuery`
+- عرض `filteredItems` فقط في ScrollArea
+- تحديث عداد "تحديد الكل" ليعمل على البنود المفلترة فقط
+- مسح البحث عند إغلاق الحوار
 
-4. **تقييد عرض `ScrollArea`** بإضافة `overflow-hidden` لمنع التجاوز الأفقي:
-   - إضافة `className="overflow-hidden"` للحاوية الخارجية `space-y-3`
+## 3. عرض السعر الإجمالي للبنود المحددة
+
+**إضافة حساب المجموع:**
+```typescript
+const selectedTotalPrice = useMemo(() => {
+  const items = importQuotation?.ai_analysis?.items || [];
+  return Array.from(selectedImportItems).reduce((sum, idx) => {
+    const item = items[idx];
+    return sum + ((item?.unit_price ?? 0) * (item?.quantity ?? 1));
+  }, 0);
+}, [selectedImportItems, importQuotation]);
+```
+
+**عرض المجموع** بين ScrollArea و DialogFooter:
+- شريط ملخص يعرض: "إجمالي البنود المحددة: X,XXX SAR"
+- تنسيق بخلفية خضراء فاتحة مع أيقونة Calculator
+
+## التفاصيل التقنية
+
+### التغييرات في سطور محددة:
+
+1. **سطر ~151**: إضافة `importSearchQuery` state
+2. **سطر ~780-792**: تحديث "تحديد الكل" ليعمل مع البنود المفلترة
+3. **سطر ~793**: إضافة حقل البحث (Input + Search icon)
+4. **سطر ~796**: تصفية البنود بناءً على البحث
+5. **سطر ~822-823**: إضافة شريط السعر الإجمالي قبل DialogFooter
+6. **إغلاق الحوار**: مسح `importSearchQuery`
 
 ### النتيجة المتوقعة
-
-- البنود ستظهر بشكل منظم داخل حدود الحوار
-- النصوص الطويلة ستُعرض في سطرين كحد أقصى بدلاً من التجاوز
-- الحدود الخضراء ستبقى ضمن حدود الحوار
-- لن يحدث تجاوز أفقي أو رأسي
+- حقل بحث يصفي البنود فورياً أثناء الكتابة
+- عداد "تحديد الكل" يتكيف مع نتائج البحث
+- شريط إجمالي يعرض مجموع أسعار البنود المحددة (سعر x كمية)
+- تجربة مستخدم سلسة دون تجاوز أو مشاكل عرض
 
