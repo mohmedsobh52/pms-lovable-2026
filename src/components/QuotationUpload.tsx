@@ -164,7 +164,8 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     const totalValue = analyzed.reduce((sum, q) => sum + (q.total_amount || 0), 0);
     const totalItems = analyzed.reduce((sum, q) => sum + (q.ai_analysis?.items?.length || 0), 0);
     const suppliers = new Set(quotations.map(q => q.supplier_name).filter(Boolean));
-    return { analyzed: analyzed.length, totalValue, totalItems, suppliers: suppliers.size, total: quotations.length };
+    const avgItemPrice = totalItems > 0 ? totalValue / totalItems : 0;
+    return { analyzed: analyzed.length, totalValue, totalItems, suppliers: suppliers.size, avgItemPrice, total: quotations.length };
   }, [quotations]);
 
   // Batch import to library state
@@ -1402,23 +1403,88 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
 
       {/* Statistics Dashboard */}
       {quotations.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="p-3 rounded-lg border bg-card text-center">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="p-3 rounded-lg border bg-card text-center hover:shadow-md transition-shadow group">
+            <div className="flex items-center justify-center mb-1">
+              <FileText className="w-5 h-5 text-blue-500 group-hover:scale-110 transition-transform" />
+            </div>
             <p className="text-2xl font-bold text-primary">{quotationStats.total}</p>
             <p className="text-xs text-muted-foreground">إجمالي العروض</p>
           </div>
-          <div className="p-3 rounded-lg border bg-card text-center">
+          <div className="p-3 rounded-lg border bg-card text-center hover:shadow-md transition-shadow group">
+            <div className="flex items-center justify-center mb-1">
+              <CheckCircle className="w-5 h-5 text-green-500 group-hover:scale-110 transition-transform" />
+            </div>
             <p className="text-2xl font-bold text-primary">{quotationStats.analyzed}</p>
             <p className="text-xs text-muted-foreground">تم تحليلها</p>
           </div>
-          <div className="p-3 rounded-lg border bg-card text-center">
+          <div className="p-3 rounded-lg border bg-card text-center hover:shadow-md transition-shadow group">
+            <div className="flex items-center justify-center mb-1">
+              <Package className="w-5 h-5 text-orange-500 group-hover:scale-110 transition-transform" />
+            </div>
             <p className="text-2xl font-bold text-primary">{quotationStats.totalItems}</p>
             <p className="text-xs text-muted-foreground">إجمالي البنود</p>
           </div>
-          <div className="p-3 rounded-lg border bg-card text-center">
+          <div className="p-3 rounded-lg border bg-card text-center hover:shadow-md transition-shadow group">
+            <div className="flex items-center justify-center mb-1">
+              <DollarSign className="w-5 h-5 text-emerald-500 group-hover:scale-110 transition-transform" />
+            </div>
             <p className="text-lg font-bold text-primary">{quotationStats.totalValue.toLocaleString()}</p>
             <p className="text-xs text-muted-foreground">إجمالي القيمة</p>
           </div>
+          <div className="p-3 rounded-lg border bg-card text-center hover:shadow-md transition-shadow group">
+            <div className="flex items-center justify-center mb-1">
+              <Users className="w-5 h-5 text-purple-500 group-hover:scale-110 transition-transform" />
+            </div>
+            <p className="text-2xl font-bold text-primary">{quotationStats.suppliers}</p>
+            <p className="text-xs text-muted-foreground">عدد الموردين</p>
+          </div>
+          <div className="p-3 rounded-lg border bg-card text-center hover:shadow-md transition-shadow group">
+            <div className="flex items-center justify-center mb-1">
+              <Calculator className="w-5 h-5 text-cyan-500 group-hover:scale-110 transition-transform" />
+            </div>
+            <p className="text-lg font-bold text-primary">{quotationStats.avgItemPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+            <p className="text-xs text-muted-foreground">متوسط سعر البند</p>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Suggestions - shown when no quotations */}
+      {quotations.length === 0 && user && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate('/library')}>
+            <CardContent className="p-4 flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <Library className="w-5 h-5 text-blue-500" />
+              </div>
+              <div>
+                <h4 className="font-medium text-sm">مكتبة الأسعار</h4>
+                <p className="text-xs text-muted-foreground mt-1">استعرض أسعار المواد والمعدات والعمالة المحفوظة</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate('/material-prices')}>
+            <CardContent className="p-4 flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-emerald-500/10">
+                <Truck className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div>
+                <h4 className="font-medium text-sm">أسعار السوق</h4>
+                <p className="text-xs text-muted-foreground mt-1">قارن أسعار عروضك بأسعار السوق الحالية</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate('/reports')}>
+            <CardContent className="p-4 flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-purple-500/10">
+                <FileSearch className="w-5 h-5 text-purple-500" />
+              </div>
+              <div>
+                <h4 className="font-medium text-sm">التقارير والمقارنة</h4>
+                <p className="text-xs text-muted-foreground mt-1">أنشئ تقارير مقارنة بين عروض الأسعار المختلفة</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
