@@ -31,7 +31,11 @@ import {
   FileCheck,
   ChevronDown,
   MoreHorizontal,
-  RefreshCw
+  RefreshCw,
+  Plus,
+  Upload,
+  Library,
+  Zap
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -656,6 +660,25 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             <StatCard label={isArabic ? "متوسط العرض" : "Avg. Quotation"} value={formatCurrency(stats.averageQuotationValue)} icon={TrendingUp} bgColor="bg-purple-100 dark:bg-purple-500/20" iconColor="text-purple-600 dark:text-purple-400" />
           </div>
 
+          {/* Quick Actions */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { icon: Plus, label: isArabic ? "مشروع جديد" : "New Project", path: "/analysis", color: "text-blue-500", bg: "bg-blue-500/10 hover:bg-blue-500/20" },
+              { icon: Upload, label: isArabic ? "رفع عرض سعر" : "Upload Quotation", path: "/quotations", color: "text-emerald-500", bg: "bg-emerald-500/10 hover:bg-emerald-500/20" },
+              { icon: Library, label: isArabic ? "المكتبة" : "Library", path: "/library", color: "text-purple-500", bg: "bg-purple-500/10 hover:bg-purple-500/20" },
+              { icon: BarChart3, label: isArabic ? "التقارير" : "Reports", path: "/reports", color: "text-amber-500", bg: "bg-amber-500/10 hover:bg-amber-500/20" },
+            ].map((action) => (
+              <button
+                key={action.path}
+                onClick={() => navigate(action.path)}
+                className={`flex items-center gap-3 p-3 rounded-xl border border-border ${action.bg} transition-all cursor-pointer group`}
+              >
+                <action.icon className={`w-5 h-5 ${action.color} group-hover:scale-110 transition-transform`} />
+                <span className="text-sm font-medium text-foreground">{action.label}</span>
+              </button>
+            ))}
+          </div>
+
           {/* KPI Row with Radar Chart */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* KPI Cards - 2 columns */}
@@ -694,7 +717,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                         fillOpacity={0.08}
                         strokeWidth={1}
                         strokeDasharray="4 4"
-                        animationDuration={800}
+                        animationDuration={500}
                       />
                       <Radar
                         name={isArabic ? "الأداء" : "Performance"}
@@ -703,7 +726,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                         fill="#F5A623"
                         fillOpacity={0.25}
                         strokeWidth={2}
-                        animationDuration={800}
+                        animationDuration={500}
                       />
                     </RadarChart>
                   </ResponsiveContainer>
@@ -752,8 +775,8 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                         <YAxis className="text-xs" />
                         <Tooltip content={<CustomTooltip />} />
                         <Legend />
-                        <Area type="monotone" dataKey="projects" name={isArabic ? "المشاريع" : "Projects"} stroke="#3B82F6" fill="url(#projGrad)" strokeWidth={2} animationDuration={800} />
-                        <Area type="monotone" dataKey="quotations" name={isArabic ? "العروض" : "Quotations"} stroke="#10B981" fill="url(#quotGrad)" strokeWidth={2} animationDuration={800} />
+                        <Area type="monotone" dataKey="projects" name={isArabic ? "المشاريع" : "Projects"} stroke="#3B82F6" fill="url(#projGrad)" strokeWidth={2} animationDuration={500} />
+                        <Area type="monotone" dataKey="quotations" name={isArabic ? "العروض" : "Quotations"} stroke="#10B981" fill="url(#quotGrad)" strokeWidth={2} animationDuration={500} />
                       </AreaChart>
                     ) : (
                       <BarChart data={stats.monthlyActivity} barGap={8}>
@@ -762,8 +785,8 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                         <YAxis className="text-xs" />
                         <Tooltip content={<CustomTooltip />} />
                         <Legend />
-                        <Bar dataKey="projects" name={isArabic ? "المشاريع" : "Projects"} fill="#3B82F6" radius={[4, 4, 0, 0]} animationDuration={800} />
-                        <Bar dataKey="quotations" name={isArabic ? "العروض" : "Quotations"} fill="#10B981" radius={[4, 4, 0, 0]} animationDuration={800} />
+                        <Bar dataKey="projects" name={isArabic ? "المشاريع" : "Projects"} fill="#3B82F6" radius={[4, 4, 0, 0]} animationDuration={500} />
+                        <Bar dataKey="quotations" name={isArabic ? "العروض" : "Quotations"} fill="#10B981" radius={[4, 4, 0, 0]} animationDuration={500} />
                       </BarChart>
                     )}
                   </ResponsiveContainer>
@@ -794,7 +817,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                           dataKey="count"
                           nameKey="status"
                           label={({ status, count }) => `${status}: ${count}`}
-                          animationDuration={800}
+                          animationDuration={500}
                         >
                           {stats.quotationsByStatus.map((entry: any, index) => (
                             <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.rawStatus] || CHART_COLORS[index % CHART_COLORS.length]} />
@@ -842,7 +865,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                       <XAxis type="number" tickFormatter={(v) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
                       <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" name={isArabic ? "القيمة" : "Value"} fill="#8B5CF6" radius={[0, 6, 6, 0]} animationDuration={800} />
+                      <Bar dataKey="value" name={isArabic ? "القيمة" : "Value"} fill="#8B5CF6" radius={[0, 6, 6, 0]} animationDuration={500} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -939,10 +962,15 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             {/* Recent Quotations */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Receipt className="w-5 h-5 text-blue-500" />
-                  {isArabic ? "العروض الأخيرة" : "Recent Quotations"}
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Receipt className="w-5 h-5 text-blue-500" />
+                    {isArabic ? "العروض الأخيرة" : "Recent Quotations"}
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => navigate("/quotations")} className="text-muted-foreground hover:text-primary">
+                    {isArabic ? "عرض الكل" : "View All"}<ArrowRight className="w-4 h-4 ms-1" />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {stats.recentQuotations.length > 0 ? (

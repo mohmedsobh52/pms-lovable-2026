@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle, Zap, CheckSquare, X, Square, Search, Library, ExternalLink, Package, Users, Truck, Download } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle, Zap, CheckSquare, X, Square, Search, Library, ExternalLink, Package, Users, Truck, Download, FileBarChart, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +51,9 @@ import { useMaterialPrices } from "@/hooks/useMaterialPrices";
 import { useLaborRates } from "@/hooks/useLaborRates";
 import { useEquipmentRates } from "@/hooks/useEquipmentRates";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useNotifications } from "@/hooks/useNotifications";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface QuotationItem {
   item_number: string;
@@ -111,9 +114,12 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   const { toast } = useToast();
   const { getSignedUrl, refreshUrl } = useSignedUrl();
   const navigate = useNavigate();
-  const { addMaterial } = useMaterialPrices();
+  const { addMaterial, materials } = useMaterialPrices();
   const { addLaborRate } = useLaborRates();
   const { addEquipmentRate } = useEquipmentRates();
+  const { addNotification } = useNotifications();
+
+  // compareWithLibrary and exportComprehensiveQuotationsPDF are defined after quotationStats
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
@@ -167,6 +173,167 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     const avgItemPrice = totalItems > 0 ? totalValue / totalItems : 0;
     return { analyzed: analyzed.length, totalValue, totalItems, suppliers: suppliers.size, avgItemPrice, total: quotations.length };
   }, [quotations]);
+
+  // Compare quotation items with library prices
+  const compareWithLibrary = useCallback((items: QuotationItem[], quotationName: string) => {
+    if (!materials || materials.length === 0 || !items || items.length === 0) return;
+    
+    let highPriceCount = 0;
+    let totalDeviation = 0;
+    
+    items.forEach(item => {
+      const matchedMaterial = materials.find(m => 
+        m.name.toLowerCase().includes(item.description.toLowerCase().substring(0, 15)) ||
+        item.description.toLowerCase().includes(m.name.toLowerCase().substring(0, 15))
+      );
+      if (matchedMaterial && item.unit_price > 0) {
+        const deviation = ((item.unit_price - matchedMaterial.unit_price) / matchedMaterial.unit_price) * 100;
+        if (deviation > 20) {
+          highPriceCount++;
+          totalDeviation += deviation;
+        }
+      }
+    });
+    
+    if (highPriceCount > 0) {
+      const avgDeviation = Math.round(totalDeviation / highPriceCount);
+      addNotification({
+        title: 'تنبيه أسعار مرتفعة',
+        message: `${highPriceCount} بند في "${quotationName}" بأسعار أعلى من المكتبة بمتوسط ${avgDeviation}%`,
+        type: 'warning',
+      });
+    }
+  }, [materials, addNotification]);
+
+  // Export comprehensive PDF report
+  const exportComprehensiveQuotationsPDF = useCallback(() => {
+    const analyzedQuotations = quotations.filter(q => q.status === 'analyzed' && q.ai_analysis?.items?.length);
+    if (analyzedQuotations.length === 0) {
+      toast({ title: "لا توجد عروض محللة", description: "قم بتحليل عرض واحد على الأقل أولاً", variant: "destructive" });
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Cover page
+    doc.setFontSize(24);
+    doc.setTextColor(37, 99, 235);
+    doc.text("Quotations Comprehensive Report", pageWidth / 2, 60, { align: "center" });
+    doc.setFontSize(12);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Date: ${new Date().toLocaleDateString('en-US')}`, pageWidth / 2, 75, { align: "center" });
+    doc.text(`Total Quotations: ${analyzedQuotations.length}`, pageWidth / 2, 85, { align: "center" });
+    doc.text(`Total Value: SAR ${quotationStats.totalValue.toLocaleString()}`, pageWidth / 2, 95, { align: "center" });
+    
+    // Statistics page
+    doc.addPage();
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Statistics Summary", 14, 20);
+    
+    autoTable(doc, {
+      startY: 30,
+      head: [["Item", "Value"]],
+      body: [
+        ["Total Quotations", quotationStats.total.toString()],
+        ["Analyzed", quotationStats.analyzed.toString()],
+        ["Total Items", quotationStats.totalItems.toString()],
+        ["Total Value", `SAR ${quotationStats.totalValue.toLocaleString()}`],
+        ["Suppliers", quotationStats.suppliers.toString()],
+        ["Avg Item Price", `SAR ${quotationStats.avgItemPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}`],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [37, 99, 235] },
+    });
+    
+    // Supplier comparison
+    const supplierData = analyzedQuotations.map(q => ({
+      name: q.supplier_name || q.name,
+      items: q.ai_analysis?.items?.length || 0,
+      value: q.total_amount || q.ai_analysis?.totals?.grand_total || 0,
+    }));
+    
+    const finalY1 = (doc as any).lastAutoTable?.finalY || 100;
+    doc.setFontSize(14);
+    doc.text("Supplier Comparison", 14, finalY1 + 15);
+    
+    autoTable(doc, {
+      startY: finalY1 + 20,
+      head: [["Supplier", "Items Count", "Total Value (SAR)"]],
+      body: supplierData.map(s => [s.name, s.items.toString(), s.value.toLocaleString()]),
+      theme: "striped",
+      headStyles: { fillColor: [16, 185, 129] },
+    });
+    
+    // Detail pages per quotation
+    analyzedQuotations.forEach((q, idx) => {
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.text(`Quotation ${idx + 1}: ${q.supplier_name || q.name}`, 14, 20);
+      doc.setFontSize(10);
+      if (q.ai_analysis?.supplier?.name) doc.text(`Supplier: ${q.ai_analysis.supplier.name}`, 14, 30);
+      if (q.ai_analysis?.quotation_info?.date) doc.text(`Date: ${q.ai_analysis.quotation_info.date}`, 14, 36);
+      
+      const items = q.ai_analysis?.items || [];
+      if (items.length > 0) {
+        autoTable(doc, {
+          startY: 45,
+          head: [["#", "Description", "Unit", "Qty", "Unit Price", "Total"]],
+          body: items.map((item, i) => [
+            item.item_number || (i + 1).toString(),
+            item.description?.substring(0, 40) || '-',
+            item.unit || '-',
+            item.quantity?.toString() || '-',
+            item.unit_price?.toLocaleString() || '-',
+            item.total?.toLocaleString() || '-',
+          ]),
+          theme: "grid",
+          headStyles: { fillColor: [124, 58, 237] },
+          styles: { fontSize: 8 },
+        });
+      }
+    });
+    
+    // Price comparison page
+    if (analyzedQuotations.length > 1) {
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.text("Price Comparison Matrix", 14, 20);
+      
+      const allDescriptions = new Map<string, Map<string, number>>();
+      analyzedQuotations.forEach(q => {
+        const supplierName = q.supplier_name || q.name;
+        q.ai_analysis?.items?.forEach(item => {
+          const key = item.description?.substring(0, 30)?.toLowerCase() || '';
+          if (!allDescriptions.has(key)) allDescriptions.set(key, new Map());
+          allDescriptions.get(key)!.set(supplierName, item.unit_price || 0);
+        });
+      });
+      
+      const commonItems = Array.from(allDescriptions.entries()).filter(([, suppliers]) => suppliers.size >= 2);
+      
+      if (commonItems.length > 0) {
+        const supplierNames = [...new Set(analyzedQuotations.map(q => q.supplier_name || q.name))];
+        autoTable(doc, {
+          startY: 30,
+          head: [["Item", ...supplierNames]],
+          body: commonItems.slice(0, 30).map(([desc, suppliers]) => [
+            desc.substring(0, 35),
+            ...supplierNames.map(s => suppliers.get(s)?.toLocaleString() || '-'),
+          ]),
+          theme: "grid",
+          headStyles: { fillColor: [245, 158, 35] },
+          styles: { fontSize: 7 },
+        });
+      } else {
+        doc.text("No common items found between quotations", 14, 35);
+      }
+    }
+    
+    doc.save("quotations-comprehensive-report.pdf");
+    toast({ title: "تم التصدير بنجاح", description: "تم تصدير تقرير PDF الشامل" });
+  }, [quotations, quotationStats, toast]);
 
   // Batch import to library state
   const [isBatchImporting, setIsBatchImporting] = useState(false);
@@ -747,6 +914,19 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
           title: "تم التحليل بنجاح",
           description: `تم استخراج ${itemsCount} بند من العرض`,
         });
+        
+        // Send notification
+        addNotification({
+          title: 'اكتمل تحليل عرض السعر',
+          message: `تم تحليل "${quotation.name}" بنجاح - ${itemsCount} بند، إجمالي ${(data.analysis?.totals?.grand_total || 0).toLocaleString()} ر.س`,
+          type: 'success',
+          actionUrl: '/quotations',
+        });
+        
+        // Compare with library
+        if (data.analysis?.items) {
+          compareWithLibrary(data.analysis.items, quotation.name);
+        }
       }
     } catch (error) {
       console.error("Analysis error:", error);
@@ -1535,16 +1715,27 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
 
                 {/* Batch Import All to Library */}
                 {quotations.some(q => q.status === 'analyzed' && q.ai_analysis?.items?.length) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBatchImportToLibrary}
-                    disabled={isBatchImporting}
-                    className="gap-1.5 border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950/30"
-                  >
-                    {isBatchImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Library className="w-3.5 h-3.5" />}
-                    استيراد الكل إلى المكتبة
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBatchImportToLibrary}
+                      disabled={isBatchImporting}
+                      className="gap-1.5 border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950/30"
+                    >
+                      {isBatchImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Library className="w-3.5 h-3.5" />}
+                      استيراد الكل إلى المكتبة
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportComprehensiveQuotationsPDF}
+                      className="gap-1.5"
+                    >
+                      <FileBarChart className="w-3.5 h-3.5" />
+                      تقرير PDF شامل
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
