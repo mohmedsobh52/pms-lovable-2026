@@ -1,64 +1,55 @@
 
-# تحسين المكتبة: تعديل مباشر من الجدول + تصدير Excel
+# ربط المكتبة بعروض الأسعار وتحسين أداء التسعير
 
 ## الملخص
-إضافة خاصية التعديل المباشر (inline editing) للأسعار والأسماء في جداول المكتبة الثلاثة، مع زر تصدير Excel شامل لكل تبويب.
+إضافة ربط ثنائي الاتجاه بين المكتبة وعروض الأسعار: (1) استيراد أسعار الموردين من عروض الأسعار المحللة إلى المكتبة، (2) استخدام عروض الأسعار كمصدر إضافي في نظام التسعير التلقائي، (3) إضافة مقارنة أسعار المكتبة مع أسعار الموردين.
 
 ---
 
-## 1. التعديل المباشر من الجدول (Inline Editing)
+## 1. استيراد أسعار عروض الأسعار إلى المكتبة
 
-### الآلية
-عند الضغط على زر التعديل (Edit) في أي صف، يتحول الصف إلى وضع التعديل حيث تظهر حقول إدخال بدلاً من النصوص الثابتة. يمكن للمستخدم تعديل الحقول ثم الحفظ أو الإلغاء.
+### الوصف
+إضافة زر "استيراد إلى المكتبة" في شاشة عروض الأسعار (QuotationUpload) يظهر عند تحليل عرض السعر بنجاح. يقوم بتحويل بنود عرض السعر المحلل إلى مواد في مكتبة الأسعار مع حفظ اسم المورد كمصدر.
 
-### الحقول القابلة للتعديل في كل تبويب
-
-**المواد (MaterialsTab):**
-- الاسم (name)
-- سعر الوحدة (unit_price)
-- الوحدة (unit)
-- العلامة التجارية (brand)
-
-**العمالة (LaborTab):**
-- الاسم (name)
-- سعر اليوم (unit_rate)
-- مستوى المهارة (skill_level)
-
-**المعدات (EquipmentTab):**
-- الاسم (name)
-- سعر اليوم (rental_rate)
-
-### التصميم
-- State: `editingId` لتتبع الصف قيد التعديل، و `editData` لتخزين القيم المؤقتة
-- عند الضغط على Edit: يتم تعيين `editingId` وتعبئة `editData` بالقيم الحالية
-- حقول الإدخال تظهر بحجم مصغر (`h-8`) داخل خلايا الجدول
-- أزرار Save (Check) و Cancel (X) تحل محل أزرار Edit/Delete
-- Enter للحفظ، Escape للإلغاء
-- عند الحفظ يتم استدعاء `updateMaterial` / `updateLaborRate` / `updateEquipmentRate`
+### التغييرات
+- إضافة زر وحوار `ImportToLibraryDialog` في `QuotationUpload.tsx`
+- يعرض قائمة البنود المحللة مع خيار تحديد البنود المراد استيرادها
+- عند الاستيراد يتم إضافة كل بند كمادة جديدة في `material_prices` مع:
+  - `source = "quotation"`
+  - `supplier_name` من بيانات المورد
+  - `is_verified = false`
 
 ---
 
-## 2. تصدير بيانات المكتبة إلى Excel
+## 2. عروض الأسعار كمصدر تسعير إضافي (المصدر السابع)
 
-### الآلية
-إضافة زر "تصدير" بجانب زر "استيراد" في كل تبويب. عند الضغط عليه يتم إنشاء ملف Excel باستخدام `exceljs` يحتوي على جميع البيانات المفلترة حالياً.
+### الوصف
+إضافة عروض الأسعار المحللة كمصدر سابع في نظام التسعير التلقائي (AutoPriceDialog) بجانب المصادر الستة الحالية (المواد، العمالة، المعدات، التاريخي، المرجعي، ذكاء السوق).
 
-### محتوى ملف Excel لكل تبويب
+### التغييرات في `AutoPriceDialog.tsx`
+- تحميل بنود عروض الأسعار المحللة (`price_quotations` حيث `status = 'analyzed'`) عند فتح الحوار
+- إضافة دالة مطابقة `matchQuotationItems` تستخدم N-gram similarity الموجودة لمقارنة أوصاف البنود
+- إضافة فلتر "عروض الأسعار" (`quotation`) في شريط الفلاتر
+- عرض اسم المورد ورقم العرض كمعلومات إضافية عند المطابقة
 
-**المواد:**
-الكود | الاسم | الاسم العربي | التصنيف | الوحدة | سعر الوحدة | العملة | العلامة التجارية | المورد | المواصفات
+---
 
-**العمالة:**
-الكود | المسمى | الاسم العربي | التصنيف | مستوى المهارة | الوحدة | سعر اليوم | سعر الساعة | العملة
+## 3. مقارنة أسعار المكتبة مع عروض الأسعار
 
-**المعدات:**
-الكود | الاسم | الاسم العربي | التصنيف | سعر اليوم | سعر الساعة | سعر الشهر | العملة | يشمل المشغل | يشمل الوقود
+### الوصف
+إضافة تبويب جديد "مقارنة مع المكتبة" في شاشة مقارنة العروض (QuotationComparison). يعرض مقارنة بين أسعار الموردين وأسعار المكتبة لنفس البنود.
 
-### التنسيق
-- رأس الجدول بخلفية ملونة وخط عريض
-- عمود الاسم العربي بتنسيق RTL
-- تنسيق العملة للأعمدة الرقمية
-- اسم الملف: `Library_Materials_YYYY-MM-DD.xlsx`
+### التغييرات في `QuotationComparison.tsx`
+- بعد تشغيل المقارنة، إضافة قسم يعرض أسعار المكتبة بجانب أسعار الموردين
+- استخدام hooks المكتبة (`useMaterialPrices`, `useLaborRates`, `useEquipmentRates`) للبحث عن أسعار مطابقة
+- عرض badge يوضح الفرق بين سعر المكتبة وأقل سعر مورد
+
+---
+
+## 4. رابط سريع للمكتبة من عروض الأسعار
+
+### الوصف
+إضافة زر "عرض في المكتبة" بجانب كل بند محلل في عرض السعر، ينقل المستخدم لشاشة المكتبة مع تعبئة البحث تلقائياً.
 
 ---
 
@@ -68,91 +59,109 @@
 
 | الملف | التغيير |
 |-------|---------|
-| `src/components/library/MaterialsTab.tsx` | inline editing + export Excel |
-| `src/components/library/LaborTab.tsx` | inline editing + export Excel |
-| `src/components/library/EquipmentTab.tsx` | inline editing + export Excel |
+| `src/components/QuotationUpload.tsx` | زر وحوار استيراد البنود للمكتبة |
+| `src/components/project-details/AutoPriceDialog.tsx` | مصدر تسعير سابع من عروض الأسعار |
+| `src/components/QuotationComparison.tsx` | مقارنة أسعار الموردين مع المكتبة |
 
-### نمط التعديل المباشر
+### استيراد البنود للمكتبة
 
 ```typescript
-// State للتعديل
-const [editingId, setEditingId] = useState<string | null>(null);
-const [editData, setEditData] = useState<Record<string, any>>({});
-
-// بدء التعديل
-const startEdit = (item: MaterialPrice) => {
-  setEditingId(item.id);
-  setEditData({ name: item.name, unit_price: item.unit_price, unit: item.unit, brand: item.brand });
+const importToLibrary = async (items: QuotationItem[], supplierName: string) => {
+  for (const item of selectedItems) {
+    await addMaterial({
+      name: item.description.slice(0, 100),
+      name_ar: item.description,
+      category: 'other',
+      unit: item.unit || 'no',
+      unit_price: item.unit_price,
+      currency: 'SAR',
+      supplier_name: supplierName,
+      source: 'quotation',
+      is_verified: false,
+    });
+  }
 };
-
-// حفظ التعديل
-const saveEdit = async () => {
-  if (!editingId) return;
-  await updateMaterial(editingId, editData);
-  setEditingId(null);
-};
-
-// في الجدول - خلية السعر
-<TableCell>
-  {editingId === item.id ? (
-    <Input type="number" className="h-8 w-24" value={editData.unit_price}
-      onChange={(e) => setEditData(prev => ({...prev, unit_price: parseFloat(e.target.value)}))}
-      onKeyDown={(e) => e.key === 'Enter' ? saveEdit() : e.key === 'Escape' ? cancelEdit() : null}
-    />
-  ) : (
-    <span>{item.unit_price.toLocaleString()}</span>
-  )}
-</TableCell>
 ```
 
-### نمط تصدير Excel
+### مطابقة عروض الأسعار في AutoPriceDialog
 
 ```typescript
-const exportToExcel = async () => {
-  const ExcelJS = await import('exceljs');
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Materials');
+// تحميل بنود العروض المحللة
+const fetchQuotationItems = async () => {
+  const { data } = await supabase
+    .from('price_quotations')
+    .select('supplier_name, ai_analysis, name')
+    .eq('user_id', user.id)
+    .eq('status', 'analyzed')
+    .limit(30);
   
-  // Headers
-  sheet.addRow(['Code','Name','Name (AR)','Category','Unit','Unit Price','Currency','Brand']);
-  sheet.getRow(1).font = { bold: true };
-  sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a2744' } };
-  sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  const items = [];
+  for (const q of data || []) {
+    const analysis = typeof q.ai_analysis === 'string' ? JSON.parse(q.ai_analysis) : q.ai_analysis;
+    for (const item of analysis?.items || []) {
+      if (item.unit_price > 0) {
+        items.push({
+          description: item.description,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          supplier: q.supplier_name || analysis?.supplier?.name || q.name,
+        });
+      }
+    }
+  }
+  return items;
+};
+
+// المطابقة باستخدام ngramSimilarity الموجودة
+const matchQuotationItem = (itemDesc: string, itemUnit: string, quotationItems) => {
+  let bestMatch = null;
+  let bestScore = 0;
   
-  // Data rows
-  filteredMaterials.forEach(m => {
-    sheet.addRow([`M${...}`, m.name, m.name_ar, getCategoryLabel(m.category), m.unit, m.unit_price, m.currency, m.brand]);
+  for (const qi of quotationItems) {
+    const descScore = ngramSimilarity(itemDesc, qi.description);
+    const unitMatch = normalizeUnit(itemUnit) === normalizeUnit(qi.unit) ? 0.15 : 0;
+    const totalScore = descScore * 0.85 + unitMatch;
+    
+    if (totalScore > bestScore && totalScore >= 0.35) {
+      bestScore = totalScore;
+      bestMatch = { ...qi, confidence: Math.round(totalScore * 100) };
+    }
+  }
+  return bestMatch;
+};
+```
+
+### مقارنة المكتبة في QuotationComparison
+
+```typescript
+// بعد المقارنة، إضافة أسعار المكتبة
+const enrichWithLibraryPrices = (itemComparison) => {
+  return itemComparison.map(item => {
+    const materialMatch = findMatchingPrice(item.description);
+    const libraryPrice = materialMatch?.unit_price || null;
+    const libraryDiff = libraryPrice && item.lowestPrice > 0 
+      ? ((item.lowestPrice - libraryPrice) / libraryPrice * 100) 
+      : null;
+    return { ...item, libraryPrice, libraryDiff };
   });
-  
-  // Download
-  const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Library_Materials_${new Date().toISOString().split('T')[0]}.xlsx`;
-  a.click();
 };
 ```
 
-### تعديل زر Edit الحالي
+### نمط حوار الاستيراد
 
-حالياً الزر موجود لكنه لا يفعل شيئاً. سيتم ربطه بدالة `startEdit`:
-
-```typescript
-// قبل (لا يعمل)
-<Button variant="ghost" size="icon"><Edit2 /></Button>
-
-// بعد (يعمل)
-<Button variant="ghost" size="icon" onClick={() => startEdit(material)}>
-  <Edit2 />
-</Button>
-
-// في وضع التعديل - أزرار حفظ وإلغاء
-{editingId === material.id && (
-  <>
-    <Button size="icon" onClick={saveEdit}><Check /></Button>
-    <Button size="icon" onClick={cancelEdit}><X /></Button>
-  </>
-)}
+```text
++-----------------------------------------------+
+|  استيراد بنود عرض السعر إلى المكتبة           |
+|  المورد: شركة الفاروق                         |
++-----------------------------------------------+
+| [ ] تحديد الكل                                |
+|                                                |
+| [x] 1. مواسير HDPE 315مم     150 ر.س/م.ط     |
+| [x] 2. محبس بوابي 200مم      2,500 ر.س/عدد   |
+| [ ] 3. حفر خنادق             45 ر.س/م3        |
+|                                                |
+| عدد البنود المحددة: 2                          |
+|                                                |
+|        [إلغاء]    [استيراد إلى المكتبة]        |
++-----------------------------------------------+
 ```
