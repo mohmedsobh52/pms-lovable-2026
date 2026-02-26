@@ -10,7 +10,8 @@ import {
   Package,
   BarChart3,
   Download,
-  GitCompare
+  GitCompare,
+  Library
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,6 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ItemComparison } from "./ItemComparison";
 import { QuotationCostChart } from "./QuotationCostChart";
 import { XLSX } from '@/lib/exceljs-utils';
+import { useMaterialPrices } from "@/hooks/useMaterialPrices";
 import { usePagination } from "@/hooks/usePagination";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
@@ -111,11 +113,13 @@ export function QuotationComparison() {
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [showCharts, setShowCharts] = useState(false);
   const [showItemComparison, setShowItemComparison] = useState(false);
+  const [showLibraryComparison, setShowLibraryComparison] = useState(false);
 
   const { user } = useAuth();
   const { toast } = useToast();
   const { isArabic } = useLanguage();
   const pagination = usePagination({ pageSize: 12 });
+  const { materials, findMatchingPrice } = useMaterialPrices();
 
   const loadQuotations = useCallback(async () => {
     if (!user) {
@@ -575,6 +579,14 @@ export function QuotationComparison() {
               <GitCompare className="h-4 w-4" />
               {isArabic ? "مقارنة البنود" : "Item Comparison"}
             </Button>
+            <Button 
+              variant={showLibraryComparison ? "default" : "outline"} 
+              onClick={() => setShowLibraryComparison(!showLibraryComparison)}
+              className="gap-2"
+            >
+              <Library className="h-4 w-4" />
+              {isArabic ? "مقارنة مع المكتبة" : "Library Comparison"}
+            </Button>
           </div>
 
           {/* Charts */}
@@ -638,6 +650,64 @@ export function QuotationComparison() {
                 </CardContent>
               </Card>
             </div>
+          )}
+
+          {/* Library Comparison */}
+          {showLibraryComparison && comparison.itemComparison.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Library className="h-5 w-5" />
+                  {isArabic ? "مقارنة أسعار الموردين مع المكتبة" : "Supplier vs Library Price Comparison"}
+                </CardTitle>
+                <CardDescription>
+                  {isArabic ? "مقارنة أقل سعر مورد مع سعر المكتبة لكل بند" : "Compare lowest supplier price with library price per item"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="max-h-[400px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{isArabic ? "البند" : "Item"}</TableHead>
+                        <TableHead>{isArabic ? "الوصف" : "Description"}</TableHead>
+                        <TableHead className="text-end">{isArabic ? "أقل سعر مورد" : "Lowest Supplier"}</TableHead>
+                        <TableHead className="text-end">{isArabic ? "سعر المكتبة" : "Library Price"}</TableHead>
+                        <TableHead className="text-end">{isArabic ? "الفرق" : "Difference"}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {comparison.itemComparison.map((item, i) => {
+                        const match = findMatchingPrice(item.description || '');
+                        const libraryPrice = match?.unit_price || null;
+                        const diff = libraryPrice && item.lowestPrice > 0
+                          ? ((item.lowestPrice - libraryPrice) / libraryPrice * 100)
+                          : null;
+                        return (
+                          <TableRow key={i}>
+                            <TableCell className="font-mono text-xs">{item.itemNumber}</TableCell>
+                            <TableCell className="max-w-[200px] truncate">{item.description}</TableCell>
+                            <TableCell className="text-end font-medium">
+                              {item.lowestPrice > 0 ? item.lowestPrice.toLocaleString() : '-'}
+                            </TableCell>
+                            <TableCell className="text-end">
+                              {libraryPrice ? libraryPrice.toLocaleString() : <span className="text-muted-foreground text-xs">{isArabic ? "غير متوفر" : "N/A"}</span>}
+                            </TableCell>
+                            <TableCell className="text-end">
+                              {diff !== null ? (
+                                <Badge variant={diff < -5 ? "destructive" : diff > 5 ? "default" : "outline"}>
+                                  {diff > 0 ? '+' : ''}{diff.toFixed(0)}%
+                                </Badge>
+                              ) : '-'}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
           )}
 
           {/* Item Comparison Table */}

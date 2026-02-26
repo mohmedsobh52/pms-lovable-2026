@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef, memo } from "react";
-import { Sparkles, Info, AlertTriangle, CheckCircle, Loader2, Filter, Database, Wrench, Users, History, Globe, Search, BookOpen } from "lucide-react";
+import { Sparkles, Info, AlertTriangle, CheckCircle, Loader2, Filter, Database, Wrench, Users, History, Globe, Search, BookOpen, FileText } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -173,6 +173,7 @@ function AutoPriceDialogComponent({
   const [marketPrices, setMarketPrices] = useState<Record<string, any>>({});
   const [loadingMarket, setLoadingMarket] = useState(false);
   const [marketSearchDone, setMarketSearchDone] = useState(false);
+  const [quotationItems, setQuotationItems] = useState<{ description: string; unit: string; unit_price: number; supplier: string }[]>([]);
 
   const { materials, findMatchingPrice } = useMaterialPrices();
   const { laborRates } = useLaborRates();
@@ -244,6 +245,37 @@ function AutoPriceDialogComponent({
     };
 
     fetchHistorical();
+
+    // Fetch analyzed quotation items
+    const fetchQuotationItems = async () => {
+      try {
+        const { data } = await supabase
+          .from('price_quotations')
+          .select('supplier_name, ai_analysis, name')
+          .eq('user_id', user.id)
+          .eq('status', 'analyzed')
+          .limit(30);
+
+        const qItems: typeof quotationItems = [];
+        for (const q of data || []) {
+          const analysis = typeof q.ai_analysis === 'string' ? JSON.parse(q.ai_analysis) : q.ai_analysis;
+          for (const item of (analysis?.items || []) as any[]) {
+            if (item.unit_price > 0) {
+              qItems.push({
+                description: item.description || '',
+                unit: item.unit || '',
+                unit_price: item.unit_price,
+                supplier: q.supplier_name || analysis?.supplier?.name || q.name || '',
+              });
+            }
+          }
+        }
+        setQuotationItems(qItems);
+      } catch (e) {
+        console.error("Failed to fetch quotation items:", e);
+      }
+    };
+    fetchQuotationItems();
   }, [isOpen, user]);
 
   // Get unpriced items
@@ -385,7 +417,16 @@ function AutoPriceDialogComponent({
         }
       }
 
-      // 5. Check built-in reference prices (fallback)
+      // 5. Check quotation items (7th source)
+      for (const qi of quotationItems) {
+        if (!qi.description) continue;
+        const confidence = calculateEnhancedScore(description, itemUnit, qi.description, null, qi.unit);
+        if (confidence >= 20 && (!bestMatch || confidence > bestMatch.confidence)) {
+          bestMatch = { price: qi.unit_price, confidence, source: "quotation", sourceName: qi.description.slice(0, 60), sourceProject: qi.supplier };
+        }
+      }
+
+      // 6. Check built-in reference prices (fallback)
       if (!bestMatch || bestMatch.confidence < 50) {
         for (const ref of REFERENCE_PRICES) {
           const descLower = description.toLowerCase();
@@ -462,11 +503,11 @@ function AutoPriceDialogComponent({
     }
 
     return results.sort((a, b) => b.confidence - a.confidence);
-  }, [unpricedItems, materials, laborRates, equipmentRates, historicalItems, confidenceThreshold, marketPrices]);
+  }, [unpricedItems, materials, laborRates, equipmentRates, historicalItems, confidenceThreshold, marketPrices, quotationItems]);
 
   // Source statistics
   const sourceStats = useMemo(() => {
-    const stats = { library: 0, labor: 0, equipment: 0, historical: 0, market: 0, reference: 0 };
+    const stats = { library: 0, labor: 0, equipment: 0, historical: 0, market: 0, reference: 0, quotation: 0 };
     for (const r of pricingResults) {
       if (r.source in stats) stats[r.source as keyof typeof stats]++;
     }
@@ -571,6 +612,7 @@ function AutoPriceDialogComponent({
       historical: { color: "bg-purple-500/10 text-purple-700 border-purple-200", icon: <History className="w-3 h-3" />, label: "Historical", labelAr: "تاريخي" },
       market: { color: "bg-teal-500/10 text-teal-700 border-teal-200", icon: <Globe className="w-3 h-3" />, label: "Market AI", labelAr: "سوق AI" },
       reference: { color: "bg-cyan-500/10 text-cyan-700 border-cyan-200", icon: <BookOpen className="w-3 h-3" />, label: "Reference", labelAr: "مرجعي" },
+      quotation: { color: "bg-pink-500/10 text-pink-700 border-pink-200", icon: <FileText className="w-3 h-3" />, label: "Quotation", labelAr: "عروض أسعار" },
     };
     const cfg = configs[source] || configs.library;
     
@@ -581,7 +623,7 @@ function AutoPriceDialogComponent({
       </Badge>
     );
 
-    if (source === "historical" && sourceProject) {
+    if ((source === "historical" || source === "quotation") && sourceProject) {
       return (
         <TooltipProvider>
           <Tooltip>
@@ -612,8 +654,8 @@ function AutoPriceDialogComponent({
           </DialogTitle>
           <DialogDescription>
             {isArabic 
-              ? "تسعير البنود تلقائياً من 6 مصادر: مكتبة المواد، العمالة، المعدات، البيانات التاريخية، أسعار مرجعية مدمجة، وأسعار السوق AI"
-              : "Auto-price items from 6 sources: Materials, Labor, Equipment, Historical, Built-in References & AI Market Prices"
+              ? "تسعير البنود تلقائياً من 7 مصادر: مكتبة المواد، العمالة، المعدات، البيانات التاريخية، أسعار مرجعية، عروض الأسعار، وأسعار السوق AI"
+              : "Auto-price items from 7 sources: Materials, Labor, Equipment, Historical, References, Quotations & AI Market Prices"
             }
           </DialogDescription>
         </DialogHeader>
@@ -763,6 +805,16 @@ function AutoPriceDialogComponent({
                   onClick={() => setSourceFilter(sourceFilter === "reference" ? null : "reference")}
                 >
                   <BookOpen className="w-3 h-3" /> {sourceStats.reference}
+                </Button>
+              )}
+              {sourceStats.quotation > 0 && (
+                <Button
+                  variant={sourceFilter === "quotation" ? "default" : "outline"}
+                  size="sm"
+                  className="h-6 text-xs px-2 gap-1"
+                  onClick={() => setSourceFilter(sourceFilter === "quotation" ? null : "quotation")}
+                >
+                  <FileText className="w-3 h-3" /> {sourceStats.quotation}
                 </Button>
               )}
             </div>
