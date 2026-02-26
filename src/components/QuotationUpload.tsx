@@ -1744,7 +1744,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
 
       {/* Import to Library Dialog */}
       <Dialog open={importDialogOpen} onOpenChange={(open) => { if (!open) { setImportDialogOpen(false); setImportQuotation(null); } }}>
-        <DialogContent className="max-w-lg max-h-[80vh]" dir="rtl">
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Library className="w-5 h-5 text-green-600" />
@@ -1755,7 +1755,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-hidden">
             {/* Import type selector */}
             <div className="space-y-2">
               <span className="text-sm font-medium">{importQuotation ? 'نوع الاستيراد:' : ''}</span>
@@ -1810,8 +1810,8 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                         });
                       }}
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{idx + 1}. {item.description}</p>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <p className="text-sm break-words line-clamp-2">{idx + 1}. {item.description}</p>
                       <p className="text-xs text-muted-foreground">
                         {(item.unit_price ?? 0).toLocaleString()} {importQuotation?.currency || 'SAR'}/{item.unit || '-'}
                       </p>
