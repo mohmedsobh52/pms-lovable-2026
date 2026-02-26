@@ -93,14 +93,14 @@ export const LibraryDatabase = () => {
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>{isArabic ? "إضافة بيانات تجريبية" : "Add Sample Data"}</AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-2">
-                    <p>{isArabic ? "سيتم إضافة البيانات التجريبية التالية:" : "The following sample data will be added:"}</p>
-                    <ul className="list-disc list-inside text-sm">
-                      <li>{sampleCounts.materials} {isArabic ? "مادة" : "Materials"}</li>
-                      <li>{sampleCounts.labor} {isArabic ? "حرفة" : "Labor roles"}</li>
-                      <li>{sampleCounts.equipment} {isArabic ? "معدة" : "Equipment"}</li>
-                    </ul>
+                  <AlertDialogDescription>
+                    {isArabic ? "سيتم إضافة البيانات التجريبية التالية:" : "The following sample data will be added:"}
                   </AlertDialogDescription>
+                  <ul className="list-disc list-inside text-sm text-muted-foreground">
+                    <li>{sampleCounts.materials} {isArabic ? "مادة" : "Materials"}</li>
+                    <li>{sampleCounts.labor} {isArabic ? "حرفة" : "Labor roles"}</li>
+                    <li>{sampleCounts.equipment} {isArabic ? "معدة" : "Equipment"}</li>
+                  </ul>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
@@ -119,14 +119,14 @@ export const LibraryDatabase = () => {
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>{isArabic ? "إضافة مواد شبكات المياه والصرف الصحي" : "Add Water & Sewage Network Materials"}</AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-2">
-                    <p>{isArabic ? `سيتم إضافة ${sampleCounts.waterSewage} مادة تشمل:` : `${sampleCounts.waterSewage} materials will be added including:`}</p>
-                    <ul className="list-disc list-inside text-sm">
-                      <li>{isArabic ? "مواسير uPVC, HDPE, DI, GRP" : "uPVC, HDPE, DI, GRP Pipes"}</li>
-                      <li>{isArabic ? "محابس ووصلات" : "Valves & Fittings"}</li>
-                      <li>{isArabic ? "غرف تفتيش ومضخات" : "Manholes & Pumps"}</li>
-                    </ul>
+                  <AlertDialogDescription>
+                    {isArabic ? `سيتم إضافة ${sampleCounts.waterSewage} مادة تشمل:` : `${sampleCounts.waterSewage} materials will be added including:`}
                   </AlertDialogDescription>
+                  <ul className="list-disc list-inside text-sm text-muted-foreground">
+                    <li>{isArabic ? "مواسير uPVC, HDPE, DI, GRP" : "uPVC, HDPE, DI, GRP Pipes"}</li>
+                    <li>{isArabic ? "محابس ووصلات" : "Valves & Fittings"}</li>
+                    <li>{isArabic ? "غرف تفتيش ومضخات" : "Manholes & Pumps"}</li>
+                  </ul>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
@@ -145,13 +145,13 @@ export const LibraryDatabase = () => {
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>{isArabic ? "إضافة عمالة ومعدات شبكات" : "Add Network Labor & Equipment"}</AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-2">
-                    <p>{isArabic ? "سيتم إضافة:" : "Will be added:"}</p>
-                    <ul className="list-disc list-inside text-sm">
-                      <li>{sampleCounts.networkLabor} {isArabic ? "عمالة متخصصة (فني مواسير، لحام، غواص...)" : "Specialized labor (pipe fitter, welder, diver...)"}</li>
-                      <li>{sampleCounts.networkEquipment} {isArabic ? "معدة متخصصة (لحام HDPE، نزح مياه، CCTV...)" : "Specialized equipment (HDPE fusion, dewatering, CCTV...)"}</li>
-                    </ul>
+                  <AlertDialogDescription>
+                    {isArabic ? "سيتم إضافة:" : "Will be added:"}
                   </AlertDialogDescription>
+                  <ul className="list-disc list-inside text-sm text-muted-foreground">
+                    <li>{sampleCounts.networkLabor} {isArabic ? "عمالة متخصصة (فني مواسير، لحام، غواص...)" : "Specialized labor (pipe fitter, welder, diver...)"}</li>
+                    <li>{sampleCounts.networkEquipment} {isArabic ? "معدة متخصصة (لحام HDPE، نزح مياه، CCTV...)" : "Specialized equipment (HDPE fusion, dewatering, CCTV...)"}</li>
+                  </ul>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
