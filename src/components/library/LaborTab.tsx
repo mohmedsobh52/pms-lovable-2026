@@ -12,6 +12,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { PriceValidityIndicator, getValidityStatus } from "./PriceValidityIndicator";
 
+const getLaborCategoryBadgeColor = (category?: string) => {
+  if (!category) return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400';
+  if (['pipe_fitter', 'diver'].includes(category))
+    return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+  if (['supervisor', 'engineer', 'foreman', 'safety_officer', 'surveyor'].includes(category))
+    return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+  if (['operator', 'driver', 'technician'].includes(category))
+    return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
+  if (['mason', 'carpenter', 'electrician', 'plumber', 'painter', 'welder', 'insulator'].includes(category))
+    return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
+  return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400';
+};
+
 const ITEMS_PER_PAGE = 25;
 
 const LABOR_CATEGORY_GROUPS = [
@@ -335,6 +348,21 @@ export const LaborTab = memo(function LaborTab({ validityFilter }: LaborTabProps
       </div>
 
       {/* Table */}
+      {/* Results count bar */}
+      {filteredLabor.length > 0 && (
+        <div className="flex items-center justify-between px-3 py-2 bg-[hsl(218,50%,18%)]/5 dark:bg-[hsl(218,45%,18%)]/10 rounded-lg border">
+          <span className="text-sm font-medium text-[hsl(218,50%,18%)] dark:text-white/70">
+            {isArabic ? `${filteredLabor.length} عمالة` : `${filteredLabor.length} labor items`}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {isArabic 
+              ? `عرض ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(currentPage * ITEMS_PER_PAGE, filteredLabor.length)} من ${filteredLabor.length}`
+              : `Showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(currentPage * ITEMS_PER_PAGE, filteredLabor.length)} of ${filteredLabor.length}`
+            }
+          </span>
+        </div>
+      )}
+
       {filteredLabor.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
           <Users className="h-12 w-12 mb-4 opacity-50" />
@@ -342,29 +370,29 @@ export const LaborTab = memo(function LaborTab({ validityFilter }: LaborTabProps
         </div>
       ) : (
         <>
-          <div className="rounded-lg border overflow-hidden">
+         <div className="rounded-lg border shadow-sm overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right">{isArabic ? "الكود" : "Code"}</TableHead>
-                  <TableHead className="text-right">{isArabic ? "المسمى الوظيفي" : "Job Title"}</TableHead>
-                  <TableHead className="text-center">{isArabic ? "التصنيف" : "Category"}</TableHead>
-                  <TableHead className="text-center">{isArabic ? "مستوى المهارة" : "Skill Level"}</TableHead>
-                  <TableHead className="text-center">{isArabic ? "سعر اليوم" : "Daily Rate"}</TableHead>
-                  <TableHead className="text-center">{isArabic ? "سعر الساعة" : "Hourly Rate"}</TableHead>
-                  <TableHead className="text-center">{isArabic ? "الصلاحية" : "Validity"}</TableHead>
-                  <TableHead className="text-center w-24">{isArabic ? "إجراءات" : "Actions"}</TableHead>
+                <TableRow className="bg-[hsl(218,50%,18%)]/5 dark:bg-[hsl(218,45%,18%)]/20">
+                  <TableHead className="text-right font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "الكود" : "Code"}</TableHead>
+                  <TableHead className="text-right font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "المسمى الوظيفي" : "Job Title"}</TableHead>
+                  <TableHead className="text-center font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "التصنيف" : "Category"}</TableHead>
+                  <TableHead className="text-center font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "مستوى المهارة" : "Skill Level"}</TableHead>
+                  <TableHead className="text-center font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "سعر اليوم" : "Daily Rate"}</TableHead>
+                  <TableHead className="text-center font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "سعر الساعة" : "Hourly Rate"}</TableHead>
+                  <TableHead className="text-center font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "الصلاحية" : "Validity"}</TableHead>
+                  <TableHead className="text-center w-24 font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "إجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedLabor.map((labor) => {
                   const catInfo = LABOR_CATEGORIES.find(c => c.value === labor.category);
                   return (
-                    <TableRow key={labor.id}>
-                      <TableCell className="font-mono text-sm">{labor.code}</TableCell>
+                    <TableRow key={labor.id} className="hover:bg-[hsl(217,91%,60%)]/5 dark:hover:bg-[hsl(217,91%,60%)]/10 transition-colors">
+                      <TableCell className="font-mono text-sm text-[hsl(218,50%,18%)] dark:text-white/70">{labor.code}</TableCell>
                       <TableCell>{isArabic && labor.name_ar ? labor.name_ar : labor.name}</TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className="text-xs">
+                        <Badge className={`text-xs border-0 ${getLaborCategoryBadgeColor(labor.category)}`}>
                           {catInfo ? (isArabic ? catInfo.label : catInfo.label_en) : labor.category || '-'}
                         </Badge>
                       </TableCell>
@@ -384,8 +412,8 @@ export const LaborTab = memo(function LaborTab({ validityFilter }: LaborTabProps
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8"><Edit2 className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteLaborRate(labor.id)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-blue-900/30"><Edit2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/30 text-destructive" onClick={() => deleteLaborRate(labor.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>

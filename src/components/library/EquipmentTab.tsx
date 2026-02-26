@@ -15,6 +15,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { PriceValidityIndicator, getValidityStatus } from "./PriceValidityIndicator";
 
+const getEquipmentCategoryBadgeColor = (category?: string) => {
+  if (!category) return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400';
+  if (['excavator', 'loader', 'truck', 'compactor', 'trencher'].includes(category))
+    return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
+  if (['crane', 'forklift', 'mixer', 'pump', 'scaffold'].includes(category))
+    return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
+  if (['pipe_laying', 'dewatering', 'testing'].includes(category))
+    return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+  if (['generator', 'compressor', 'welding', 'cutting'].includes(category))
+    return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400';
+  if (['survey'].includes(category))
+    return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+  return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400';
+};
+
 const ITEMS_PER_PAGE = 25;
 
 const EQUIPMENT_CATEGORY_GROUPS = [
@@ -281,6 +296,21 @@ export const EquipmentTab = memo(function EquipmentTab({ validityFilter }: Equip
         </div>
       </div>
 
+      {/* Results count bar */}
+      {filteredEquipment.length > 0 && (
+        <div className="flex items-center justify-between px-3 py-2 bg-[hsl(218,50%,18%)]/5 dark:bg-[hsl(218,45%,18%)]/10 rounded-lg border">
+          <span className="text-sm font-medium text-[hsl(218,50%,18%)] dark:text-white/70">
+            {isArabic ? `${filteredEquipment.length} معدة` : `${filteredEquipment.length} equipment items`}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {isArabic 
+              ? `عرض ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(currentPage * ITEMS_PER_PAGE, filteredEquipment.length)} من ${filteredEquipment.length}`
+              : `Showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(currentPage * ITEMS_PER_PAGE, filteredEquipment.length)} of ${filteredEquipment.length}`
+            }
+          </span>
+        </div>
+      )}
+
       {/* Table */}
       {filteredEquipment.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -289,25 +319,25 @@ export const EquipmentTab = memo(function EquipmentTab({ validityFilter }: Equip
         </div>
       ) : (
         <>
-          <div className="rounded-lg border overflow-hidden">
+          <div className="rounded-lg border shadow-sm overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right">{isArabic ? "الكود" : "Code"}</TableHead>
-                  <TableHead className="text-right">{isArabic ? "اسم المعدة" : "Equipment Name"}</TableHead>
-                  <TableHead className="text-center">{isArabic ? "التصنيف" : "Category"}</TableHead>
-                  <TableHead className="text-center">{isArabic ? "سعر اليوم" : "Daily Rate"}</TableHead>
-                  <TableHead className="text-center">{isArabic ? "يشمل" : "Includes"}</TableHead>
-                  <TableHead className="text-center">{isArabic ? "الصلاحية" : "Validity"}</TableHead>
-                  <TableHead className="text-center w-24">{isArabic ? "إجراءات" : "Actions"}</TableHead>
+                <TableRow className="bg-[hsl(218,50%,18%)]/5 dark:bg-[hsl(218,45%,18%)]/20">
+                  <TableHead className="text-right font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "الكود" : "Code"}</TableHead>
+                  <TableHead className="text-right font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "اسم المعدة" : "Equipment Name"}</TableHead>
+                  <TableHead className="text-center font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "التصنيف" : "Category"}</TableHead>
+                  <TableHead className="text-center font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "سعر اليوم" : "Daily Rate"}</TableHead>
+                  <TableHead className="text-center font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "يشمل" : "Includes"}</TableHead>
+                  <TableHead className="text-center font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "الصلاحية" : "Validity"}</TableHead>
+                  <TableHead className="text-center w-24 font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "إجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedEquipment.map((equipment) => {
                   const catInfo = EQUIPMENT_CATEGORIES.find(c => c.value === equipment.category);
                   return (
-                    <TableRow key={equipment.id}>
-                      <TableCell className="font-mono text-sm">{equipment.code}</TableCell>
+                    <TableRow key={equipment.id} className="hover:bg-[hsl(217,91%,60%)]/5 dark:hover:bg-[hsl(217,91%,60%)]/10 transition-colors">
+                      <TableCell className="font-mono text-sm text-[hsl(218,50%,18%)] dark:text-white/70">{equipment.code}</TableCell>
                       <TableCell>
                         <div>
                           <div>{isArabic && equipment.name_ar ? equipment.name_ar : equipment.name}</div>
@@ -317,7 +347,7 @@ export const EquipmentTab = memo(function EquipmentTab({ validityFilter }: Equip
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className="text-xs">
+                        <Badge className={`text-xs border-0 ${getEquipmentCategoryBadgeColor(equipment.category)}`}>
                           {catInfo ? (isArabic ? catInfo.label : catInfo.label_en) : equipment.category || '-'}
                         </Badge>
                       </TableCell>
@@ -336,8 +366,8 @@ export const EquipmentTab = memo(function EquipmentTab({ validityFilter }: Equip
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8"><Edit2 className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteEquipmentRate(equipment.id)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-blue-900/30"><Edit2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/30 text-destructive" onClick={() => deleteEquipmentRate(equipment.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
