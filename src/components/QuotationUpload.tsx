@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle, Zap, CheckSquare, X, Square, Search } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle, Zap, CheckSquare, X, Square, Search, Library, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { QuotationCostChart } from "./QuotationCostChart";
 import { CostAnalysis } from "./CostAnalysis";
 import { extractTextFromPDF, validateExtractedText } from "@/lib/pdf-utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 // pdfjs-dist is loaded dynamically to prevent crashes
@@ -45,6 +46,8 @@ import { ExcelBOQItem, extractDataFromExcel, formatExcelDataForAnalysis } from "
 import { useSignedUrl } from "@/hooks/useSignedUrl";
 import { SignedUrlExpiry } from "./SignedUrlExpiry";
 import { extractFilePath } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import { useMaterialPrices } from "@/hooks/useMaterialPrices";
 
 interface QuotationItem {
   item_number: string;
@@ -104,6 +107,8 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   const { user } = useAuth();
   const { toast } = useToast();
   const { getSignedUrl, refreshUrl } = useSignedUrl();
+  const navigate = useNavigate();
+  const { addMaterial } = useMaterialPrices();
   const [isUploading, setIsUploading] = useState(false);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
@@ -132,6 +137,12 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   // Signed URL state for file viewing
   const [activeFileUrl, setActiveFileUrl] = useState<{ url: string; expiresAt: Date } | null>(null);
   const [isLoadingUrl, setIsLoadingUrl] = useState(false);
+
+  // Import to library state
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importQuotation, setImportQuotation] = useState<Quotation | null>(null);
+  const [selectedImportItems, setSelectedImportItems] = useState<Set<number>>(new Set());
+  const [isImporting, setIsImporting] = useState(false);
 
   // Batch analysis state
   const [selectedForBatch, setSelectedForBatch] = useState<Set<string>>(new Set());
@@ -886,6 +897,66 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
     }
   };
 
+  // Import quotation items to library
+  const openImportDialog = (quotation: Quotation) => {
+    setImportQuotation(quotation);
+    const items = quotation.ai_analysis?.items || [];
+    setSelectedImportItems(new Set(items.map((_, i) => i)));
+    setImportDialogOpen(true);
+  };
+
+  const handleImportToLibrary = async () => {
+    if (!importQuotation || !user) return;
+    const items = importQuotation.ai_analysis?.items || [];
+    const selected = Array.from(selectedImportItems);
+    if (selected.length === 0) return;
+
+    setIsImporting(true);
+    let successCount = 0;
+
+    try {
+      const supplierName = importQuotation.ai_analysis?.supplier?.name || importQuotation.supplier_name || importQuotation.name;
+      
+      for (const idx of selected) {
+        const item = items[idx];
+        if (!item || !item.unit_price || item.unit_price <= 0) continue;
+        
+        try {
+          await addMaterial({
+            name: (item.description || '').slice(0, 100),
+            name_ar: item.description || '',
+            category: 'other',
+            unit: item.unit || 'no',
+            unit_price: item.unit_price,
+            currency: importQuotation.currency || 'SAR',
+            supplier_name: supplierName,
+            source: 'quotation',
+            is_verified: false,
+            price_date: new Date().toISOString().split('T')[0],
+          });
+          successCount++;
+        } catch (e) {
+          console.error('Failed to import item:', e);
+        }
+      }
+
+      toast({
+        title: `تم استيراد ${successCount} بند إلى المكتبة`,
+        description: `المورد: ${supplierName}`,
+      });
+      setImportDialogOpen(false);
+      setImportQuotation(null);
+    } catch (error) {
+      toast({
+        title: "خطأ في الاستيراد",
+        description: "فشل استيراد البنود إلى المكتبة",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const deleteQuotation = async (quotation: Quotation) => {
     if (!user) return;
 
@@ -1318,6 +1389,20 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                           )}
                         </Button>
                         
+                        {/* Import to Library - show when analyzed */}
+                        {quotation.status === 'analyzed' && quotation.ai_analysis?.items?.length && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openImportDialog(quotation)}
+                            className="gap-1.5 border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950/30"
+                            title="استيراد البنود إلى المكتبة"
+                          >
+                            <Library className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">للمكتبة</span>
+                          </Button>
+                        )}
+
                         {/* Delete */}
                         <Button
                           variant="ghost"
@@ -1414,7 +1499,8 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                                       <TableHead className="text-right w-20 font-bold">الوحدة</TableHead>
                                       <TableHead className="text-right w-24 font-bold">الكمية</TableHead>
                                       <TableHead className="text-right w-28 font-bold">سعر البند</TableHead>
-                                      <TableHead className="text-right w-32 font-bold bg-primary/10">الإجمالي</TableHead>
+                                       <TableHead className="text-right w-32 font-bold bg-primary/10">الإجمالي</TableHead>
+                                       <TableHead className="w-10"></TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
@@ -1429,6 +1515,17 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                                           <TableCell className="text-sm font-medium text-center">{(item.quantity ?? 0).toLocaleString()}</TableCell>
                                           <TableCell className="text-sm font-medium">{(item.unit_price ?? 0).toLocaleString()} {quotation.currency}</TableCell>
                                           <TableCell className="font-bold text-primary bg-primary/5">{(displayTotal ?? 0).toLocaleString()} {quotation.currency}</TableCell>
+                                          <TableCell>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-7 w-7"
+                                              title="عرض في المكتبة"
+                                              onClick={() => navigate(`/library?search=${encodeURIComponent((item.description || '').slice(0, 40))}`)}
+                                            >
+                                              <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+                                            </Button>
+                                          </TableCell>
                                         </TableRow>
                                       );
                                     })}
@@ -1601,6 +1698,81 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                 تحليل باستخدام النص المستخرج
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import to Library Dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={(open) => { if (!open) { setImportDialogOpen(false); setImportQuotation(null); } }}>
+        <DialogContent className="max-w-lg max-h-[80vh]" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Library className="w-5 h-5 text-green-600" />
+              استيراد بنود عرض السعر إلى المكتبة
+            </DialogTitle>
+            <DialogDescription>
+              المورد: {importQuotation?.ai_analysis?.supplier?.name || importQuotation?.supplier_name || importQuotation?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  checked={selectedImportItems.size === (importQuotation?.ai_analysis?.items?.length || 0)}
+                  onCheckedChange={(checked) => {
+                    const items = importQuotation?.ai_analysis?.items || [];
+                    setSelectedImportItems(checked ? new Set(items.map((_, i) => i)) : new Set());
+                  }}
+                />
+                <span className="text-sm font-medium">تحديد الكل</span>
+              </label>
+              <Badge variant="secondary">{selectedImportItems.size} بند محدد</Badge>
+            </div>
+            
+            <ScrollArea className="h-[300px] rounded-md border p-2">
+              <div className="space-y-2">
+                {(importQuotation?.ai_analysis?.items || []).map((item, idx) => (
+                  <label
+                    key={idx}
+                    className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      selectedImportItems.has(idx) ? 'border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950/30' : 'border-border hover:bg-muted/50'
+                    }`}
+                  >
+                    <Checkbox
+                      checked={selectedImportItems.has(idx)}
+                      onCheckedChange={(checked) => {
+                        setSelectedImportItems(prev => {
+                          const next = new Set(prev);
+                          if (checked) next.add(idx); else next.delete(idx);
+                          return next;
+                        });
+                      }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate">{idx + 1}. {item.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(item.unit_price ?? 0).toLocaleString()} {importQuotation?.currency || 'SAR'}/{item.unit || '-'}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+          
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => { setImportDialogOpen(false); setImportQuotation(null); }}>
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleImportToLibrary}
+              disabled={selectedImportItems.size === 0 || isImporting}
+              className="gap-2 bg-green-600 hover:bg-green-700"
+            >
+              {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Library className="w-4 h-4" />}
+              استيراد إلى المكتبة ({selectedImportItems.size})
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
