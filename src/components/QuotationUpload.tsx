@@ -114,6 +114,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   const { addMaterial } = useMaterialPrices();
   const { addLaborRate } = useLaborRates();
   const { addEquipmentRate } = useEquipmentRates();
+  const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
@@ -155,6 +156,16 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   const [selectedForBatch, setSelectedForBatch] = useState<Set<string>>(new Set());
   const [isBatchAnalyzing, setIsBatchAnalyzing] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, currentName: '' });
+  const [itemsPageSize, setItemsPageSize] = useState<Record<string, number>>({});
+
+  // Statistics computed with useMemo
+  const quotationStats = useMemo(() => {
+    const analyzed = quotations.filter(q => q.status === 'analyzed');
+    const totalValue = analyzed.reduce((sum, q) => sum + (q.total_amount || 0), 0);
+    const totalItems = analyzed.reduce((sum, q) => sum + (q.ai_analysis?.items?.length || 0), 0);
+    const suppliers = new Set(quotations.map(q => q.supplier_name).filter(Boolean));
+    return { analyzed: analyzed.length, totalValue, totalItems, suppliers: suppliers.size, total: quotations.length };
+  }, [quotations]);
 
   // Batch import to library state
   const [isBatchImporting, setIsBatchImporting] = useState(false);
@@ -241,10 +252,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
 
 
 
-  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const processFile = useCallback(async (file: File) => {
     if (!user) {
       toast({
         title: "يجب تسجيل الدخول",
@@ -339,10 +347,32 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
       });
     } finally {
       setIsUploading(false);
-      // Reset file input
-      event.target.value = '';
     }
   }, [user, projectId, formData, toast, onQuotationUploaded]);
+
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await processFile(file);
+    event.target.value = '';
+  }, [processFile]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
+  }, [processFile]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
 
   // Convert PDF page to image for OCR
   const pdfPageToImage = async (page: any, scale: number = 2): Promise<string> => {
@@ -626,8 +656,15 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
         }
       } catch (fetchError) {
         console.error("Error fetching file:", fetchError);
-        // Fallback to basic info
-        extractedText = `عرض سعر: ${quotation.name}\nالمورد: ${quotation.supplier_name || 'غير محدد'}\nالمبلغ: ${quotation.total_amount || 0} ${quotation.currency}`;
+        // Don't use fallback text - redirect to OCR instead
+        setAnalyzingId(null);
+        setNeedsOcrQuotation(quotation);
+        toast({
+          title: "تعذر قراءة الملف",
+          description: "فشل تحميل الملف. جرب استخدام OCR لاستخراج النص.",
+          variant: "destructive",
+        });
+        return;
       }
 
       // If extraction failed completely, show error
@@ -666,12 +703,16 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
         throw new Error(data.error);
       }
 
+      // Check if analysis returned items
+      const itemsCount = data.analysis?.items?.length || 0;
+      const newStatus = itemsCount > 0 ? 'analyzed' : 'pending';
+
       // Update quotation with analysis
       const { error: updateError } = await supabase
         .from('price_quotations')
         .update({
           ai_analysis: data.analysis,
-          status: 'analyzed',
+          status: newStatus,
           total_amount: data.analysis?.totals?.grand_total || quotation.total_amount
         })
         .eq('id', quotation.id);
@@ -684,7 +725,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
           ? { 
               ...q, 
               ai_analysis: data.analysis as QuotationAnalysis, 
-              status: 'analyzed',
+              status: newStatus,
               total_amount: data.analysis?.totals?.grand_total || q.total_amount
             } 
           : q
@@ -692,10 +733,20 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
 
       setExpandedId(quotation.id);
 
-      toast({
-        title: "تم التحليل بنجاح",
-        description: `تم استخراج ${data.analysis?.items?.length || 0} بند من العرض`,
-      });
+      if (itemsCount === 0) {
+        // No items extracted - suggest OCR
+        setNeedsOcrQuotation(quotation);
+        toast({
+          title: "لم يتم استخراج بنود",
+          description: "لم يعثر التحليل على بنود. جرب استخدام OCR لاستخراج النص من الصور.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "تم التحليل بنجاح",
+          description: `تم استخراج ${itemsCount} بند من العرض`,
+        });
+      }
     } catch (error) {
       console.error("Analysis error:", error);
       
@@ -1287,8 +1338,13 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
             </div>
           </div>
 
-          {/* File Upload Area */}
-          <div className="relative">
+          {/* File Upload Area with Drag & Drop */}
+          <div
+            className="relative"
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+          >
             <input
               type="file"
               id="quotation-file-upload"
@@ -1298,14 +1354,20 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
               className="hidden"
             />
             <div className={`
-              border-2 border-dashed rounded-xl p-8 text-center transition-colors
-              ${isUploading ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}
+              border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200
+              ${isDragOver ? 'border-primary bg-primary/10 scale-[1.02] shadow-lg' : ''}
+              ${isUploading ? 'border-primary bg-primary/5' : !isDragOver ? 'border-border hover:border-primary/50' : ''}
               ${!user ? 'opacity-50' : ''}
             `}>
               {isUploading ? (
                 <div className="flex flex-col items-center gap-3">
                   <Loader2 className="w-10 h-10 text-primary animate-spin" />
                   <p className="text-sm text-muted-foreground">جاري رفع الملف...</p>
+                </div>
+              ) : isDragOver ? (
+                <div className="flex flex-col items-center gap-3">
+                  <Upload className="w-12 h-12 text-primary animate-bounce" />
+                  <p className="font-medium text-primary">أفلت الملف هنا للرفع</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-3">
@@ -1337,6 +1399,28 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
           )}
         </CardContent>
       </Card>
+
+      {/* Statistics Dashboard */}
+      {quotations.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="p-3 rounded-lg border bg-card text-center">
+            <p className="text-2xl font-bold text-primary">{quotationStats.total}</p>
+            <p className="text-xs text-muted-foreground">إجمالي العروض</p>
+          </div>
+          <div className="p-3 rounded-lg border bg-card text-center">
+            <p className="text-2xl font-bold text-primary">{quotationStats.analyzed}</p>
+            <p className="text-xs text-muted-foreground">تم تحليلها</p>
+          </div>
+          <div className="p-3 rounded-lg border bg-card text-center">
+            <p className="text-2xl font-bold text-primary">{quotationStats.totalItems}</p>
+            <p className="text-xs text-muted-foreground">إجمالي البنود</p>
+          </div>
+          <div className="p-3 rounded-lg border bg-card text-center">
+            <p className="text-lg font-bold text-primary">{quotationStats.totalValue.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">إجمالي القيمة</p>
+          </div>
+        </div>
+      )}
 
       {/* Uploaded Quotations List */}
       {quotations.length > 0 && (
@@ -1440,7 +1524,10 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                   open={expandedId === quotation.id}
                   onOpenChange={(open) => setExpandedId(open ? quotation.id : null)}
                 >
-                  <div className="rounded-lg border border-border hover:border-primary/30 transition-colors overflow-hidden">
+                  <div className={`rounded-lg border border-border hover:border-primary/30 transition-colors overflow-hidden flex ${
+                    quotation.status === 'analyzed' ? 'border-r-4 border-r-primary' : 'border-r-4 border-r-muted-foreground/30'
+                  }`}>
+                    <div className="flex-1">
                     <div className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-4">
                         {/* Selection Checkbox */}
@@ -1639,6 +1726,24 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                           />
                         )}
 
+                        {/* Show message when analyzed but 0 items */}
+                        {quotation.ai_analysis && (!quotation.ai_analysis.items || quotation.ai_analysis.items.length === 0) && (
+                          <div className="p-4 bg-destructive/5 border border-destructive/20 rounded-lg text-center space-y-3">
+                            <FileSearch className="w-10 h-10 mx-auto text-destructive/60" />
+                            <p className="text-sm font-medium text-destructive">لم يتم العثور على بنود في هذا العرض</p>
+                            <p className="text-xs text-muted-foreground">قد يكون الملف ممسوحاً ضوئياً. جرب استخدام OCR لاستخراج النص.</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => performOCR(quotation)}
+                              className="gap-1.5"
+                            >
+                              <ScanText className="w-3.5 h-3.5" />
+                              إعادة التحليل بـ OCR
+                            </Button>
+                          </div>
+                        )}
+
                         {quotation.ai_analysis && (
                           <>
                           {/* Summary */}
@@ -1672,12 +1777,34 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                             )}
                           </div>
 
-                          {/* Items Table */}
-                          {quotation.ai_analysis.items && quotation.ai_analysis.items.length > 0 && (
+                          {/* Items Table with Pagination */}
+                          {quotation.ai_analysis.items && quotation.ai_analysis.items.length > 0 && (() => {
+                            const allItems = quotation.ai_analysis.items;
+                            const pageSize = itemsPageSize[quotation.id] || 20;
+                            const visibleItems = allItems.slice(0, pageSize);
+                            const hasMore = allItems.length > pageSize;
+
+                            return (
                             <div className="space-y-4">
+                              {/* Summary Cards */}
+                              <div className="grid grid-cols-3 gap-3">
+                                <div className="p-2 rounded-lg bg-muted/50 text-center">
+                                  <p className="text-lg font-bold text-primary">{allItems.length}</p>
+                                  <p className="text-xs text-muted-foreground">بند</p>
+                                </div>
+                                <div className="p-2 rounded-lg bg-muted/50 text-center">
+                                  <p className="text-lg font-bold text-primary">{(quotation.ai_analysis.totals?.grand_total ?? 0).toLocaleString()}</p>
+                                  <p className="text-xs text-muted-foreground">الإجمالي</p>
+                                </div>
+                                <div className="p-2 rounded-lg bg-muted/50 text-center">
+                                  <p className="text-sm font-bold text-primary truncate">{quotation.ai_analysis.supplier?.name || quotation.supplier_name || '-'}</p>
+                                  <p className="text-xs text-muted-foreground">المورد</p>
+                                </div>
+                              </div>
+
                               <h5 className="text-sm font-medium mb-2 flex items-center gap-2">
                                 <DollarSign className="w-4 h-4 text-primary" />
-                                البنود ({quotation.ai_analysis.items.length})
+                                البنود ({allItems.length})
                               </h5>
                               <div className="rounded-lg border overflow-hidden">
                                 <Table>
@@ -1693,11 +1820,11 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {quotation.ai_analysis.items.map((item, idx) => {
+                                    {visibleItems.map((item, idx) => {
                                       const calculatedTotal = (item.quantity || 0) * (item.unit_price || 0);
                                       const displayTotal = item.total || calculatedTotal;
                                       return (
-                                        <TableRow key={idx} className="hover:bg-muted/30">
+                                        <TableRow key={idx} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
                                           <TableCell className="font-mono text-xs font-medium">{item.item_number || idx + 1}</TableCell>
                                           <TableCell className="text-sm">{item.description}</TableCell>
                                           <TableCell className="text-sm text-center">{item.unit || '-'}</TableCell>
@@ -1721,17 +1848,44 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                                   </TableBody>
                                 </Table>
                               </div>
+
+                              {/* Show More / Show Less */}
+                              {allItems.length > 20 && (
+                                <div className="text-center">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setItemsPageSize(prev => ({
+                                      ...prev,
+                                      [quotation.id]: hasMore ? allItems.length : 20
+                                    }))}
+                                    className="gap-1.5"
+                                  >
+                                    {hasMore ? (
+                                      <>
+                                        <ChevronDown className="w-3.5 h-3.5" />
+                                        عرض الكل ({allItems.length} بند)
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ChevronUp className="w-3.5 h-3.5" />
+                                        عرض أول 20 بند فقط
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              )}
                               
                               {/* Pie Chart for cost distribution */}
                               <QuotationCostChart 
-                                items={quotation.ai_analysis.items} 
+                                items={allItems} 
                                 currency={quotation.currency}
                               />
                               
                               {/* Cost Analysis */}
                               <div className="mt-4 p-4 bg-muted/20 rounded-lg border">
                                 <CostAnalysis 
-                                  items={quotation.ai_analysis.items.map(item => ({
+                                  items={allItems.map(item => ({
                                     item_number: item.item_number,
                                     description: item.description,
                                     unit: item.unit,
@@ -1743,7 +1897,8 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                                 />
                               </div>
                             </div>
-                          )}
+                            );
+                          })()}
 
                           {/* Totals */}
                           {quotation.ai_analysis.totals && (
@@ -1792,6 +1947,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
                         )}
                       </div>
                     </CollapsibleContent>
+                    </div>{/* close flex-1 */}
                   </div>
                 </Collapsible>
               ))}
