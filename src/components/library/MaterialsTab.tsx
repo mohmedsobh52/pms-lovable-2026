@@ -1,9 +1,9 @@
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, useEffect, useCallback, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Upload, Download, Search, Trash2, Edit2, Check, X, Package, ChevronLeft, ChevronRight, Filter } from "lucide-react";
@@ -51,19 +51,19 @@ export const MaterialsTab = memo(function MaterialsTab({ validityFilter }: Mater
   });
 
   // Inline editing
-  const startEdit = (material: any) => {
+  const startEdit = useCallback((material: any) => {
     setEditingId(material.id);
     setEditData({ name: material.name, unit_price: material.unit_price, unit: material.unit, brand: material.brand || '' });
-  };
-  const cancelEdit = () => { setEditingId(null); setEditData({}); };
-  const saveEdit = async () => {
+  }, []);
+  const cancelEdit = useCallback(() => { setEditingId(null); setEditData({}); }, []);
+  const saveEdit = useCallback(async () => {
     if (!editingId) return;
     try {
       await updateMaterial(editingId, { ...editData, unit_price: parseFloat(editData.unit_price) || 0 });
       toast.success(isArabic ? "تم تحديث المادة" : "Material updated");
       setEditingId(null);
     } catch { toast.error(isArabic ? "فشل التحديث" : "Update failed"); }
-  };
+  }, [editingId, editData, updateMaterial, isArabic]);
 
   // Excel export
   const exportToExcel = async () => {
@@ -148,7 +148,7 @@ export const MaterialsTab = memo(function MaterialsTab({ validityFilter }: Mater
     return filteredMaterials.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredMaterials, currentPage]);
 
-  useMemo(() => { setCurrentPage(1); }, [search, categoryFilter, validityFilter]);
+  useEffect(() => { setCurrentPage(1); }, [search, categoryFilter, validityFilter]);
 
   const getCurrencyLabel = (currency: string) => { const found = CURRENCIES.find(c => c.value === currency); return found ? found.label : currency; };
   const getCategoryLabel = (catValue: string) => { const found = MATERIAL_CATEGORIES.find(c => c.value === catValue); return found ? (isArabic ? found.label : found.label_en) : catValue; };
@@ -203,7 +203,10 @@ export const MaterialsTab = memo(function MaterialsTab({ validityFilter }: Mater
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>{isArabic ? "إضافة مادة جديدة" : "Add New Material"}</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>{isArabic ? "إضافة مادة جديدة" : "Add New Material"}</DialogTitle>
+                <DialogDescription>{isArabic ? "أدخل بيانات المادة الجديدة" : "Enter the new material details"}</DialogDescription>
+              </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>{isArabic ? "اسم المادة *" : "Material Name *"}</Label><Input value={formData.name} onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} required /></div>
@@ -243,12 +246,34 @@ export const MaterialsTab = memo(function MaterialsTab({ validityFilter }: Mater
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                   <div className="space-y-2">
                     <Label>{isArabic ? "المورد" : "Supplier"}</Label>
-                    <Select value={formData.supplier_name} onValueChange={(v) => setFormData(prev => ({ ...prev, supplier_name: v }))}>
-                      <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المورد" : "Select supplier"} /></SelectTrigger>
-                      <SelectContent>{suppliers.map(s => (<SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>))}</SelectContent>
-                    </Select>
+                    {suppliers.length > 0 ? (
+                      <Select 
+                        value={formData.supplier_name || undefined} 
+                        onValueChange={(v) => setFormData(prev => ({ ...prev, supplier_name: v === '__other__' ? '' : v }))}
+                      >
+                        <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المورد" : "Select supplier"} /></SelectTrigger>
+                        <SelectContent>
+                          {suppliers.map(s => (<SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>))}
+                          <SelectItem value="__other__">{isArabic ? "أخرى (كتابة يدوية)" : "Other (type manually)"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input 
+                        value={formData.supplier_name} 
+                        onChange={(e) => setFormData(prev => ({ ...prev, supplier_name: e.target.value }))} 
+                        placeholder={isArabic ? "اكتب اسم المورد" : "Enter supplier name"} 
+                      />
+                    )}
+                    {suppliers.length > 0 && formData.supplier_name === '' && (
+                      <Input 
+                        value="" 
+                        onChange={(e) => setFormData(prev => ({ ...prev, supplier_name: e.target.value }))} 
+                        placeholder={isArabic ? "اكتب اسم المورد" : "Type supplier name"} 
+                        className="mt-1"
+                      />
+                    )}
                   </div>
                   <div className="space-y-2"><Label>{isArabic ? "العلامة التجارية" : "Brand"}</Label><Input value={formData.brand} onChange={(e) => setFormData(prev => ({ ...prev, brand: e.target.value }))} placeholder={isArabic ? "مثال: سافيتو" : "e.g. Saveto"} /></div>
                 </div>
