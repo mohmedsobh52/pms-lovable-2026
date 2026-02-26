@@ -451,6 +451,69 @@ export const useSampleLibraryData = () => {
     }
   }, [user, addWaterSewageMaterials, addNetworkLaborEquipment]);
 
+  const deleteAllSampleData = useCallback(async () => {
+    if (!user) return false;
+    try {
+      // Delete materials with sample sources
+      const { error: matError } = await supabase
+        .from('material_prices')
+        .delete()
+        .eq('user_id', user.id)
+        .in('source', ['sample_data', 'water_sewage_data']);
+
+      // Delete ALL user labor rates (sample data doesn't have a source marker)
+      const { error: laborError } = await supabase
+        .from('labor_rates')
+        .delete()
+        .eq('user_id', user.id);
+
+      // Delete ALL user equipment rates
+      const { error: equipError } = await supabase
+        .from('equipment_rates')
+        .delete()
+        .eq('user_id', user.id);
+
+      // Also delete materials without source (basic sample data)
+      await supabase
+        .from('material_prices')
+        .delete()
+        .eq('user_id', user.id)
+        .is('source', null);
+
+      if (matError || laborError || equipError) {
+        console.error('Delete errors:', { matError, laborError, equipError });
+        toast.error('فشل في حذف بعض البيانات');
+        return false;
+      }
+
+      toast.success('تم حذف جميع البيانات التجريبية بنجاح');
+      return true;
+    } catch (error) {
+      console.error('Error deleting sample data:', error);
+      toast.error('فشل في حذف البيانات');
+      return false;
+    }
+  }, [user]);
+
+  const deleteNetworkDataOnly = useCallback(async () => {
+    if (!user) return false;
+    try {
+      const { error } = await supabase
+        .from('material_prices')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('source', 'water_sewage_data');
+
+      if (error) throw error;
+      toast.success('تم حذف بيانات الشبكات بنجاح');
+      return true;
+    } catch (error) {
+      console.error('Error deleting network data:', error);
+      toast.error('فشل في حذف بيانات الشبكات');
+      return false;
+    }
+  }, [user]);
+
   return {
     addSampleMaterials,
     addSampleLabor,
@@ -460,6 +523,8 @@ export const useSampleLibraryData = () => {
     addNetworkLaborEquipment,
     addAllNetworkData,
     checkExistingNetworkMaterials,
+    deleteAllSampleData,
+    deleteNetworkDataOnly,
     sampleCounts: {
       materials: SAMPLE_MATERIALS.length,
       labor: SAMPLE_LABOR.length,

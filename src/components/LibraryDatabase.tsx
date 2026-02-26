@@ -2,7 +2,7 @@ import { useState, lazy, Suspense, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Package, Users, Truck, Database, Loader2, Droplets, Wrench, BarChart3, PackagePlus } from "lucide-react";
+import { Package, Users, Truck, Database, Loader2, Droplets, Wrench, BarChart3, PackagePlus, Trash2, Download } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { MaterialsTab } from "./library/MaterialsTab";
 import { LaborTab } from "./library/LaborTab";
@@ -26,7 +26,7 @@ export const LibraryDatabase = () => {
   const { materials, refreshMaterials } = useMaterialPrices();
   const { laborRates, refreshLaborRates } = useLaborRates();
   const { equipmentRates, refreshEquipmentRates } = useEquipmentRates();
-  const { addAllSampleData, addWaterSewageMaterials, addNetworkLaborEquipment, addAllNetworkData, checkExistingNetworkMaterials, sampleCounts } = useSampleLibraryData();
+  const { addAllSampleData, addWaterSewageMaterials, addNetworkLaborEquipment, addAllNetworkData, checkExistingNetworkMaterials, deleteAllSampleData, deleteNetworkDataOnly, sampleCounts } = useSampleLibraryData();
   const [isAddingSampleData, setIsAddingSampleData] = useState(false);
   const [isAddingNetworkData, setIsAddingNetworkData] = useState(false);
   const [isAddingNetworkLE, setIsAddingNetworkLE] = useState(false);
@@ -36,8 +36,10 @@ export const LibraryDatabase = () => {
   const [duplicateCount, setDuplicateCount] = useState<number | null>(null);
   const [validityFilter, setValidityFilter] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("materials");
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
-  const isAnyLoading = isAddingSampleData || isAddingNetworkData || isAddingNetworkLE || isAddingAllNetwork;
+  const isAnyLoading = isAddingSampleData || isAddingNetworkData || isAddingNetworkLE || isAddingAllNetwork || isDeletingAll;
 
   const handleAddSampleData = useCallback(async () => {
     setIsAddingSampleData(true);
@@ -101,6 +103,100 @@ export const LibraryDatabase = () => {
     setShowProgress(false);
     setProgress(0);
   }, [addAllNetworkData, refreshMaterials, refreshLaborRates, refreshEquipmentRates, isArabic, sampleCounts]);
+
+  const handleDeleteAllData = useCallback(async () => {
+    setIsDeletingAll(true);
+    const success = await deleteAllSampleData();
+    if (success) {
+      await Promise.all([refreshMaterials(), refreshLaborRates(), refreshEquipmentRates()]);
+    }
+    setIsDeletingAll(false);
+  }, [deleteAllSampleData, refreshMaterials, refreshLaborRates, refreshEquipmentRates]);
+
+  const handleExportLibrary = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const ExcelJS = await import('exceljs');
+      const { saveAs } = await import('file-saver');
+      const workbook = new ExcelJS.Workbook();
+
+      // Materials sheet
+      const matSheet = workbook.addWorksheet(isArabic ? 'المواد' : 'Materials');
+      matSheet.columns = [
+        { header: isArabic ? 'الاسم' : 'Name', key: 'name', width: 30 },
+        { header: isArabic ? 'الاسم العربي' : 'Arabic Name', key: 'name_ar', width: 30 },
+        { header: isArabic ? 'الفئة' : 'Category', key: 'category', width: 15 },
+        { header: isArabic ? 'الوحدة' : 'Unit', key: 'unit', width: 10 },
+        { header: isArabic ? 'السعر' : 'Price', key: 'unit_price', width: 12 },
+        { header: isArabic ? 'العملة' : 'Currency', key: 'currency', width: 10 },
+        { header: isArabic ? 'المورد' : 'Supplier', key: 'supplier_name', width: 20 },
+        { header: isArabic ? 'العلامة' : 'Brand', key: 'brand', width: 15 },
+        { header: isArabic ? 'تاريخ السعر' : 'Price Date', key: 'price_date', width: 12 },
+        { header: isArabic ? 'صالح حتى' : 'Valid Until', key: 'valid_until', width: 12 },
+      ];
+      materials.forEach(m => matSheet.addRow(m));
+      // Style header
+      matSheet.getRow(1).eachCell(cell => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+      });
+      matSheet.addRow([]);
+      matSheet.addRow([isArabic ? 'المجموع' : 'Total', '', '', '', materials.reduce((s, m) => s + (m.unit_price || 0), 0)]);
+
+      // Labor sheet
+      const labSheet = workbook.addWorksheet(isArabic ? 'العمالة' : 'Labor');
+      labSheet.columns = [
+        { header: isArabic ? 'الكود' : 'Code', key: 'code', width: 10 },
+        { header: isArabic ? 'الاسم' : 'Name', key: 'name', width: 25 },
+        { header: isArabic ? 'الاسم العربي' : 'Arabic Name', key: 'name_ar', width: 25 },
+        { header: isArabic ? 'الفئة' : 'Category', key: 'category', width: 15 },
+        { header: isArabic ? 'المعدل اليومي' : 'Daily Rate', key: 'unit_rate', width: 12 },
+        { header: isArabic ? 'المعدل بالساعة' : 'Hourly Rate', key: 'hourly_rate', width: 12 },
+        { header: isArabic ? 'مستوى المهارة' : 'Skill Level', key: 'skill_level', width: 12 },
+      ];
+      laborRates.forEach(l => labSheet.addRow(l));
+      labSheet.getRow(1).eachCell(cell => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF16A34A' } };
+      });
+
+      // Equipment sheet
+      const eqSheet = workbook.addWorksheet(isArabic ? 'المعدات' : 'Equipment');
+      eqSheet.columns = [
+        { header: isArabic ? 'الكود' : 'Code', key: 'code', width: 10 },
+        { header: isArabic ? 'الاسم' : 'Name', key: 'name', width: 25 },
+        { header: isArabic ? 'الاسم العربي' : 'Arabic Name', key: 'name_ar', width: 25 },
+        { header: isArabic ? 'الفئة' : 'Category', key: 'category', width: 15 },
+        { header: isArabic ? 'معدل الإيجار' : 'Rental Rate', key: 'rental_rate', width: 12 },
+        { header: isArabic ? 'يشمل مشغل' : 'Incl. Operator', key: 'includes_operator', width: 12 },
+        { header: isArabic ? 'يشمل وقود' : 'Incl. Fuel', key: 'includes_fuel', width: 12 },
+      ];
+      equipmentRates.forEach(e => eqSheet.addRow({
+        ...e,
+        includes_operator: e.includes_operator ? (isArabic ? 'نعم' : 'Yes') : (isArabic ? 'لا' : 'No'),
+        includes_fuel: e.includes_fuel ? (isArabic ? 'نعم' : 'Yes') : (isArabic ? 'لا' : 'No'),
+      }));
+      eqSheet.getRow(1).eachCell(cell => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEA580C' } };
+      });
+
+      // Apply RTL for Arabic name columns
+      [matSheet, labSheet, eqSheet].forEach(sheet => {
+        sheet.getColumn('name_ar').alignment = { horizontal: 'right', readingOrder: 2 as any };
+        sheet.getColumn('name_ar').font = { name: 'Arial' };
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const date = new Date().toISOString().split('T')[0];
+      saveAs(new Blob([buffer]), `Library_Export_${date}.xlsx`);
+      toast.success(isArabic ? 'تم تصدير المكتبة بنجاح' : 'Library exported successfully');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error(isArabic ? 'فشل في تصدير المكتبة' : 'Failed to export library');
+    }
+    setIsExporting(false);
+  }, [materials, laborRates, equipmentRates, isArabic]);
 
   const getCurrentTabData = () => {
     switch (activeTab) {
@@ -264,6 +360,40 @@ export const LibraryDatabase = () => {
       {/* Contextual add buttons when library is not empty */}
       {!showEmptyState && (
         <div className="flex justify-end gap-2 flex-wrap">
+          {/* Delete All Data */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" className="gap-2" disabled={isAnyLoading}>
+                {isDeletingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {isDeletingAll ? (isArabic ? "جاري الحذف..." : "Deleting...") : (isArabic ? "حذف جميع البيانات" : "Delete All Data")}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{isArabic ? "⚠️ حذف جميع البيانات" : "⚠️ Delete All Data"}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {isArabic ? "هل أنت متأكد؟ سيتم حذف جميع البيانات التالية نهائياً:" : "Are you sure? The following data will be permanently deleted:"}
+                </AlertDialogDescription>
+                <ul className="list-disc list-inside text-sm text-destructive font-medium">
+                  <li>{materials.length} {isArabic ? "مادة" : "Materials"}</li>
+                  <li>{laborRates.length} {isArabic ? "عمالة" : "Labor"}</li>
+                  <li>{equipmentRates.length} {isArabic ? "معدة" : "Equipment"}</li>
+                </ul>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteAllData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  {isArabic ? "حذف الكل" : "Delete All"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Export Library */}
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleExportLibrary} disabled={isAnyLoading || isExporting || totalItems === 0}>
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {isExporting ? (isArabic ? "جاري التصدير..." : "Exporting...") : (isArabic ? "تصدير المكتبة" : "Export Library")}
+          </Button>
           {activeTab === "materials" && (
             <AlertDialog onOpenChange={(open) => { if (open) handleCheckAndAddNetworkData(); else setDuplicateCount(null); }}>
               <AlertDialogTrigger asChild>
