@@ -6,11 +6,27 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Upload, Search, Trash2, Edit2, Package, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Upload, Search, Trash2, Edit2, Package, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import { useMaterialPrices, MATERIAL_CATEGORIES, CURRENCIES, CATEGORY_GROUPS } from "@/hooks/useMaterialPrices";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { PriceValidityIndicator, getValidityStatus } from "./PriceValidityIndicator";
+
+const getMaterialCategoryBadgeColor = (category: string) => {
+  if (category.startsWith('pipes_')) return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+  if (['fittings_valves', 'manholes', 'pumps_stations', 'water_tanks', 'water_treatment'].includes(category))
+    return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
+  if (['concrete', 'steel', 'cement', 'aggregates', 'bricks_blocks'].includes(category))
+    return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
+  if (['excavation_backfill', 'asphalt', 'soil_improvement'].includes(category))
+    return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
+  if (['insulation', 'waterproofing', 'paints_coatings', 'sealants'].includes(category))
+    return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+  if (['electrical', 'plumbing', 'hvac'].includes(category))
+    return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400';
+  return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400';
+};
 
 interface MaterialsTabProps {
   validityFilter?: string | null;
@@ -373,13 +389,21 @@ export const MaterialsTab = memo(function MaterialsTab({ validityFilter }: Mater
         </div>
       </div>
 
-      {/* Results count */}
+      {/* Results count bar */}
       {filteredMaterials.length > 0 && (
-        <div className="text-sm text-muted-foreground">
-          {isArabic 
-            ? `عرض ${paginatedMaterials.length} من ${filteredMaterials.length} مادة`
-            : `Showing ${paginatedMaterials.length} of ${filteredMaterials.length} materials`
-          }
+        <div className="flex items-center justify-between px-3 py-2 bg-[hsl(218,50%,18%)]/5 dark:bg-[hsl(218,45%,18%)]/10 rounded-lg border">
+          <span className="text-sm font-medium text-[hsl(218,50%,18%)] dark:text-white/70">
+            {isArabic 
+              ? `${filteredMaterials.length} مادة`
+              : `${filteredMaterials.length} materials`
+            }
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {isArabic 
+              ? `عرض ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(currentPage * ITEMS_PER_PAGE, filteredMaterials.length)} من ${filteredMaterials.length}`
+              : `Showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(currentPage * ITEMS_PER_PAGE, filteredMaterials.length)} of ${filteredMaterials.length}`
+            }
+          </span>
         </div>
       )}
 
@@ -390,24 +414,24 @@ export const MaterialsTab = memo(function MaterialsTab({ validityFilter }: Mater
           <p>{isArabic ? "لا توجد مواد. أضف أول مادة للبدء." : "No materials. Add your first material to get started."}</p>
         </div>
       ) : (
-        <div className="rounded-lg border overflow-hidden">
+        <div className="rounded-lg border shadow-sm overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="text-right">{isArabic ? "الكود" : "Code"}</TableHead>
-                <TableHead className="text-right">{isArabic ? "الاسم" : "Name"}</TableHead>
-                <TableHead className="text-right">{isArabic ? "التصنيف" : "Category"}</TableHead>
-                <TableHead className="text-center">{isArabic ? "الوحدة" : "Unit"}</TableHead>
-                <TableHead className="text-center">{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
-                <TableHead className="text-right">{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
-                <TableHead className="text-center">{isArabic ? "الصلاحية" : "Validity"}</TableHead>
-                <TableHead className="text-center w-24">{isArabic ? "إجراءات" : "Actions"}</TableHead>
+              <TableRow className="bg-[hsl(218,50%,18%)]/5 dark:bg-[hsl(218,45%,18%)]/20">
+                <TableHead className="text-right font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "الكود" : "Code"}</TableHead>
+                <TableHead className="text-right font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "الاسم" : "Name"}</TableHead>
+                <TableHead className="text-right font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "التصنيف" : "Category"}</TableHead>
+                <TableHead className="text-center font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "الوحدة" : "Unit"}</TableHead>
+                <TableHead className="text-center font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
+                <TableHead className="text-right font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
+                <TableHead className="text-center font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "الصلاحية" : "Validity"}</TableHead>
+                <TableHead className="text-center w-24 font-semibold text-[hsl(218,50%,18%)] dark:text-white/80">{isArabic ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedMaterials.map((material, index) => (
-                <TableRow key={material.id}>
-                  <TableCell className="font-mono text-sm">{`M${String((currentPage - 1) * ITEMS_PER_PAGE + index + 1).padStart(3, '0')}`}</TableCell>
+                <TableRow key={material.id} className="hover:bg-[hsl(217,91%,60%)]/5 dark:hover:bg-[hsl(217,91%,60%)]/10 transition-colors">
+                  <TableCell className="font-mono text-sm text-[hsl(218,50%,18%)] dark:text-white/70">{`M${String((currentPage - 1) * ITEMS_PER_PAGE + index + 1).padStart(3, '0')}`}</TableCell>
                   <TableCell>
                     <div>
                       <div>{isArabic && material.name_ar ? material.name_ar : material.name}</div>
@@ -417,7 +441,9 @@ export const MaterialsTab = memo(function MaterialsTab({ validityFilter }: Mater
                     </div>
                   </TableCell>
                   <TableCell className="text-xs">
-                    {getCategoryLabel(material.category)}
+                    <Badge className={`text-xs border-0 ${getMaterialCategoryBadgeColor(material.category)}`}>
+                      {getCategoryLabel(material.category)}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-center">{material.unit}</TableCell>
                   <TableCell className="text-center font-medium">
@@ -433,13 +459,13 @@ export const MaterialsTab = memo(function MaterialsTab({ validityFilter }: Mater
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-blue-900/30">
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        className="h-8 w-8 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/30 text-destructive"
                         onClick={() => deleteMaterial(material.id)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -455,29 +481,22 @@ export const MaterialsTab = memo(function MaterialsTab({ validityFilter }: Mater
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center justify-between px-2 pt-3">
           <span className="text-sm text-muted-foreground">
             {isArabic 
-              ? `صفحة ${currentPage} من ${totalPages}`
-              : `Page ${currentPage} of ${totalPages}`
+              ? `عرض ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(currentPage * ITEMS_PER_PAGE, filteredMaterials.length)} من ${filteredMaterials.length}`
+              : `Showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(currentPage * ITEMS_PER_PAGE, filteredMaterials.length)} of ${filteredMaterials.length}`
             }
           </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <span className="text-sm min-w-[60px] text-center">{currentPage} / {totalPages}</span>
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
     </div>
