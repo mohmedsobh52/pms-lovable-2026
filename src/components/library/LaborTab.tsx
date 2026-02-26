@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, useCallback, useDeferredValue, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +40,7 @@ export const LaborTab = memo(function LaborTab({ validityFilter }: LaborTabProps
   const { isArabic } = useLanguage();
   const { laborRates, loading, addLaborRate, updateLaborRate, deleteLaborRate, importFromExcel, calculateHourlyRate } = useLaborRates();
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -51,19 +52,19 @@ export const LaborTab = memo(function LaborTab({ validityFilter }: LaborTabProps
   });
 
   // Inline editing
-  const startEdit = (labor: any) => {
+  const startEdit = useCallback((labor: any) => {
     setEditingId(labor.id);
     setEditData({ name: labor.name, unit_rate: labor.unit_rate, skill_level: labor.skill_level || 'skilled' });
-  };
-  const cancelEdit = () => { setEditingId(null); setEditData({}); };
-  const saveEdit = async () => {
+  }, []);
+  const cancelEdit = useCallback(() => { setEditingId(null); setEditData({}); }, []);
+  const saveEdit = useCallback(async () => {
     if (!editingId) return;
     try {
       await updateLaborRate(editingId, { ...editData, unit_rate: parseFloat(editData.unit_rate) || 0 });
       toast.success(isArabic ? "تم تحديث العمالة" : "Labor updated");
       setEditingId(null);
     } catch { toast.error(isArabic ? "فشل التحديث" : "Update failed"); }
-  };
+  }, [editingId, editData, updateLaborRate, isArabic]);
 
   // Excel export
   const exportToExcel = async () => {
@@ -133,13 +134,13 @@ export const LaborTab = memo(function LaborTab({ validityFilter }: LaborTabProps
 
   const filteredLabor = useMemo(() => {
     return laborRates.filter(l => {
-      const matchesSearch = l.name.toLowerCase().includes(search.toLowerCase()) || (l.name_ar && l.name_ar.includes(search)) || l.code.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch = l.name.toLowerCase().includes(deferredSearch.toLowerCase()) || (l.name_ar && l.name_ar.includes(deferredSearch)) || l.code.toLowerCase().includes(deferredSearch.toLowerCase());
       if (!matchesSearch) return false;
       if (categoryFilter !== "all" && l.category !== categoryFilter) return false;
       if (validityFilter) { return getValidityStatus(l.valid_until, l.price_date) === validityFilter; }
       return true;
     });
-  }, [laborRates, search, categoryFilter, validityFilter]);
+  }, [laborRates, deferredSearch, categoryFilter, validityFilter]);
 
   const totalPages = Math.ceil(filteredLabor.length / ITEMS_PER_PAGE);
   const paginatedLabor = useMemo(() => { const s = (currentPage - 1) * ITEMS_PER_PAGE; return filteredLabor.slice(s, s + ITEMS_PER_PAGE); }, [filteredLabor, currentPage]);

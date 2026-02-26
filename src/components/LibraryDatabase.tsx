@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Package, Users, Truck, Database, Loader2, Droplets, Wrench } from "lucide-react";
+import { Package, Users, Truck, Database, Loader2, Droplets, Wrench, BarChart3 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { MaterialsTab } from "./library/MaterialsTab";
 import { LaborTab } from "./library/LaborTab";
 import { EquipmentTab } from "./library/EquipmentTab";
+const LibraryQuotationReport = lazy(() => import("./library/LibraryQuotationReport").then(m => ({ default: m.LibraryQuotationReport })));
 import { useMaterialPrices } from "@/hooks/useMaterialPrices";
 import { useLaborRates } from "@/hooks/useLaborRates";
 import { useEquipmentRates } from "@/hooks/useEquipmentRates";
@@ -217,7 +219,7 @@ export const LibraryDatabase = () => {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} dir={isArabic ? "rtl" : "ltr"}>
-        <TabsList className="grid w-full grid-cols-3 h-12 tabs-navigation-safe">
+        <TabsList className="grid w-full grid-cols-4 h-12 tabs-navigation-safe">
           <TabsTrigger value="materials" className="gap-2 text-sm">
             <Package className="h-4 w-4" />
             {isArabic ? "المواد" : "Materials"}
@@ -233,9 +235,13 @@ export const LibraryDatabase = () => {
             {isArabic ? "المعدات" : "Equipment"}
             {equipmentRates.length > 0 && <span className="text-xs bg-muted-foreground/20 px-1.5 py-0.5 rounded-full">{equipmentRates.length}</span>}
           </TabsTrigger>
+          <TabsTrigger value="comparison" className="gap-2 text-sm">
+            <BarChart3 className="h-4 w-4" />
+            {isArabic ? "مقارنة العروض" : "Comparison"}
+          </TabsTrigger>
         </TabsList>
 
-        {getCurrentTabData().length > 0 && (
+        {activeTab !== 'comparison' && getCurrentTabData().length > 0 && (
           <div className="mt-4">
             <PriceValiditySummary stats={validityStats} onFilterChange={setValidityFilter} activeFilter={validityFilter} />
           </div>
@@ -244,6 +250,11 @@ export const LibraryDatabase = () => {
         <TabsContent value="materials" className="mt-4"><MaterialsTab validityFilter={validityFilter} /></TabsContent>
         <TabsContent value="labor" className="mt-4"><LaborTab validityFilter={validityFilter} /></TabsContent>
         <TabsContent value="equipment" className="mt-4"><EquipmentTab validityFilter={validityFilter} /></TabsContent>
+        <TabsContent value="comparison" className="mt-4">
+          <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+            <LibraryQuotationReport />
+          </Suspense>
+        </TabsContent>
       </Tabs>
     </div>
   );

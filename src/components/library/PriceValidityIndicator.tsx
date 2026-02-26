@@ -1,3 +1,4 @@
+import React from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -17,7 +18,6 @@ export type ValidityStatus = "valid" | "expiring" | "expired" | "unknown";
 export const getValidityStatus = (validUntil?: string | null, priceDate?: string | null): ValidityStatus => {
   const today = new Date();
   
-  // If we have a valid_until date, use it
   if (validUntil) {
     try {
       const expiryDate = parseISO(validUntil);
@@ -31,7 +31,6 @@ export const getValidityStatus = (validUntil?: string | null, priceDate?: string
     }
   }
   
-  // If no valid_until, estimate based on price_date (assume 90 days validity)
   if (priceDate) {
     try {
       const priceDateParsed = parseISO(priceDate);
@@ -59,12 +58,12 @@ export const getValidityStats = (items: Array<{ price_date?: string | null; vali
   return stats;
 };
 
-export const PriceValidityIndicator = ({ 
+export const PriceValidityIndicator = React.forwardRef<HTMLDivElement, PriceValidityIndicatorProps>(({ 
   priceDate, 
   validUntil, 
   showLabel = false,
   size = "sm"
-}: PriceValidityIndicatorProps) => {
+}, ref) => {
   const { isArabic } = useLanguage();
   const status = getValidityStatus(validUntil, priceDate);
   
@@ -133,6 +132,7 @@ export const PriceValidityIndicator = ({
         <TooltipTrigger asChild>
           {showLabel ? (
             <Badge 
+              ref={ref}
               variant="outline" 
               className={`${bgColor} ${color} gap-1 cursor-help border-0`}
             >
@@ -140,7 +140,7 @@ export const PriceValidityIndicator = ({
               <span>{label}</span>
             </Badge>
           ) : (
-            <div className={`${color} cursor-help`}>
+            <div ref={ref} className={`${color} cursor-help`}>
               <Icon className={iconSize} />
             </div>
           )}
@@ -151,4 +151,6 @@ export const PriceValidityIndicator = ({
       </Tooltip>
     </TooltipProvider>
   );
-};
+});
+
+PriceValidityIndicator.displayName = "PriceValidityIndicator";

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle, Zap, CheckSquare, X, Square, Search, Library, ExternalLink } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, FileSpreadsheet, Sparkles, ChevronDown, ChevronUp, Calculator, DollarSign, ScanText, FileSearch, CheckCircle, Zap, CheckSquare, X, Square, Search, Library, ExternalLink, Package, Users, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +48,9 @@ import { SignedUrlExpiry } from "./SignedUrlExpiry";
 import { extractFilePath } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useMaterialPrices } from "@/hooks/useMaterialPrices";
+import { useLaborRates } from "@/hooks/useLaborRates";
+import { useEquipmentRates } from "@/hooks/useEquipmentRates";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface QuotationItem {
   item_number: string;
@@ -109,6 +112,8 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   const { getSignedUrl, refreshUrl } = useSignedUrl();
   const navigate = useNavigate();
   const { addMaterial } = useMaterialPrices();
+  const { addLaborRate } = useLaborRates();
+  const { addEquipmentRate } = useEquipmentRates();
   const [isUploading, setIsUploading] = useState(false);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
@@ -143,6 +148,7 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
   const [importQuotation, setImportQuotation] = useState<Quotation | null>(null);
   const [selectedImportItems, setSelectedImportItems] = useState<Set<number>>(new Set());
   const [isImporting, setIsImporting] = useState(false);
+  const [importType, setImportType] = useState<'materials' | 'labor' | 'equipment'>('materials');
 
   // Batch analysis state
   const [selectedForBatch, setSelectedForBatch] = useState<Set<string>>(new Set());
@@ -922,26 +928,60 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
         if (!item || !item.unit_price || item.unit_price <= 0) continue;
         
         try {
-          await addMaterial({
-            name: (item.description || '').slice(0, 100),
-            name_ar: item.description || '',
-            category: 'other',
-            unit: item.unit || 'no',
-            unit_price: item.unit_price,
-            currency: importQuotation.currency || 'SAR',
-            supplier_name: supplierName,
-            source: 'quotation',
-            is_verified: false,
-            price_date: new Date().toISOString().split('T')[0],
-          });
+          if (importType === 'labor') {
+            await addLaborRate({
+              code: `LQ${Date.now()}_${idx}`,
+              name: (item.description || '').slice(0, 100),
+              name_ar: item.description || '',
+              category: 'general',
+              skill_level: 'skilled',
+              unit: item.unit || 'day',
+              unit_rate: item.unit_price,
+              currency: importQuotation.currency || 'SAR',
+              working_hours_per_day: 8,
+              hourly_rate: item.unit_price / 8,
+              overtime_percentage: 0,
+            });
+          } else if (importType === 'equipment') {
+            await addEquipmentRate({
+              code: `EQ${Date.now()}_${idx}`,
+              name: (item.description || '').slice(0, 100),
+              name_ar: item.description || '',
+              category: 'other',
+              unit: item.unit || 'day',
+              rental_rate: item.unit_price,
+              operation_rate: 0,
+              hourly_rate: 0,
+              monthly_rate: 0,
+              supplier_name: supplierName,
+              currency: importQuotation.currency || 'SAR',
+              description: '',
+              includes_operator: false,
+              includes_fuel: false,
+            });
+          } else {
+            await addMaterial({
+              name: (item.description || '').slice(0, 100),
+              name_ar: item.description || '',
+              category: 'other',
+              unit: item.unit || 'no',
+              unit_price: item.unit_price,
+              currency: importQuotation.currency || 'SAR',
+              supplier_name: supplierName,
+              source: 'quotation',
+              is_verified: false,
+              price_date: new Date().toISOString().split('T')[0],
+            });
+          }
           successCount++;
         } catch (e) {
           console.error('Failed to import item:', e);
         }
       }
 
+      const typeLabel = importType === 'labor' ? 'عمالة' : importType === 'equipment' ? 'معدات' : 'مواد';
       toast({
-        title: `تم استيراد ${successCount} بند إلى المكتبة`,
+        title: `تم استيراد ${successCount} ${typeLabel} إلى المكتبة`,
         description: `المورد: ${supplierName}`,
       });
       setImportDialogOpen(false);
@@ -1716,6 +1756,27 @@ export function QuotationUpload({ projectId, onQuotationUploaded }: QuotationUpl
           </DialogHeader>
           
           <div className="space-y-3">
+            {/* Import type selector */}
+            <div className="space-y-2">
+              <span className="text-sm font-medium">{importQuotation ? 'نوع الاستيراد:' : ''}</span>
+              <Tabs value={importType} onValueChange={(v) => setImportType(v as any)} dir="rtl">
+                <TabsList className="grid w-full grid-cols-3 h-9">
+                  <TabsTrigger value="materials" className="text-xs gap-1">
+                    <Package className="h-3.5 w-3.5" />
+                    مواد
+                  </TabsTrigger>
+                  <TabsTrigger value="labor" className="text-xs gap-1">
+                    <Users className="h-3.5 w-3.5" />
+                    عمالة
+                  </TabsTrigger>
+                  <TabsTrigger value="equipment" className="text-xs gap-1">
+                    <Truck className="h-3.5 w-3.5" />
+                    معدات
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">
                 <Checkbox

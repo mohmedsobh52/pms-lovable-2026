@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, useCallback, useDeferredValue, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +46,7 @@ export const EquipmentTab = memo(function EquipmentTab({ validityFilter }: Equip
   const { equipmentRates, loading, addEquipmentRate, updateEquipmentRate, deleteEquipmentRate, importFromExcel } = useEquipmentRates();
   const { suppliers } = useMaterialPrices();
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -58,19 +59,19 @@ export const EquipmentTab = memo(function EquipmentTab({ validityFilter }: Equip
   });
 
   // Inline editing
-  const startEdit = (eq: any) => {
+  const startEdit = useCallback((eq: any) => {
     setEditingId(eq.id);
     setEditData({ name: eq.name, rental_rate: eq.rental_rate });
-  };
-  const cancelEdit = () => { setEditingId(null); setEditData({}); };
-  const saveEdit = async () => {
+  }, []);
+  const cancelEdit = useCallback(() => { setEditingId(null); setEditData({}); }, []);
+  const saveEdit = useCallback(async () => {
     if (!editingId) return;
     try {
       await updateEquipmentRate(editingId, { ...editData, rental_rate: parseFloat(editData.rental_rate) || 0 });
       toast.success(isArabic ? "تم تحديث المعدة" : "Equipment updated");
       setEditingId(null);
     } catch { toast.error(isArabic ? "فشل التحديث" : "Update failed"); }
-  };
+  }, [editingId, editData, updateEquipmentRate, isArabic]);
 
   // Excel export
   const exportToExcel = async () => {
@@ -133,13 +134,13 @@ export const EquipmentTab = memo(function EquipmentTab({ validityFilter }: Equip
 
   const filteredEquipment = useMemo(() => {
     return equipmentRates.filter(e => {
-      const matchesSearch = e.name.toLowerCase().includes(search.toLowerCase()) || (e.name_ar && e.name_ar.includes(search)) || e.code.toLowerCase().includes(search.toLowerCase()) || (e.description && e.description.toLowerCase().includes(search.toLowerCase()));
+      const matchesSearch = e.name.toLowerCase().includes(deferredSearch.toLowerCase()) || (e.name_ar && e.name_ar.includes(deferredSearch)) || e.code.toLowerCase().includes(deferredSearch.toLowerCase()) || (e.description && e.description.toLowerCase().includes(deferredSearch.toLowerCase()));
       if (!matchesSearch) return false;
       if (categoryFilter !== "all" && e.category !== categoryFilter) return false;
       if (validityFilter) { return getValidityStatus(e.valid_until, e.price_date) === validityFilter; }
       return true;
     });
-  }, [equipmentRates, search, categoryFilter, validityFilter]);
+  }, [equipmentRates, deferredSearch, categoryFilter, validityFilter]);
 
   const totalPages = Math.ceil(filteredEquipment.length / ITEMS_PER_PAGE);
   const paginatedEquipment = useMemo(() => { const s = (currentPage - 1) * ITEMS_PER_PAGE; return filteredEquipment.slice(s, s + ITEMS_PER_PAGE); }, [filteredEquipment, currentPage]);
