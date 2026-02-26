@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Phone, Mail, MapPin, Building2, Linkedin } from "lucide-react";
 import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
+import alimtyazLogo from "@/assets/company/alimtyaz-logo.jpg";
 
 const developer = {
   name: "Dr.Eng. Mohamed Sobh",
@@ -52,15 +53,16 @@ export function DeveloperInfo() {
   const { isArabic } = useLanguage();
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden group hover:shadow-xl transition-shadow duration-300">
       {/* Header with gradient */}
       <div className="bg-gradient-to-r from-orange-500 to-amber-600 p-6 text-white">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-white/30 flex-shrink-0">
+          <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-white/30 flex-shrink-0 shadow-lg ring-2 ring-white/20 ring-offset-2 ring-offset-orange-500">
             <img 
               src={developer.photo} 
               alt={developer.name}
               className="w-full h-full object-cover"
+              style={{ imageRendering: 'auto' }}
             />
           </div>
           <div>
@@ -115,9 +117,48 @@ export function DeveloperInfoCompact() {
   const { isArabic } = useLanguage();
 
   return (
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      <span>{isArabic ? "تصميم وتطوير:" : "Designed & Developed by:"}</span>
-      <span className="font-medium text-foreground">{developer.name}</span>
-    </div>
+    <footer className="bg-gradient-to-r from-[hsl(218,50%,12%)] to-[hsl(218,45%,18%)] border-t border-white/10 py-3">
+      <div className="container mx-auto px-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+          {/* Developer Info */}
+          <div className="flex items-center gap-3">
+            <img
+              src={developer.photo}
+              alt={developer.name}
+              className="w-10 h-10 rounded-full ring-2 ring-orange-500/40 object-cover shadow-md"
+              loading="lazy"
+            />
+            <div className="leading-tight">
+              <p className="text-white font-semibold text-sm">{developer.name}</p>
+              <p className="text-white/50 text-[11px]">
+                {isArabic ? developer.titleAr : developer.titleEn}
+              </p>
+            </div>
+          </div>
+
+          {/* Contact */}
+          <div className="flex items-center gap-4 text-white/60 text-xs">
+            <a href={`tel:${developer.phone.replace(/\s/g, '')}`} className="flex items-center gap-1.5 hover:text-white transition-colors">
+              <Phone className="w-3.5 h-3.5 text-orange-400/70" />
+              <span>{developer.phone}</span>
+            </a>
+            <a href={`mailto:${developer.email}`} className="flex items-center gap-1.5 hover:text-white transition-colors">
+              <Mail className="w-3.5 h-3.5 text-orange-400/70" />
+              <span>{developer.email}</span>
+            </a>
+          </div>
+
+          {/* Company Logo */}
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-lg bg-white border-2 border-orange-500/40 p-0.5 flex items-center justify-center shadow-sm">
+              <img src={alimtyazLogo} alt="AL IMTYAZ" className="w-full h-full rounded object-contain" loading="lazy" />
+            </div>
+            <span className="text-white/50 text-[11px] leading-tight max-w-[120px]">
+              AL IMTYAZ ALWATANIYA CONT.
+            </span>
+          </div>
+        </div>
+      </div>
+    </footer>
   );
 }

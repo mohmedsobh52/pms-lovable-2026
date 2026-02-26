@@ -7,6 +7,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLanguage } from "@/hooks/useLanguage";
 import developerPhoto from "@/assets/developer/mohamed-sobh.jpg";
+import alimtyazLogo from "@/assets/company/alimtyaz-logo.jpg";
 
 const developer = {
   name: "Dr.Eng. Mohamed Sobh",
@@ -299,15 +300,42 @@ const About = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8 bg-muted/20">
+      <footer className="bg-gradient-to-r from-[hsl(218,50%,12%)] to-[hsl(218,45%,18%)] border-t border-white/10 py-3">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-muted-foreground">
-              © 2024 PMS. {isArabic ? "جميع الحقوق محفوظة" : "All rights reserved."}
-            </p>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span>{isArabic ? "تصميم وتطوير:" : "Designed & Developed by:"}</span>
-              <span className="font-medium text-foreground">{developer.name}</span>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-3">
+              <img
+                src={developerPhoto}
+                alt={developer.name}
+                className="w-10 h-10 rounded-full ring-2 ring-orange-500/40 object-cover shadow-md"
+                loading="lazy"
+              />
+              <div className="leading-tight">
+                <p className="text-white font-semibold text-sm">{developer.name}</p>
+                <p className="text-white/50 text-[11px]">
+                  {isArabic ? developer.titleAr : developer.titleEn}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 text-white/60 text-xs">
+              <a href={`tel:${developer.phone.replace(/\s/g, '')}`} className="flex items-center gap-1.5 hover:text-white transition-colors">
+                <Phone className="w-3.5 h-3.5 text-orange-400/70" />
+                <span>{developer.phone}</span>
+              </a>
+              <a href={`mailto:${developer.email}`} className="flex items-center gap-1.5 hover:text-white transition-colors">
+                <Mail className="w-3.5 h-3.5 text-orange-400/70" />
+                <span>{developer.email}</span>
+              </a>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-lg bg-white border-2 border-orange-500/40 p-0.5 flex items-center justify-center shadow-sm">
+                <img src={alimtyazLogo} alt="AL IMTYAZ" className="w-full h-full rounded object-contain" loading="lazy" />
+              </div>
+              <span className="text-white/50 text-[11px] leading-tight max-w-[120px]">
+                AL IMTYAZ ALWATANIYA CONT.
+              </span>
             </div>
           </div>
         </div>
