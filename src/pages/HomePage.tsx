@@ -334,38 +334,40 @@ export default function HomePage() {
       </main>
 
       {/* Designer Footer */}
-      <footer className="bg-gradient-to-r from-[hsl(218,50%,12%)] to-[hsl(218,45%,18%)] backdrop-blur-md border-t border-white/10 py-4">
+      <footer className="bg-gradient-to-r from-[hsl(218,50%,12%)] to-[hsl(218,45%,18%)] backdrop-blur-md border-t border-white/10 py-3">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-3">
               <img
                 src={developerPhoto}
                 alt="Dr.Eng. Mohamed Sobh"
-                className="w-12 h-12 rounded-full ring-2 ring-primary/30 object-cover"
+                className="w-10 h-10 rounded-full ring-2 ring-orange-500/40 object-cover shadow-md"
                 loading="lazy"
               />
-              <div>
+              <div className="leading-tight">
                 <p className="text-white font-semibold text-sm">Dr.Eng. Mohamed Sobh</p>
-                <p className="text-white/60 text-xs">
+                <p className="text-white/50 text-[11px]">
                   {isArabic ? "مدير المشاريع" : "Projects Director"}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 text-white/70 text-xs">
+            <div className="flex items-center gap-4 text-white/60 text-xs">
               <a href="tel:+966548000243" className="flex items-center gap-1.5 hover:text-white transition-colors">
-                <Phone className="w-3.5 h-3.5" />
+                <Phone className="w-3.5 h-3.5 text-orange-400/70" />
                 <span>+966 54 800 0243</span>
               </a>
               <a href="mailto:moh.sobh@imtyaz.sa" className="flex items-center gap-1.5 hover:text-white transition-colors">
-                <Mail className="w-3.5 h-3.5" />
+                <Mail className="w-3.5 h-3.5 text-orange-400/70" />
                 <span>moh.sobh@imtyaz.sa</span>
               </a>
             </div>
 
             <div className="flex items-center gap-2">
-              <img src={alimtyazLogo} alt="AL IMTYAZ" className="w-10 h-10 rounded-lg object-contain bg-white/10 p-1" loading="lazy" />
-              <span className="text-white/60 text-xs">AL IMTYAZ ALWATANIYA CONT.</span>
+              <div className="w-9 h-9 rounded-lg bg-white border-2 border-orange-500/40 p-0.5 flex items-center justify-center shadow-sm">
+                <img src={alimtyazLogo} alt="AL IMTYAZ" className="w-full h-full rounded object-contain" loading="lazy" />
+              </div>
+              <span className="text-white/50 text-[11px] leading-tight max-w-[120px]">AL IMTYAZ ALWATANIYA CONT.</span>
             </div>
           </div>
         </div>
