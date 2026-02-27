@@ -126,7 +126,14 @@ const AdminDashboardPage = () => {
           )}
         </div>
 
-        {/* Latest Projects Table */}
+        {/* Quick Actions */}
+        <div className="mb-8">
+          <Button onClick={() => navigate("/admin/users")} variant="outline" className="gap-2">
+            <Users className="w-4 h-4" />
+            {isArabic ? "إدارة المستخدمين والصلاحيات" : "User & Role Management"}
+          </Button>
+        </div>
+
         <Card className="border-border/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
