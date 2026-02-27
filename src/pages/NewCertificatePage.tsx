@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,13 +16,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   FileText, Building2, ArrowLeft,
   Calendar, Percent, FileCheck, Link2, AlertCircle,
-  Search, CheckSquare, BarChart3, DollarSign, TrendingUp, AlertTriangle
+  Search, CheckSquare, BarChart3, DollarSign, TrendingUp, AlertTriangle,
+  ChevronDown, ChevronUp, CreditCard, Clock, CheckCircle2, XCircle,
+  Shield, FileWarning, Banknote
 } from "lucide-react";
+import React from "react";
 
 interface CertificateItem {
   project_item_id: string | null;
@@ -45,12 +50,77 @@ interface ContractOption {
   advance_payment_percentage: number | null;
 }
 
+interface ContractFullDetails {
+  id: string;
+  contract_number: string;
+  contract_title: string;
+  contract_type: string | null;
+  contract_value: number | null;
+  retention_percentage: number | null;
+  advance_payment_percentage: number | null;
+  payment_terms: string | null;
+  terms_conditions: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  execution_percentage: number | null;
+  contractor_name: string | null;
+  status: string | null;
+  contract_duration_months: number | null;
+  performance_bond_percentage: number | null;
+  scope_of_work: string | null;
+}
+
+interface PaymentInfo {
+  id: string;
+  payment_number: number;
+  amount: number;
+  status: string | null;
+  due_date: string;
+  payment_date: string | null;
+  description: string | null;
+}
+
 interface PreviousCertsSummary {
   count: number;
   totalWorkDone: number;
   totalNetPaid: number;
   lastCert: { number: number; date: string | null; status: string } | null;
 }
+
+// Memoized table row for performance
+const ItemRow = React.memo(({ item, originalIdx, isArabic, formatCurrency, updateItemQuantity }: {
+  item: CertificateItem; originalIdx: number; isArabic: boolean; formatCurrency: (v: number) => string; updateItemQuantity: (idx: number, qty: number) => void;
+}) => {
+  const remaining = Math.max(0, item.contract_quantity - item.total_quantity);
+  const pct = item.contract_quantity > 0 ? Math.round((item.total_quantity / item.contract_quantity) * 100) : 0;
+  const isOver = item.total_quantity > item.contract_quantity;
+  const isComplete = item.total_quantity >= item.contract_quantity && item.contract_quantity > 0;
+  return (
+    <TableRow className={isOver ? 'bg-red-50/70 dark:bg-red-950/20' : isComplete ? 'bg-green-50/30 dark:bg-green-950/10' : ''}>
+      <TableCell className="text-xs">{item.item_number}</TableCell>
+      <TableCell className="text-xs max-w-[180px] truncate">{item.description}</TableCell>
+      <TableCell className="text-xs">{item.unit}</TableCell>
+      <TableCell className="text-xs">{item.contract_quantity}</TableCell>
+      <TableCell className="text-xs">{item.unit_price.toFixed(2)}</TableCell>
+      <TableCell className="text-xs">{item.previous_quantity}</TableCell>
+      <TableCell>
+        <Input type="number" className={`h-7 text-xs w-[75px] ${isOver ? 'border-destructive' : ''}`}
+          value={item.current_quantity || ""}
+          onChange={e => updateItemQuantity(originalIdx, parseFloat(e.target.value) || 0)}
+          max={item.contract_quantity - item.previous_quantity} />
+      </TableCell>
+      <TableCell className={`text-xs ${isOver ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+        {isOver && <AlertTriangle className="h-3 w-3 inline mr-0.5" />}
+        {remaining.toFixed(2)}
+      </TableCell>
+      <TableCell className="w-[80px]">
+        <Progress value={Math.min(pct, 100)} className="h-1.5" />
+        <span className="text-[10px] text-muted-foreground">{pct}%</span>
+      </TableCell>
+      <TableCell className="text-xs font-bold">{formatCurrency(item.current_amount)}</TableCell>
+    </TableRow>
+  );
+});
 
 const NewCertificatePage = () => {
   const { user } = useAuth();
@@ -80,6 +150,14 @@ const NewCertificatePage = () => {
   const [advancePercentage, setAdvancePercentage] = useState(0);
   const [selectedContractValue, setSelectedContractValue] = useState<number | null>(null);
 
+  // NEW: contract details & payments
+  const [contractDetails, setContractDetails] = useState<ContractFullDetails | null>(null);
+  const [contractPayments, setContractPayments] = useState<PaymentInfo[]>([]);
+  const [termsOpen, setTermsOpen] = useState(false);
+
+  // Pagination for items
+  const [visibleItemsCount, setVisibleItemsCount] = useState(25);
+
   const currentWorkDone = useMemo(() => formItems.reduce((s, i) => s + i.current_amount, 0), [formItems]);
   const previousWorkDone = useMemo(() => formItems.reduce((s, i) => s + (i.previous_quantity * i.unit_price), 0), [formItems]);
   const totalWorkDone = currentWorkDone + previousWorkDone;
@@ -91,12 +169,24 @@ const NewCertificatePage = () => {
   const overallProgress = useMemo(() => totalContractValue > 0 ? Math.round((totalWorkDone / totalContractValue) * 100) : 0, [totalWorkDone, totalContractValue]);
 
   const displayItems = useMemo(() => {
-    if (!itemSearch) return formItems;
-    const q = itemSearch.toLowerCase();
-    return formItems.filter(i => 
-      i.description.toLowerCase().includes(q) || i.item_number.includes(q)
-    );
+    let items = formItems;
+    if (itemSearch) {
+      const q = itemSearch.toLowerCase();
+      items = items.filter(i => i.description.toLowerCase().includes(q) || i.item_number.includes(q));
+    }
+    return items;
   }, [formItems, itemSearch]);
+
+  // Paginated display items
+  const paginatedItems = useMemo(() => displayItems.slice(0, visibleItemsCount), [displayItems, visibleItemsCount]);
+
+  // Payment stats
+  const paymentStats = useMemo(() => {
+    const paid = contractPayments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0);
+    const pending = contractPayments.filter(p => p.status === 'pending').reduce((s, p) => s + p.amount, 0);
+    const overdue = contractPayments.filter(p => p.status === 'overdue' || (p.status === 'pending' && new Date(p.due_date) < new Date())).reduce((s, p) => s + p.amount, 0);
+    return { paid, pending, overdue, total: contractPayments.length };
+  }, [contractPayments]);
 
   useEffect(() => {
     if (user) fetchInitialData();
@@ -156,11 +246,25 @@ const NewCertificatePage = () => {
     } catch (err) { console.error("Error loading previous certs:", err); }
   };
 
+  // NEW: Fetch full contract details + payments when contract selected
+  const fetchContractDetailsAndPayments = async (contractId: string) => {
+    try {
+      const [detailsRes, paymentsRes] = await Promise.all([
+        supabase.from("contracts").select("*").eq("id", contractId).single(),
+        supabase.from("contract_payments").select("id, payment_number, amount, status, due_date, payment_date, description")
+          .eq("contract_id", contractId).order("payment_number", { ascending: true })
+      ]);
+      if (detailsRes.data) setContractDetails(detailsRes.data as ContractFullDetails);
+      if (paymentsRes.data) setContractPayments(paymentsRes.data as PaymentInfo[]);
+    } catch (err) { console.error("Error loading contract details:", err); }
+  };
+
   const handleContractSelect = (contract: ContractOption) => {
     setFormContractId(contract.id);
     setFormRetention(contract.retention_percentage ?? 10);
     setAdvancePercentage(contract.advance_payment_percentage ?? 0);
     setSelectedContractValue(contract.contract_value);
+    fetchContractDetailsAndPayments(contract.id);
   };
 
   const handleContractChange = (contractId: string) => {
@@ -170,6 +274,7 @@ const NewCertificatePage = () => {
 
   const loadProjectItems = async (projectId: string, contractorName: string) => {
     setLoadingItems(true);
+    setVisibleItemsCount(25);
     try {
       const { data, error } = await supabase
         .from("project_items").select("id, item_number, description, unit, quantity, unit_price, total_price, is_section")
@@ -198,11 +303,13 @@ const NewCertificatePage = () => {
 
   const handleProjectChange = (projectId: string) => {
     setFormProjectId(projectId); setFormContractId(""); setAvailableContracts([]); setSelectedContractValue(null); setAdvancePercentage(0);
+    setContractDetails(null); setContractPayments([]);
     if (projectId && formContractor) { loadProjectItems(projectId, formContractor); loadContractsForSelection(projectId, formContractor); loadPreviousCertsSummary(projectId, formContractor); }
   };
 
   const handleContractorChange = (name: string) => {
     setFormContractor(name); setFormContractId(""); setAvailableContracts([]); setSelectedContractValue(null); setAdvancePercentage(0);
+    setContractDetails(null); setContractPayments([]);
     if (formProjectId && name) { loadProjectItems(formProjectId, name); loadContractsForSelection(formProjectId, name); loadPreviousCertsSummary(formProjectId, name); }
   };
 
@@ -281,26 +388,42 @@ const NewCertificatePage = () => {
     } finally { setSaving(false); }
   };
 
+  const contractTypeLabels: Record<string, string> = {
+    fixed_price: isArabic ? "سعر ثابت" : "Fixed Price",
+    unit_price: isArabic ? "أسعار وحدات" : "Unit Price",
+    cost_plus: isArabic ? "التكلفة + ربح" : "Cost Plus",
+    lump_sum: isArabic ? "مبلغ مقطوع" : "Lump Sum",
+  };
+
+  const getPaymentStatusIcon = (status: string | null) => {
+    switch (status) {
+      case 'paid': return <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />;
+      case 'overdue': return <XCircle className="h-3.5 w-3.5 text-destructive" />;
+      default: return <Clock className="h-3.5 w-3.5 text-yellow-600" />;
+    }
+  };
+
+  // Remaining contract value after previous certificates
+  const remainingContractValue = useMemo(() => {
+    if (!selectedContractValue) return null;
+    const prevTotal = previousCertsSummary?.totalWorkDone || 0;
+    return selectedContractValue - prevTotal;
+  }, [selectedContractValue, previousCertsSummary]);
+
   return (
     <PageLayout>
       <div className="container mx-auto p-4 md:p-6 space-y-6 form-card-safe" dir={isArabic ? "rtl" : "ltr"}>
         {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-3">
+        <PageHeader
+          icon={FileCheck}
+          title={isArabic ? "إنشاء مستخلص جديد" : "Create New Certificate"}
+          subtitle={isArabic ? "أدخل بيانات المستخلص الجديد وربطه بالعقد" : "Enter new certificate details and link to contract"}
+          actions={
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <FileCheck className="h-6 w-6 text-primary" />
-                {isArabic ? "إنشاء مستخلص جديد" : "Create New Certificate"}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {isArabic ? "أدخل بيانات المستخلص الجديد" : "Enter new certificate details"}
-              </p>
-            </div>
-          </div>
-        </div>
+          }
+        />
 
         <div className="space-y-4">
           {/* Section 1: Project, Contractor, Contract */}
@@ -346,11 +469,6 @@ const NewCertificatePage = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  {selectedContractValue && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {isArabic ? "قيمة العقد:" : "Contract Value:"} <span className="font-semibold text-primary">{formatCurrency(selectedContractValue)}</span>
-                    </p>
-                  )}
                 </div>
               )}
 
@@ -362,6 +480,100 @@ const NewCertificatePage = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* NEW: Contract Details Card */}
+          {contractDetails && (
+            <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-primary" />
+                  {isArabic ? "تفاصيل العقد" : "Contract Details"}
+                  <Badge variant="outline" className="text-[10px]">
+                    {contractTypeLabels[contractDetails.contract_type || ''] || contractDetails.contract_type}
+                  </Badge>
+                  {contractDetails.status && (
+                    <Badge variant={contractDetails.status === 'active' ? 'default' : 'secondary'} className="text-[10px]">
+                      {contractDetails.status === 'active' ? (isArabic ? 'نشط' : 'Active') : contractDetails.status}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-2.5 bg-background rounded-lg border text-center">
+                    <p className="text-[10px] text-muted-foreground mb-0.5">{isArabic ? "قيمة العقد" : "Contract Value"}</p>
+                    <p className="text-sm font-bold text-primary">{formatCurrency(contractDetails.contract_value || 0)}</p>
+                  </div>
+                  <div className="p-2.5 bg-background rounded-lg border text-center">
+                    <p className="text-[10px] text-muted-foreground mb-0.5">{isArabic ? "نسبة الاحتجاز" : "Retention %"}</p>
+                    <p className="text-sm font-bold">{contractDetails.retention_percentage ?? 10}%</p>
+                  </div>
+                  <div className="p-2.5 bg-background rounded-lg border text-center">
+                    <p className="text-[10px] text-muted-foreground mb-0.5">{isArabic ? "دفعة مقدمة" : "Advance Payment"}</p>
+                    <p className="text-sm font-bold">{contractDetails.advance_payment_percentage ?? 0}%</p>
+                  </div>
+                  <div className="p-2.5 bg-background rounded-lg border text-center">
+                    <p className="text-[10px] text-muted-foreground mb-0.5">{isArabic ? "نسبة الإنجاز" : "Execution %"}</p>
+                    <p className="text-sm font-bold text-blue-600">{contractDetails.execution_percentage ?? 0}%</p>
+                  </div>
+                </div>
+
+                {/* Duration */}
+                {(contractDetails.start_date || contractDetails.end_date) && (
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground bg-muted/40 p-2 rounded">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>{contractDetails.start_date || '—'} → {contractDetails.end_date || '—'}</span>
+                    {contractDetails.contract_duration_months && (
+                      <Badge variant="secondary" className="text-[10px]">{contractDetails.contract_duration_months} {isArabic ? "شهر" : "months"}</Badge>
+                    )}
+                  </div>
+                )}
+
+                {/* Progress bar: current vs contract */}
+                {remainingContractValue !== null && selectedContractValue && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">{isArabic ? "المنفذ من العقد" : "Executed from contract"}</span>
+                      <span className="font-medium">{formatCurrency(selectedContractValue - remainingContractValue)} / {formatCurrency(selectedContractValue)}</span>
+                    </div>
+                    <Progress value={Math.min(100, ((selectedContractValue - remainingContractValue) / selectedContractValue) * 100)} className="h-2" />
+                    <p className="text-[10px] text-muted-foreground">{isArabic ? "المتبقي:" : "Remaining:"} <span className="font-semibold text-primary">{formatCurrency(remainingContractValue)}</span></p>
+                  </div>
+                )}
+
+                {/* Payment Terms */}
+                {contractDetails.payment_terms && (
+                  <div className="flex items-start gap-2 text-xs bg-muted/40 p-2 rounded">
+                    <Banknote className="h-3.5 w-3.5 mt-0.5 text-green-600 shrink-0" />
+                    <div>
+                      <span className="font-medium">{isArabic ? "شروط الدفع:" : "Payment Terms:"}</span>
+                      <span className="ms-1 text-muted-foreground">{contractDetails.payment_terms}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Terms & Conditions - Collapsible */}
+                {contractDetails.terms_conditions && (
+                  <Collapsible open={termsOpen} onOpenChange={setTermsOpen}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="w-full justify-between text-xs h-8">
+                        <span className="flex items-center gap-1.5">
+                          <FileWarning className="h-3.5 w-3.5" />
+                          {isArabic ? "الشروط التعاقدية" : "Terms & Conditions"}
+                        </span>
+                        {termsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded mt-1 whitespace-pre-wrap max-h-[150px] overflow-y-auto">
+                        {contractDetails.terms_conditions}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Previous Certificates Summary */}
           {previousCertsSummary && (
@@ -397,6 +609,54 @@ const NewCertificatePage = () => {
             </Card>
           )}
 
+          {/* NEW: Payment History Card */}
+          {contractPayments.length > 0 && (
+            <Card className="border-green-200 bg-green-50/30 dark:bg-green-950/10 dark:border-green-800">
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-green-600" />
+                  {isArabic ? "سجل الدفعات" : "Payment History"}
+                  <Badge variant="secondary" className="text-[10px]">{paymentStats.total} {isArabic ? "دفعة" : "payments"}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="text-center p-2 bg-background rounded border">
+                    <CheckCircle2 className="h-3.5 w-3.5 mx-auto text-green-600 mb-1" />
+                    <p className="text-[10px] text-muted-foreground">{isArabic ? "مدفوع" : "Paid"}</p>
+                    <p className="text-sm font-bold text-green-600">{formatCurrency(paymentStats.paid)}</p>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded border">
+                    <Clock className="h-3.5 w-3.5 mx-auto text-yellow-600 mb-1" />
+                    <p className="text-[10px] text-muted-foreground">{isArabic ? "معلق" : "Pending"}</p>
+                    <p className="text-sm font-bold text-yellow-600">{formatCurrency(paymentStats.pending)}</p>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded border">
+                    <XCircle className="h-3.5 w-3.5 mx-auto text-destructive mb-1" />
+                    <p className="text-[10px] text-muted-foreground">{isArabic ? "متأخر" : "Overdue"}</p>
+                    <p className="text-sm font-bold text-destructive">{formatCurrency(paymentStats.overdue)}</p>
+                  </div>
+                </div>
+                {/* Payment list */}
+                <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
+                  {contractPayments.map(p => (
+                    <div key={p.id} className="flex items-center justify-between text-xs bg-background p-2 rounded border">
+                      <div className="flex items-center gap-2">
+                        {getPaymentStatusIcon(p.status)}
+                        <span className="font-medium">#{p.payment_number}</span>
+                        {p.description && <span className="text-muted-foreground truncate max-w-[120px]">{p.description}</span>}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-muted-foreground">{p.due_date}</span>
+                        <span className="font-bold">{formatCurrency(p.amount)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Period */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -409,7 +669,7 @@ const NewCertificatePage = () => {
             </div>
           </div>
 
-          {/* Items Table */}
+          {/* Items Table with Pagination */}
           {formItems.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
@@ -473,41 +733,36 @@ const NewCertificatePage = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {displayItems.map((item, _) => {
+                    {paginatedItems.map((item) => {
                       const originalIdx = formItems.indexOf(item);
-                      const remaining = Math.max(0, item.contract_quantity - item.total_quantity);
-                      const pct = item.contract_quantity > 0 ? Math.round((item.total_quantity / item.contract_quantity) * 100) : 0;
-                      const isOver = item.total_quantity > item.contract_quantity;
-                      const isComplete = item.total_quantity >= item.contract_quantity && item.contract_quantity > 0;
                       return (
-                        <TableRow key={originalIdx} className={isOver ? 'bg-red-50/70 dark:bg-red-950/20' : isComplete ? 'bg-green-50/30 dark:bg-green-950/10' : ''}>
-                          <TableCell className="text-xs">{item.item_number}</TableCell>
-                          <TableCell className="text-xs max-w-[180px] truncate">{item.description}</TableCell>
-                          <TableCell className="text-xs">{item.unit}</TableCell>
-                          <TableCell className="text-xs">{item.contract_quantity}</TableCell>
-                          <TableCell className="text-xs">{item.unit_price.toFixed(2)}</TableCell>
-                          <TableCell className="text-xs">{item.previous_quantity}</TableCell>
-                          <TableCell>
-                            <Input type="number" className={`h-7 text-xs w-[75px] ${isOver ? 'border-destructive' : ''}`}
-                              value={item.current_quantity || ""}
-                              onChange={e => updateItemQuantity(originalIdx, parseFloat(e.target.value) || 0)}
-                              max={item.contract_quantity - item.previous_quantity} />
-                          </TableCell>
-                          <TableCell className={`text-xs ${isOver ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
-                            {isOver && <AlertTriangle className="h-3 w-3 inline mr-0.5" />}
-                            {remaining.toFixed(2)}
-                          </TableCell>
-                          <TableCell className="w-[80px]">
-                            <Progress value={Math.min(pct, 100)} className="h-1.5" />
-                            <span className="text-[10px] text-muted-foreground">{pct}%</span>
-                          </TableCell>
-                          <TableCell className="text-xs font-bold">{formatCurrency(item.current_amount)}</TableCell>
-                        </TableRow>
+                        <ItemRow
+                          key={originalIdx}
+                          item={item}
+                          originalIdx={originalIdx}
+                          isArabic={isArabic}
+                          formatCurrency={formatCurrency}
+                          updateItemQuantity={updateItemQuantity}
+                        />
                       );
                     })}
                   </TableBody>
                 </Table>
               </ScrollArea>
+
+              {/* Load More / Pagination */}
+              {displayItems.length > visibleItemsCount && (
+                <div className="text-center">
+                  <Button variant="outline" size="sm" onClick={() => setVisibleItemsCount(prev => prev + 25)}>
+                    {isArabic
+                      ? `عرض المزيد (${visibleItemsCount} من ${displayItems.length})`
+                      : `Show More (${visibleItemsCount} of ${displayItems.length})`}
+                  </Button>
+                </div>
+              )}
+              {displayItems.length > 0 && visibleItemsCount >= displayItems.length && displayItems.length > 25 && (
+                <p className="text-center text-[10px] text-muted-foreground">{isArabic ? "تم عرض جميع البنود" : "All items displayed"}</p>
+              )}
             </div>
           )}
 
@@ -611,6 +866,9 @@ const NewCertificatePage = () => {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">{isArabic ? "المقاول" : "Contractor"}</span><strong>{formContractor}</strong></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">{isArabic ? "بنود معبأة" : "Filled Items"}</span><strong>{filledItemsCount} / {formItems.length}</strong></div>
+                {contractDetails && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">{isArabic ? "العقد" : "Contract"}</span><strong>{contractDetails.contract_number}</strong></div>
+                )}
                 <Separator />
                 <div className="flex justify-between"><span>{isArabic ? "الأعمال الحالية" : "Current Work"}</span><strong>{formatCurrency(currentWorkDone)}</strong></div>
                 <div className="flex justify-between text-destructive"><span>{isArabic ? "الخصومات" : "Deductions"}</span><span>-{formatCurrency(retentionAmount + formAdvanceDeduction + formOtherDeductions)}</span></div>
