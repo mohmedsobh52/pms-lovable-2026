@@ -579,6 +579,28 @@ const ProgressCertificatesPage = () => {
     toast.success(isArabic ? "تم التصدير بنجاح" : "Export completed");
   }, [certificates, isArabic]);
 
+  const projectMap = useMemo(() => {
+    const map = new Map<string, string>();
+    projects.forEach(p => map.set(p.id, p.name));
+    return map;
+  }, [projects]);
+
+  const filtered = useMemo(() => {
+    return certificates.filter(c => {
+      if (statusFilter !== "all" && c.status !== statusFilter) return false;
+      if (filterProjectId && filterProjectId !== "all" && c.project_id !== filterProjectId) return false;
+      if (filterContractor && filterContractor !== "all" && c.contractor_name !== filterContractor) return false;
+      if (filterContractId && filterContractId !== "all" && c.contract_id !== filterContractId) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return c.contractor_name.toLowerCase().includes(q) || 
+               String(c.certificate_number).includes(q) ||
+               (c.project_id && projectMap.get(c.project_id)?.toLowerCase().includes(q));
+      }
+      return true;
+    });
+  }, [certificates, statusFilter, filterProjectId, filterContractor, filterContractId, searchQuery, projectMap]);
+
   // ============= COMPARE CERTIFICATES =============
   const handleOpenCompare = useCallback(() => {
     // Auto-select last two certificates of same contractor
@@ -638,28 +660,6 @@ const ProgressCertificatesPage = () => {
       runComparison();
     }
   }, [compareCert1, compareCert2, showCompareDialog]);
-
-  const projectMap = useMemo(() => {
-    const map = new Map<string, string>();
-    projects.forEach(p => map.set(p.id, p.name));
-    return map;
-  }, [projects]);
-
-  const filtered = useMemo(() => {
-    return certificates.filter(c => {
-      if (statusFilter !== "all" && c.status !== statusFilter) return false;
-      if (filterProjectId && filterProjectId !== "all" && c.project_id !== filterProjectId) return false;
-      if (filterContractor && filterContractor !== "all" && c.contractor_name !== filterContractor) return false;
-      if (filterContractId && filterContractId !== "all" && c.contract_id !== filterContractId) return false;
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        return c.contractor_name.toLowerCase().includes(q) || 
-               String(c.certificate_number).includes(q) ||
-               (c.project_id && projectMap.get(c.project_id)?.toLowerCase().includes(q));
-      }
-      return true;
-    });
-  }, [certificates, statusFilter, filterProjectId, filterContractor, filterContractId, searchQuery, projectMap]);
 
   // Pagination
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
