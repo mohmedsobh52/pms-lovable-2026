@@ -27,6 +27,7 @@ import {
   BarChart3,
   LayoutDashboard,
   Calculator,
+  Shield,
 } from "lucide-react";
 
 type SectionItem = { nameAr: string; nameEn: string; descAr: string; descEn: string; path: string; icon: any; countKey: string | null };
@@ -63,6 +64,13 @@ const categories: { titleAr: string; titleEn: string; items: SectionItem[] }[] =
       { nameAr: "المشتريات", nameEn: "Procurement", descAr: "طلبات الشراء والموردين", descEn: "Procurement & suppliers", path: "/procurement", icon: Package, countKey: "external_partners" },
       { nameAr: "مقاولي الباطن", nameEn: "Subcontractors", descAr: "إدارة مقاولي الباطن", descEn: "Subcontractor management", path: "/subcontractors", icon: Users, countKey: "subcontractors" },
       { nameAr: "المخاطر", nameEn: "Risk", descAr: "تقييم وإدارة المخاطر", descEn: "Risk assessment", path: "/risk", icon: AlertTriangle, countKey: "risks" },
+    ],
+  },
+  {
+    titleAr: "الإدارة", titleEn: "Administration",
+    items: [
+      { nameAr: "إدارة الصلاحيات", nameEn: "User Permissions", descAr: "إدارة المستخدمين والأدوار", descEn: "Manage users & roles", path: "/admin/users", icon: Shield, countKey: null },
+      { nameAr: "لوحة الإدارة", nameEn: "Admin Dashboard", descAr: "إحصائيات وإدارة النظام", descEn: "System stats & management", path: "/admin", icon: BarChart3, countKey: null },
     ],
   },
 ];
