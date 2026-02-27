@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from "react";
+import { useState, useEffect, useCallback, memo, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -29,13 +29,14 @@ import {
   Target,
   Shield,
   FileCheck,
-  ChevronDown,
   MoreHorizontal,
   RefreshCw,
   Plus,
   Upload,
   Library,
-  Zap
+  TrendingDown,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,8 @@ import {
   Radar,
   PolarGrid,
   PolarAngleAxis,
-  PolarRadiusAxis
+  PolarRadiusAxis,
+  LabelList
 } from "recharts";
 
 interface DashboardStats {
@@ -89,6 +91,8 @@ interface DashboardStats {
   recentQuotations: any[];
   quotationsByStatus: { status: string; count: number }[];
   monthlyActivity: { month: string; projects: number; quotations: number }[];
+  activeContracts: number;
+  riskCount: number;
 }
 
 interface MainDashboardProps {
@@ -100,7 +104,6 @@ interface BudgetSettings {
   alertThreshold: number;
 }
 
-// KPI data interface
 interface KPIData {
   projectHealth: number;
   pricingEfficiency: number;
@@ -117,7 +120,7 @@ const STATUS_COLORS: Record<string, string> = {
   under_review: "#2563EB",
 };
 
-// Custom tooltip with better styling
+// Enhanced Custom tooltip
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload) return null;
   return (
@@ -126,14 +129,25 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       {payload.map((entry: any, i: number) => (
         <p key={i} className="flex items-center gap-2 text-muted-foreground">
           <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: entry.color }} />
-          {entry.name}: <span className="font-medium text-foreground">{entry.value}</span>
+          {entry.name}: <span className="font-medium text-foreground">{typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}</span>
         </p>
       ))}
     </div>
   );
 };
 
-// Memoized KPI Card
+// Custom center label for donut chart
+const DonutCenterLabel = ({ viewBox, total, label }: any) => {
+  const { cx, cy } = viewBox;
+  return (
+    <g>
+      <text x={cx} y={cy - 8} textAnchor="middle" className="fill-foreground text-2xl font-bold">{total}</text>
+      <text x={cx} y={cy + 12} textAnchor="middle" className="fill-muted-foreground text-xs">{label}</text>
+    </g>
+  );
+};
+
+// Memoized KPI Card with enhanced design
 const KPICard = memo(({ icon: Icon, label, value, color, status, isArabic }: {
   icon: any; label: string; value: number; color: string; status: string; isArabic: boolean;
 }) => (
@@ -150,11 +164,7 @@ const KPICard = memo(({ icon: Icon, label, value, color, status, isArabic }: {
         <Badge 
           variant="secondary" 
           className="text-[10px] px-1.5 py-0.5 shrink-0"
-          style={{ 
-            backgroundColor: `${color}15`, 
-            color,
-            borderColor: `${color}30`
-          }}
+          style={{ backgroundColor: `${color}15`, color, borderColor: `${color}30` }}
         >
           {status}
         </Badge>
@@ -165,9 +175,10 @@ const KPICard = memo(({ icon: Icon, label, value, color, status, isArabic }: {
 ));
 KPICard.displayName = "KPICard";
 
-// Memoized Stat Card
-const StatCard = memo(({ label, value, icon: Icon, bgColor, iconColor }: {
+// Enhanced Stat Card with trend indicator
+const StatCard = memo(({ label, value, icon: Icon, bgColor, iconColor, trend, trendValue }: {
   label: string; value: string | number; icon: any; bgColor: string; iconColor: string;
+  trend?: 'up' | 'down' | 'neutral'; trendValue?: string;
 }) => (
   <Card className="bg-card shadow-sm hover:shadow-lg transition-all rounded-2xl border-0 hover:scale-[1.02]">
     <CardContent className="p-5">
@@ -175,6 +186,12 @@ const StatCard = memo(({ label, value, icon: Icon, bgColor, iconColor }: {
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground font-medium">{label}</p>
           <p className="text-2xl lg:text-3xl font-bold text-foreground">{value}</p>
+          {trend && trendValue && (
+            <div className={`flex items-center gap-1 text-xs font-medium ${trend === 'up' ? 'text-emerald-500' : trend === 'down' ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {trend === 'up' ? <ArrowUp className="w-3 h-3" /> : trend === 'down' ? <ArrowDown className="w-3 h-3" /> : null}
+              {trendValue}
+            </div>
+          )}
         </div>
         <div className={`w-14 h-14 rounded-2xl ${bgColor} flex items-center justify-center`}>
           <Icon className={`w-7 h-7 ${iconColor}`} />
@@ -185,27 +202,180 @@ const StatCard = memo(({ label, value, icon: Icon, bgColor, iconColor }: {
 ));
 StatCard.displayName = "StatCard";
 
+// Memoized Monthly Activity Chart
+const MonthlyActivityChart = memo(({ data, chartMode, isArabic }: { data: any[]; chartMode: 'area' | 'bar'; isArabic: boolean }) => (
+  <div className="h-[280px]">
+    <ResponsiveContainer width="100%" height="100%">
+      {chartMode === "area" ? (
+        <AreaChart data={data}>
+          <defs>
+            <linearGradient id="projGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.4}/>
+              <stop offset="100%" stopColor="#3B82F6" stopOpacity={0.02}/>
+            </linearGradient>
+            <linearGradient id="quotGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#10B981" stopOpacity={0.4}/>
+              <stop offset="100%" stopColor="#10B981" stopOpacity={0.02}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+          <XAxis dataKey="month" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+          <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+          <Area type="monotone" dataKey="projects" name={isArabic ? "المشاريع" : "Projects"} stroke="#3B82F6" fill="url(#projGrad)" strokeWidth={2.5} dot={{ r: 4, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }} animationDuration={600} />
+          <Area type="monotone" dataKey="quotations" name={isArabic ? "العروض" : "Quotations"} stroke="#10B981" fill="url(#quotGrad)" strokeWidth={2.5} dot={{ r: 4, fill: '#10B981', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }} animationDuration={600} />
+        </AreaChart>
+      ) : (
+        <BarChart data={data} barGap={8}>
+          <defs>
+            <linearGradient id="barProjGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#3B82F6" stopOpacity={1}/>
+              <stop offset="100%" stopColor="#2563EB" stopOpacity={0.8}/>
+            </linearGradient>
+            <linearGradient id="barQuotGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#10B981" stopOpacity={1}/>
+              <stop offset="100%" stopColor="#059669" stopOpacity={0.8}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+          <XAxis dataKey="month" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+          <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+          <Bar dataKey="projects" name={isArabic ? "المشاريع" : "Projects"} fill="url(#barProjGrad)" radius={[6, 6, 0, 0]} animationDuration={600} />
+          <Bar dataKey="quotations" name={isArabic ? "العروض" : "Quotations"} fill="url(#barQuotGrad)" radius={[6, 6, 0, 0]} animationDuration={600} />
+        </BarChart>
+      )}
+    </ResponsiveContainer>
+  </div>
+));
+MonthlyActivityChart.displayName = "MonthlyActivityChart";
+
+// Memoized Quotation Status Donut Chart
+const QuotationStatusChart = memo(({ data, isArabic }: { data: any[]; isArabic: boolean }) => {
+  const total = useMemo(() => data.reduce((s, d) => s + d.count, 0), [data]);
+  
+  if (data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+        {isArabic ? "لا توجد عروض أسعار" : "No quotations yet"}
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-[280px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <RechartsPie>
+          <defs>
+            {data.map((entry: any, index) => {
+              const color = STATUS_COLORS[entry.rawStatus] || CHART_COLORS[index % CHART_COLORS.length];
+              return (
+                <linearGradient key={`pieGrad-${index}`} id={`pieGrad-${index}`} x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity={1}/>
+                  <stop offset="100%" stopColor={color} stopOpacity={0.75}/>
+                </linearGradient>
+              );
+            })}
+          </defs>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={65}
+            outerRadius={105}
+            paddingAngle={4}
+            dataKey="count"
+            nameKey="status"
+            animationDuration={600}
+            label={({ status, count, cx, cy, midAngle, outerRadius }) => {
+              const RADIAN = Math.PI / 180;
+              const radius = outerRadius + 20;
+              const x = cx + radius * Math.cos(-midAngle * RADIAN);
+              const y = cy + radius * Math.sin(-midAngle * RADIAN);
+              return (
+                <text x={x} y={y} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="fill-foreground text-[11px] font-medium">
+                  {status} ({count})
+                </text>
+              );
+            }}
+            labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
+          >
+            {data.map((entry: any, index) => (
+              <Cell 
+                key={`cell-${index}`} 
+                fill={`url(#pieGrad-${index})`}
+                stroke="hsl(var(--background))"
+                strokeWidth={2}
+              />
+            ))}
+            <LabelList 
+              position="center" 
+              content={(props: any) => <DonutCenterLabel viewBox={props.viewBox} total={total} label={isArabic ? "إجمالي" : "Total"} />} 
+            />
+          </Pie>
+          <Tooltip content={<CustomTooltip />} />
+        </RechartsPie>
+      </ResponsiveContainer>
+    </div>
+  );
+});
+QuotationStatusChart.displayName = "QuotationStatusChart";
+
+// Memoized Project Value Chart
+const ProjectValueChart = memo(({ data, isArabic }: { data: any[]; isArabic: boolean }) => {
+  if (data.length === 0) return null;
+  
+  return (
+    <div className="h-[250px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} layout="vertical" barSize={24}>
+          <defs>
+            <linearGradient id="valueBarGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.9}/>
+              <stop offset="100%" stopColor="#A78BFA" stopOpacity={1}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
+          <XAxis 
+            type="number" 
+            tickFormatter={(v) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} 
+            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+          />
+          <YAxis dataKey="name" type="category" width={120} tick={{ fill: 'hsl(var(--foreground))', fontSize: 11 }} />
+          <Tooltip content={<CustomTooltip />} />
+          <Bar dataKey="value" name={isArabic ? "القيمة" : "Value"} fill="url(#valueBarGrad)" radius={[0, 8, 8, 0]} animationDuration={600}>
+            <LabelList 
+              dataKey="value" 
+              position="right" 
+              formatter={(v: number) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : v}
+              className="fill-muted-foreground text-[10px]"
+            />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+});
+ProjectValueChart.displayName = "ProjectValueChart";
+
 // Cache helpers
 const CACHE_KEY = "pms_dashboard_cache";
-const CACHE_TTL = 5 * 60 * 1000; // 5 min
+const CACHE_TTL = 5 * 60 * 1000;
 
 function getCachedData(): DashboardStats | null {
   try {
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const { data, ts } = JSON.parse(raw);
-    if (Date.now() - ts > CACHE_TTL) {
-      sessionStorage.removeItem(CACHE_KEY);
-      return null;
-    }
+    if (Date.now() - ts > CACHE_TTL) { sessionStorage.removeItem(CACHE_KEY); return null; }
     return data;
   } catch { return null; }
 }
 
 function setCachedData(data: DashboardStats) {
-  try {
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
-  } catch {}
+  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch {}
 }
 
 export function MainDashboard({ onLoadProject }: MainDashboardProps) {
@@ -215,24 +385,30 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
   const [dateTo, setDateTo] = useState<string>("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [chartMode, setChartMode] = useState<"area" | "bar">("area");
-  
-  // KPI data
   const [kpiData, setKpiData] = useState<KPIData>({ projectHealth: 0, pricingEfficiency: 0, riskScore: 0, contractHealth: 0 });
   
-  // Budget settings
   const [budgetSettings, setBudgetSettings] = useState<BudgetSettings>(() => {
     const saved = localStorage.getItem("dashboard_budget_settings");
     return saved ? JSON.parse(saved) : { maxBudget: 1000000, alertThreshold: 80 };
   });
-  const [showBudgetSettings, setShowBudgetSettings] = useState(false);
   
-  // Image upload (moved to bottom)
   const [uploadedImage, setUploadedImage] = useState<string | null>(() => localStorage.getItem("dashboard_uploaded_image"));
   const [isDragOver, setIsDragOver] = useState(false);
   
   const { user } = useAuth();
   const { isArabic, t } = useLanguage();
   const navigate = useNavigate();
+
+  // Memoized project value chart data
+  const projectValueData = useMemo(() => {
+    if (!stats) return [];
+    return stats.recentProjects
+      .map(p => ({
+        name: p.name?.length > 15 ? p.name.slice(0, 15) + '...' : p.name,
+        value: (p.analysis_data?.items || []).reduce((s: number, i: any) => s + (i.total_price || 0), 0)
+      }))
+      .filter(d => d.value > 0);
+  }, [stats]);
 
   const exportToPDF = useCallback(() => {
     if (!stats) return;
@@ -325,7 +501,6 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
   const saveBudgetSettings = (newSettings: BudgetSettings) => {
     setBudgetSettings(newSettings);
     localStorage.setItem("dashboard_budget_settings", JSON.stringify(newSettings));
-    setShowBudgetSettings(false);
     toast.success(isArabic ? "تم حفظ إعدادات الميزانية" : "Budget settings saved");
   };
 
@@ -335,7 +510,6 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
     return { isOverBudget: percentage >= 100, isNearThreshold: percentage >= budgetSettings.alertThreshold && percentage < 100, percentage };
   }, [stats, budgetSettings]);
 
-  // Image handlers
   const handleImageUpload = (file: File) => {
     if (!file.type.startsWith('image/')) { toast.error(isArabic ? "يرجى تحميل صورة فقط" : "Please upload an image only"); return; }
     if (file.size > 5 * 1024 * 1024) { toast.error(isArabic ? "حجم الصورة يجب أن يكون أقل من 5 ميجابايت" : "Image size must be less than 5MB"); return; }
@@ -385,13 +559,11 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
   const fetchDashboardData = useCallback(async (useCache = true) => {
     if (!user) return;
     
-    // Check cache first
     if (useCache && !dateFrom && !dateTo) {
       const cached = getCachedData();
       if (cached) {
         setStats(cached);
         setIsLoading(false);
-        // Also compute KPIs from cached
         computeKPIs(cached);
         return;
       }
@@ -402,12 +574,13 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
       let projectsQuery = supabase.from("saved_projects").select("*").order("created_at", { ascending: false }).limit(50);
       let quotationsQuery = supabase.from("price_quotations").select("*").order("created_at", { ascending: false }).limit(50);
       let contractsQuery = supabase.from("contracts").select("id, status").limit(100);
+      let risksQuery = supabase.from("cost_benefit_analysis").select("id").limit(100);
       
       if (dateFrom) { projectsQuery = projectsQuery.gte("created_at", dateFrom); quotationsQuery = quotationsQuery.gte("created_at", dateFrom); }
       if (dateTo) { projectsQuery = projectsQuery.lte("created_at", dateTo + "T23:59:59"); quotationsQuery = quotationsQuery.lte("created_at", dateTo + "T23:59:59"); }
 
-      const [projectsResult, quotationsResult, contractsResult] = await Promise.all([
-        projectsQuery, quotationsQuery, contractsQuery
+      const [projectsResult, quotationsResult, contractsResult, risksResult] = await Promise.all([
+        projectsQuery, quotationsQuery, contractsQuery, risksQuery
       ]);
 
       if (projectsResult.error) throw projectsResult.error;
@@ -416,6 +589,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
       const projects = projectsResult.data;
       const quotations = quotationsResult.data;
       const contracts = contractsResult.data || [];
+      const risks = risksResult.data || [];
 
       const totalValue = quotations?.reduce((sum, q) => sum + (q.total_amount || 0), 0) || 0;
       const averageValue = quotations?.length ? totalValue / quotations.length : 0;
@@ -425,6 +599,8 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
       const quotationsByStatus = Object.entries(statusCounts).map(([status, count]) => ({ status: getStatusLabel(status), count, rawStatus: status }));
 
       const monthlyActivity = calculateMonthlyActivity(projects || [], quotations || []);
+      
+      const activeContracts = contracts.filter(c => c.status === 'active' || c.status === 'in_progress').length;
 
       const dashData: DashboardStats = {
         totalProjects: projects?.length || 0,
@@ -434,18 +610,19 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
         recentProjects: projects?.slice(0, 5) || [],
         recentQuotations: quotations?.slice(0, 5) || [],
         quotationsByStatus,
-        monthlyActivity
+        monthlyActivity,
+        activeContracts,
+        riskCount: risks.length
       };
       
       setStats(dashData);
       if (!dateFrom && !dateTo) setCachedData(dashData);
       
       // Compute KPIs
-      const activeProjects = projects?.filter(p => p.status === 'in_progress').length || 0;
+      const activeProjectsCount = projects?.filter(p => p.status === 'in_progress').length || 0;
       const totalProjects = projects?.length || 1;
-      const pHealth = Math.round((activeProjects / Math.max(totalProjects, 1)) * 100);
+      const pHealth = Math.round((activeProjectsCount / Math.max(totalProjects, 1)) * 100);
       
-      // Pricing efficiency: projects with analysis_data having items with prices
       const pricedProjects = projects?.filter(p => {
         const ad = p.analysis_data as any;
         const items = ad?.items || [];
@@ -453,10 +630,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
       }).length || 0;
       const pEfficiency = Math.round((pricedProjects / Math.max(totalProjects, 1)) * 100);
       
-      const activeContracts = contracts.filter(c => c.status === 'active' || c.status === 'in_progress').length;
       const cHealth = contracts.length > 0 ? Math.round((activeContracts / contracts.length) * 100) : 100;
-      
-      // Risk score inverted (lower risk = better)
       const rScore = Math.max(0, Math.min(100, 100 - Math.round((quotationsByStatus.filter(q => (q as any).rawStatus === 'rejected').reduce((s, q) => s + q.count, 0) / Math.max(quotations?.length || 1, 1)) * 100)));
       
       setKpiData({ projectHealth: pHealth, pricingEfficiency: pEfficiency, riskScore: rScore, contractHealth: cHealth });
@@ -487,8 +661,8 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
   };
 
   const getKPIColor = (value: number): string => {
-    if (value >= 75) return "#F5A623";
-    if (value >= 50) return "#2563EB";
+    if (value >= 75) return "#10B981";
+    if (value >= 50) return "#F5A623";
     return "#EF4444";
   };
 
@@ -507,18 +681,18 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => (
-            <Card key={i} className="rounded-2xl border-0"><CardContent className="p-5"><div className="flex items-center justify-between"><div className="space-y-2"><div className="h-4 w-24 bg-muted animate-pulse rounded" /><div className="h-8 w-16 bg-muted animate-pulse rounded" /></div><div className="w-14 h-14 rounded-2xl bg-muted animate-pulse" /></div></CardContent></Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1,2,3,4,5,6].map(i => (
+            <Card key={i} className="rounded-2xl border-0"><CardContent className="p-5"><div className="flex items-center justify-between"><div className="space-y-2"><div className="h-4 w-24 bg-muted animate-pulse rounded" /><div className="h-8 w-20 bg-muted animate-pulse rounded" /><div className="h-3 w-16 bg-muted animate-pulse rounded" /></div><div className="w-14 h-14 rounded-2xl bg-muted animate-pulse" /></div></CardContent></Card>
           ))}
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[1,2,3,4].map(i => (
-            <Card key={i} className="rounded-2xl border-0"><CardContent className="p-4"><div className="h-4 w-20 bg-muted animate-pulse rounded mb-3" /><div className="h-2 w-full bg-muted animate-pulse rounded" /></CardContent></Card>
+            <div key={i} className="h-12 bg-muted animate-pulse rounded-xl" />
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {[1,2].map(i => (<Card key={i}><CardContent className="p-6"><div className="h-4 w-32 bg-muted animate-pulse rounded mb-4" /><div className="h-48 bg-muted animate-pulse rounded" /></CardContent></Card>))}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[1,2].map(i => (<Card key={i} className="rounded-2xl"><CardContent className="p-6"><div className="h-4 w-32 bg-muted animate-pulse rounded mb-4" /><div className="h-[280px] bg-muted animate-pulse rounded-xl" /></CardContent></Card>))}
         </div>
       </div>
     );
@@ -566,7 +740,6 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             ]}
             actions={
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Filter */}
                 <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className={`bg-white/10 border-white/20 text-white hover:bg-white/20 ${dateFrom || dateTo ? "border-primary" : ""}`}>
@@ -593,13 +766,11 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                   </PopoverContent>
                 </Popover>
 
-                {/* Reports */}
                 <Button size="sm" onClick={() => navigate("/projects?tab=reports")} className="gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20" variant="outline">
                   <BarChart3 className="w-4 h-4" />
                   <span className="hidden sm:inline">{isArabic ? "التقارير" : "Reports"}</span>
                 </Button>
 
-                {/* Export & Tools Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
@@ -627,7 +798,6 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Refresh */}
                 <Button variant="outline" size="icon" className="h-8 w-8 bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={() => { sessionStorage.removeItem(CACHE_KEY); fetchDashboardData(false); }}>
                   <RefreshCw className="w-4 h-4" />
                 </Button>
@@ -652,12 +822,60 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             </Card>
           )}
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label={isArabic ? "إجمالي القيمة" : "Total Value"} value={formatCurrency(stats.totalValue)} icon={DollarSign} bgColor="bg-amber-100 dark:bg-amber-500/20" iconColor="text-amber-500 dark:text-[#F5A623]" />
-            <StatCard label={isArabic ? "إجمالي المشاريع" : "Total Projects"} value={stats.totalProjects} icon={FolderOpen} bgColor="bg-blue-100 dark:bg-blue-500/20" iconColor="text-blue-600 dark:text-blue-400" />
-            <StatCard label={isArabic ? "عروض الأسعار" : "Quotations"} value={stats.totalQuotations} icon={Receipt} bgColor="bg-emerald-100 dark:bg-emerald-500/20" iconColor="text-emerald-600 dark:text-emerald-400" />
-            <StatCard label={isArabic ? "متوسط العرض" : "Avg. Quotation"} value={formatCurrency(stats.averageQuotationValue)} icon={TrendingUp} bgColor="bg-purple-100 dark:bg-purple-500/20" iconColor="text-purple-600 dark:text-purple-400" />
+          {/* Stats Cards - 6 cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <StatCard 
+              label={isArabic ? "إجمالي القيمة" : "Total Value"} 
+              value={formatCurrency(stats.totalValue)} 
+              icon={DollarSign} 
+              bgColor="bg-amber-100 dark:bg-amber-500/20" 
+              iconColor="text-amber-500 dark:text-[#F5A623]"
+              trend={stats.totalValue > 0 ? "up" : "neutral"}
+              trendValue={stats.totalValue > 0 ? (isArabic ? "قيمة تراكمية" : "Cumulative") : ""}
+            />
+            <StatCard 
+              label={isArabic ? "إجمالي المشاريع" : "Total Projects"} 
+              value={stats.totalProjects} 
+              icon={FolderOpen} 
+              bgColor="bg-blue-100 dark:bg-blue-500/20" 
+              iconColor="text-blue-600 dark:text-blue-400"
+              trend={stats.totalProjects > 0 ? "up" : "neutral"}
+              trendValue={stats.totalProjects > 0 ? `${stats.recentProjects.filter(p => p.status === 'in_progress').length} ${isArabic ? "نشط" : "active"}` : ""}
+            />
+            <StatCard 
+              label={isArabic ? "عروض الأسعار" : "Quotations"} 
+              value={stats.totalQuotations} 
+              icon={Receipt} 
+              bgColor="bg-emerald-100 dark:bg-emerald-500/20" 
+              iconColor="text-emerald-600 dark:text-emerald-400"
+              trend={stats.totalQuotations > 0 ? "up" : "neutral"}
+              trendValue={stats.averageQuotationValue > 0 ? `${isArabic ? "متوسط" : "Avg"} ${formatCurrency(stats.averageQuotationValue)}` : ""}
+            />
+            <StatCard 
+              label={isArabic ? "متوسط العرض" : "Avg. Quotation"} 
+              value={formatCurrency(stats.averageQuotationValue)} 
+              icon={TrendingUp} 
+              bgColor="bg-purple-100 dark:bg-purple-500/20" 
+              iconColor="text-purple-600 dark:text-purple-400"
+            />
+            <StatCard 
+              label={isArabic ? "العقود النشطة" : "Active Contracts"} 
+              value={stats.activeContracts} 
+              icon={FileSignature} 
+              bgColor="bg-cyan-100 dark:bg-cyan-500/20" 
+              iconColor="text-cyan-600 dark:text-cyan-400"
+              trend={stats.activeContracts > 0 ? "up" : "neutral"}
+              trendValue={stats.activeContracts > 0 ? (isArabic ? "جاري التنفيذ" : "In Progress") : ""}
+            />
+            <StatCard 
+              label={isArabic ? "تحليلات التكلفة" : "Cost Analyses"} 
+              value={stats.riskCount} 
+              icon={Shield} 
+              bgColor="bg-rose-100 dark:bg-rose-500/20" 
+              iconColor="text-rose-600 dark:text-rose-400"
+              trend={stats.riskCount > 0 ? "up" : "neutral"}
+              trendValue={stats.riskCount > 0 ? (isArabic ? "تحليل نشط" : "Active") : ""}
+            />
           </div>
 
           {/* Quick Actions */}
@@ -681,7 +899,6 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
 
           {/* KPI Row with Radar Chart */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* KPI Cards - 2 columns */}
             <div className="lg:col-span-2 grid grid-cols-2 gap-4">
               <KPICard icon={HeartPulse} label={isArabic ? "صحة المشاريع" : "Project Health"} value={kpiData.projectHealth} color={getKPIColor(kpiData.projectHealth)} status={getKPIStatus(kpiData.projectHealth)} isArabic={isArabic} />
               <KPICard icon={Target} label={isArabic ? "كفاءة التسعير" : "Pricing Efficiency"} value={kpiData.pricingEfficiency} color={getKPIColor(kpiData.pricingEfficiency)} status={getKPIStatus(kpiData.pricingEfficiency)} isArabic={isArabic} />
@@ -690,10 +907,10 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             </div>
 
             {/* Radar Chart */}
-            <Card className="rounded-2xl border-0 shadow-sm border-t-2 border-t-gold">
+            <Card className="rounded-2xl border-0 shadow-sm border-t-2 border-t-amber-500">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-gold" />
+                  <Activity className="w-4 h-4 text-amber-500" />
                   {isArabic ? "نظرة شاملة على الأداء" : "Performance Overview"}
                 </CardTitle>
               </CardHeader>
@@ -706,28 +923,11 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                       { subject: isArabic ? "الأمان" : "Safety", value: kpiData.riskScore, target: 80, fullMark: 100 },
                       { subject: isArabic ? "العقود" : "Contracts", value: kpiData.contractHealth, target: 80, fullMark: 100 },
                     ]}>
-                      <PolarGrid stroke="hsl(var(--border))" strokeOpacity={0.6} />
+                      <PolarGrid stroke="hsl(var(--border))" strokeOpacity={0.5} />
                       <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
                       <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
-                      <Radar
-                        name={isArabic ? "الهدف" : "Target"}
-                        dataKey="target"
-                        stroke="#2563EB"
-                        fill="#2563EB"
-                        fillOpacity={0.08}
-                        strokeWidth={1}
-                        strokeDasharray="4 4"
-                        animationDuration={500}
-                      />
-                      <Radar
-                        name={isArabic ? "الأداء" : "Performance"}
-                        dataKey="value"
-                        stroke="#F5A623"
-                        fill="#F5A623"
-                        fillOpacity={0.25}
-                        strokeWidth={2}
-                        animationDuration={500}
-                      />
+                      <Radar name={isArabic ? "الهدف" : "Target"} dataKey="target" stroke="#2563EB" fill="#2563EB" fillOpacity={0.08} strokeWidth={1} strokeDasharray="4 4" animationDuration={600} />
+                      <Radar name={isArabic ? "الأداء" : "Performance"} dataKey="value" stroke="#F5A623" fill="#F5A623" fillOpacity={0.3} strokeWidth={2.5} dot={{ r: 4, fill: '#F5A623', stroke: '#fff', strokeWidth: 2 }} animationDuration={600} />
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
@@ -737,12 +937,12 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Combined Monthly Chart with Toggle */}
-            <Card className="border-t-2 border-t-blue-500">
+            {/* Monthly Activity Chart */}
+            <Card className="rounded-2xl border-t-2 border-t-blue-500">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5" style={{ color: "#3B82F6" }} />
+                    <BarChart3 className="w-5 h-5 text-blue-500" />
                     {isArabic ? "النشاط الشهري" : "Monthly Activity"}
                   </CardTitle>
                   <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
@@ -756,119 +956,35 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="h-[280px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    {chartMode === "area" ? (
-                      <AreaChart data={stats.monthlyActivity}>
-                        <defs>
-                          <linearGradient id="projGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                          </linearGradient>
-                          <linearGradient id="quotGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis dataKey="month" className="text-xs" />
-                        <YAxis className="text-xs" />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend />
-                        <Area type="monotone" dataKey="projects" name={isArabic ? "المشاريع" : "Projects"} stroke="#3B82F6" fill="url(#projGrad)" strokeWidth={2} animationDuration={500} />
-                        <Area type="monotone" dataKey="quotations" name={isArabic ? "العروض" : "Quotations"} stroke="#10B981" fill="url(#quotGrad)" strokeWidth={2} animationDuration={500} />
-                      </AreaChart>
-                    ) : (
-                      <BarChart data={stats.monthlyActivity} barGap={8}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis dataKey="month" className="text-xs" />
-                        <YAxis className="text-xs" />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend />
-                        <Bar dataKey="projects" name={isArabic ? "المشاريع" : "Projects"} fill="#3B82F6" radius={[4, 4, 0, 0]} animationDuration={500} />
-                        <Bar dataKey="quotations" name={isArabic ? "العروض" : "Quotations"} fill="#10B981" radius={[4, 4, 0, 0]} animationDuration={500} />
-                      </BarChart>
-                    )}
-                  </ResponsiveContainer>
-                </div>
+                <MonthlyActivityChart data={stats.monthlyActivity} chartMode={chartMode} isArabic={isArabic} />
               </CardContent>
             </Card>
 
-            {/* Quotations by Status Pie */}
-            <Card className="border-t-2 border-t-purple-500">
+            {/* Quotations by Status Donut */}
+            <Card className="rounded-2xl border-t-2 border-t-purple-500">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <PieChart className="w-5 h-5" style={{ color: "#8B5CF6" }} />
+                  <PieChart className="w-5 h-5 text-purple-500" />
                   {isArabic ? "حالة العروض" : "Quotation Status"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[280px]">
-                  {stats.quotationsByStatus.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPie>
-                        <Pie
-                          data={stats.quotationsByStatus}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={100}
-                          paddingAngle={5}
-                          dataKey="count"
-                          nameKey="status"
-                          label={({ status, count }) => `${status}: ${count}`}
-                          animationDuration={500}
-                        >
-                          {stats.quotationsByStatus.map((entry: any, index) => (
-                            <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.rawStatus] || CHART_COLORS[index % CHART_COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                      </RechartsPie>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-muted-foreground">
-                      {isArabic ? "لا توجد عروض أسعار" : "No quotations yet"}
-                    </div>
-                  )}
-                </div>
+                <QuotationStatusChart data={stats.quotationsByStatus} isArabic={isArabic} />
               </CardContent>
             </Card>
           </div>
 
           {/* Project Value Distribution */}
-          {stats.recentProjects.some(p => {
-            const items = p.analysis_data?.items || [];
-            return items.reduce((s: number, i: any) => s + (i.total_price || 0), 0) > 0;
-          }) && (
-            <Card>
+          {projectValueData.length > 0 && (
+            <Card className="rounded-2xl">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5" style={{ color: "#8B5CF6" }} />
+                  <BarChart3 className="w-5 h-5 text-purple-500" />
                   {isArabic ? "توزيع قيم المشاريع" : "Project Value Distribution"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={stats.recentProjects
-                        .map(p => ({
-                          name: p.name?.length > 15 ? p.name.slice(0, 15) + '...' : p.name,
-                          value: (p.analysis_data?.items || []).reduce((s: number, i: any) => s + (i.total_price || 0), 0)
-                        }))
-                        .filter(d => d.value > 0)
-                      }
-                      layout="vertical"
-                    >
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
-                      <XAxis type="number" tickFormatter={(v) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
-                      <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" name={isArabic ? "القيمة" : "Value"} fill="#8B5CF6" radius={[0, 6, 6, 0]} animationDuration={500} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <ProjectValueChart data={projectValueData} isArabic={isArabic} />
               </CardContent>
             </Card>
           )}
@@ -876,7 +992,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
           {/* Recent Items */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Projects */}
-            <Card>
+            <Card className="rounded-2xl">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
@@ -930,7 +1046,6 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                                 <span>{itemsCount} {isArabic ? 'بند' : 'items'}</span>
                                 {totalValue > 0 && (<><span>•</span><span className="text-primary font-medium">SAR {totalValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span></>)}
                               </div>
-                              {/* Mini pricing progress */}
                               {itemsCount > 0 && (
                                 <div className="mt-1.5 flex items-center gap-2">
                                   <Progress value={pricingProgress} className="h-1.5 flex-1" />
@@ -960,7 +1075,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             </Card>
 
             {/* Recent Quotations */}
-            <Card>
+            <Card className="rounded-2xl">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
@@ -985,12 +1100,21 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
                             <p className="font-medium">{quotation.name}</p>
                             <div className="flex items-center gap-2">
                               <p className="text-xs text-muted-foreground">{quotation.supplier_name || (isArabic ? 'مورد غير محدد' : 'Unknown supplier')}</p>
-                              <Badge variant="secondary" className="text-xs">{getStatusLabel(quotation.status || 'pending')}</Badge>
+                              <Badge 
+                                variant="secondary" 
+                                className="text-xs"
+                                style={{
+                                  backgroundColor: `${STATUS_COLORS[quotation.status || 'pending']}15`,
+                                  color: STATUS_COLORS[quotation.status || 'pending'],
+                                }}
+                              >
+                                {getStatusLabel(quotation.status || 'pending')}
+                              </Badge>
                             </div>
                           </div>
                         </div>
                         <div className="text-end">
-                          <p className="font-semibold text-primary">{quotation.total_amount ? formatCurrency(quotation.total_amount) : '-'}</p>
+                          <p className="font-bold text-lg text-primary">{quotation.total_amount ? formatCurrency(quotation.total_amount) : '-'}</p>
                           <p className="text-xs text-muted-foreground">{new Date(quotation.created_at).toLocaleDateString(isArabic ? 'ar-SA' : 'en-US')}</p>
                         </div>
                       </div>
@@ -1006,8 +1130,8 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             </Card>
           </div>
 
-          {/* Image Upload - Compact, moved to bottom */}
-          <Card className="border-dashed">
+          {/* Image Upload */}
+          <Card className="border-dashed rounded-2xl">
             <CardContent className="p-4">
               {uploadedImage ? (
                 <div className="relative flex items-center gap-4">
