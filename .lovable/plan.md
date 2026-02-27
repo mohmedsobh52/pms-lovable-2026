@@ -1,78 +1,28 @@
 
 
-# تحسين لوحة التحكم: إصلاح + رسم بياني للمخاطر + تنبيهات ذكية
+# إضافة أيقونة الصلاحيات في شاشة الهوم
 
-## 1. إصلاح مشكلة الأداء الحالية
+## التغيير المطلوب
 
-يوجد تحذير في الكونسول: `Function components cannot be given refs` في `ProjectValueChart` بسبب استخدام `LabelList` مع مكون دالة. سيتم إزالة `LabelList` واستبداله بـ `label` مباشر على `Bar` لحل المشكلة.
+إضافة بطاقة "إدارة الصلاحيات" (User Permissions) في شاشة الهوم تنقل المستخدم إلى صفحة `/admin/users` الموجودة مسبقا.
 
----
+## التفاصيل
 
-## 2. إضافة رسم بياني لتوزيع المخاطر حسب الحالة والأولوية
+### الملف: `src/pages/HomePage.tsx`
 
-### البيانات:
-- جلب بيانات المخاطر من جدول `risks` (بدلا من `cost_benefit_analysis` الحالي) عبر `Promise.all` في `fetchDashboardData`
-- تجميع المخاطر حسب:
-  - **الحالة** (identified, mitigated, active, closed)
-  - **الأولوية** (critical, high, medium, low) باستخدام `risk_score`
+1. **إضافة أيقونة `Shield`** إلى imports من `lucide-react`
+2. **إضافة فئة جديدة "الإدارة" (Administration)** في مصفوفة `categories` تحتوي على:
+   - **إدارة الصلاحيات** (User Permissions) - أيقونة Shield - رابط `/admin/users`
+   - **لوحة الإدارة** (Admin Dashboard) - أيقونة BarChart3 - رابط `/admin`
 
-### الرسم البياني:
-- إضافة **رسم بياني مزدوج** في صف جديد بعد الرسوم الحالية:
-  - **Donut Chart** لتوزيع المخاطر حسب الحالة (ألوان مميزة لكل حالة)
-  - **Bar Chart أفقي** لتوزيع المخاطر حسب مستوى الخطورة (أحمر/برتقالي/أصفر/أخضر)
-- مكون `RiskDistributionChart` مغلف بـ `React.memo`
+هذا يفصل الأدوات الإدارية عن باقي الأقسام ويجعلها واضحة ومميزة.
 
-### تحديث بطاقة الإحصائيات:
-- تغيير بطاقة "تحليلات التكلفة" إلى "المخاطر النشطة" مع العدد الفعلي من جدول `risks`
-
----
-
-## 3. إضافة تنبيهات ذكية للعقود والدفعات
-
-### البيانات:
-- جلب العقود القريبة من الانتهاء (`end_date` خلال 30 يوم) من جدول `contracts`
-- جلب الدفعات المتأخرة (`due_date` < اليوم و `status = 'pending'`) من جدول `contract_payments`
-
-### العرض:
-- إضافة **شريط تنبيهات** أسفل شريط الميزانية الحالي وقبل بطاقات الإحصائيات
-- كل تنبيه يعرض:
-  - أيقونة ملونة (أحمر للمتأخر، برتقالي للقريب)
-  - عنوان العقد/الدفعة
-  - عدد الأيام المتبقية أو المتأخرة
-  - زر للانتقال لصفحة العقود
-- التنبيهات قابلة للإغلاق (dismiss) مؤقتا عبر state محلي
-
----
-
-## التفاصيل التقنية
-
-### تعديلات `fetchDashboardData`:
-```text
-- إضافة استعلام risks: supabase.from("risks").select("id, status, risk_score, probability, impact")
-- إضافة استعلام expiringContracts: contracts مع end_date <= 30 يوم
-- إضافة استعلام overduePayments: contract_payments مع due_date < now() و status = pending
-```
-
-### مكونات جديدة (داخل نفس الملف):
-- `RiskDistributionChart` (memo) - دونات + بار للمخاطر
-- `SmartAlertsBanner` - شريط التنبيهات الذكية
-
-### تعديل DashboardStats interface:
-```text
-+ risksByStatus: { status: string; count: number; color: string }[]
-+ risksByLevel: { level: string; count: number; color: string }[]
-+ expiringContracts: { id: string; title: string; end_date: string; daysLeft: number }[]
-+ overduePayments: { id: string; contract_title: string; amount: number; due_date: string; daysOverdue: number }[]
-```
-
-### إصلاح ProjectValueChart:
-- إزالة `LabelList` واستخدام خاصية `label` المدمجة في `Bar`
-
----
-
-## الملفات المتأثرة
-
-| الملف | التغيير |
+### التخطيط النهائي للفئات:
+| الفئة | البطاقات |
 |---|---|
-| `src/components/MainDashboard.tsx` | إصلاح تحذير + رسم مخاطر + تنبيهات ذكية |
+| نظرة عامة | لوحة المعلومات، التقارير |
+| إدارة المشاريع | المشاريع، جدول الكميات، المستخلصات |
+| التكاليف والتسعير | التسعير والتحليل، ملخص المناقصة، عروض الأسعار، المكتبة |
+| العمليات والموارد | العقود، المشتريات، مقاولي الباطن، المخاطر |
+| **الإدارة (جديد)** | **إدارة الصلاحيات، لوحة الإدارة** |
 
