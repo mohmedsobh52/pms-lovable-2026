@@ -59,7 +59,17 @@ const PartnerDetailsPage = lazy(() => import("./pages/PartnerDetailsPage"));
 const ProgressCertificatesPage = lazy(() => import("./pages/ProgressCertificatesPage"));
 const NewCertificatePage = lazy(() => import("./pages/NewCertificatePage"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
-const queryClient = new QueryClient();
+const UserManagementPage = lazy(() => import("./pages/UserManagementPage"));
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 // Page loading component
 const PageLoader = () => (
@@ -104,6 +114,7 @@ const App = () => (
                         <Route path="/changelog" element={<Changelog />} />
                         <Route path="/admin/versions" element={<AdminVersions />} />
                         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+                        <Route path="/admin/users" element={<UserManagementPage />} />
                         {/* Separate pages for each section */}
                         <Route path="/dashboard" element={<DashboardPage />} />
                         <Route path="/items" element={<BOQItemsPage />} />
