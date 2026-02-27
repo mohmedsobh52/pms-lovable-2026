@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useNotifications } from "@/hooks/useNotifications";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -126,6 +127,7 @@ const NewCertificatePage = () => {
   const { user } = useAuth();
   const { isArabic } = useLanguage();
   const navigate = useNavigate();
+  const { addNotification } = useNotifications();
 
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [contractors, setContractors] = useState<any[]>([]);
@@ -150,7 +152,7 @@ const NewCertificatePage = () => {
   const [advancePercentage, setAdvancePercentage] = useState(0);
   const [selectedContractValue, setSelectedContractValue] = useState<number | null>(null);
 
-  // NEW: contract details & payments
+  // Contract details & payments
   const [contractDetails, setContractDetails] = useState<ContractFullDetails | null>(null);
   const [contractPayments, setContractPayments] = useState<PaymentInfo[]>([]);
   const [termsOpen, setTermsOpen] = useState(false);
@@ -168,6 +170,9 @@ const NewCertificatePage = () => {
   const totalContractValue = useMemo(() => formItems.reduce((s, i) => s + (i.contract_quantity * i.unit_price), 0), [formItems]);
   const overallProgress = useMemo(() => totalContractValue > 0 ? Math.round((totalWorkDone / totalContractValue) * 100) : 0, [totalWorkDone, totalContractValue]);
 
+  // Overrun items count
+  const overrunItems = useMemo(() => formItems.filter(i => i.total_quantity > i.contract_quantity && i.contract_quantity > 0), [formItems]);
+
   const displayItems = useMemo(() => {
     let items = formItems;
     if (itemSearch) {
@@ -177,10 +182,8 @@ const NewCertificatePage = () => {
     return items;
   }, [formItems, itemSearch]);
 
-  // Paginated display items
   const paginatedItems = useMemo(() => displayItems.slice(0, visibleItemsCount), [displayItems, visibleItemsCount]);
 
-  // Payment stats
   const paymentStats = useMemo(() => {
     const paid = contractPayments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0);
     const pending = contractPayments.filter(p => p.status === 'pending').reduce((s, p) => s + p.amount, 0);
@@ -246,7 +249,6 @@ const NewCertificatePage = () => {
     } catch (err) { console.error("Error loading previous certs:", err); }
   };
 
-  // NEW: Fetch full contract details + payments when contract selected
   const fetchContractDetailsAndPayments = async (contractId: string) => {
     try {
       const [detailsRes, paymentsRes] = await Promise.all([
@@ -313,13 +315,28 @@ const NewCertificatePage = () => {
     if (formProjectId && name) { loadProjectItems(formProjectId, name); loadContractsForSelection(formProjectId, name); loadPreviousCertsSummary(formProjectId, name); }
   };
 
+  // Updated: with overrun notification
   const updateItemQuantity = useCallback((index: number, qty: number) => {
     setFormItems(prev => prev.map((item, i) => {
       if (i !== index) return item;
       const total = item.previous_quantity + qty;
-      return { ...item, current_quantity: qty, total_quantity: total, current_amount: qty * item.unit_price };
+      const newItem = { ...item, current_quantity: qty, total_quantity: total, current_amount: qty * item.unit_price };
+      
+      // Overrun notification
+      if (total > item.contract_quantity && item.contract_quantity > 0) {
+        const overPct = Math.round(((total - item.contract_quantity) / item.contract_quantity) * 100);
+        addNotification({
+          title: isArabic ? 'تنبيه تجاوز الكمية' : 'Quantity Overrun Alert',
+          message: isArabic
+            ? `البند "${item.description.substring(0, 30)}" تجاوز الكمية التعاقدية بنسبة ${overPct}%`
+            : `Item "${item.description.substring(0, 30)}" exceeds contract quantity by ${overPct}%`,
+          type: 'warning',
+        });
+      }
+      
+      return newItem;
     }));
-  }, []);
+  }, [isArabic, addNotification]);
 
   const fillAllRemaining = useCallback(() => {
     setFormItems(prev => prev.map(item => {
@@ -403,7 +420,6 @@ const NewCertificatePage = () => {
     }
   };
 
-  // Remaining contract value after previous certificates
   const remainingContractValue = useMemo(() => {
     if (!selectedContractValue) return null;
     const prevTotal = previousCertsSummary?.totalWorkDone || 0;
@@ -481,7 +497,7 @@ const NewCertificatePage = () => {
             </CardContent>
           </Card>
 
-          {/* NEW: Contract Details Card */}
+          {/* Contract Details Card */}
           {contractDetails && (
             <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
               <CardHeader className="py-3 px-4">
@@ -518,7 +534,6 @@ const NewCertificatePage = () => {
                   </div>
                 </div>
 
-                {/* Duration */}
                 {(contractDetails.start_date || contractDetails.end_date) && (
                   <div className="flex items-center gap-3 text-xs text-muted-foreground bg-muted/40 p-2 rounded">
                     <Calendar className="h-3.5 w-3.5" />
@@ -529,7 +544,6 @@ const NewCertificatePage = () => {
                   </div>
                 )}
 
-                {/* Progress bar: current vs contract */}
                 {remainingContractValue !== null && selectedContractValue && (
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs">
@@ -541,7 +555,6 @@ const NewCertificatePage = () => {
                   </div>
                 )}
 
-                {/* Payment Terms */}
                 {contractDetails.payment_terms && (
                   <div className="flex items-start gap-2 text-xs bg-muted/40 p-2 rounded">
                     <Banknote className="h-3.5 w-3.5 mt-0.5 text-green-600 shrink-0" />
@@ -552,7 +565,6 @@ const NewCertificatePage = () => {
                   </div>
                 )}
 
-                {/* Terms & Conditions - Collapsible */}
                 {contractDetails.terms_conditions && (
                   <Collapsible open={termsOpen} onOpenChange={setTermsOpen}>
                     <CollapsibleTrigger asChild>
@@ -609,7 +621,7 @@ const NewCertificatePage = () => {
             </Card>
           )}
 
-          {/* NEW: Payment History Card */}
+          {/* Payment History Card */}
           {contractPayments.length > 0 && (
             <Card className="border-green-200 bg-green-50/30 dark:bg-green-950/10 dark:border-green-800">
               <CardHeader className="py-3 px-4">
@@ -637,7 +649,6 @@ const NewCertificatePage = () => {
                     <p className="text-sm font-bold text-destructive">{formatCurrency(paymentStats.overdue)}</p>
                   </div>
                 </div>
-                {/* Payment list */}
                 <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
                   {contractPayments.map(p => (
                     <div key={p.id} className="flex items-center justify-between text-xs bg-background p-2 rounded border">
@@ -704,6 +715,18 @@ const NewCertificatePage = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Overrun Warning Banner */}
+              {overrunItems.length > 0 && (
+                <div className="flex items-center gap-2 p-2.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-xs">
+                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                  <span className="text-destructive font-medium">
+                    {isArabic
+                      ? `تحذير: ${overrunItems.length} بند تجاوز الكمية التعاقدية`
+                      : `Warning: ${overrunItems.length} item(s) exceed contract quantity`}
+                  </span>
+                </div>
+              )}
 
               {/* Item Search */}
               <div className="relative">
@@ -868,6 +891,12 @@ const NewCertificatePage = () => {
                 <div className="flex justify-between"><span className="text-muted-foreground">{isArabic ? "بنود معبأة" : "Filled Items"}</span><strong>{filledItemsCount} / {formItems.length}</strong></div>
                 {contractDetails && (
                   <div className="flex justify-between"><span className="text-muted-foreground">{isArabic ? "العقد" : "Contract"}</span><strong>{contractDetails.contract_number}</strong></div>
+                )}
+                {overrunItems.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-destructive text-xs bg-red-50 dark:bg-red-950/30 p-2 rounded">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    {isArabic ? `${overrunItems.length} بند تجاوز الكمية التعاقدية` : `${overrunItems.length} item(s) exceed contract quantity`}
+                  </div>
                 )}
                 <Separator />
                 <div className="flex justify-between"><span>{isArabic ? "الأعمال الحالية" : "Current Work"}</span><strong>{formatCurrency(currentWorkDone)}</strong></div>
