@@ -19,11 +19,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { toast } from "sonner";
 import { 
   FileText, Plus, Building2, DollarSign, TrendingUp,
-  Trash2, Eye, Edit, Download, Search, Copy, CheckCircle2, Clock, FileCheck
+  Trash2, Eye, Edit, Download, Search, Copy, CheckCircle2, Clock, FileCheck,
+  ChevronLeft, ChevronRight, CreditCard, Link2
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { addPDFLetterheadHeader, addPDFLetterheadFooterWithQR } from "@/lib/letterhead-utils";
+import React from "react";
 
 interface Certificate {
   id: string;
@@ -66,6 +68,90 @@ interface ProjectOption {
   name: string;
 }
 
+interface ContractInfo {
+  id: string;
+  contract_number: string;
+  contract_title: string;
+  contract_value: number | null;
+  retention_percentage: number | null;
+  payment_terms: string | null;
+  terms_conditions: string | null;
+  status: string | null;
+}
+
+interface PaymentInfo {
+  id: string;
+  payment_number: number;
+  amount: number;
+  status: string | null;
+  due_date: string;
+  description: string | null;
+}
+
+// Memoized table row
+const CertificateRow = React.memo(({ cert, projectMap, contractMap, isArabic, formatCurrency, getStatusBadge, getRowBg, onView, onExport, onCopy, onUpdateStatus, onDelete }: any) => {
+  // Fixed progress calculation: total_work_done / contract_value or fallback
+  const contractValue = cert.contract_id && contractMap?.get(cert.contract_id)?.contract_value;
+  const progressPct = contractValue && contractValue > 0
+    ? Math.min(100, Math.round((cert.total_work_done / contractValue) * 100))
+    : cert.total_work_done > 0 ? Math.min(100, Math.round((cert.current_work_done / cert.total_work_done) * 100)) : 0;
+
+  const contractInfo = cert.contract_id ? contractMap?.get(cert.contract_id) : null;
+
+  return (
+    <TableRow className={getRowBg(cert.status)}>
+      <TableCell className="font-medium">{cert.certificate_number}</TableCell>
+      <TableCell>{cert.contractor_name}</TableCell>
+      <TableCell className="text-xs text-muted-foreground">
+        {cert.project_id ? projectMap.get(cert.project_id) || '-' : '-'}
+      </TableCell>
+      <TableCell className="text-xs">
+        {contractInfo ? (
+          <span className="text-primary font-medium">{contractInfo.contract_number}</span>
+        ) : '-'}
+      </TableCell>
+      <TableCell className="text-xs">{cert.period_from && cert.period_to ? `${cert.period_from} → ${cert.period_to}` : '-'}</TableCell>
+      <TableCell>{formatCurrency(cert.current_work_done)}</TableCell>
+      <TableCell className="font-bold">{formatCurrency(cert.net_amount)}</TableCell>
+      <TableCell className="w-[100px]">
+        <Progress value={progressPct} className="h-2" />
+        <span className="text-[10px] text-muted-foreground">{progressPct}%</span>
+      </TableCell>
+      <TableCell>{getStatusBadge(cert.status)}</TableCell>
+      <TableCell>
+        <div className="flex gap-0.5">
+          <Tooltip><TooltipTrigger asChild>
+            <Button size="sm" variant="ghost" onClick={() => onView(cert)}><Eye className="h-4 w-4" /></Button>
+          </TooltipTrigger><TooltipContent>{isArabic ? "عرض" : "View"}</TooltipContent></Tooltip>
+          
+          <Tooltip><TooltipTrigger asChild>
+            <Button size="sm" variant="ghost" onClick={() => onExport(cert)}><Download className="h-4 w-4" /></Button>
+          </TooltipTrigger><TooltipContent>{isArabic ? "تصدير PDF" : "Export PDF"}</TooltipContent></Tooltip>
+          
+          <Tooltip><TooltipTrigger asChild>
+            <Button size="sm" variant="ghost" onClick={() => onCopy(cert)}><Copy className="h-4 w-4" /></Button>
+          </TooltipTrigger><TooltipContent>{isArabic ? "نسخ مستخلص" : "Copy Certificate"}</TooltipContent></Tooltip>
+          
+          {cert.status === 'draft' && (
+            <>
+              <Tooltip><TooltipTrigger asChild>
+                <Button size="sm" variant="ghost" onClick={() => onUpdateStatus(cert.id, 'submitted')}><FileCheck className="h-4 w-4" /></Button>
+              </TooltipTrigger><TooltipContent>{isArabic ? "تقديم" : "Submit"}</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => onDelete(cert.id)}><Trash2 className="h-4 w-4" /></Button>
+              </TooltipTrigger><TooltipContent>{isArabic ? "حذف" : "Delete"}</TooltipContent></Tooltip>
+            </>
+          )}
+          {cert.status === 'submitted' && <Button size="sm" variant="outline" onClick={() => onUpdateStatus(cert.id, 'approved')}>{isArabic ? "اعتماد" : "Approve"}</Button>}
+          {cert.status === 'approved' && <Button size="sm" variant="outline" onClick={() => onUpdateStatus(cert.id, 'paid')}>{isArabic ? "مدفوع" : "Paid"}</Button>}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+});
+
+const ITEMS_PER_PAGE = 15;
+
 const ProgressCertificatesPage = () => {
   const { user } = useAuth();
   const { isArabic } = useLanguage();
@@ -78,12 +164,22 @@ const ProgressCertificatesPage = () => {
 
   const [filterProjectId, setFilterProjectId] = useState("");
   const [filterContractor, setFilterContractor] = useState("");
+  const [filterContractId, setFilterContractId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [viewingCertificate, setViewingCertificate] = useState<Certificate | null>(null);
   const [viewItems, setViewItems] = useState<CertificateItem[]>([]);
+  const [viewContractInfo, setViewContractInfo] = useState<ContractInfo | null>(null);
+  const [viewPayments, setViewPayments] = useState<PaymentInfo[]>([]);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Contract map for display
+  const [contractMap, setContractMap] = useState<Map<string, ContractInfo>>(new Map());
+  const [allContracts, setAllContracts] = useState<ContractInfo[]>([]);
 
   useEffect(() => {
     if (user) fetchData();
@@ -92,14 +188,22 @@ const ProgressCertificatesPage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [certRes, projRes, subRes] = await Promise.all([
+      const [certRes, projRes, subRes, contractsRes] = await Promise.all([
         supabase.from("progress_certificates").select("*").order("created_at", { ascending: false }),
         supabase.from("project_data").select("id, name").order("created_at", { ascending: false }),
-        supabase.from("subcontractors").select("id, name, specialty").order("name")
+        supabase.from("subcontractors").select("id, name, specialty").order("name"),
+        supabase.from("contracts").select("id, contract_number, contract_title, contract_value, retention_percentage, payment_terms, terms_conditions, status")
       ]);
       if (certRes.data) setCertificates(certRes.data as Certificate[]);
       if (projRes.data) setProjects(projRes.data);
       if (subRes.data) setContractors(subRes.data);
+      if (contractsRes.data) {
+        const contracts = contractsRes.data as ContractInfo[];
+        setAllContracts(contracts);
+        const map = new Map<string, ContractInfo>();
+        contracts.forEach(c => map.set(c.id, c));
+        setContractMap(map);
+      }
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -109,8 +213,25 @@ const ProgressCertificatesPage = () => {
 
   const handleViewCertificate = useCallback(async (cert: Certificate) => {
     setViewingCertificate(cert);
-    const { data } = await supabase.from("progress_certificate_items").select("*").eq("certificate_id", cert.id).order("item_number");
-    setViewItems((data || []) as CertificateItem[]);
+    setViewContractInfo(null);
+    setViewPayments([]);
+
+    const itemsPromise = supabase.from("progress_certificate_items").select("*").eq("certificate_id", cert.id).order("item_number");
+    
+    // Also fetch contract info and payments if contract_id exists
+    if (cert.contract_id) {
+      const [itemsRes, contractRes, paymentsRes] = await Promise.all([
+        itemsPromise,
+        supabase.from("contracts").select("id, contract_number, contract_title, contract_value, retention_percentage, payment_terms, terms_conditions, status").eq("id", cert.contract_id).single(),
+        supabase.from("contract_payments").select("id, payment_number, amount, status, due_date, description").eq("contract_id", cert.contract_id).order("payment_number")
+      ]);
+      setViewItems((itemsRes.data || []) as CertificateItem[]);
+      if (contractRes.data) setViewContractInfo(contractRes.data as ContractInfo);
+      if (paymentsRes.data) setViewPayments(paymentsRes.data as PaymentInfo[]);
+    } else {
+      const { data } = await itemsPromise;
+      setViewItems((data || []) as CertificateItem[]);
+    }
     setShowViewDialog(true);
   }, []);
 
@@ -184,7 +305,16 @@ const ProgressCertificatesPage = () => {
     await handleExportPDF(cert, (data || []) as CertificateItem[]);
   }, [isArabic]);
 
-  // Project name lookup
+  // Export all filtered PDFs - uses certificates from state
+  const handleExportAllPDF = useCallback(async () => {
+    toast.info(isArabic ? "جاري تصدير جميع المستخلصات..." : "Exporting all certificates...");
+    const toExport = certificates.slice(0, 20);
+    for (const cert of toExport) {
+      await handleExportCertificatePDF(cert);
+    }
+    toast.success(isArabic ? "تم التصدير بنجاح" : "Export completed");
+  }, [certificates, isArabic]);
+
   const projectMap = useMemo(() => {
     const map = new Map<string, string>();
     projects.forEach(p => map.set(p.id, p.name));
@@ -196,6 +326,7 @@ const ProgressCertificatesPage = () => {
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
       if (filterProjectId && filterProjectId !== "all" && c.project_id !== filterProjectId) return false;
       if (filterContractor && filterContractor !== "all" && c.contractor_name !== filterContractor) return false;
+      if (filterContractId && filterContractId !== "all" && c.contract_id !== filterContractId) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         return c.contractor_name.toLowerCase().includes(q) || 
@@ -204,7 +335,17 @@ const ProgressCertificatesPage = () => {
       }
       return true;
     });
-  }, [certificates, statusFilter, filterProjectId, filterContractor, searchQuery, projectMap]);
+  }, [certificates, statusFilter, filterProjectId, filterContractor, filterContractId, searchQuery, projectMap]);
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginatedCerts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filtered.slice(start, start + ITEMS_PER_PAGE);
+  }, [filtered, currentPage]);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [statusFilter, filterProjectId, filterContractor, filterContractId, searchQuery]);
 
   const formatCurrency = useCallback((v: number) => {
     if (v == null) return '0.00';
@@ -254,13 +395,21 @@ const ProgressCertificatesPage = () => {
           title={isArabic ? "المستخلصات" : "Progress Certificates"}
           subtitle={isArabic ? "إدارة مستخلصات المقاولين ومقاولي الباطن" : "Manage contractor & subcontractor invoices"}
           actions={
-            <Link 
-              to="/progress-certificates/new"
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-10 px-4 py-2 bg-gold text-white hover:bg-gold/90 relative z-[70] pointer-events-auto"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              {isArabic ? "مستخلص جديد" : "New Certificate"}
-            </Link>
+            <div className="flex gap-2">
+              {filtered.length > 0 && (
+                <Button variant="outline" size="sm" onClick={handleExportAllPDF} className="gap-1.5">
+                  <Download className="h-4 w-4" />
+                  {isArabic ? "تصدير الكل PDF" : "Export All PDF"}
+                </Button>
+              )}
+              <Link 
+                to="/progress-certificates/new"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-10 px-4 py-2 bg-gold text-white hover:bg-gold/90 relative z-[70] pointer-events-auto"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                {isArabic ? "مستخلص جديد" : "New Certificate"}
+              </Link>
+            </div>
           }
         />
 
@@ -344,7 +493,7 @@ const ProgressCertificatesPage = () => {
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filters with Contract filter */}
         <div className="flex gap-4 flex-wrap">
           <Select value={filterProjectId} onValueChange={setFilterProjectId}>
             <SelectTrigger className="w-[200px]"><SelectValue placeholder={isArabic ? "كل المشاريع" : "All Projects"} /></SelectTrigger>
@@ -360,6 +509,15 @@ const ProgressCertificatesPage = () => {
               {contractors.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          {allContracts.length > 0 && (
+            <Select value={filterContractId} onValueChange={setFilterContractId}>
+              <SelectTrigger className="w-[200px]"><SelectValue placeholder={isArabic ? "كل العقود" : "All Contracts"} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "كل العقود" : "All Contracts"}</SelectItem>
+                {allContracts.map(c => <SelectItem key={c.id} value={c.id}>{c.contract_number} - {c.contract_title}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {/* Certificates Table */}
@@ -383,80 +541,79 @@ const ProgressCertificatesPage = () => {
             ) : filtered.length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">{isArabic ? "لا توجد مستخلصات" : "No certificates found"}</p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{isArabic ? "رقم" : "#"}</TableHead>
-                    <TableHead>{isArabic ? "المقاول" : "Contractor"}</TableHead>
-                    <TableHead>{isArabic ? "المشروع" : "Project"}</TableHead>
-                    <TableHead>{isArabic ? "الفترة" : "Period"}</TableHead>
-                    <TableHead>{isArabic ? "الأعمال الحالية" : "Current Work"}</TableHead>
-                    <TableHead>{isArabic ? "صافي المستحق" : "Net Amount"}</TableHead>
-                    <TableHead>{isArabic ? "الإنجاز" : "Progress"}</TableHead>
-                    <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
-                    <TableHead>{isArabic ? "إجراءات" : "Actions"}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map(cert => {
-                    const progressPct = cert.total_work_done > 0 && cert.current_work_done > 0
-                      ? Math.min(100, Math.round((cert.total_work_done / (cert.total_work_done + cert.current_work_done * 2)) * 100))
-                      : 0;
-                    return (
-                    <TableRow key={cert.id} className={getRowBg(cert.status)}>
-                      <TableCell className="font-medium">{cert.certificate_number}</TableCell>
-                      <TableCell>{cert.contractor_name}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {cert.project_id ? projectMap.get(cert.project_id) || '-' : '-'}
-                      </TableCell>
-                      <TableCell className="text-xs">{cert.period_from && cert.period_to ? `${cert.period_from} → ${cert.period_to}` : '-'}</TableCell>
-                      <TableCell>{formatCurrency(cert.current_work_done)}</TableCell>
-                      <TableCell className="font-bold">{formatCurrency(cert.net_amount)}</TableCell>
-                      <TableCell className="w-[100px]">
-                        <Progress value={progressPct} className="h-2" />
-                        <span className="text-[10px] text-muted-foreground">{progressPct}%</span>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(cert.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-0.5">
-                          <Tooltip><TooltipTrigger asChild>
-                            <Button size="sm" variant="ghost" onClick={() => handleViewCertificate(cert)}><Eye className="h-4 w-4" /></Button>
-                          </TooltipTrigger><TooltipContent>{isArabic ? "عرض" : "View"}</TooltipContent></Tooltip>
-                          
-                          <Tooltip><TooltipTrigger asChild>
-                            <Button size="sm" variant="ghost" onClick={() => handleExportCertificatePDF(cert)}><Download className="h-4 w-4" /></Button>
-                          </TooltipTrigger><TooltipContent>{isArabic ? "تصدير PDF" : "Export PDF"}</TooltipContent></Tooltip>
-                          
-                          <Tooltip><TooltipTrigger asChild>
-                            <Button size="sm" variant="ghost" onClick={() => handleCopyCertificate(cert)}><Copy className="h-4 w-4" /></Button>
-                          </TooltipTrigger><TooltipContent>{isArabic ? "نسخ مستخلص" : "Copy Certificate"}</TooltipContent></Tooltip>
-                          
-                          {cert.status === 'draft' && (
-                            <>
-                              <Tooltip><TooltipTrigger asChild>
-                                <Button size="sm" variant="ghost" onClick={() => handleUpdateStatus(cert.id, 'submitted')}><FileCheck className="h-4 w-4" /></Button>
-                              </TooltipTrigger><TooltipContent>{isArabic ? "تقديم" : "Submit"}</TooltipContent></Tooltip>
-                              <Tooltip><TooltipTrigger asChild>
-                                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(cert.id)}><Trash2 className="h-4 w-4" /></Button>
-                              </TooltipTrigger><TooltipContent>{isArabic ? "حذف" : "Delete"}</TooltipContent></Tooltip>
-                            </>
-                          )}
-                          {cert.status === 'submitted' && <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(cert.id, 'approved')}>{isArabic ? "اعتماد" : "Approve"}</Button>}
-                          {cert.status === 'approved' && <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(cert.id, 'paid')}>{isArabic ? "مدفوع" : "Paid"}</Button>}
-                        </div>
-                      </TableCell>
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{isArabic ? "رقم" : "#"}</TableHead>
+                      <TableHead>{isArabic ? "المقاول" : "Contractor"}</TableHead>
+                      <TableHead>{isArabic ? "المشروع" : "Project"}</TableHead>
+                      <TableHead>{isArabic ? "العقد" : "Contract"}</TableHead>
+                      <TableHead>{isArabic ? "الفترة" : "Period"}</TableHead>
+                      <TableHead>{isArabic ? "الأعمال الحالية" : "Current Work"}</TableHead>
+                      <TableHead>{isArabic ? "صافي المستحق" : "Net Amount"}</TableHead>
+                      <TableHead>{isArabic ? "الإنجاز" : "Progress"}</TableHead>
+                      <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
+                      <TableHead>{isArabic ? "إجراءات" : "Actions"}</TableHead>
                     </TableRow>
-                    );
-                  })}</TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedCerts.map(cert => (
+                      <CertificateRow
+                        key={cert.id}
+                        cert={cert}
+                        projectMap={projectMap}
+                        contractMap={contractMap}
+                        isArabic={isArabic}
+                        formatCurrency={formatCurrency}
+                        getStatusBadge={getStatusBadge}
+                        getRowBg={getRowBg}
+                        onView={handleViewCertificate}
+                        onExport={handleExportCertificatePDF}
+                        onCopy={handleCopyCertificate}
+                        onUpdateStatus={handleUpdateStatus}
+                        onDelete={handleDelete}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4">
+                    <p className="text-xs text-muted-foreground">
+                      {isArabic
+                        ? `عرض ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} من ${filtered.length}`
+                        : `Showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of ${filtered.length}`}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                        const page = i + 1;
+                        return (
+                          <Button key={page} variant={currentPage === page ? "default" : "outline"} size="sm" onClick={() => setCurrentPage(page)} className="w-8 h-8 p-0">
+                            {page}
+                          </Button>
+                        );
+                      })}
+                      {totalPages > 5 && <span className="text-xs text-muted-foreground px-1">...</span>}
+                      <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
 
-        {/* View Dialog */}
+        {/* Enhanced View Dialog */}
         {showViewDialog && viewingCertificate && (
         <Dialog open={true} onOpenChange={(open) => { if (!open) setShowViewDialog(false); }}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogDescription className="sr-only">View certificate details</DialogDescription>
               <div className="flex items-center justify-between">
@@ -471,7 +628,72 @@ const ProgressCertificatesPage = () => {
                 <div><span className="text-muted-foreground">{isArabic ? "المقاول:" : "Contractor:"}</span> <strong>{viewingCertificate.contractor_name}</strong></div>
                 <div><span className="text-muted-foreground">{isArabic ? "الحالة:" : "Status:"}</span> {getStatusBadge(viewingCertificate.status)}</div>
                 <div><span className="text-muted-foreground">{isArabic ? "الفترة:" : "Period:"}</span> {viewingCertificate.period_from} → {viewingCertificate.period_to}</div>
+                {viewingCertificate.project_id && (
+                  <div><span className="text-muted-foreground">{isArabic ? "المشروع:" : "Project:"}</span> <strong>{projectMap.get(viewingCertificate.project_id) || '-'}</strong></div>
+                )}
               </div>
+
+              {/* Contract Info in View Dialog */}
+              {viewContractInfo && (
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardHeader className="py-2 px-3">
+                    <CardTitle className="text-xs flex items-center gap-1.5">
+                      <Link2 className="h-3.5 w-3.5 text-primary" />
+                      {isArabic ? "تفاصيل العقد" : "Contract Details"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-3 pb-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                      <div className="p-2 bg-background rounded border text-center">
+                        <p className="text-[10px] text-muted-foreground">{isArabic ? "رقم العقد" : "Contract #"}</p>
+                        <p className="font-bold text-primary">{viewContractInfo.contract_number}</p>
+                      </div>
+                      <div className="p-2 bg-background rounded border text-center">
+                        <p className="text-[10px] text-muted-foreground">{isArabic ? "قيمة العقد" : "Value"}</p>
+                        <p className="font-bold">{formatCurrency(viewContractInfo.contract_value || 0)}</p>
+                      </div>
+                      <div className="p-2 bg-background rounded border text-center">
+                        <p className="text-[10px] text-muted-foreground">{isArabic ? "الاحتجاز" : "Retention"}</p>
+                        <p className="font-bold">{viewContractInfo.retention_percentage ?? 10}%</p>
+                      </div>
+                      <div className="p-2 bg-background rounded border text-center">
+                        <p className="text-[10px] text-muted-foreground">{isArabic ? "الحالة" : "Status"}</p>
+                        <Badge variant={viewContractInfo.status === 'active' ? 'default' : 'secondary'} className="text-[10px]">{viewContractInfo.status}</Badge>
+                      </div>
+                    </div>
+                    {viewContractInfo.payment_terms && (
+                      <p className="text-[10px] text-muted-foreground mt-2"><strong>{isArabic ? "شروط الدفع:" : "Payment Terms:"}</strong> {viewContractInfo.payment_terms}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Payments in View Dialog */}
+              {viewPayments.length > 0 && (
+                <Card className="border-green-200 bg-green-50/30 dark:bg-green-950/10">
+                  <CardHeader className="py-2 px-3">
+                    <CardTitle className="text-xs flex items-center gap-1.5">
+                      <CreditCard className="h-3.5 w-3.5 text-green-600" />
+                      {isArabic ? "الدفعات" : "Payments"}
+                      <Badge variant="secondary" className="text-[10px]">{viewPayments.length}</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-3 pb-3">
+                    <div className="space-y-1 max-h-[100px] overflow-y-auto">
+                      {viewPayments.map(p => (
+                        <div key={p.id} className="flex items-center justify-between text-xs bg-background p-1.5 rounded border">
+                          <div className="flex items-center gap-1.5">
+                            {p.status === 'paid' ? <CheckCircle2 className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3 text-yellow-600" />}
+                            <span>#{p.payment_number}</span>
+                          </div>
+                          <span className="font-bold">{formatCurrency(p.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <Table>
                 <TableHeader>
                   <TableRow>
