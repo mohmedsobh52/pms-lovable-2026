@@ -79,8 +79,12 @@ import {
   PolarGrid,
   PolarAngleAxis,
   PolarRadiusAxis,
-  LabelList
 } from "recharts";
+
+interface RiskByStatus { status: string; count: number; color: string }
+interface RiskByLevel { level: string; count: number; color: string }
+interface ExpiringContract { id: string; title: string; end_date: string; daysLeft: number }
+interface OverduePayment { id: string; contract_title: string; amount: number; due_date: string; daysOverdue: number }
 
 interface DashboardStats {
   totalProjects: number;
@@ -93,6 +97,10 @@ interface DashboardStats {
   monthlyActivity: { month: string; projects: number; quotations: number }[];
   activeContracts: number;
   riskCount: number;
+  risksByStatus: RiskByStatus[];
+  risksByLevel: RiskByLevel[];
+  expiringContracts: ExpiringContract[];
+  overduePayments: OverduePayment[];
 }
 
 interface MainDashboardProps {
@@ -310,11 +318,10 @@ const QuotationStatusChart = memo(({ data, isArabic }: { data: any[]; isArabic: 
                 strokeWidth={2}
               />
             ))}
-            <LabelList 
-              position="center" 
-              content={(props: any) => <DonutCenterLabel viewBox={props.viewBox} total={total} label={isArabic ? "إجمالي" : "Total"} />} 
-            />
           </Pie>
+          {/* Center label rendered as custom element */}
+          <text x="50%" y="45%" textAnchor="middle" className="fill-foreground text-2xl font-bold" dominantBaseline="middle">{total}</text>
+          <text x="50%" y="58%" textAnchor="middle" className="fill-muted-foreground text-xs" dominantBaseline="middle">{isArabic ? "إجمالي" : "Total"}</text>
           <Tooltip content={<CustomTooltip />} />
         </RechartsPie>
       </ResponsiveContainer>
@@ -345,20 +352,143 @@ const ProjectValueChart = memo(({ data, isArabic }: { data: any[]; isArabic: boo
           />
           <YAxis dataKey="name" type="category" width={120} tick={{ fill: 'hsl(var(--foreground))', fontSize: 11 }} />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="value" name={isArabic ? "القيمة" : "Value"} fill="url(#valueBarGrad)" radius={[0, 8, 8, 0]} animationDuration={600}>
-            <LabelList 
-              dataKey="value" 
-              position="right" 
-              formatter={(v: number) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : v}
-              className="fill-muted-foreground text-[10px]"
-            />
-          </Bar>
+          <Bar 
+            dataKey="value" 
+            name={isArabic ? "القيمة" : "Value"} 
+            fill="url(#valueBarGrad)" 
+            radius={[0, 8, 8, 0]} 
+            animationDuration={600}
+            label={{ 
+              position: 'right', 
+              formatter: (v: number) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v),
+              fill: 'hsl(var(--muted-foreground))',
+              fontSize: 10
+            }}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
   );
 });
 ProjectValueChart.displayName = "ProjectValueChart";
+
+// Risk Distribution Chart
+const RISK_STATUS_COLORS: Record<string, string> = {
+  identified: "#3B82F6", active: "#EF4444", mitigated: "#10B981", closed: "#6B7280",
+};
+const RISK_LEVEL_COLORS: Record<string, string> = {
+  critical: "#EF4444", high: "#F97316", medium: "#F5A623", low: "#10B981",
+};
+
+const RiskDistributionChart = memo(({ risksByStatus, risksByLevel, isArabic }: { risksByStatus: RiskByStatus[]; risksByLevel: RiskByLevel[]; isArabic: boolean }) => {
+  const totalRisks = useMemo(() => risksByStatus.reduce((s, d) => s + d.count, 0), [risksByStatus]);
+  
+  if (totalRisks === 0) {
+    return (
+      <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+        <div className="text-center">
+          <Shield className="w-10 h-10 mx-auto mb-2 opacity-40" />
+          <p>{isArabic ? "لا توجد مخاطر مسجلة" : "No risks recorded"}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Donut by Status */}
+      <div>
+        <p className="text-sm font-medium text-muted-foreground mb-2 text-center">{isArabic ? "حسب الحالة" : "By Status"}</p>
+        <div className="h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsPie>
+              <Pie data={risksByStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="count" nameKey="status" animationDuration={600}>
+                {risksByStatus.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} stroke="hsl(var(--background))" strokeWidth={2} />
+                ))}
+              </Pie>
+              <Tooltip content={<CustomTooltip />} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+            </RechartsPie>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      {/* Bar by Level */}
+      <div>
+        <p className="text-sm font-medium text-muted-foreground mb-2 text-center">{isArabic ? "حسب الخطورة" : "By Severity"}</p>
+        <div className="h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={risksByLevel} layout="vertical" barSize={20}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
+              <XAxis type="number" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+              <YAxis dataKey="level" type="category" width={70} tick={{ fill: 'hsl(var(--foreground))', fontSize: 11 }} />
+              <Tooltip content={<CustomTooltip />} />
+              <Bar dataKey="count" name={isArabic ? "العدد" : "Count"} radius={[0, 6, 6, 0]} animationDuration={600}>
+                {risksByLevel.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+});
+RiskDistributionChart.displayName = "RiskDistributionChart";
+
+// Smart Alerts Banner
+const SmartAlertsBanner = memo(({ expiringContracts, overduePayments, isArabic, onNavigate }: {
+  expiringContracts: ExpiringContract[]; overduePayments: OverduePayment[]; isArabic: boolean; onNavigate: (path: string) => void;
+}) => {
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+
+  const alerts = useMemo(() => {
+    const list: { id: string; type: 'expiring' | 'overdue'; title: string; detail: string; severity: 'warning' | 'error' }[] = [];
+    expiringContracts.forEach(c => {
+      list.push({
+        id: `exp-${c.id}`,
+        type: 'expiring',
+        title: c.title,
+        detail: isArabic ? `ينتهي خلال ${c.daysLeft} يوم` : `Expires in ${c.daysLeft} days`,
+        severity: c.daysLeft <= 7 ? 'error' : 'warning',
+      });
+    });
+    overduePayments.forEach(p => {
+      list.push({
+        id: `ovd-${p.id}`,
+        type: 'overdue',
+        title: p.contract_title,
+        detail: isArabic ? `متأخر ${p.daysOverdue} يوم • ${p.amount.toLocaleString()} ر.س` : `${p.daysOverdue} days overdue • SAR ${p.amount.toLocaleString()}`,
+        severity: 'error',
+      });
+    });
+    return list.filter(a => !dismissed.has(a.id));
+  }, [expiringContracts, overduePayments, isArabic, dismissed]);
+
+  if (alerts.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {alerts.slice(0, 5).map(alert => (
+        <div key={alert.id} className={`flex items-center gap-3 p-3 rounded-xl border ${alert.severity === 'error' ? 'bg-destructive/5 border-destructive/30' : 'bg-amber-500/5 border-amber-500/30'}`}>
+          <AlertTriangle className={`w-5 h-5 shrink-0 ${alert.severity === 'error' ? 'text-destructive' : 'text-amber-500'}`} />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">{alert.title}</p>
+            <p className="text-xs text-muted-foreground">{alert.detail}</p>
+          </div>
+          <Button variant="ghost" size="sm" className="shrink-0 text-xs" onClick={() => onNavigate("/contracts")}>
+            <ArrowRight className="w-3 h-3" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setDismissed(prev => new Set(prev).add(alert.id))}>
+            <X className="w-3 h-3" />
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+});
+SmartAlertsBanner.displayName = "SmartAlertsBanner";
 
 // Cache helpers
 const CACHE_KEY = "pms_dashboard_cache";
@@ -573,14 +703,15 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
     try {
       let projectsQuery = supabase.from("saved_projects").select("*").order("created_at", { ascending: false }).limit(50);
       let quotationsQuery = supabase.from("price_quotations").select("*").order("created_at", { ascending: false }).limit(50);
-      let contractsQuery = supabase.from("contracts").select("id, status").limit(100);
-      let risksQuery = supabase.from("cost_benefit_analysis").select("id").limit(100);
+      let contractsQuery = supabase.from("contracts").select("id, status, contract_title, end_date").limit(100);
+      let risksQuery = supabase.from("risks").select("id, status, risk_score, probability, impact").limit(200);
+      const overduePaymentsQuery = supabase.from("contract_payments").select("id, contract_id, amount, due_date, status").eq("status", "pending").lt("due_date", new Date().toISOString().split('T')[0]).limit(50);
       
       if (dateFrom) { projectsQuery = projectsQuery.gte("created_at", dateFrom); quotationsQuery = quotationsQuery.gte("created_at", dateFrom); }
       if (dateTo) { projectsQuery = projectsQuery.lte("created_at", dateTo + "T23:59:59"); quotationsQuery = quotationsQuery.lte("created_at", dateTo + "T23:59:59"); }
 
-      const [projectsResult, quotationsResult, contractsResult, risksResult] = await Promise.all([
-        projectsQuery, quotationsQuery, contractsQuery, risksQuery
+      const [projectsResult, quotationsResult, contractsResult, risksResult, overdueResult] = await Promise.all([
+        projectsQuery, quotationsQuery, contractsQuery, risksQuery, overduePaymentsQuery
       ]);
 
       if (projectsResult.error) throw projectsResult.error;
@@ -590,6 +721,7 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
       const quotations = quotationsResult.data;
       const contracts = contractsResult.data || [];
       const risks = risksResult.data || [];
+      const overduePaymentsRaw = overdueResult.data || [];
 
       const totalValue = quotations?.reduce((sum, q) => sum + (q.total_amount || 0), 0) || 0;
       const averageValue = quotations?.length ? totalValue / quotations.length : 0;
@@ -602,6 +734,58 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
       
       const activeContracts = contracts.filter(c => c.status === 'active' || c.status === 'in_progress').length;
 
+      // Process risks by status
+      const riskStatusMap: Record<string, number> = {};
+      risks.forEach(r => { const s = r.status || 'identified'; riskStatusMap[s] = (riskStatusMap[s] || 0) + 1; });
+      const statusLabels: Record<string, string> = isArabic 
+        ? { identified: "محدد", active: "نشط", mitigated: "مخفف", closed: "مغلق" }
+        : { identified: "Identified", active: "Active", mitigated: "Mitigated", closed: "Closed" };
+      const risksByStatus: RiskByStatus[] = Object.entries(riskStatusMap).map(([status, count]) => ({
+        status: statusLabels[status] || status, count, color: RISK_STATUS_COLORS[status] || "#6B7280"
+      }));
+
+      // Process risks by level
+      const riskLevelMap: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0 };
+      risks.forEach(r => {
+        const score = r.risk_score || 0;
+        if (score >= 20) riskLevelMap.critical++;
+        else if (score >= 12) riskLevelMap.high++;
+        else if (score >= 6) riskLevelMap.medium++;
+        else riskLevelMap.low++;
+      });
+      const levelLabels: Record<string, string> = isArabic
+        ? { critical: "حرج", high: "عالي", medium: "متوسط", low: "منخفض" }
+        : { critical: "Critical", high: "High", medium: "Medium", low: "Low" };
+      const risksByLevel: RiskByLevel[] = Object.entries(riskLevelMap)
+        .filter(([, count]) => count > 0)
+        .map(([level, count]) => ({ level: levelLabels[level], count, color: RISK_LEVEL_COLORS[level] }));
+
+      // Process expiring contracts (within 30 days)
+      const today = new Date();
+      const thirtyDaysLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const expiringContracts: ExpiringContract[] = contracts
+        .filter(c => c.end_date && new Date(c.end_date) >= today && new Date(c.end_date) <= thirtyDaysLater)
+        .map(c => ({
+          id: c.id,
+          title: c.contract_title || (isArabic ? "عقد بدون عنوان" : "Untitled Contract"),
+          end_date: c.end_date!,
+          daysLeft: Math.ceil((new Date(c.end_date!).getTime() - today.getTime()) / (24 * 60 * 60 * 1000)),
+        }));
+
+      // Process overdue payments
+      const overduePayments: OverduePayment[] = overduePaymentsRaw.map(p => {
+        const contract = contracts.find(c => c.id === p.contract_id);
+        return {
+          id: p.id,
+          contract_title: contract?.contract_title || (isArabic ? "عقد غير محدد" : "Unknown Contract"),
+          amount: p.amount || 0,
+          due_date: p.due_date,
+          daysOverdue: Math.ceil((today.getTime() - new Date(p.due_date).getTime()) / (24 * 60 * 60 * 1000)),
+        };
+      });
+
+      const activeRisks = risks.filter(r => r.status === 'active' || r.status === 'identified').length;
+
       const dashData: DashboardStats = {
         totalProjects: projects?.length || 0,
         totalQuotations: quotations?.length || 0,
@@ -612,7 +796,11 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
         quotationsByStatus,
         monthlyActivity,
         activeContracts,
-        riskCount: risks.length
+        riskCount: activeRisks,
+        risksByStatus,
+        risksByLevel,
+        expiringContracts,
+        overduePayments,
       };
       
       setStats(dashData);
@@ -822,6 +1010,14 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             </Card>
           )}
 
+          {/* Smart Alerts Banner */}
+          <SmartAlertsBanner 
+            expiringContracts={stats.expiringContracts} 
+            overduePayments={stats.overduePayments} 
+            isArabic={isArabic} 
+            onNavigate={navigate} 
+          />
+
           {/* Stats Cards - 6 cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard 
@@ -868,13 +1064,13 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
               trendValue={stats.activeContracts > 0 ? (isArabic ? "جاري التنفيذ" : "In Progress") : ""}
             />
             <StatCard 
-              label={isArabic ? "تحليلات التكلفة" : "Cost Analyses"} 
+              label={isArabic ? "المخاطر النشطة" : "Active Risks"} 
               value={stats.riskCount} 
-              icon={Shield} 
+              icon={ShieldAlert} 
               bgColor="bg-rose-100 dark:bg-rose-500/20" 
               iconColor="text-rose-600 dark:text-rose-400"
-              trend={stats.riskCount > 0 ? "up" : "neutral"}
-              trendValue={stats.riskCount > 0 ? (isArabic ? "تحليل نشط" : "Active") : ""}
+              trend={stats.riskCount > 0 ? "down" : "neutral"}
+              trendValue={stats.riskCount > 0 ? (isArabic ? "تحتاج متابعة" : "Needs attention") : (isArabic ? "لا مخاطر" : "No risks")}
             />
           </div>
 
@@ -973,6 +1169,19 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
               </CardContent>
             </Card>
           </div>
+
+          {/* Risk Distribution Charts */}
+          <Card className="rounded-2xl border-t-2 border-t-rose-500">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-rose-500" />
+                {isArabic ? "توزيع المخاطر" : "Risk Distribution"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RiskDistributionChart risksByStatus={stats.risksByStatus} risksByLevel={stats.risksByLevel} isArabic={isArabic} />
+            </CardContent>
+          </Card>
 
           {/* Project Value Distribution */}
           {projectValueData.length > 0 && (
