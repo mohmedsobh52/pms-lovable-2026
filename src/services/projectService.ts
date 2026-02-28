@@ -25,7 +25,8 @@ export const projectService = {
       let query = supabase
         .from('saved_projects')
         .select('*', { count: 'exact' })
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .or('is_deleted.eq.false,is_deleted.is.null');
 
       if (filters?.status) {
         query = query.eq('status', filters.status);
@@ -126,6 +127,33 @@ export const projectService = {
     }
   },
 
+  async softDeleteProject(projectId: string) {
+    try {
+      const now = new Date().toISOString();
+      await Promise.all([
+        supabase.from('saved_projects').update({ is_deleted: true, deleted_at: now }).eq('id', projectId),
+        supabase.from('project_data').update({ is_deleted: true, deleted_at: now }).eq('id', projectId),
+      ]);
+      return true;
+    } catch (error) {
+      console.error('Error soft-deleting project:', error);
+      throw error;
+    }
+  },
+
+  async restoreProject(projectId: string) {
+    try {
+      await Promise.all([
+        supabase.from('saved_projects').update({ is_deleted: false, deleted_at: null }).eq('id', projectId),
+        supabase.from('project_data').update({ is_deleted: false, deleted_at: null }).eq('id', projectId),
+      ]);
+      return true;
+    } catch (error) {
+      console.error('Error restoring project:', error);
+      throw error;
+    }
+  },
+
   async deleteProject(projectId: string) {
     try {
       // Get project_items IDs for cascading deletes
@@ -201,6 +229,7 @@ export const projectService = {
         .from('saved_projects')
         .select('*')
         .eq('user_id', userId)
+        .or('is_deleted.eq.false,is_deleted.is.null')
         .order('updated_at', { ascending: false })
         .limit(limit);
 
