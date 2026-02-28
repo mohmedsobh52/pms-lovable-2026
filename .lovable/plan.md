@@ -1,32 +1,61 @@
 
-# خطة: لوحة إحصائيات متقدمة + تصدير سجل النشاطات + اختبار الإشعارات
+# نظام تقارير مجدولة أسبوعية + Push Notifications للمشرفين + اختبار النظام
 
 ## 1. اختبار نظام الإشعارات
-سيتم اختبار النظام يدوياً بالتنقل لصفحة الإدارة والتحقق من ظهور الجرس وعمل الاشتراك في Realtime. لا يمكن تسجيل حساب جديد عبر الأتمتة لأن ذلك يتطلب تأكيد البريد، لكن سنتحقق من أن الكود والمكونات تعمل بشكل صحيح.
+سيتم التحقق من صفحة الإدارة عبر المتصفح للتأكد من:
+- ظهور جرس الإشعارات (AdminNotificationsBell)
+- ظهور الرسوم البيانية (Area Chart + Pie Chart)
+- عمل بطاقات الإحصائيات وجدول المشاريع
 
-## 2. لوحة إحصائيات متقدمة في صفحة الإدارة
+---
 
-### تحديث Edge Function `admin-stats`
-- إضافة استعلام جدول `admin_activity_log` لجلب بيانات النشاط اليومي لآخر 30 يوماً
-- تجميع البيانات حسب اليوم والإجراء (new_user, role_change, role_removed)
-- إرجاع مصفوفة `dailyActivity` مع التاريخ وعدد كل نوع إجراء
+## 2. Push Notifications للمشرفين عند تسجيل مستخدمين جدد
 
-### تحديث صفحة `AdminDashboardPage.tsx`
-- إضافة قسم رسوم بيانية يشمل:
-  - **رسم بياني مساحي (Area Chart)**: نشاط النظام اليومي لآخر 30 يوماً (تسجيلات جديدة، تغييرات أدوار)
-  - **رسم بياني دائري (Pie Chart)**: توزيع أنواع النشاطات
-- استخدام مكتبة `recharts` الموجودة بالفعل
+### الوصف
+دمج hook `usePushNotifications` الموجود بالفعل في مكون `AdminNotificationsBell` لإظهار إشعارات المتصفح (Browser Notifications) عند وصول إشعار جديد عبر Realtime.
 
-## 3. تصدير سجل النشاطات
+### التغييرات
+**ملف: `src/components/AdminNotificationsBell.tsx`**
+- استيراد `usePushNotifications` 
+- طلب إذن الإشعارات عند أول تحميل
+- إضافة زر تفعيل/تعطيل push notifications في واجهة الجرس
+- عند وصول إشعار جديد عبر Realtime، استدعاء `showNotification()` لإظهار إشعار المتصفح (يظهر فقط عندما تكون الصفحة مخفية)
 
-### تحديث صفحة `ActivityLogPage.tsx`
-- إضافة فلتر نطاق التاريخ (من - إلى)
-- إضافة زر تصدير Excel يستخدم `exceljs` لإنشاء ملف Excel مع:
-  - عمود الوقت، المستخدم، الإجراء، الهدف، التفاصيل
+---
+
+## 3. نظام تقارير مجدولة أسبوعية للمشرفين
+
+### الوصف
+إنشاء Edge Function جديدة `send-admin-weekly-report` تجمع إحصائيات النظام وترسلها بالبريد عبر Resend، مع إضافة واجهة في لوحة الإدارة لإدارة هذا التقرير.
+
+### Edge Function: `supabase/functions/send-admin-weekly-report/index.ts`
+- تجمع إحصائيات آخر 7 أيام من:
+  - `admin_activity_log`: عدد المستخدمين الجدد، تغييرات الأدوار
+  - `saved_projects`: المشاريع الجديدة
+  - `contracts`: العقود الجديدة
+- تجلب بريد كل مشرف من `user_roles` + `auth.admin.getUserById()`
+- ترسل بريد HTML منسق عبر Resend يتضمن:
+  - ملخص الأسبوع (مستخدمين جدد، مشاريع، عقود)
+  - جدول بأهم الأحداث
   - تنسيق RTL للعربية
-- إضافة زر تصدير PDF يستخدم `jspdf` + `jspdf-autotable` مع:
-  - جدول منسق بالعربية/الإنجليزية
-  - ترويسة تتضمن اسم التقرير ونطاق التاريخ
+- تُسجّل نشاط الإرسال في `admin_activity_log`
+
+### تحديث config.toml
+```text
+[functions.send-admin-weekly-report]
+verify_jwt = false
+```
+
+### واجهة التقارير المجدولة في لوحة الإدارة
+**ملف: `src/pages/AdminDashboardPage.tsx`**
+- إضافة قسم "التقارير المجدولة" يتضمن:
+  - زر "إرسال تقرير أسبوعي الآن" (يدوي)
+  - حالة آخر إرسال
+  - إعدادات بسيطة (تفعيل/تعطيل)
+
+### جدولة تلقائية (pg_cron)
+- إعداد cron job أسبوعي باستخدام `pg_cron` + `pg_net` لاستدعاء الوظيفة كل يوم أحد الساعة 8 صباحاً
+- يتطلب تفعيل extensions: `pg_cron`, `pg_net`
 
 ---
 
@@ -36,39 +65,49 @@
 
 | الملف | التغيير |
 |---|---|
-| `supabase/functions/admin-stats/index.ts` | إضافة استعلام النشاط اليومي من `admin_activity_log` |
-| `src/pages/AdminDashboardPage.tsx` | إضافة رسوم بيانية للنشاط اليومي باستخدام recharts |
-| `src/pages/ActivityLogPage.tsx` | إضافة فلاتر التاريخ + أزرار تصدير Excel/PDF |
+| `src/components/AdminNotificationsBell.tsx` | دمج push notifications + زر تفعيل |
+| `supabase/functions/send-admin-weekly-report/index.ts` | Edge Function جديدة للتقرير الأسبوعي |
+| `supabase/config.toml` | إضافة إعداد verify_jwt للوظيفة الجديدة |
+| `src/pages/AdminDashboardPage.tsx` | إضافة قسم التقارير المجدولة + زر إرسال يدوي |
 
-### بنية البيانات الجديدة من admin-stats
+### تدفق Push Notifications
 
 ```text
-{
-  ...existing stats,
-  dailyActivity: [
-    { date: "2026-02-01", new_user: 3, role_change: 1, role_removed: 0, total: 4 },
-    { date: "2026-02-02", new_user: 1, role_change: 0, role_removed: 1, total: 2 },
-    ...
-  ],
-  activitySummary: {
-    new_user: 45,
-    role_change: 12,
-    role_removed: 3,
-    total: 60
-  }
-}
+مستخدم جديد يسجّل
+      |
+      v
+notify-admin-new-user (Edge Function)
+      |
+      v
+INSERT في admin_notifications
+      |
+      v
+Supabase Realtime يرسل الحدث
+      |
+      v
+AdminNotificationsBell يستقبل الحدث
+      |
+      +---> toast (إذا الصفحة ظاهرة)
+      +---> Browser Notification (إذا الصفحة مخفية)
 ```
 
-### مكونات الرسوم البيانية
-- Area Chart: محور X = التاريخ، محور Y = عدد النشاطات، مع خطوط منفصلة لكل نوع
-- Pie Chart: توزيع إجمالي النشاطات حسب النوع مع ألوان مميزة
+### تدفق التقرير الأسبوعي
 
-### تصدير Excel
-- استخدام `exceljs` (الموجود بالفعل) مع `addJsonSheet`
-- أعمدة: التاريخ/الوقت، البريد الإلكتروني، نوع الإجراء، الهدف، التفاصيل
-- تنسيق RTL عند اللغة العربية
+```text
+pg_cron (كل أحد 8 صباحاً)
+      |
+      v
+send-admin-weekly-report (Edge Function)
+      |
+      +---> جمع إحصائيات 7 أيام
+      +---> جلب بريد المشرفين
+      +---> إرسال HTML email عبر Resend
+      +---> تسجيل في admin_activity_log
+```
 
-### تصدير PDF
-- استخدام `jspdf` + `jspdf-autotable` (الموجودين بالفعل)
-- عنوان التقرير + نطاق التاريخ في الترويسة
-- جدول بنفس الأعمدة مع ترقيم صفحات
+### قالب البريد الأسبوعي
+- ترويسة بتدرج لوني مع اسم النظام
+- ملخص رقمي: مستخدمين جدد، مشاريع، عقود، نشاطات
+- جدول بآخر 10 أحداث إدارية
+- تذييل بحقوق النشر
+- دعم RTL كامل
