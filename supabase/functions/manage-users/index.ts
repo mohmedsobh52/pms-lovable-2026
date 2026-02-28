@@ -115,6 +115,27 @@ Deno.serve(async (req) => {
           });
         }
 
+        // Get user email for logging
+        let targetEmail = "";
+        try {
+          const { data: targetUser } = await adminClient.auth.admin.getUserById(user_id);
+          targetEmail = targetUser?.user?.email || "";
+        } catch (_) {}
+
+        // Get actor email
+        const token = req.headers.get("Authorization")!.replace("Bearer ", "");
+        const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+        const userClient = createClient(Deno.env.get("SUPABASE_URL")!, anonKey, {
+          global: { headers: { Authorization: req.headers.get("Authorization")! } },
+        });
+        const { data: claimsData2 } = await userClient.auth.getClaims(token);
+        const actorId = claimsData2?.claims?.sub as string;
+        let actorEmail = "";
+        try {
+          const { data: actorUser } = await adminClient.auth.admin.getUserById(actorId);
+          actorEmail = actorUser?.user?.email || "";
+        } catch (_) {}
+
         if (role === "user") {
           await adminClient.from("user_roles").delete().eq("user_id", user_id);
         } else {
@@ -131,6 +152,16 @@ Deno.serve(async (req) => {
           }
         }
 
+        // Log activity
+        await adminClient.from("admin_activity_log").insert({
+          actor_id: actorId,
+          actor_email: actorEmail,
+          action: "role_change",
+          target_type: "user",
+          target_id: user_id,
+          details: { target_email: targetEmail, new_role: role },
+        });
+
         return new Response(JSON.stringify({ success: true }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -138,7 +169,27 @@ Deno.serve(async (req) => {
       }
 
       if (action === "remove_role") {
+        // Get actor info
+        const token2 = req.headers.get("Authorization")!.replace("Bearer ", "");
+        const anonKey2 = Deno.env.get("SUPABASE_ANON_KEY")!;
+        const userClient2 = createClient(Deno.env.get("SUPABASE_URL")!, anonKey2, {
+          global: { headers: { Authorization: req.headers.get("Authorization")! } },
+        });
+        const { data: claimsData3 } = await userClient2.auth.getClaims(token2);
+        const actorId2 = claimsData3?.claims?.sub as string;
+
         await adminClient.from("user_roles").delete().eq("user_id", user_id);
+
+        // Log activity
+        await adminClient.from("admin_activity_log").insert({
+          actor_id: actorId2,
+          actor_email: "",
+          action: "role_removed",
+          target_type: "user",
+          target_id: user_id,
+          details: {},
+        });
+
         return new Response(JSON.stringify({ success: true }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.setup-admin]
 verify_jwt = false
+
+[functions.notify-admin-new-user]
+verify_jwt = false
