@@ -82,11 +82,15 @@ function detectCategory(description: string): string {
     // Tiling
     [['tile', 'ceramic', 'marble', 'granite', 'بلاط', 'سيراميك', 'رخام', 'جرانيت', 'أرضيات'], 'أعمال البلاط والأرضيات'],
     // Electrical
-    [['electric', 'wire', 'cable', 'light', 'power', 'كهرب', 'إنارة', 'أسلاك', 'توصيل'], 'أعمال الكهرباء'],
+    [['electric', 'wire', 'cable', 'light', 'power', 'mdb', 'switchgear', 'socket', 'breaker', 'ups', 'generator', 'led', 'busbar', 'earthing', 'كهرب', 'إنارة', 'أسلاك', 'توصيل', 'لوحة توزيع', 'قاطع', 'مقبس', 'مولد', 'ليد'], 'أعمال الكهرباء'],
     // Plumbing
-    [['plumb', 'pipe', 'water', 'drain', 'sanit', 'صحي', 'مياه', 'صرف', 'أنابيب', 'سباكة'], 'أعمال السباكة'],
+    [['plumb', 'pipe', 'water', 'drain', 'sanit', 'ppr', 'cpvc', 'basin', 'wc', 'toilet', 'mixer', 'faucet', 'shower', 'صحي', 'مياه', 'صرف', 'أنابيب', 'سباكة', 'مرحاض', 'خلاط', 'حنفية', 'سخان'], 'أعمال السباكة'],
     // HVAC
-    [['hvac', 'air condition', 'ventil', 'duct', 'تكييف', 'تهوية', 'مجاري هواء'], 'أعمال التكييف'],
+    [['hvac', 'air condition', 'ventil', 'duct', 'chiller', 'ahu', 'fcu', 'split', 'package unit', 'تكييف', 'تهوية', 'مجاري هواء', 'تشيلر', 'سبلت', 'مروحة'], 'أعمال التكييف'],
+    // Fire Fighting
+    [['fire fight', 'sprinkler', 'extinguish', 'smoke detector', 'fire alarm', 'fire pump', 'fm200', 'رشاشات', 'إطفاء', 'كاشف دخان', 'إنذار حريق', 'طفاية', 'مضخة حريق'], 'أعمال مكافحة الحريق'],
+    // BMS / Smart
+    [['bms', 'building management', 'cctv', 'access control', 'intercom', 'pa system', 'كاميرا مراقبة', 'نظام إدارة', 'إنتركم', 'تحكم دخول'], 'أنظمة ذكية BMS'],
     // Steel
     [['steel', 'metal', 'iron', 'حديد', 'معدن', 'فولاذ', 'هيكل معدني'], 'أعمال الحديد'],
     // Doors/Windows
