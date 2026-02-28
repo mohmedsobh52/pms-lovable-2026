@@ -45,9 +45,13 @@ const AdminDashboardPage = () => {
     try {
       const { data, error } = await supabase.functions.invoke("admin-stats");
       if (error) throw error;
+      if (data?.error === "not_authenticated") {
+        toast.error(isArabic ? "الجلسة منتهية، يرجى تسجيل الدخول مرة أخرى" : "Session expired, please log in again");
+        navigate("/auth");
+        return;
+      }
       if (data?.error === "unauthorized") {
         setAuthorized(false);
-        toast.error(isArabic ? "غير مصرح بالوصول" : "Unauthorized access");
         return;
       }
       setAuthorized(true);
@@ -83,15 +87,6 @@ const AdminDashboardPage = () => {
       setSettingUpAdmin(false);
     }
   };
-
-  const [autoSetupAttempted, setAutoSetupAttempted] = useState(false);
-
-  useEffect(() => {
-    if (!loading && !authorized && !autoSetupAttempted && user) {
-      setAutoSetupAttempted(true);
-      handleSetupAdmin();
-    }
-  }, [loading, authorized, autoSetupAttempted, user]);
 
   if (!loading && !authorized) {
     return (
