@@ -161,6 +161,7 @@ export default function SavedProjectsPage() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [selectedDemoProject, setSelectedDemoProject] = useState<any>(null);
   
   // Tab state - check URL for initial tab and mode
   const urlTab = searchParams.get("tab");
@@ -887,17 +888,272 @@ export default function SavedProjectsPage() {
     );
   }
 
+  // Demo projects data for guest mode
+  const DEMO_PROJECTS = [
+    {
+      id: "demo-1",
+      name: isArabic ? "مبنى سكني - الرياض" : "Residential Building - Riyadh",
+      items_count: 120,
+      total_value: 2500000,
+      currency: "SAR",
+      created_at: "2026-01-15",
+      pricing_pct: 75,
+      categories: isArabic ? ["أعمال خرسانية", "أعمال تشطيبات", "أعمال كهربائية"] : ["Concrete Works", "Finishing Works", "Electrical Works"],
+      demo_items: [
+        { item_number: "1.1", description: isArabic ? "أعمال الحفر والردم" : "Excavation & Backfill", unit: "m³", quantity: 850, unit_price: 45, total_price: 38250 },
+        { item_number: "1.2", description: isArabic ? "خرسانة مسلحة للأساسات" : "Reinforced Concrete - Foundations", unit: "m³", quantity: 320, unit_price: 1200, total_price: 384000 },
+        { item_number: "2.1", description: isArabic ? "بلوك خرساني 20 سم" : "Concrete Block 20cm", unit: "m²", quantity: 2400, unit_price: 85, total_price: 204000 },
+        { item_number: "3.1", description: isArabic ? "بلاط سيراميك أرضيات" : "Floor Ceramic Tiles", unit: "m²", quantity: 1200, unit_price: 120, total_price: 144000 },
+        { item_number: "4.1", description: isArabic ? "توريد وتركيب كابلات كهرباء" : "Supply & Install Electrical Cables", unit: "m.l", quantity: 3500, unit_price: 25, total_price: 87500 },
+      ],
+    },
+    {
+      id: "demo-2",
+      name: isArabic ? "مدرسة حكومية - جدة" : "Government School - Jeddah",
+      items_count: 85,
+      total_value: 1800000,
+      currency: "SAR",
+      created_at: "2026-02-01",
+      pricing_pct: 60,
+      categories: isArabic ? ["أعمال إنشائية", "أعمال ميكانيكية", "تشطيبات"] : ["Structural Works", "Mechanical Works", "Finishes"],
+      demo_items: [
+        { item_number: "1.1", description: isArabic ? "خرسانة مسلحة للأعمدة" : "RC Columns", unit: "m³", quantity: 180, unit_price: 1350, total_price: 243000 },
+        { item_number: "1.2", description: isArabic ? "خرسانة مسلحة للبلاطات" : "RC Slabs", unit: "m³", quantity: 450, unit_price: 1100, total_price: 495000 },
+        { item_number: "2.1", description: isArabic ? "تكييف مركزي" : "Central AC System", unit: "TR", quantity: 120, unit_price: 2500, total_price: 300000 },
+        { item_number: "3.1", description: isArabic ? "دهانات داخلية" : "Interior Paint", unit: "m²", quantity: 5000, unit_price: 35, total_price: 175000 },
+      ],
+    },
+    {
+      id: "demo-3",
+      name: isArabic ? "مستودع صناعي - الدمام" : "Industrial Warehouse - Dammam",
+      items_count: 65,
+      total_value: 950000,
+      currency: "SAR",
+      created_at: "2026-02-10",
+      pricing_pct: 90,
+      categories: isArabic ? ["هيكل معدني", "أعمال مدنية", "أنظمة إطفاء"] : ["Steel Structure", "Civil Works", "Fire Systems"],
+      demo_items: [
+        { item_number: "1.1", description: isArabic ? "هيكل معدني رئيسي" : "Main Steel Structure", unit: "ton", quantity: 85, unit_price: 5500, total_price: 467500 },
+        { item_number: "1.2", description: isArabic ? "ألواح ساندوتش بانل" : "Sandwich Panels", unit: "m²", quantity: 1800, unit_price: 95, total_price: 171000 },
+        { item_number: "2.1", description: isArabic ? "أرضيات خرسانية صناعية" : "Industrial Concrete Floor", unit: "m²", quantity: 2000, unit_price: 75, total_price: 150000 },
+      ],
+    },
+  ];
+
+  
+
   if (!user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-4">
-            {isArabic ? "يجب تسجيل الدخول لعرض المشاريع المحفوظة" : "Please login to view saved projects"}
-          </p>
-          <Button onClick={() => navigate('/auth')}>
-            {isArabic ? "تسجيل الدخول" : "Sign In"}
-          </Button>
+      <div className="min-h-screen bg-background" dir={isArabic ? 'rtl' : 'ltr'}>
+        {/* Guest Banner */}
+        <div className="bg-primary/10 border-b border-primary/20 px-4 py-3">
+          <div className="container mx-auto flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 text-sm">
+              <Eye className="w-4 h-4 text-primary" />
+              <span className="font-medium">{isArabic ? "أنت تتصفح كزائر" : "You're browsing as a guest"}</span>
+              <span className="text-muted-foreground">{isArabic ? "— سجل دخولك لحفظ مشاريعك" : "— Sign in to save your projects"}</span>
+            </div>
+            <Button size="sm" onClick={() => navigate('/auth')} className="gap-1.5">
+              {isArabic ? "تسجيل الدخول" : "Sign In"}
+            </Button>
+          </div>
         </div>
+
+        {/* Header */}
+        <PageHeader
+          icon={FolderOpen}
+          title={isArabic ? "المشاريع" : "Projects"}
+          subtitle={isArabic ? "استعرض مشاريع تجريبية وتعرف على النظام" : "Explore demo projects and learn the system"}
+          stats={[
+            { value: DEMO_PROJECTS.length, label: isArabic ? "مشاريع تجريبية" : "Demo Projects" },
+          ]}
+          actions={
+            <div className="flex items-center gap-2">
+              <LanguageToggle />
+              <ThemeToggle />
+            </div>
+          }
+        />
+
+        <main className="container mx-auto px-4 py-8 space-y-8">
+          {/* Quick Actions */}
+          <div className="flex flex-wrap gap-3">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" className="gap-2" onClick={() => navigate('/auth')}>
+                    <Plus className="w-4 h-4" />
+                    {isArabic ? "مشروع جديد" : "New Project"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{isArabic ? "سجل دخولك أولاً" : "Sign in first"}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" className="gap-2" onClick={() => navigate('/auth')}>
+                    <Upload className="w-4 h-4" />
+                    {isArabic ? "رفع ملف BOQ" : "Upload BOQ"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{isArabic ? "سجل دخولك أولاً" : "Sign in first"}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          {/* Demo Projects Grid */}
+          <div>
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              {isArabic ? "مشاريع تجريبية للاستعراض" : "Demo Projects to Explore"}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {DEMO_PROJECTS.map((demo) => (
+                <div key={demo.id} className="glass-card overflow-hidden hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 group">
+                  <div className={cn(
+                    "h-1 w-full",
+                    demo.pricing_pct >= 80 ? "bg-green-500" : demo.pricing_pct >= 50 ? "bg-primary" : "bg-orange-400"
+                  )} />
+                  <div className="p-5 space-y-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <FolderOpen className="w-4 h-4 text-primary" />
+                        </div>
+                        <h3 className="font-semibold text-sm leading-tight">{demo.name}</h3>
+                      </div>
+                      <Badge variant="outline" className="text-xs shrink-0">{isArabic ? "تجريبي" : "Demo"}</Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-2.5 rounded-lg bg-muted/50 text-center">
+                        <p className="text-lg font-bold text-primary">{demo.items_count}</p>
+                        <p className="text-xs text-muted-foreground">{isArabic ? "بند" : "Items"}</p>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-muted/50 text-center">
+                        <p className="text-lg font-bold text-primary">{(demo.total_value / 1e6).toFixed(1)}M</p>
+                        <p className="text-xs text-muted-foreground">{demo.currency}</p>
+                      </div>
+                    </div>
+
+                    {/* Pricing Progress */}
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-muted-foreground">{isArabic ? "نسبة التسعير" : "Pricing"}</span>
+                        <span className="font-semibold">{demo.pricing_pct}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${demo.pricing_pct}%` }} />
+                      </div>
+                    </div>
+
+                    {/* Categories */}
+                    <div className="flex flex-wrap gap-1">
+                      {demo.categories.slice(0, 2).map((cat, i) => (
+                        <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">{cat}</Badge>
+                      ))}
+                      {demo.categories.length > 2 && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">+{demo.categories.length - 2}</Badge>
+                      )}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={() => setSelectedDemoProject(demo)}
+                    >
+                      <Eye className="w-4 h-4" />
+                      {isArabic ? "عرض تجريبي" : "Preview"}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CTA Section */}
+          <div className="glass-card p-8 text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+              <FolderOpen className="w-8 h-8 text-primary" />
+            </div>
+            <h3 className="text-xl font-bold">{isArabic ? "سجل الآن لحفظ مشاريعك" : "Sign up to save your projects"}</h3>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              {isArabic
+                ? "أنشئ حسابك المجاني وابدأ بإدارة مشاريعك وتحليل ملفات BOQ باحترافية"
+                : "Create your free account and start managing your projects and analyzing BOQ files professionally"}
+            </p>
+            <Button size="lg" onClick={() => navigate('/auth')} className="gap-2 btn-gradient shadow-lg">
+              <Plus className="w-5 h-5" />
+              {isArabic ? "إنشاء حساب مجاني" : "Create Free Account"}
+            </Button>
+          </div>
+        </main>
+
+        {/* Demo Project Detail Dialog */}
+        <Dialog open={!!selectedDemoProject} onOpenChange={(open) => !open && setSelectedDemoProject(null)}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FolderOpen className="w-5 h-5 text-primary" />
+                {selectedDemoProject?.name}
+                <Badge variant="outline" className="text-xs">{isArabic ? "عرض فقط" : "Read-only"}</Badge>
+              </DialogTitle>
+            </DialogHeader>
+            {selectedDemoProject && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <p className="text-xl font-bold text-primary">{selectedDemoProject.items_count}</p>
+                    <p className="text-xs text-muted-foreground">{isArabic ? "بند" : "Items"}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <p className="text-xl font-bold text-primary">{formatLargeNumber(selectedDemoProject.total_value)}</p>
+                    <p className="text-xs text-muted-foreground">{selectedDemoProject.currency}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <p className="text-xl font-bold text-primary">{selectedDemoProject.pricing_pct}%</p>
+                    <p className="text-xs text-muted-foreground">{isArabic ? "مسعّر" : "Priced"}</p>
+                  </div>
+                </div>
+
+                {/* Demo Items Table */}
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-3 py-2 text-start font-medium">#</th>
+                        <th className="px-3 py-2 text-start font-medium">{isArabic ? "الوصف" : "Description"}</th>
+                        <th className="px-3 py-2 text-center font-medium">{isArabic ? "الوحدة" : "Unit"}</th>
+                        <th className="px-3 py-2 text-center font-medium">{isArabic ? "الكمية" : "Qty"}</th>
+                        <th className="px-3 py-2 text-end font-medium">{isArabic ? "السعر" : "Price"}</th>
+                        <th className="px-3 py-2 text-end font-medium">{isArabic ? "الإجمالي" : "Total"}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {selectedDemoProject.demo_items.map((item, i) => (
+                        <tr key={i} className="hover:bg-muted/30">
+                          <td className="px-3 py-2 text-muted-foreground">{item.item_number}</td>
+                          <td className="px-3 py-2 font-medium">{item.description}</td>
+                          <td className="px-3 py-2 text-center">{item.unit}</td>
+                          <td className="px-3 py-2 text-center">{item.quantity.toLocaleString()}</td>
+                          <td className="px-3 py-2 text-end">{item.unit_price.toLocaleString()}</td>
+                          <td className="px-3 py-2 text-end font-semibold">{item.total_price.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="pt-2 text-center">
+                  <Button onClick={() => { setSelectedDemoProject(null); navigate('/auth'); }} className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    {isArabic ? "سجل دخولك لإنشاء مشروعك" : "Sign in to create your project"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -1258,12 +1514,14 @@ export default function SavedProjectsPage() {
               <FolderOpen className="w-10 h-10 text-primary" />
             </div>
             <h3 className="font-display text-xl font-bold mb-2">
-              {isArabic ? "لا توجد مشاريع" : "No projects found"}
+              {searchQuery
+                ? (isArabic ? "لا توجد نتائج" : "No results found")
+                : (isArabic ? "مرحباً! لا توجد مشاريع بعد" : "Welcome! No projects yet")}
             </h3>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               {searchQuery 
-                ? (isArabic ? "لا توجد نتائج للبحث" : "No results match your search")
-                : (isArabic ? "ابدأ رحلتك بثلاث خطوات بسيطة" : "Get started in three simple steps")
+                ? (isArabic ? "جرّب كلمات بحث مختلفة" : "Try different search terms")
+                : (isArabic ? "ابدأ رحلتك بإنشاء مشروع جديد أو رفع ملف BOQ لتحليله تلقائياً" : "Start by creating a new project or uploading a BOQ file for automatic analysis")
               }
             </p>
             {!searchQuery && (
@@ -1283,10 +1541,16 @@ export default function SavedProjectsPage() {
                     </div>
                   ))}
                 </div>
-                <Button onClick={() => setActiveTab("analyze")} size="lg" className="gap-2 btn-gradient shadow-lg animate-pulse">
-                  <Sparkles className="w-5 h-5" />
-                  {isArabic ? "ابدأ الآن" : "Get Started"}
-                </Button>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <Button onClick={() => navigate('/projects/new')} size="lg" className="gap-2 btn-gradient shadow-lg">
+                    <Plus className="w-5 h-5" />
+                    {isArabic ? "إنشاء مشروع جديد" : "Create New Project"}
+                  </Button>
+                  <Button onClick={() => setActiveTab("analyze")} size="lg" variant="outline" className="gap-2">
+                    <Upload className="w-5 h-5" />
+                    {isArabic ? "رفع وتحليل BOQ" : "Upload & Analyze BOQ"}
+                  </Button>
+                </div>
               </>
             )}
           </div>
