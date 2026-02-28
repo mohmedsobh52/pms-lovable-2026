@@ -23,7 +23,6 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Verify user with getClaims
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -38,7 +37,6 @@ Deno.serve(async (req) => {
 
     const userId = claimsData.claims.sub as string;
 
-    // Check admin role using service client
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     const { data: roleData } = await adminClient
       .from("user_roles")
@@ -54,24 +52,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch stats with service client
+    // Fetch stats + activity data in parallel
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoISO = thirtyDaysAgo.toISOString();
+
     const [
       projectsRes,
       contractsRes,
       quotationsRes,
       templatesRes,
+      activityRes,
     ] = await Promise.all([
       adminClient.from("saved_projects").select("id, project_name, created_at, items_count, user_id"),
       adminClient.from("contracts").select("id", { count: "exact", head: true }),
       adminClient.from("price_quotations").select("id", { count: "exact", head: true }),
       adminClient.from("boq_templates").select("id", { count: "exact", head: true }),
+      adminClient.from("admin_activity_log")
+        .select("action, created_at")
+        .gte("created_at", thirtyDaysAgoISO)
+        .order("created_at", { ascending: true }),
     ]);
 
     const projects = projectsRes.data || [];
     const uniqueUsers = new Set(projects.map((p: any) => p.user_id)).size;
 
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const recentProjects = projects.filter(
       (p: any) => new Date(p.created_at) > thirtyDaysAgo
     ).length;
@@ -86,6 +91,25 @@ Deno.serve(async (req) => {
         items_count: p.items_count || 0,
       }));
 
+    // Aggregate daily activity
+    const activityLogs = activityRes.data || [];
+    const dailyMap: Record<string, Record<string, number>> = {};
+    const activitySummary: Record<string, number> = { new_user: 0, role_change: 0, role_removed: 0, total: 0 };
+
+    for (const log of activityLogs) {
+      const date = (log.created_at as string).slice(0, 10);
+      if (!dailyMap[date]) dailyMap[date] = { new_user: 0, role_change: 0, role_removed: 0, total: 0 };
+      const action = log.action as string;
+      dailyMap[date][action] = (dailyMap[date][action] || 0) + 1;
+      dailyMap[date].total += 1;
+      activitySummary[action] = (activitySummary[action] || 0) + 1;
+      activitySummary.total += 1;
+    }
+
+    const dailyActivity = Object.entries(dailyMap)
+      .map(([date, counts]) => ({ date, ...counts }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
     return new Response(
       JSON.stringify({
         totalUsers: uniqueUsers,
@@ -95,6 +119,8 @@ Deno.serve(async (req) => {
         totalQuotations: quotationsRes.count || 0,
         totalTemplates: templatesRes.count || 0,
         latestProjects,
+        dailyActivity,
+        activitySummary,
       }),
       {
         status: 200,
