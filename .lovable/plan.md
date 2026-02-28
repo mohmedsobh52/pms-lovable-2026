@@ -1,78 +1,71 @@
 
+# إضافة إشعارات بريد إلكتروني للمشرفين + صفحة سجل النشاطات
 
-# نظام إشعارات فورية للمشرفين عند تسجيل مستخدمين جدد
+## الميزة 1: إشعارات بريد إلكتروني عند تسجيل مستخدم جديد
 
-## الملخص
-إضافة نظام يراقب تسجيل المستخدمين الجدد ويرسل إشعارات فورية لجميع المشرفين (Admins) عبر جدول إشعارات في قاعدة البيانات مع دعم Realtime.
+### الوصف
+تحديث وظيفة `notify-admin-new-user` لإرسال بريد إلكتروني لكل مشرف بالإضافة إلى الإشعار الداخلي الحالي، باستخدام Resend (مفتاح API متوفر بالفعل).
 
-## الخطوات
-
-### 1. إنشاء جدول إشعارات المشرفين
-جدول `admin_notifications` لتخزين الإشعارات مع سياسات أمان تسمح للمشرفين فقط بالقراءة والتحديث، وتفعيل Realtime عليه.
-
-### 2. إنشاء وظيفة خلفية `notify-admin-new-user`
-وظيفة Edge Function يتم استدعاؤها عند تسجيل مستخدم جديد. تقوم بالتالي:
-- التحقق من أن الطلب يحتوي على بيانات المستخدم الجديد
-- جلب قائمة المشرفين من جدول `user_roles`
-- إدراج إشعار لكل مشرف في جدول `admin_notifications`
-
-### 3. استدعاء الإشعار من صفحة التسجيل
-بعد نجاح تسجيل مستخدم جديد في صفحة `/auth`، يتم استدعاء الوظيفة الخلفية لإرسال الإشعارات.
-
-### 4. عرض الإشعارات في لوحة الإدارة
-إضافة قسم إشعارات في صفحة `AdminDashboardPage` و `UserManagementPage` يعرض الإشعارات الجديدة مع:
-- اشتراك Realtime للإشعارات الفورية
-- عداد الإشعارات غير المقروءة
-- إمكانية تحديد الإشعارات كمقروءة
+### التغييرات
+- تحديث `supabase/functions/notify-admin-new-user/index.ts`:
+  - إضافة استدعاء Resend API لإرسال بريد إلكتروني HTML لكل مشرف
+  - جلب بريد كل مشرف من `auth.admin.getUserById()`
+  - تصميم قالب بريد بسيط باللغة العربية يتضمن اسم المستخدم الجديد ووقت التسجيل
+  - الإرسال fire-and-forget (لا يوقف العملية في حال فشل البريد)
 
 ---
 
-## التفاصيل التقنية
+## الميزة 2: صفحة سجل النشاطات (Activity Log)
 
-### جدول قاعدة البيانات
+### الوصف
+إنشاء جدول `admin_activity_log` وصفحة `/admin/activity` لتتبع جميع العمليات الإدارية.
+
+### تغييرات قاعدة البيانات
+جدول جديد `admin_activity_log`:
 
 ```text
-admin_notifications
 - id: uuid (PK)
-- admin_user_id: uuid (المشرف المستلم)
-- type: text (نوع الإشعار: new_user, role_change, etc.)
-- title: text
-- message: text  
-- metadata: jsonb (بيانات إضافية مثل email المستخدم الجديد)
-- read: boolean (default false)
+- actor_id: uuid (المستخدم الذي قام بالعملية)
+- actor_email: text
+- action: text (مثل: role_change, new_user, user_login)
+- target_type: text (مثل: user, project, system)
+- target_id: text (معرف الهدف)
+- details: jsonb (تفاصيل إضافية)
 - created_at: timestamptz
 ```
 
-سياسات RLS:
-- SELECT: المشرفون فقط (باستخدام `has_role(auth.uid(), 'admin')`)
-- UPDATE: المشرفون فقط (لتحديث حالة القراءة)
-- INSERT: ممنوع من العميل (فقط عبر Edge Function بـ service_role)
-- DELETE: المشرفون فقط
+سياسات RLS: القراءة للمشرفين فقط، الإدراج عبر service_role فقط.
+تفعيل Realtime للتحديث الفوري.
 
-### الملفات المتأثرة
+### تغييرات الكود
 
 | الملف | التغيير |
 |---|---|
-| Migration SQL | إنشاء جدول `admin_notifications` + RLS + Realtime |
-| `supabase/functions/notify-admin-new-user/index.ts` | وظيفة جديدة لإنشاء الإشعارات |
-| `src/pages/Auth.tsx` | استدعاء الإشعار بعد التسجيل الناجح |
-| `src/components/AdminNotificationsBell.tsx` | مكون جديد لعرض إشعارات المشرفين |
-| `src/pages/AdminDashboardPage.tsx` | إضافة مكون الإشعارات |
-| `src/pages/UserManagementPage.tsx` | إضافة مكون الإشعارات |
-| `supabase/config.toml` | إضافة إعدادات الوظيفة الجديدة |
+| `supabase/functions/notify-admin-new-user/index.ts` | إضافة إرسال بريد Resend + تسجيل نشاط |
+| `supabase/functions/manage-users/index.ts` | تسجيل نشاط تغيير الأدوار في activity_log |
+| `src/pages/ActivityLogPage.tsx` | صفحة جديدة لعرض سجل النشاطات |
+| `src/App.tsx` | إضافة مسار `/admin/activity` |
+| `src/pages/AdminDashboardPage.tsx` | إضافة زر سريع لسجل النشاطات |
 
-### نمط Realtime للإشعارات الفورية
+### صفحة سجل النشاطات تتضمن
+- جدول يعرض: الوقت، المستخدم، الإجراء، الهدف، التفاصيل
+- فلاتر حسب نوع الإجراء والتاريخ
+- تحديث فوري عبر Realtime
+- ترقيم صفحات للنتائج
+- أيقونات مميزة لكل نوع إجراء (تسجيل جديد، تغيير دور، تسجيل دخول)
+- دعم اللغة العربية والإنجليزية
+
+### تدفق البيانات
+
 ```text
-supabase
-  .channel('admin-notifications')
-  .on('postgres_changes', {
-    event: 'INSERT',
-    schema: 'public',
-    table: 'admin_notifications',
-    filter: `admin_user_id=eq.${user.id}`
-  }, (payload) => {
-    // عرض toast + تحديث العداد
-  })
-  .subscribe()
+عملية إدارية (تسجيل/تغيير دور)
+        |
+        v
+Edge Function يسجل في admin_activity_log
+        |
+        +---> إشعار داخلي (admin_notifications)
+        +---> بريد إلكتروني (Resend)
+        |
+        v
+صفحة سجل النشاطات تعرض البيانات فورياً (Realtime)
 ```
-
