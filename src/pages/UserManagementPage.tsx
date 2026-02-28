@@ -159,6 +159,15 @@ const UserManagementPage = () => {
     }
   };
 
+  const [autoSetupAttempted, setAutoSetupAttempted] = useState(false);
+
+  useEffect(() => {
+    if (!loading && !authorized && !autoSetupAttempted && user) {
+      setAutoSetupAttempted(true);
+      handleSetupAdmin();
+    }
+  }, [loading, authorized, autoSetupAttempted, user]);
+
   // Unauthorized view
   if (!loading && !authorized) {
     return (
