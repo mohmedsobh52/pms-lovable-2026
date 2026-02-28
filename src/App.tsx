@@ -112,6 +112,7 @@ const App = () => (
                         <Route path="/about" element={<About />} />
                         <Route path="/cost-analysis" element={<CostAnalysisPage />} />
                         <Route path="/changelog" element={<Changelog />} />
+                        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                         <Route path="/admin/versions" element={<AdminVersions />} />
                         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                         <Route path="/admin/users" element={<UserManagementPage />} />

@@ -135,6 +135,30 @@ const UserManagementPage = () => {
     return <Badge variant={c.variant}>{c.label}</Badge>;
   };
 
+  const [settingUpAdmin, setSettingUpAdmin] = useState(false);
+
+  const handleSetupAdmin = async () => {
+    try {
+      setSettingUpAdmin(true);
+      const { data, error } = await supabase.functions.invoke("setup-admin");
+      if (error) throw error;
+      if (data?.success) {
+        toast.success(isArabic ? "تم تعيينك كمشرف رئيسي بنجاح!" : "You are now the system admin!");
+        fetchUsers();
+      } else if (data?.error === "admin_exists") {
+        toast.info(isArabic ? "يوجد مشرف بالفعل في النظام" : "An admin already exists");
+        fetchUsers();
+      } else {
+        toast.error(data?.error || "Error");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(isArabic ? "خطأ في تعيين المشرف" : "Error setting up admin");
+    } finally {
+      setSettingUpAdmin(false);
+    }
+  };
+
   // Unauthorized view
   if (!loading && !authorized) {
     return (
@@ -144,12 +168,20 @@ const UserManagementPage = () => {
           <ShieldAlert className="w-16 h-16 mx-auto text-destructive mb-4" />
           <h1 className="text-2xl font-bold mb-2">{isArabic ? "غير مصرح" : "Unauthorized"}</h1>
           <p className="text-muted-foreground mb-6">
-            {isArabic ? "ليس لديك صلاحية للوصول لهذه الصفحة" : "You don't have permission to access this page"}
+            {isArabic ? "ليس لديك صلاحية للوصول لهذه الصفحة. إذا كنت أول مستخدم، يمكنك تعيين نفسك كمشرف." : "You don't have permission. If you're the first user, you can set yourself as admin."}
           </p>
-          <Button onClick={() => navigate("/")} variant="outline">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            {isArabic ? "العودة للرئيسية" : "Back to Home"}
-          </Button>
+          <div className="flex items-center justify-center gap-3">
+            <Button onClick={() => navigate("/")} variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              {isArabic ? "العودة للرئيسية" : "Back to Home"}
+            </Button>
+            <Button onClick={handleSetupAdmin} disabled={settingUpAdmin} variant="default">
+              <Shield className="w-4 h-4 mr-2" />
+              {settingUpAdmin
+                ? (isArabic ? "جاري التعيين..." : "Setting up...")
+                : (isArabic ? "تعيين كمشرف أول" : "Set as First Admin")}
+            </Button>
+          </div>
         </div>
       </div>
     );
