@@ -1,34 +1,30 @@
 
-# معالجة مشكلة "Error setting up admin" وتحسين الأمان
+# إصلاح مشكلة "Unauthorized" في صفحات الإدارة
 
 ## المشكلة الجذرية
 
-المستخدم مسجل دخوله في الواجهة (يظهر "mohmedsobh" في شريط التنقل)، لكن قاعدة البيانات `auth.users` فارغة تماما. هذا يعني أن الجلسة الحالية غير صالحة أو من مشروع سابق. عند استدعاء `setup-admin`، يفشل التحقق من المستخدم (`getUser()`) ويعيد "unauthorized".
+الملف `client.runtime.ts` يحتوي على بيانات اتصال مشفرة (hardcoded) لمشروع خلفي **مختلف** (`brbgdvesterjvwduvsrf`)، بينما المشروع الفعلي هو (`zsfwdkpbhcyxotsjpqab`). إعدادات Vite توجه جميع الاستيرادات لاستخدام هذا الملف، مما يجعل كل طلبات API تذهب للمشروع الخطأ.
 
-## الحلول
+هذا يفسر:
+- لماذا `auth.users` فارغ (المستخدم مسجل في المشروع القديم)
+- لماذا "Failed to fetch" (الطلبات تذهب لعنوان خاطئ)
+- لماذا setup-admin يفشل دائما
 
-### 1. إصلاح تدفق تعيين المشرف الأول
-- تعديل صفحتي `AdminDashboardPage` و `UserManagementPage` للتفريق بين حالتين:
-  - **المستخدم غير مسجل دخوله**: عرض رسالة "يجب تسجيل الدخول أولا" مع زر للتوجيه لصفحة المصادقة
-  - **المستخدم مسجل دخوله لكن ليس مشرفا**: عرض زر "تعيين كمشرف أول"
-- إزالة `autoSetupAttempted` useEffect الذي يستدعي setup-admin تلقائيا (يسبب أخطاء عندما تكون الجلسة غير صالحة)
-- إبقاء الزر اليدوي فقط لتجنب الاستدعاءات الفاشلة المتكررة
+## الحل
 
-### 2. تحسين وظيفة setup-admin
-- إضافة رسائل خطأ أوضح: التفريق بين "لا يوجد token" و"token غير صالح"
-- إرجاع `{ error: "not_authenticated" }` عندما يفشل التحقق من المستخدم بدلا من "unauthorized" العامة
+### 1. حذف ملف `client.runtime.ts` وإزالة Vite alias
+- حذف `src/integrations/supabase/client.runtime.ts` بالكامل
+- إزالة alias التحويل من `vite.config.ts` حتى يستخدم التطبيق `client.ts` الرسمي الذي يقرأ من `.env` تلقائيا
+- `.env` يحتوي بالفعل على البيانات الصحيحة للمشروع الحالي
 
-### 3. تحسين وظيفة admin-stats
-- نفس التحسين: رسائل خطأ واضحة للتفريق بين عدم المصادقة وعدم وجود صلاحيات
+### 2. تحديث Edge Functions لاستخدام `getClaims()` بدلا من `getUser()`
+حسب إعدادات Lovable Cloud مع `verify_jwt = false`، يجب استخدام `getClaims(token)` بدلا من `getUser()`:
+- تحديث `setup-admin/index.ts`
+- تحديث `admin-stats/index.ts`
+- تحديث `manage-users/index.ts`
 
-### 4. تعزيز أمان RLS على user_roles
-- حاليا يوجد سياسة SELECT فقط. إضافة:
-  - سياسة تمنع المستخدمين العاديين من INSERT/UPDATE/DELETE على user_roles (العمليات تتم فقط عبر Edge Functions باستخدام service_role_key)
-  - هذا يمنع أي محاولة لتصعيد الصلاحيات من جانب العميل
-
-### 5. تحسين صفحة المصادقة
-- بعد التسجيل الناجح، إضافة رسالة توجيهية واضحة
-- التأكد من أن auto-confirm مفعل حتى يتمكن المستخدم من الدخول فورا
+### 3. إعادة تسجيل الدخول
+بعد التعديلات، سيحتاج المستخدم لتسجيل الخروج وإعادة الدخول لإنشاء جلسة صالحة على المشروع الصحيح.
 
 ---
 
@@ -38,33 +34,24 @@
 
 | الملف | التغيير |
 |---|---|
-| `src/pages/AdminDashboardPage.tsx` | إصلاح منطق التحقق - التفريق بين عدم المصادقة وعدم الصلاحية |
-| `src/pages/UserManagementPage.tsx` | نفس الإصلاح |
-| `supabase/functions/setup-admin/index.ts` | رسائل خطأ أوضح |
-| `supabase/functions/admin-stats/index.ts` | رسائل خطأ أوضح |
-| Migration SQL | تأمين user_roles ضد التعديل المباشر من العميل |
+| `src/integrations/supabase/client.runtime.ts` | **حذف** |
+| `vite.config.ts` | إزالة alias التحويل |
+| `supabase/functions/setup-admin/index.ts` | استخدام `getClaims()` |
+| `supabase/functions/admin-stats/index.ts` | استخدام `getClaims()` |
+| `supabase/functions/manage-users/index.ts` | استخدام `getClaims()` |
 
-### منطق التحقق المحسن في صفحات الإدارة
-
+### تغيير Vite Config
 ```text
-1. إذا لم يكن هناك user (غير مسجل دخوله) -> توجيه لصفحة /auth
-2. إذا كان مسجل دخوله لكن setup-admin أرجع "not_authenticated" -> جلسة منتهية، توجيه لـ /auth
-3. إذا كان مسجل دخوله و admin-stats أرجع "unauthorized" -> عرض زر "تعيين كمشرف أول"
-4. إذا نجح -> عرض لوحة التحكم
+// إزالة هذا:
+{
+  find: /^@\/integrations\/supabase\/client$/,
+  replacement: path.resolve(__dirname, "./src/integrations/supabase/client.runtime.ts"),
+}
 ```
 
-### تأمين جدول user_roles (SQL Migration)
-
+### نمط المصادقة الصحيح في Edge Functions
 ```text
-- لا توجد سياسات INSERT/UPDATE/DELETE للمستخدمين العاديين
-- العمليات تتم حصريا عبر service_role_key في Edge Functions
-- هذا يمنع تصعيد الصلاحيات تماما
-```
-
-### تحسين setup-admin Edge Function
-
-```text
-- إرجاع "not_authenticated" بدلا من "unauthorized" عند فشل JWT
-- إضافة logging أفضل لتسهيل التشخيص
-- التحقق المزدوج: JWT صالح + لا يوجد admin سابق
+const token = authHeader.replace('Bearer ', '');
+const { data, error } = await supabase.auth.getClaims(token);
+const userId = data.claims.sub;
 ```
