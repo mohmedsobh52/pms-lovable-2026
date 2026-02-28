@@ -1,61 +1,41 @@
 
-# نظام تقارير مجدولة أسبوعية + Push Notifications للمشرفين + اختبار النظام
+# خطة: تفعيل زر "Enhance with AI" وإضافة التحسينات
 
-## 1. اختبار نظام الإشعارات
-سيتم التحقق من صفحة الإدارة عبر المتصفح للتأكد من:
-- ظهور جرس الإشعارات (AdminNotificationsBell)
-- ظهور الرسوم البيانية (Area Chart + Pie Chart)
-- عمل بطاقات الإحصائيات وجدول المشاريع
+## المشكلة الحالية
+زر "Enhance with AI" في مكون `BOQAnalyzerPanel.tsx` (سطر 745) موجود بصرياً لكنه **لا يحتوي على حدث onClick** - أي أنه زر ميت لا يفعل شيئاً عند الضغط عليه. كذلك في صفحة `Index.tsx`، حالة `showAIEnrichmentOption` تُفعّل لكن **لا يوجد زر مرئي** يستخدمها.
 
 ---
 
-## 2. Push Notifications للمشرفين عند تسجيل مستخدمين جدد
+## 1. تفعيل زر "Enhance with AI" في BOQAnalyzerPanel.tsx
 
-### الوصف
-دمج hook `usePushNotifications` الموجود بالفعل في مكون `AdminNotificationsBell` لإظهار إشعارات المتصفح (Browser Notifications) عند وصول إشعار جديد عبر Realtime.
+### إضافة دالة `handleAIEnrichment`
+- تأخذ البنود الحالية من `analysisData.items`
+- تعيد إرسالها إلى Edge Function `analyze-boq` مع `analysis_type: "extract_items"` لتحسين التصنيفات والأوصاف
+- تُظهر مؤشر تحميل أثناء المعالجة
+- تُحدّث `analysisData` بالنتائج المحسنة
+- تُخفي خيار الإثراء بعد النجاح (`setShowAIEnrichmentOption(false)`)
 
-### التغييرات
-**ملف: `src/components/AdminNotificationsBell.tsx`**
-- استيراد `usePushNotifications` 
-- طلب إذن الإشعارات عند أول تحميل
-- إضافة زر تفعيل/تعطيل push notifications في واجهة الجرس
-- عند وصول إشعار جديد عبر Realtime، استدعاء `showNotification()` لإظهار إشعار المتصفح (يظهر فقط عندما تكون الصفحة مخفية)
+### ربط الزر بالدالة
+- إضافة `onClick={handleAIEnrichment}` و `disabled={isEnriching}` للزر
+- إظهار spinner أثناء التحسين
 
 ---
 
-## 3. نظام تقارير مجدولة أسبوعية للمشرفين
+## 2. إضافة نفس الزر في Index.tsx
 
-### الوصف
-إنشاء Edge Function جديدة `send-admin-weekly-report` تجمع إحصائيات النظام وترسلها بالبريد عبر Resend، مع إضافة واجهة في لوحة الإدارة لإدارة هذا التقرير.
+### إضافة شريط التحسين بالذكاء الاصطناعي
+- عرض Alert مشابه لـ BOQAnalyzerPanel عندما `showAIEnrichmentOption === true` و `analysisData` موجود
+- إضافة نفس دالة `handleAIEnrichment` التي ترسل البنود لتحليل AI محسن
+- الزر يظهر فوق نتائج التحليل مباشرة
 
-### Edge Function: `supabase/functions/send-admin-weekly-report/index.ts`
-- تجمع إحصائيات آخر 7 أيام من:
-  - `admin_activity_log`: عدد المستخدمين الجدد، تغييرات الأدوار
-  - `saved_projects`: المشاريع الجديدة
-  - `contracts`: العقود الجديدة
-- تجلب بريد كل مشرف من `user_roles` + `auth.admin.getUserById()`
-- ترسل بريد HTML منسق عبر Resend يتضمن:
-  - ملخص الأسبوع (مستخدمين جدد، مشاريع، عقود)
-  - جدول بأهم الأحداث
-  - تنسيق RTL للعربية
-- تُسجّل نشاط الإرسال في `admin_activity_log`
+---
 
-### تحديث config.toml
-```text
-[functions.send-admin-weekly-report]
-verify_jwt = false
-```
+## 3. تحسين الأداء والاقتراحات
 
-### واجهة التقارير المجدولة في لوحة الإدارة
-**ملف: `src/pages/AdminDashboardPage.tsx`**
-- إضافة قسم "التقارير المجدولة" يتضمن:
-  - زر "إرسال تقرير أسبوعي الآن" (يدوي)
-  - حالة آخر إرسال
-  - إعدادات بسيطة (تفعيل/تعطيل)
-
-### جدولة تلقائية (pg_cron)
-- إعداد cron job أسبوعي باستخدام `pg_cron` + `pg_net` لاستدعاء الوظيفة كل يوم أحد الساعة 8 صباحاً
-- يتطلب تفعيل extensions: `pg_cron`, `pg_net`
+### تحسينات إضافية على الزر
+- إضافة toast إعلامي عند بدء التحسين
+- إظهار عدد البنود المحسنة بعد الانتهاء مع نسبة التحسين
+- تعطيل الزر تلقائياً إذا كانت جودة التحليل أعلى من 90%
 
 ---
 
@@ -65,49 +45,25 @@ verify_jwt = false
 
 | الملف | التغيير |
 |---|---|
-| `src/components/AdminNotificationsBell.tsx` | دمج push notifications + زر تفعيل |
-| `supabase/functions/send-admin-weekly-report/index.ts` | Edge Function جديدة للتقرير الأسبوعي |
-| `supabase/config.toml` | إضافة إعداد verify_jwt للوظيفة الجديدة |
-| `src/pages/AdminDashboardPage.tsx` | إضافة قسم التقارير المجدولة + زر إرسال يدوي |
+| `src/components/BOQAnalyzerPanel.tsx` | إضافة `handleAIEnrichment` + ربط onClick للزر + حالة isEnriching |
+| `src/pages/Index.tsx` | إضافة Alert + زر Enhance with AI + دالة handleAIEnrichment |
 
-### تدفق Push Notifications
+### منطق التحسين بالـ AI
 
 ```text
-مستخدم جديد يسجّل
-      |
-      v
-notify-admin-new-user (Edge Function)
-      |
-      v
-INSERT في admin_notifications
-      |
-      v
-Supabase Realtime يرسل الحدث
-      |
-      v
-AdminNotificationsBell يستقبل الحدث
-      |
-      +---> toast (إذا الصفحة ظاهرة)
-      +---> Browser Notification (إذا الصفحة مخفية)
+1. جمع البنود الحالية من analysisData.items
+2. تحويلها لنص مُنسّق
+3. إرسالها لـ analyze-boq مع analysis_type: "extract_items"
+4. دمج النتائج: تحديث التصنيفات والأوصاف العربية
+5. حساب نسبة التحسين وعرضها
+6. إخفاء شريط الاقتراح
 ```
 
-### تدفق التقرير الأسبوعي
+### حالة الزر
 
 ```text
-pg_cron (كل أحد 8 صباحاً)
-      |
-      v
-send-admin-weekly-report (Edge Function)
-      |
-      +---> جمع إحصائيات 7 أيام
-      +---> جلب بريد المشرفين
-      +---> إرسال HTML email عبر Resend
-      +---> تسجيل في admin_activity_log
+عادي: "Enhance with AI" مع أيقونة Sparkles
+أثناء التحميل: Loader2 spinner + "جاري التحسين..."
+بعد النجاح: إخفاء الشريط + toast بالنتيجة
+عند الخطأ: toast تحذيري مع إبقاء الزر متاحاً
 ```
-
-### قالب البريد الأسبوعي
-- ترويسة بتدرج لوني مع اسم النظام
-- ملخص رقمي: مستخدمين جدد، مشاريع، عقود، نشاطات
-- جدول بآخر 10 أحداث إدارية
-- تذييل بحقوق النشر
-- دعم RTL كامل
