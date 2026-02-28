@@ -5,9 +5,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function verifyAdmin(req: Request) {
+async function verifyAdmin(req: Request): Promise<{ userId: string; adminClient: any } | { error: string }> {
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
+  if (!authHeader?.startsWith("Bearer ")) return { error: "not_authenticated" };
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -18,9 +18,9 @@ async function verifyAdmin(req: Request) {
   });
   const token = authHeader.replace("Bearer ", "");
   const { data: claimsData, error } = await userClient.auth.getClaims(token);
-  if (error || !claimsData?.claims?.sub) return null;
+  if (error || !claimsData?.claims?.sub) return { error: "not_authenticated" };
 
-  const userId = claimsData.claims.sub;
+  const userId = claimsData.claims.sub as string;
   const adminClient = createClient(supabaseUrl, serviceKey);
 
   const { data: roleData } = await adminClient
@@ -30,8 +30,35 @@ async function verifyAdmin(req: Request) {
     .eq("role", "admin")
     .maybeSingle();
 
-  if (!roleData) return null;
+  if (!roleData) return { error: "unauthorized" };
   return { userId, adminClient };
+}
+
+async function listUsers(adminClient: any, isArabic = false) {
+  const { data: authData, error: authError } = await adminClient.auth.admin.listUsers({ perPage: 500 });
+  if (authError) throw authError;
+
+  const { data: roles } = await adminClient.from("user_roles").select("user_id, role");
+  const roleMap = new Map<string, string>();
+  (roles || []).forEach((r: any) => roleMap.set(r.user_id, r.role));
+
+  const users = (authData?.users || []).map((u: any) => ({
+    id: u.id,
+    email: u.email || "",
+    created_at: u.created_at,
+    last_sign_in_at: u.last_sign_in_at,
+    role: roleMap.get(u.id) || "user",
+    has_role_record: roleMap.has(u.id),
+  }));
+
+  const totalAdmins = users.filter((u: any) => u.role === "admin").length;
+  const totalModerators = users.filter((u: any) => u.role === "moderator").length;
+  const totalRegular = users.length - totalAdmins - totalModerators;
+
+  return {
+    users,
+    stats: { total: users.length, admins: totalAdmins, moderators: totalModerators, regular: totalRegular },
+  };
 }
 
 Deno.serve(async (req) => {
@@ -40,54 +67,38 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const ctx = await verifyAdmin(req);
-    if (!ctx) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
+    const result = await verifyAdmin(req);
+    if ("error" in result) {
+      return new Response(JSON.stringify({ error: result.error }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { adminClient } = ctx;
+    const { adminClient } = result;
 
-    // ============= GET: List users =============
+    // ============= GET: List users (backward compat) =============
     if (req.method === "GET") {
-      // Get all users from auth
-      const { data: authData, error: authError } = await adminClient.auth.admin.listUsers({ perPage: 500 });
-      if (authError) throw authError;
-
-      // Get all roles
-      const { data: roles } = await adminClient.from("user_roles").select("user_id, role");
-      const roleMap = new Map<string, string>();
-      (roles || []).forEach((r: any) => roleMap.set(r.user_id, r.role));
-
-      const users = (authData?.users || []).map((u: any) => ({
-        id: u.id,
-        email: u.email || "",
-        created_at: u.created_at,
-        last_sign_in_at: u.last_sign_in_at,
-        role: roleMap.get(u.id) || "user",
-        has_role_record: roleMap.has(u.id),
-      }));
-
-      // Stats
-      const totalAdmins = users.filter((u: any) => u.role === "admin").length;
-      const totalModerators = users.filter((u: any) => u.role === "moderator").length;
-      const totalRegular = users.length - totalAdmins - totalModerators;
-
-      return new Response(JSON.stringify({
-        users,
-        stats: { total: users.length, admins: totalAdmins, moderators: totalModerators, regular: totalRegular },
-      }), {
+      const data = await listUsers(adminClient);
+      return new Response(JSON.stringify(data), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ============= POST: Set or remove role =============
+    // ============= POST: Actions =============
     if (req.method === "POST") {
       const body = await req.json();
       const { action, user_id, role } = body;
+
+      // List users via POST
+      if (action === "list_users") {
+        const data = await listUsers(adminClient);
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       if (!user_id) {
         return new Response(JSON.stringify({ error: "user_id required" }), {
@@ -105,16 +116,13 @@ Deno.serve(async (req) => {
         }
 
         if (role === "user") {
-          // Remove role record (default is user)
           await adminClient.from("user_roles").delete().eq("user_id", user_id);
         } else {
-          // Upsert role
           const { error: upsertError } = await adminClient
             .from("user_roles")
             .upsert({ user_id, role }, { onConflict: "user_id,role" });
 
           if (upsertError) {
-            // Try delete then insert (for role change)
             await adminClient.from("user_roles").delete().eq("user_id", user_id);
             const { error: insertError } = await adminClient
               .from("user_roles")
