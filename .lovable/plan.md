@@ -1,41 +1,84 @@
 
-# خطة: تفعيل زر "Enhance with AI" وإضافة التحسينات
+# خطة: دمج أزرار التسعير + تحسين بند واحد بالـ AI + مؤشر جودة التحليل
 
-## المشكلة الحالية
-زر "Enhance with AI" في مكون `BOQAnalyzerPanel.tsx` (سطر 745) موجود بصرياً لكنه **لا يحتوي على حدث onClick** - أي أنه زر ميت لا يفعل شيئاً عند الضغط عليه. كذلك في صفحة `Index.tsx`، حالة `showAIEnrichmentOption` تُفعّل لكن **لا يوجد زر مرئي** يستخدمها.
+## نظرة عامة
 
----
-
-## 1. تفعيل زر "Enhance with AI" في BOQAnalyzerPanel.tsx
-
-### إضافة دالة `handleAIEnrichment`
-- تأخذ البنود الحالية من `analysisData.items`
-- تعيد إرسالها إلى Edge Function `analyze-boq` مع `analysis_type: "extract_items"` لتحسين التصنيفات والأوصاف
-- تُظهر مؤشر تحميل أثناء المعالجة
-- تُحدّث `analysisData` بالنتائج المحسنة
-- تُخفي خيار الإثراء بعد النجاح (`setShowAIEnrichmentOption(false)`)
-
-### ربط الزر بالدالة
-- إضافة `onClick={handleAIEnrichment}` و `disabled={isEnriching}` للزر
-- إظهار spinner أثناء التحسين
+دمج الأزرار الثلاثة (Auto Price، Suggest Rates، تحليل متقدم) في زر موحد "تسعير شامل" يفتح Dialog واحد يحتوي على جميع مصادر التسعير. إضافة إمكانية تحسين بند واحد بالذكاء الاصطناعي، ومؤشر بصري لجودة التحليل.
 
 ---
 
-## 2. إضافة نفس الزر في Index.tsx
+## 1. دمج أزرار التسعير في زر موحد
 
-### إضافة شريط التحسين بالذكاء الاصطناعي
-- عرض Alert مشابه لـ BOQAnalyzerPanel عندما `showAIEnrichmentOption === true` و `analysisData` موجود
-- إضافة نفس دالة `handleAIEnrichment` التي ترسل البنود لتحليل AI محسن
-- الزر يظهر فوق نتائج التحليل مباشرة
+### مكون جديد: `UnifiedPricingDialog.tsx`
+
+إنشاء مكون Dialog واحد يجمع جميع مصادر التسعير السبعة في تبويبات منظمة:
+
+| التبويب | المحتوى | المصدر الأصلي |
+|---|---|---|
+| تسعير تلقائي | مطابقة المكتبة + المرجعي + التاريخي + عروض الأسعار | AutoPriceDialog |
+| اقتراح أسعار AI | اقتراحات Gemini مع مستوى الثقة | MarketRateSuggestions |
+| تحليل متقدم AI | تحليل متعدد المحللات مع توافق | EnhancedPricingAnalysis |
+| مقارنة تاريخية | مطابقة مع المشاريع المحفوظة والتاريخية | BulkHistoricalPricing |
+
+- زر واحد بارز: "تسعير شامل" مع أيقونة Wand2 وBadge بعدد البنود
+- كل تبويب يحتفظ بمنطقه الأصلي دون تغيير
+- شريط ملخص موحد أسفل الـ Dialog يعرض: عدد البنود المسعرة، متوسط الثقة، القيمة الإجمالية
+- زر "تطبيق الكل" يجمع نتائج كل التبويبات ويطبقها دفعة واحدة
+
+### تحديث `AnalysisResults.tsx`
+- استبدال الأزرار الثلاثة المنفصلة (سطور 1700-1726) بمكون `UnifiedPricingDialog` واحد
+- الإبقاء على `BulkHistoricalPricing` كخيار داخلي في الـ Dialog الموحد
+- إضافة زر مختصر "تسعير سريع" صغير بجانب الزر الموحد للوصول المباشر
 
 ---
 
-## 3. تحسين الأداء والاقتراحات
+## 2. ربط المشاريع التاريخية بالتسعير
 
-### تحسينات إضافية على الزر
-- إضافة toast إعلامي عند بدء التحسين
-- إظهار عدد البنود المحسنة بعد الانتهاء مع نسبة التحسين
-- تعطيل الزر تلقائياً إذا كانت جودة التحليل أعلى من 90%
+### تحسين `AutoPriceDialog.tsx`
+- إضافة مصدر جديد "المشاريع السابقة" يستعلم من `saved_projects` و `project_items`
+- عند المطابقة: عرض اسم المشروع المصدر وتاريخه ونسبة التطابق
+- دمج النتائج التاريخية مع المصادر الأخرى وترتيبها حسب الأولوية:
+  1. عروض أسعار مباشرة (أعلى ثقة)
+  2. مشاريع تاريخية (ثقة عالية)
+  3. مكتبة المواد/العمالة/المعدات
+  4. أسعار مرجعية
+  5. ذكاء السوق AI (أقل ثقة)
+
+---
+
+## 3. تحسين بند واحد بالذكاء الاصطناعي
+
+### تحديث `AnalysisResults.tsx`
+- إضافة خيار جديد في القائمة المنسدلة لكل بند (DropdownMenu): "تحسين بالـ AI"
+- عند النقر: يرسل البند الواحد فقط إلى `analyze-boq` Edge Function
+- يُظهر Loader بجانب البند أثناء المعالجة
+- يُحدّث الوصف والتصنيف والوحدة للبند المحدد فقط
+- toast بنتيجة التحسين
+
+### حالة جديدة
+- `enrichingItemId: string | null` لتتبع البند الجاري تحسينه
+- `handleSingleItemEnrich(item)` دالة التحسين الفردي
+
+---
+
+## 4. مؤشر جودة التحليل البصري
+
+### مكون جديد: `AnalysisQualityIndicator.tsx`
+
+يحسب درجة الجودة بناءً على:
+- نسبة البنود ذات الأوصاف الكاملة (عربي + إنجليزي)
+- نسبة البنود المصنفة (لها category)
+- نسبة البنود ذات الوحدات الصحيحة
+- نسبة البنود ذات الكميات > 0
+- نسبة البنود المسعرة
+
+### العرض البصري
+- شريط تقدم دائري (أو Progress bar) ملون:
+  - اخضر (> 80%): جودة ممتازة
+  - أصفر (50-80%): جودة متوسطة
+  - أحمر (< 50%): جودة ضعيفة
+- توصيات تحسين: "أضف أوصاف عربية"، "صنّف البنود"، "استخدم Enhance with AI"
+- يظهر فوق جدول البنود في `AnalysisResults.tsx`
 
 ---
 
@@ -45,25 +88,52 @@
 
 | الملف | التغيير |
 |---|---|
-| `src/components/BOQAnalyzerPanel.tsx` | إضافة `handleAIEnrichment` + ربط onClick للزر + حالة isEnriching |
-| `src/pages/Index.tsx` | إضافة Alert + زر Enhance with AI + دالة handleAIEnrichment |
+| `src/components/UnifiedPricingDialog.tsx` | مكون جديد - Dialog التسعير الموحد |
+| `src/components/AnalysisQualityIndicator.tsx` | مكون جديد - مؤشر جودة التحليل |
+| `src/components/AnalysisResults.tsx` | استبدال 3 أزرار بزر موحد + إضافة "تحسين بالـ AI" للبند + إضافة مؤشر الجودة |
+| `src/components/project-details/AutoPriceDialog.tsx` | إضافة مصدر المشاريع التاريخية |
 
-### منطق التحسين بالـ AI
+### بنية UnifiedPricingDialog
 
 ```text
-1. جمع البنود الحالية من analysisData.items
-2. تحويلها لنص مُنسّق
-3. إرسالها لـ analyze-boq مع analysis_type: "extract_items"
-4. دمج النتائج: تحديث التصنيفات والأوصاف العربية
-5. حساب نسبة التحسين وعرضها
-6. إخفاء شريط الاقتراح
+UnifiedPricingDialog
+├── Header: عنوان + عدد البنود + مؤشر الجودة المصغر
+├── Tabs
+│   ├── "تسعير تلقائي" → AutoPriceDialog (مضمن)
+│   ├── "اقتراح أسعار" → MarketRateSuggestions (مضمن)  
+│   ├── "تحليل متقدم" → EnhancedPricingAnalysis (مضمن)
+│   └── "مقارنة تاريخية" → BulkHistoricalPricing (مضمن)
+└── Footer: ملخص موحد + زر "تطبيق الكل"
 ```
 
-### حالة الزر
+### منطق مؤشر الجودة
 
 ```text
-عادي: "Enhance with AI" مع أيقونة Sparkles
-أثناء التحميل: Loader2 spinner + "جاري التحسين..."
-بعد النجاح: إخفاء الشريط + toast بالنتيجة
-عند الخطأ: toast تحذيري مع إبقاء الزر متاحاً
+qualityScore = (
+  descriptionCompleteness * 0.25 +
+  categoryCompleteness * 0.20 +
+  unitCompleteness * 0.15 +
+  quantityCompleteness * 0.15 +
+  pricingCompleteness * 0.25
+) * 100
+
+recommendations = []
+if descriptionCompleteness < 0.8: "أضف أوصاف ثنائية اللغة"
+if categoryCompleteness < 0.7: "صنّف البنود باستخدام AI"
+if pricingCompleteness < 0.5: "استخدم التسعير الشامل"
+```
+
+### تدفق تحسين بند واحد
+
+```text
+المستخدم ← ينقر "..." على البند ← يختار "تحسين بالـ AI"
+    |
+    v
+إرسال بند واحد → analyze-boq Edge Function
+    |
+    v  
+استقبال النتيجة → تحديث category + description_ar + unit
+    |
+    v
+toast بالنتيجة + تحديث مؤشر الجودة
 ```
