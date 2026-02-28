@@ -1,30 +1,25 @@
 
-# إصلاح مشكلة "Unauthorized" في صفحات الإدارة
+# إصلاح صفحة إدارة المستخدمين المعلقة في حالة التحميل
 
-## المشكلة الجذرية
+## المشكلة
+صفحة `/admin/users` تظهر skeletons (حالة تحميل) ولا تعرض البيانات أو شاشة "غير مصرح". السبب:
+1. وظيفة `manage-users` لم تكن منشورة بشكل صحيح (تم نشرها الآن)
+2. استخدام `method: "GET"` في `supabase.functions.invoke` غير موثوق - بعض البيئات ترسله كـ POST مما يسبب خطأ في الدالة
+3. لم يكن هناك مشرف أصلا (تم تعيينك كمشرف الآن)
 
-الملف `client.runtime.ts` يحتوي على بيانات اتصال مشفرة (hardcoded) لمشروع خلفي **مختلف** (`brbgdvesterjvwduvsrf`)، بينما المشروع الفعلي هو (`zsfwdkpbhcyxotsjpqab`). إعدادات Vite توجه جميع الاستيرادات لاستخدام هذا الملف، مما يجعل كل طلبات API تذهب للمشروع الخطأ.
+## الحلول
 
-هذا يفسر:
-- لماذا `auth.users` فارغ (المستخدم مسجل في المشروع القديم)
-- لماذا "Failed to fetch" (الطلبات تذهب لعنوان خاطئ)
-- لماذا setup-admin يفشل دائما
+### 1. تغيير طريقة استدعاء manage-users من GET إلى POST
+في `UserManagementPage.tsx`، تغيير الاستدعاء لاستخدام POST مع `action: "list_users"` بدلا من `method: "GET"` لأنه أكثر موثوقية عبر جميع البيئات.
 
-## الحل
+### 2. تحديث manage-users Edge Function
+- إضافة action `list_users` لمعالجة طلب قائمة المستخدمين عبر POST
+- إضافة تمييز بين `not_authenticated` و `unauthorized` في رسائل الخطأ
+- إبقاء دعم GET للتوافق الخلفي
 
-### 1. حذف ملف `client.runtime.ts` وإزالة Vite alias
-- حذف `src/integrations/supabase/client.runtime.ts` بالكامل
-- إزالة alias التحويل من `vite.config.ts` حتى يستخدم التطبيق `client.ts` الرسمي الذي يقرأ من `.env` تلقائيا
-- `.env` يحتوي بالفعل على البيانات الصحيحة للمشروع الحالي
-
-### 2. تحديث Edge Functions لاستخدام `getClaims()` بدلا من `getUser()`
-حسب إعدادات Lovable Cloud مع `verify_jwt = false`، يجب استخدام `getClaims(token)` بدلا من `getUser()`:
-- تحديث `setup-admin/index.ts`
-- تحديث `admin-stats/index.ts`
-- تحديث `manage-users/index.ts`
-
-### 3. إعادة تسجيل الدخول
-بعد التعديلات، سيحتاج المستخدم لتسجيل الخروج وإعادة الدخول لإنشاء جلسة صالحة على المشروع الصحيح.
+### 3. تحسين معالجة الأخطاء في الصفحة
+- إضافة timeout لمنع التعليق اللانهائي
+- معالجة حالة `not_authenticated` بالتوجيه لصفحة الدخول
 
 ---
 
@@ -34,24 +29,26 @@
 
 | الملف | التغيير |
 |---|---|
-| `src/integrations/supabase/client.runtime.ts` | **حذف** |
-| `vite.config.ts` | إزالة alias التحويل |
-| `supabase/functions/setup-admin/index.ts` | استخدام `getClaims()` |
-| `supabase/functions/admin-stats/index.ts` | استخدام `getClaims()` |
-| `supabase/functions/manage-users/index.ts` | استخدام `getClaims()` |
+| `src/pages/UserManagementPage.tsx` | تغيير invoke لاستخدام POST مع action: "list_users" |
+| `supabase/functions/manage-users/index.ts` | إضافة action "list_users" + رسائل خطأ أوضح |
 
-### تغيير Vite Config
+### تغيير الاستدعاء في الصفحة
 ```text
-// إزالة هذا:
-{
-  find: /^@\/integrations\/supabase\/client$/,
-  replacement: path.resolve(__dirname, "./src/integrations/supabase/client.runtime.ts"),
-}
+// قبل (غير موثوق):
+supabase.functions.invoke("manage-users", { method: "GET" })
+
+// بعد (موثوق):
+supabase.functions.invoke("manage-users", { body: { action: "list_users" } })
 ```
 
-### نمط المصادقة الصحيح في Edge Functions
+### تحديث Edge Function
 ```text
-const token = authHeader.replace('Bearer ', '');
-const { data, error } = await supabase.auth.getClaims(token);
-const userId = data.claims.sub;
+// إضافة في قسم POST:
+if (action === "list_users") {
+  // نفس منطق GET الحالي - إرجاع قائمة المستخدمين
+}
+
+// تحسين verifyAdmin لإرجاع سبب الفشل:
+// "not_authenticated" عند عدم وجود token أو token غير صالح
+// "unauthorized" عند عدم وجود صلاحية admin
 ```
