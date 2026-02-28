@@ -1,72 +1,70 @@
 
-# خطة: توسيع قاعدة بيانات MEP + إعدادات تحسين دقة التسعير
+# خطة: نظام تنبيهات الأسعار الشاذة + تقرير PDF لمقارنة مصادر التسعير
 
 ## نظرة عامة
 
-توسيع قاعدة الأسعار المرجعية لتشمل بنود الكهرباء والسباكة والميكانيك (MEP) بالتفصيل، وإضافة إعدادات تسعير متقدمة في `AnalysisSettingsDialog` لزيادة دقة النتائج، مع تحسين keywords المطابقة في محرك التسعير التلقائي.
+إضافة نظامين جديدين: (1) تنبيهات ذكية متقدمة تكشف الأسعار الشاذة بناء على عدة معايير (ليس فقط الفارق البسيط)، و(2) تقرير PDF احترافي يعرض مقارنة بين جميع مصادر التسعير مع نسبة الثقة لكل مصدر.
+
+> ملاحظة: طلب "رفع ملف Excel واختبار" هو إجراء يدوي يقوم به المستخدم بعد التنفيذ - سنضمن أن البنية جاهزة لذلك.
 
 ---
 
-## 1. توسيع قاعدة الأسعار المرجعية (MEP)
+## 1. نظام التنبيهات الذكية المتقدم
 
-### تحديث `src/lib/reference-prices.ts`
+### تحسين `PricingAlerts.tsx` الموجود
 
-إضافة **50+ بند MEP جديد** مقسم إلى 5 فئات فرعية:
+المكون الحالي يكشف فقط الفارق عن العتبة الثابتة. سنضيف تحليلات أعمق:
 
-| الفئة | عدد البنود | أمثلة |
+| نوع التنبيه | الوصف | اللون |
 |---|---|---|
-| كهرباء (electrical) | ~15 بند | لوحة رئيسية MDB، قاطع، مفتاح، مقبس، UPS، مولد، إنارة LED، إنارة طوارئ |
-| سباكة (plumbing) | ~12 بند | أنابيب PPR، نحاس، مواسير صرف، أحواض، مراحيض، سخان مياه، خلاطات |
-| تكييف (hvac) | ~10 بنود | وحدة مركزية، مجاري هواء، diffuser، chiller، AHU، FCU، معزولات |
-| حريق (fire_fighting) | ~8 بنود | شبكة رشاشات، خرطوم، طفاية، لوحة إنذار، كاشف دخان، صندوق حريق |
-| ذكي/BMS (smart) | ~5 بنود | نظام BMS، كاميرات مراقبة، نظام دخول، إنتركم، أنظمة صوت |
+| شاذ إحصائياً | السعر يبعد اكثر من 2 انحراف معياري عن متوسط الفئة | احمر |
+| خارج النطاق المرجعي | السعر اقل من minPrice او اعلى من maxPrice في reference-prices | برتقالي |
+| بند غير مسعر حرج | بند بكمية كبيرة (> 50% من القيمة) بدون سعر | اصفر |
+| تناقض الوحدة | سعر الوحدة لا يتناسب مع نوع الوحدة (مثلا m3 بسعر 5 ريال) | ازرق |
+| فارق كبير عن AI | الفارق بين سعر المستخدم وسعر AI يتجاوز العتبة | احمر |
 
-### تحديث `src/components/project-details/AutoPriceDialog.tsx`
+### مكون جديد: `SmartPricingAlerts.tsx`
 
-إضافة keywords خبير جديدة في `EXPERT_KEYWORDS`:
-- كهرباء: mdb, switchgear, socket, outlet, led, generator, ups, breaker, mcb
-- سباكة: ppr, cpvc, copper pipe, basin, wc, water heater, mixer, trap, floor drain
-- تكييف: chiller, ahu, fcu, duct, diffuser, thermostat, vrf, split, package unit
-- حريق: sprinkler system, fire hose, extinguisher, smoke detector, fire cabinet
-- BMS: bms, cctv, access control, intercom
-
----
-
-## 2. إعدادات تحسين دقة التسعير
-
-### تحديث `src/components/AnalysisSettingsDialog.tsx`
-
-إضافة قسم جديد "إعدادات التسعير" في الـ Dialog يتضمن:
-
-| الإعداد | النوع | الافتراضي | الوصف |
-|---|---|---|---|
-| حد الثقة الأدنى | Slider (10-80) | 30 | الحد الأدنى لنسبة الثقة لقبول السعر |
-| أولوية المصادر | ترتيب | عروض > تاريخي > مكتبة > مرجعي > AI | ترتيب مصادر التسعير |
-| تفعيل MEP المتقدم | Switch | true | تفعيل بنود MEP التفصيلية |
-| مطابقة ثنائية اللغة | Switch | true | البحث بالعربي والإنجليزي معاً |
-| تطبيق معامل المدينة | Switch | true | تطبيق City Factor تلقائياً |
-| المدينة الافتراضية | Select | Riyadh | المدينة المستخدمة للتسعير |
-
-### تحديث interface `AnalysisSettings`
-```text
-+ pricingConfidenceThreshold: number (30)
-+ enableMEPPricing: boolean (true)  
-+ enableBilingualMatching: boolean (true)
-+ applyCityFactor: boolean (true)
-+ defaultCity: string ("Riyadh")
-+ pricingSourcePriority: string[] (["quotation","historical","library","reference","market_ai"])
-```
+- يستقبل نفس props الموجودة في `PricingAlerts` + بيانات الاسعار المرجعية
+- يحسب الانحراف المعياري لكل فئة (category) من البنود
+- يقارن كل بند مع `REFERENCE_PRICES` للكشف عن الخروج عن النطاق
+- يعرض التنبيهات مجمعة حسب النوع مع ايقونات ملونة
+- كل تنبيه يحتوي على: رقم البند، الوصف، السعر الحالي، السعر المتوقع، نسبة الانحراف، توصية الاصلاح
+- زر "اصلاح الكل" يطبق الاسعار المقترحة على البنود الشاذة
+- زر "تجاهل" لكل تنبيه
+- يظهر في `AnalysisResults.tsx` فوق جدول البنود (بجانب `PricingAlerts` الحالي او بدلا منه)
 
 ---
 
-## 3. تحسين دقة محرك المطابقة
+## 2. تقرير PDF لمقارنة مصادر التسعير
 
-### تحديث `AutoPriceDialog.tsx` - خوارزمية المطابقة
+### مكون جديد: `PricingSourceComparisonPDF.tsx`
 
-- إضافة **MEP-specific matching**: عند كشف بند MEP (كهرباء/سباكة/تكييف)، زيادة وزن keywords المتخصصة بنسبة 20%
-- إضافة **unit validation**: رفض المطابقة إذا كانت الوحدة مختلفة تماماً (مثلاً m3 vs no)
-- إضافة **cross-reference check**: مقارنة السعر المقترح مع النطاق المرجعي وتحذير إذا خرج عن النطاق
-- قراءة `pricingConfidenceThreshold` من الإعدادات بدلاً من القيمة الثابتة `[30]`
+تقرير PDF احترافي يعرض لكل بند جميع مصادر التسعير المتاحة:
+
+| العمود | المحتوى |
+|---|---|
+| رقم البند | item_number |
+| الوصف | description (مختصر) |
+| سعر المستخدم | unit_price |
+| سعر المكتبة | من library matching |
+| سعر مرجعي | من reference-prices |
+| سعر AI | aiSuggestedRate |
+| سعر تاريخي | من historical matching |
+| السعر المحسوب | calculatedUnitPrice |
+| افضل سعر | اقل/اوسط حسب الاعداد |
+| نسبة الثقة | محسوبة من عدد المصادر المتطابقة |
+
+### محتوى التقرير:
+1. **صفحة الغلاف**: اسم المشروع + التاريخ + عدد البنود
+2. **ملخص المصادر**: جدول يعرض كل مصدر مع عدد البنود المغطاة ومتوسط الثقة
+3. **جدول المقارنة التفصيلي**: كل بند مع جميع اسعاره من كل مصدر + تلوين الخلايا (اخضر = متطابق، اصفر = فارق متوسط، احمر = فارق كبير)
+4. **توصيات**: قائمة البنود التي تحتاج مراجعة مع السبب
+5. **رسم بياني**: توزيع الثقة (عالية/متوسطة/منخفضة)
+
+### ربط مع `AnalysisResults.tsx`:
+- اضافة زر "تقرير مقارنة المصادر" في قائمة التصدير الموجودة
+- يمرر بيانات البنود + دالة `getItemCalculatedCosts` + `getItemCostData`
 
 ---
 
@@ -76,51 +74,43 @@
 
 | الملف | التغيير |
 |---|---|
-| `src/lib/reference-prices.ts` | إضافة 50+ بند MEP جديد |
-| `src/components/project-details/AutoPriceDialog.tsx` | إضافة MEP keywords + قراءة الإعدادات + تحسين المطابقة |
-| `src/components/AnalysisSettingsDialog.tsx` | إضافة قسم "إعدادات التسعير" مع 6 عناصر تحكم جديدة |
-| `src/lib/local-excel-analysis.ts` | إضافة فئات MEP فرعية للتصنيف |
+| `src/components/SmartPricingAlerts.tsx` | مكون جديد - التنبيهات الذكية المتقدمة |
+| `src/components/PricingSourceComparisonPDF.tsx` | مكون جديد - تقرير PDF مقارنة المصادر |
+| `src/components/AnalysisResults.tsx` | اضافة المكونين الجديدين (تنبيهات + زر تقرير PDF) |
 
-### بنية بنود MEP المرجعية الجديدة
+### منطق حساب الثقة
 
 ```text
-// Electrical - Extended
-{ keywords: ["main distribution board", "mdb"], keywordsAr: ["لوحة توزيع رئيسية"], unit: "no", category: "electrical" }
-{ keywords: ["socket outlet", "power socket"], keywordsAr: ["مقبس كهرباء", "بريزة"], unit: "no", category: "electrical" }
-{ keywords: ["led light", "led panel", "led downlight"], keywordsAr: ["إضاءة ليد", "لمبة ليد"], unit: "no", category: "electrical" }
-{ keywords: ["generator", "diesel generator"], keywordsAr: ["مولد كهربائي", "مولد ديزل"], unit: "no", category: "electrical" }
+confidenceScore(item) =
+  sourcesCount / totalPossibleSources * 40%     // عدد المصادر المتاحة
+  + priceConsistency * 30%                       // مدى تقارب الاسعار من المصادر
+  + referenceMatch * 20%                         // مطابقة النطاق المرجعي
+  + unitMatch * 10%                              // صحة الوحدة
 
-// Plumbing  
-{ keywords: ["ppr pipe"], keywordsAr: ["مواسير بي بي آر"], unit: "m", category: "plumbing" }
-{ keywords: ["wash basin", "lavatory"], keywordsAr: ["حوض غسيل", "مغسلة"], unit: "no", category: "plumbing" }
-{ keywords: ["water closet", "wc", "toilet"], keywordsAr: ["مرحاض", "كرسي حمام"], unit: "no", category: "plumbing" }
-{ keywords: ["water heater", "boiler"], keywordsAr: ["سخان مياه", "بويلر"], unit: "no", category: "plumbing" }
-
-// HVAC
-{ keywords: ["chiller", "water cooled chiller"], keywordsAr: ["تشيلر", "مبرد مياه"], unit: "no", category: "hvac" }
-{ keywords: ["air handling unit", "ahu"], keywordsAr: ["وحدة مناولة هواء"], unit: "no", category: "hvac" }
-{ keywords: ["fan coil unit", "fcu"], keywordsAr: ["وحدة ملف مروحة"], unit: "no", category: "hvac" }
-{ keywords: ["ductwork", "gi duct", "galvanized duct"], keywordsAr: ["مجاري هواء", "دكت"], unit: "kg", category: "hvac" }
-
-// Fire Fighting
-{ keywords: ["fire hose cabinet", "fire cabinet"], keywordsAr: ["صندوق حريق", "خرطوم حريق"], unit: "no", category: "fire_fighting" }
-{ keywords: ["smoke detector"], keywordsAr: ["كاشف دخان"], unit: "no", category: "fire_fighting" }
+sourcesCount: كم مصدر وفر سعراً (0-7)
+priceConsistency: 1 - (stdDev / mean) لجميع الاسعار المتاحة
+referenceMatch: 1 اذا ضمن النطاق، 0.5 اذا قريب، 0 اذا خارج
 ```
 
-### منطق إعدادات التسعير
+### منطق كشف الشذوذ الاحصائي
 
 ```text
-// في AutoPriceDialog - قراءة الإعدادات
-const settings = getAnalysisSettings();
-const threshold = settings.pricingConfidenceThreshold || 30;
+لكل فئة (category):
+  1. حساب متوسط اسعار الوحدة لجميع بنود الفئة
+  2. حساب الانحراف المعياري
+  3. البنود التي تبعد > 2 SD تُعلّم كشاذة
+  4. مقارنة اضافية مع REFERENCE_PRICES[category].minPrice/maxPrice
+```
 
-// تصفية النتائج حسب الإعدادات
-if (!settings.enableMEPPricing) {
-  // تخطي بنود MEP من المطابقة المرجعية
-}
+### هيكل SmartPricingAlerts
 
-if (settings.applyCityFactor) {
-  // تطبيق معامل المدينة على السعر المقترح
-  suggestedPrice *= getCityFactor(settings.defaultCity);
-}
+```text
+SmartPricingAlerts
+├── Header: عدد التنبيهات + مستوى الخطورة الاجمالي
+├── Alert Groups (collapsible)
+│   ├── Critical (احمر): شاذ احصائياً + فارق كبير عن AI
+│   ├── Warning (برتقالي): خارج النطاق المرجعي
+│   └── Info (اصفر): بنود غير مسعرة حرجة
+├── Each Alert: رقم البند + الوصف + السعر الحالي vs المتوقع + زر اصلاح/تجاهل
+└── Footer: "اصلاح الكل" + "تجاهل الكل" + "تصدير التنبيهات"
 ```
