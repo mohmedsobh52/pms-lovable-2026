@@ -35,6 +35,8 @@ import { BalancedPricingReport } from "./BalancedPricingReport";
 import { PricingBalanceSummary } from "./PricingBalanceSummary";
 import { BalanceStatusColumn } from "./BalanceStatusColumn";
 import { PricingAlerts } from "./PricingAlerts";
+import { SmartPricingAlerts } from "./SmartPricingAlerts";
+import { PricingSourceComparisonPDF } from "./PricingSourceComparisonPDF";
 import { WBSTreeDiagram } from "./WBSTreeDiagram";
 import { ComprehensivePDFReport } from "./ComprehensivePDFReport";
 import { WBSFlowDiagram } from "./WBSFlowDiagram";
@@ -1739,6 +1741,17 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                     />
                   </div>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <div className="p-0">
+                    <PricingSourceComparisonPDF
+                      items={(data.items || []).filter(item => !deletedItemNumbers.has(item.item_number))}
+                      projectName={fileName || "Project"}
+                      currency={data.summary?.currency || "SAR"}
+                      getItemCalculatedCosts={getItemCalculatedCosts}
+                    />
+                  </div>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -2061,6 +2074,15 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 items={data.items || []}
                 getItemCalculatedCosts={getItemCalculatedCosts}
                 showToasts={false}
+              />
+
+              {/* Smart Pricing Alerts */}
+              <SmartPricingAlerts
+                items={data.items || []}
+                getItemCalculatedCosts={getItemCalculatedCosts}
+                onApplyFix={(itemNumber, newPrice) => {
+                  handleEditUnitPrice(itemNumber, newPrice);
+                }}
               />
 
               {/* Pricing Balance Summary Bar */}
