@@ -167,10 +167,14 @@ const AdminDashboardPage = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="mb-8">
+        <div className="mb-8 flex items-center gap-3 flex-wrap">
           <Button onClick={() => navigate("/admin/users")} variant="outline" className="gap-2">
             <Users className="w-4 h-4" />
             {isArabic ? "إدارة المستخدمين والصلاحيات" : "User & Role Management"}
+          </Button>
+          <Button onClick={() => navigate("/admin/activity")} variant="outline" className="gap-2">
+            <Clock className="w-4 h-4" />
+            {isArabic ? "سجل النشاطات" : "Activity Log"}
           </Button>
         </div>
 

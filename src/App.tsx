@@ -60,6 +60,7 @@ const ProgressCertificatesPage = lazy(() => import("./pages/ProgressCertificates
 const NewCertificatePage = lazy(() => import("./pages/NewCertificatePage"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
 const UserManagementPage = lazy(() => import("./pages/UserManagementPage"));
+const ActivityLogPage = lazy(() => import("./pages/ActivityLogPage"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -116,6 +117,7 @@ const App = () => (
                         <Route path="/admin/versions" element={<AdminVersions />} />
                         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                         <Route path="/admin/users" element={<UserManagementPage />} />
+                        <Route path="/admin/activity" element={<ActivityLogPage />} />
                         {/* Separate pages for each section */}
                         <Route path="/dashboard" element={<DashboardPage />} />
                         <Route path="/items" element={<BOQItemsPage />} />
