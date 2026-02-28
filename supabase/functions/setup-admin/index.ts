@@ -24,19 +24,21 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Verify user
+    // Verify user with getClaims
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      console.log("setup-admin: Invalid or expired token", userError?.message);
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims?.sub) {
+      console.log("setup-admin: Invalid or expired token", claimsError?.message);
       return new Response(JSON.stringify({ error: "not_authenticated", message: "Invalid or expired session. Please log in again." }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const user = { id: claimsData.claims.sub as string, email: (claimsData.claims.email as string) || "unknown" };
     console.log("setup-admin: Authenticated user:", user.id, user.email);
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);

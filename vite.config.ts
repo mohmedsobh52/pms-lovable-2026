@@ -11,13 +11,9 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
-    alias: [
-      {
-        find: /^@\/integrations\/supabase\/client$/,
-        replacement: path.resolve(__dirname, "./src/integrations/supabase/client.runtime.ts"),
-      },
-      { find: "@", replacement: path.resolve(__dirname, "./src") },
-    ],
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
   },
   build: {
     target: 'esnext',
