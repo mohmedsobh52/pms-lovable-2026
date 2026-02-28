@@ -2298,8 +2298,10 @@ export type Database = {
           analysis_data: Json | null
           created_at: string
           currency: string | null
+          deleted_at: string | null
           file_name: string | null
           id: string
+          is_deleted: boolean
           items_count: number | null
           name: string
           total_value: number | null
@@ -2311,8 +2313,10 @@ export type Database = {
           analysis_data?: Json | null
           created_at?: string
           currency?: string | null
+          deleted_at?: string | null
           file_name?: string | null
           id?: string
+          is_deleted?: boolean
           items_count?: number | null
           name: string
           total_value?: number | null
@@ -2324,8 +2328,10 @@ export type Database = {
           analysis_data?: Json | null
           created_at?: string
           currency?: string | null
+          deleted_at?: string | null
           file_name?: string | null
           id?: string
+          is_deleted?: boolean
           items_count?: number | null
           name?: string
           total_value?: number | null
@@ -2662,8 +2668,10 @@ export type Database = {
         Row: {
           analysis_data: Json | null
           created_at: string
+          deleted_at: string | null
           file_name: string | null
           id: string
+          is_deleted: boolean
           name: string
           status: string | null
           updated_at: string
@@ -2673,8 +2681,10 @@ export type Database = {
         Insert: {
           analysis_data?: Json | null
           created_at?: string
+          deleted_at?: string | null
           file_name?: string | null
           id?: string
+          is_deleted?: boolean
           name: string
           status?: string | null
           updated_at?: string
@@ -2684,8 +2694,10 @@ export type Database = {
         Update: {
           analysis_data?: Json | null
           created_at?: string
+          deleted_at?: string | null
           file_name?: string | null
           id?: string
+          is_deleted?: boolean
           name?: string
           status?: string | null
           updated_at?: string
