@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Download, FileJson, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain, Pencil, History, Loader2 } from "lucide-react";
+import { Download, FileJson, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Package, Layers, DollarSign, BarChart3, CalendarDays, FileSpreadsheet, FileText, FileDown, Link2, Search, Filter, X, SortAsc, SortDesc, Calculator, Wand2, Clock, Trash2, RotateCcw, ArrowDownToLine, Settings, MoreHorizontal, Pin, CloudOff, Cloud, ArrowUp, ArrowDown, XCircle, TrendingUp, Sparkles, Brain, Pencil, History, Loader2, Zap } from "lucide-react";
 import { DualHorizontalScrollBar } from "./DualHorizontalScrollBar";
 import { TableControls, BOQ_TABLE_COLUMNS } from "./TableControls";
 import {
@@ -59,6 +59,9 @@ import { SummaryDashboard } from "./SummaryDashboard";
 import { CompanyLogoUpload, getStoredLogo } from "./CompanyLogoUpload";
 import { HistoricalPriceLookup } from "./HistoricalPriceLookup";
 import { BulkHistoricalPricing } from "./BulkHistoricalPricing";
+import { UnifiedPricingDialog } from "./UnifiedPricingDialog";
+import { AnalysisQualityIndicator } from "./AnalysisQualityIndicator";
+import { supabase } from "@/integrations/supabase/client";
 import { useDynamicCostCalculator, CostInputs, defaultCostInputs } from "@/hooks/useDynamicCostCalculator";
 import { useItemCodes } from "@/hooks/useItemCodes";
 import { useEditedPrices } from "@/hooks/useEditedPrices";
@@ -235,6 +238,9 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   
   // State for tracking recently applied AI rates (for visual confirmation)
   const [recentlyAppliedItems, setRecentlyAppliedItems] = useState<Set<string>>(new Set());
+  
+  // State for single-item AI enrichment
+  const [enrichingItemId, setEnrichingItemId] = useState<string | null>(null);
   
   // Ref for horizontal scroll bar and page scroll
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -434,6 +440,46 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
       description: isArabic ? "تم استعادة الأسعار الأصلية ومسح جميع التعديلات" : "Original BOQ prices restored, all AI rates and calculations cleared",
     });
   }, [clearAllCosts, clearAllPrices, isArabic, toast]);
+
+  // Single-item AI enrichment handler
+  const handleSingleItemEnrich = useCallback(async (item: BOQItem) => {
+    setEnrichingItemId(item.item_number);
+    toast({
+      title: isArabic ? "جاري التحسين..." : "Enhancing...",
+      description: isArabic ? `تحسين البند ${item.item_number}` : `Enhancing item ${item.item_number}`,
+    });
+    try {
+      const itemText = `${item.item_number} | ${item.description} | ${item.unit} | ${item.quantity}`;
+      const { data: result, error } = await supabase.functions.invoke('analyze-boq', {
+        body: { text: itemText, analysis_type: 'extract_items', language: isArabic ? 'ar' : 'en' },
+      });
+      if (error) throw error;
+      const enhancedItems = result?.items || [];
+      if (enhancedItems.length > 0) {
+        const enhanced = enhancedItems[0];
+        // Update the item in data (mutate in-place for session)
+        const targetItem = (data.items || []).find(i => i.item_number === item.item_number);
+        if (targetItem) {
+          if (enhanced.category) (targetItem as any).category = enhanced.category;
+          if (enhanced.description_ar) (targetItem as any).description_ar = enhanced.description_ar;
+          if (enhanced.unit && enhanced.unit !== targetItem.unit) (targetItem as any).unit = enhanced.unit;
+        }
+        toast({
+          title: isArabic ? "✅ تم التحسين" : "✅ Enhanced",
+          description: isArabic
+            ? `تم تحسين البند ${item.item_number} بنجاح`
+            : `Item ${item.item_number} enhanced successfully`,
+        });
+      } else {
+        toast({ title: isArabic ? "لا توجد تحسينات" : "No enhancements found" });
+      }
+    } catch (err: any) {
+      console.error("Single item enrich error:", err);
+      toast({ title: isArabic ? "فشل التحسين" : "Enhancement failed", variant: "destructive" });
+    } finally {
+      setEnrichingItemId(null);
+    }
+  }, [data.items, isArabic, toast]);
 
   // Handle AI rates from MarketRateSuggestions - stores in aiSuggestedRate field
   const handleApplyAIRates = useCallback((rates: Array<{ itemId: string; rate: number }>) => {
@@ -1696,8 +1742,18 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Price Analysis Buttons */}
+            {/* Unified Pricing Button */}
             <div className="flex items-center gap-2 project-actions-section">
+              <UnifiedPricingDialog
+                items={data.items || []}
+                savedProjectId={savedProjectId}
+                currency={data.summary?.currency || "SAR"}
+                onApplyRate={onApplyRate}
+                onApplyAIRates={handleApplyAIRates}
+                onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
+                onApplyAutoPricing={onApplyAutoPricing}
+                onApplyHistoricalPrices={(prices) => prices.forEach(p => updateAIRate(p.itemNumber, p.price))}
+              />
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -1705,25 +1761,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                 onClick={() => setShowAutoPriceDialog(true)}
               >
                 <Wand2 className="w-4 h-4 text-emerald-500" />
-                <span className="hidden sm:inline">{isArabic ? "تسعير تلقائي" : "Auto Price"}</span>
+                <span className="hidden sm:inline">{isArabic ? "سريع" : "Quick"}</span>
               </Button>
-              <MarketRateSuggestions 
-                items={data.items || []} 
-                projectId={savedProjectId}
-                onApplyRate={onApplyRate} 
-                onApplyAIRates={handleApplyAIRates}
-                onApplyAIRatesToCalcPrice={handleApplyAIRatesToCalcPrice}
-              />
-              <EnhancedPricingAnalysis 
-                items={data.items || []}
-                onApplyRates={handleApplyAIRates}
-              />
-              <BulkHistoricalPricing
-                items={data.items || []}
-                onApplyPrices={(prices) => prices.forEach(p => updateAIRate(p.itemNumber, p.price))}
-                currency={data.summary?.currency || "SAR"}
-                currentProjectId={savedProjectId}
-              />
             </div>
 
             {/* Tools Dropdown */}
@@ -1884,6 +1923,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
           <div className="p-4 flex-1 min-w-0">
         {activeTab === "items" && (
           <div className="space-y-4">
+            {/* Analysis Quality Indicator */}
+            <AnalysisQualityIndicator items={data.items || []} />
             {/* Search and Filter Section */}
             <div className="space-y-3">
               <div className="flex flex-col sm:flex-row gap-2">
@@ -2558,6 +2599,19 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
                                   <span>{isArabic ? "سعر تاريخي" : "Historical Price"}</span>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
+                                {/* Enhance with AI */}
+                                <DropdownMenuItem
+                                  onClick={() => handleSingleItemEnrich(item)}
+                                  disabled={enrichingItemId === item.item_number}
+                                  className="gap-2 cursor-pointer"
+                                >
+                                  {enrichingItemId === item.item_number ? (
+                                    <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
+                                  ) : (
+                                    <Zap className="w-4 h-4 text-purple-600" />
+                                  )}
+                                  <span>{isArabic ? "تحسين بالـ AI" : "Enhance with AI"}</span>
+                                </DropdownMenuItem>
                                 {/* Edit */}
                                 <DropdownMenuItem
                                   onClick={() => {
