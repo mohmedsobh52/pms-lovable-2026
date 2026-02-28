@@ -10,12 +10,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Activity, UserPlus, ShieldCheck, ShieldOff, ArrowLeft,
-  ChevronLeft, ChevronRight, RefreshCw
+  ChevronLeft, ChevronRight, RefreshCw, Download, FileSpreadsheet, FileText
 } from "lucide-react";
 import { toast } from "sonner";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface ActivityEntry {
   id: string;
@@ -46,6 +51,8 @@ const ActivityLogPage = () => {
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const fetchLogs = useCallback(async () => {
     if (!user) return;
@@ -57,8 +64,12 @@ const ActivityLogPage = () => {
         .order("created_at", { ascending: false })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-      if (filter !== "all") {
-        query = query.eq("action", filter);
+      if (filter !== "all") query = query.eq("action", filter);
+      if (dateFrom) query = query.gte("created_at", new Date(dateFrom).toISOString());
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        query = query.lte("created_at", end.toISOString());
       }
 
       const { data, error } = await query;
@@ -71,54 +82,139 @@ const ActivityLogPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, filter, page, isArabic]);
+  }, [user, filter, page, dateFrom, dateTo, isArabic]);
 
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
     fetchLogs();
   }, [user, fetchLogs]);
 
-  // Realtime subscription
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel("activity-log-realtime")
-      .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "admin_activity_log",
-      }, (payload) => {
-        if (page === 0) {
-          setEntries((prev) => [payload.new as ActivityEntry, ...prev.slice(0, PAGE_SIZE - 1)]);
-        }
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "admin_activity_log" }, (payload) => {
+        if (page === 0) setEntries((prev) => [payload.new as ActivityEntry, ...prev.slice(0, PAGE_SIZE - 1)]);
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [user, page]);
 
-  const formatTime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleString(isArabic ? "ar-SA" : "en-US", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  };
+  const formatTime = (iso: string) => new Date(iso).toLocaleString(isArabic ? "ar-SA" : "en-US", { dateStyle: "medium", timeStyle: "short" });
 
   const getActionMeta = (action: string) =>
     ACTION_META[action] || { icon: Activity, label_ar: action, label_en: action, color: "bg-muted text-muted-foreground" };
 
   const getDetails = (entry: ActivityEntry) => {
-    if (entry.action === "new_user") {
-      return entry.details?.email || entry.target_id || "";
-    }
-    if (entry.action === "role_change") {
-      return `${entry.details?.target_email || entry.target_id} → ${entry.details?.new_role || ""}`;
-    }
-    if (entry.action === "role_removed") {
-      return entry.details?.target_email || entry.target_id || "";
-    }
+    if (entry.action === "new_user") return entry.details?.email || entry.target_id || "";
+    if (entry.action === "role_change") return `${entry.details?.target_email || entry.target_id} → ${entry.details?.new_role || ""}`;
+    if (entry.action === "role_removed") return entry.details?.target_email || entry.target_id || "";
     return JSON.stringify(entry.details || {});
+  };
+
+  const getActionLabel = (action: string) => {
+    const m = ACTION_META[action];
+    return m ? (isArabic ? m.label_ar : m.label_en) : action;
+  };
+
+  // Fetch ALL logs for export (ignoring pagination)
+  const fetchAllForExport = async (): Promise<ActivityEntry[]> => {
+    let query = supabase
+      .from("admin_activity_log")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    if (filter !== "all") query = query.eq("action", filter);
+    if (dateFrom) query = query.gte("created_at", new Date(dateFrom).toISOString());
+    if (dateTo) {
+      const end = new Date(dateTo);
+      end.setHours(23, 59, 59, 999);
+      query = query.lte("created_at", end.toISOString());
+    }
+    const { data } = await query;
+    return (data as ActivityEntry[]) || [];
+  };
+
+  const exportExcel = async () => {
+    try {
+      const all = await fetchAllForExport();
+      if (!all.length) { toast.info(isArabic ? "لا توجد بيانات للتصدير" : "No data to export"); return; }
+
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet(isArabic ? "سجل النشاطات" : "Activity Log");
+
+      const headers = isArabic
+        ? ["التاريخ/الوقت", "البريد الإلكتروني", "الإجراء", "الهدف", "التفاصيل"]
+        : ["Date/Time", "Email", "Action", "Target", "Details"];
+
+      ws.addRow(headers);
+      ws.getRow(1).font = { bold: true };
+      ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF3B82F6" } };
+      ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+
+      for (const e of all) {
+        ws.addRow([
+          formatTime(e.created_at),
+          e.actor_email || (isArabic ? "النظام" : "System"),
+          getActionLabel(e.action),
+          e.target_id || "",
+          getDetails(e),
+        ]);
+      }
+
+      ws.columns.forEach((col) => { col.width = 25; });
+      if (isArabic) ws.views = [{ rightToLeft: true, state: "normal" }];
+
+      const buf = await wb.xlsx.writeBuffer();
+      saveAs(new Blob([buf]), `activity-log-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      toast.success(isArabic ? "تم تصدير Excel بنجاح" : "Excel exported");
+    } catch (err) {
+      console.error(err);
+      toast.error(isArabic ? "خطأ في التصدير" : "Export error");
+    }
+  };
+
+  const exportPDF = async () => {
+    try {
+      const all = await fetchAllForExport();
+      if (!all.length) { toast.info(isArabic ? "لا توجد بيانات للتصدير" : "No data to export"); return; }
+
+      const doc = new jsPDF({ orientation: "landscape" });
+      const title = isArabic ? "تقرير سجل النشاطات" : "Activity Log Report";
+      doc.setFontSize(16);
+      doc.text(title, 14, 15);
+      doc.setFontSize(10);
+      const dateRange = dateFrom || dateTo
+        ? `${dateFrom || "..."} - ${dateTo || "..."}`
+        : (isArabic ? "كل الفترات" : "All time");
+      doc.text(dateRange, 14, 22);
+
+      const headers = isArabic
+        ? [["التاريخ/الوقت", "البريد الإلكتروني", "الإجراء", "الهدف", "التفاصيل"]]
+        : [["Date/Time", "Email", "Action", "Target", "Details"]];
+
+      const rows = all.map((e) => [
+        formatTime(e.created_at),
+        e.actor_email || (isArabic ? "النظام" : "System"),
+        getActionLabel(e.action),
+        e.target_id || "",
+        getDetails(e),
+      ]);
+
+      autoTable(doc, {
+        head: headers,
+        body: rows,
+        startY: 28,
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      });
+
+      doc.save(`activity-log-${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success(isArabic ? "تم تصدير PDF بنجاح" : "PDF exported");
+    } catch (err) {
+      console.error(err);
+      toast.error(isArabic ? "خطأ في التصدير" : "Export error");
+    }
   };
 
   return (
@@ -138,14 +234,12 @@ const ActivityLogPage = () => {
           </div>
           <div className="flex items-center gap-2">
             <AdminNotificationsBell />
-            <Button variant="outline" size="icon" onClick={fetchLogs}>
-              <RefreshCw className="w-4 h-4" />
-            </Button>
+            <Button variant="outline" size="icon" onClick={fetchLogs}><RefreshCw className="w-4 h-4" /></Button>
           </div>
         </div>
 
-        {/* Filter */}
-        <div className="mb-4">
+        {/* Filters & Export */}
+        <div className="mb-4 flex items-center gap-3 flex-wrap">
           <Select value={filter} onValueChange={(v) => { setFilter(v); setPage(0); }}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder={isArabic ? "كل الإجراءات" : "All actions"} />
@@ -157,6 +251,23 @@ const ActivityLogPage = () => {
               <SelectItem value="role_removed">{isArabic ? "إزالة صلاحية" : "Role removed"}</SelectItem>
             </SelectContent>
           </Select>
+
+          <div className="flex items-center gap-2">
+            <Input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(0); }} className="w-40" placeholder={isArabic ? "من" : "From"} />
+            <span className="text-muted-foreground text-sm">-</span>
+            <Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(0); }} className="w-40" placeholder={isArabic ? "إلى" : "To"} />
+          </div>
+
+          <div className="flex items-center gap-2 mr-auto">
+            <Button variant="outline" size="sm" onClick={exportExcel} className="gap-1.5">
+              <FileSpreadsheet className="w-4 h-4" />
+              Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportPDF} className="gap-1.5">
+              <FileText className="w-4 h-4" />
+              PDF
+            </Button>
+          </div>
         </div>
 
         <Card className="border-border/50">
@@ -168,13 +279,9 @@ const ActivityLogPage = () => {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-              </div>
+              <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
             ) : entries.length === 0 ? (
-              <p className="text-center text-muted-foreground py-12">
-                {isArabic ? "لا توجد عمليات مسجلة" : "No activity records"}
-              </p>
+              <p className="text-center text-muted-foreground py-12">{isArabic ? "لا توجد عمليات مسجلة" : "No activity records"}</p>
             ) : (
               <div className="space-y-2">
                 {entries.map((entry) => {
@@ -182,43 +289,30 @@ const ActivityLogPage = () => {
                   const Icon = meta.icon;
                   return (
                     <div key={entry.id} className="flex items-start gap-3 p-3 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors">
-                      <div className={`p-2 rounded-full ${meta.color}`}>
-                        <Icon className="w-4 h-4" />
-                      </div>
+                      <div className={`p-2 rounded-full ${meta.color}`}><Icon className="w-4 h-4" /></div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="outline" className="text-xs">
-                            {isArabic ? meta.label_ar : meta.label_en}
-                          </Badge>
+                          <Badge variant="outline" className="text-xs">{isArabic ? meta.label_ar : meta.label_en}</Badge>
                           <span className="text-xs text-muted-foreground">
-                            {entry.actor_email && entry.actor_email !== "system"
-                              ? entry.actor_email
-                              : (isArabic ? "النظام" : "System")}
+                            {entry.actor_email && entry.actor_email !== "system" ? entry.actor_email : (isArabic ? "النظام" : "System")}
                           </span>
                         </div>
-                        <p className="text-sm mt-1 text-foreground/80 truncate">
-                          {getDetails(entry)}
-                        </p>
+                        <p className="text-sm mt-1 text-foreground/80 truncate">{getDetails(entry)}</p>
                       </div>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {formatTime(entry.created_at)}
-                      </span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{formatTime(entry.created_at)}</span>
                     </div>
                   );
                 })}
               </div>
             )}
 
-            {/* Pagination */}
             {!loading && (entries.length > 0 || page > 0) && (
               <div className="flex items-center justify-center gap-3 mt-6">
                 <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
                   <ChevronRight className="w-4 h-4" />
                   {isArabic ? "السابق" : "Previous"}
                 </Button>
-                <span className="text-sm text-muted-foreground">
-                  {isArabic ? `صفحة ${page + 1}` : `Page ${page + 1}`}
-                </span>
+                <span className="text-sm text-muted-foreground">{isArabic ? `صفحة ${page + 1}` : `Page ${page + 1}`}</span>
                 <Button variant="outline" size="sm" disabled={!hasMore} onClick={() => setPage((p) => p + 1)}>
                   {isArabic ? "التالي" : "Next"}
                   <ChevronLeft className="w-4 h-4" />
