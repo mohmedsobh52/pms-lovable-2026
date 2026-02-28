@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { Bell } from "lucide-react";
+import { Bell, BellRing } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Popover,
   PopoverContent,
@@ -25,9 +27,15 @@ interface AdminNotification {
 export const AdminNotificationsBell = () => {
   const { user } = useAuth();
   const { isArabic } = useLanguage();
+  const { isSupported, isEnabled, requestPermission, showNotification } = usePushNotifications();
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+
+  useEffect(() => {
+    setPushEnabled(isEnabled);
+  }, [isEnabled]);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -66,6 +74,16 @@ export const AdminNotificationsBell = () => {
           setNotifications((prev) => [n, ...prev].slice(0, 20));
           setUnreadCount((c) => c + 1);
           toast.info(n.title, { description: n.message });
+
+          // Browser push notification
+          if (pushEnabled) {
+            showNotification({
+              title: n.title,
+              body: n.message,
+              tag: `admin-${n.type}`,
+              data: n.metadata,
+            });
+          }
         }
       )
       .subscribe();
@@ -73,7 +91,7 @@ export const AdminNotificationsBell = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, pushEnabled, showNotification]);
 
   const markAllRead = async () => {
     if (!user) return;
@@ -85,6 +103,15 @@ export const AdminNotificationsBell = () => {
 
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     setUnreadCount(0);
+  };
+
+  const handleTogglePush = async () => {
+    if (!pushEnabled) {
+      const granted = await requestPermission();
+      setPushEnabled(granted);
+    } else {
+      setPushEnabled(false);
+    }
   };
 
   const formatTime = (dateStr: string) => {
@@ -118,11 +145,19 @@ export const AdminNotificationsBell = () => {
           <h4 className="font-semibold text-sm">
             {isArabic ? "الإشعارات" : "Notifications"}
           </h4>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={markAllRead}>
-              {isArabic ? "تحديد الكل كمقروء" : "Mark all read"}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {isSupported && (
+              <div className="flex items-center gap-1.5" title={isArabic ? "إشعارات المتصفح" : "Browser Notifications"}>
+                <BellRing className="w-3.5 h-3.5 text-muted-foreground" />
+                <Switch checked={pushEnabled} onCheckedChange={handleTogglePush} className="scale-75" />
+              </div>
+            )}
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" className="text-xs h-7" onClick={markAllRead}>
+                {isArabic ? "تحديد الكل كمقروء" : "Mark all read"}
+              </Button>
+            )}
+          </div>
         </div>
         <div className="max-h-[300px] overflow-y-auto">
           {notifications.length === 0 ? (

@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Users, FolderOpen, FileText, TrendingUp,
-  ShieldAlert, ArrowLeft, BarChart3, Clock, Shield
+  ShieldAlert, ArrowLeft, BarChart3, Clock, Shield, Send, CalendarClock, Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -40,6 +40,8 @@ const AdminDashboardPage = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
+  const [sendingReport, setSendingReport] = useState(false);
+  const [lastReportResult, setLastReportResult] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
@@ -234,6 +236,56 @@ const AdminDashboardPage = () => {
             </Card>
           </div>
         )}
+
+        {/* Scheduled Reports */}
+        <Card className="border-border/50 mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <CalendarClock className="w-5 h-5 text-primary" />
+              {isArabic ? "التقارير المجدولة" : "Scheduled Reports"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex-1 min-w-[200px]">
+                <p className="text-sm text-muted-foreground mb-1">
+                  {isArabic ? "تقرير أسبوعي يُرسل تلقائياً كل أحد الساعة 8 صباحاً للمشرفين" : "Weekly report auto-sent every Sunday at 8 AM to all admins"}
+                </p>
+                {lastReportResult && (
+                  <p className="text-xs text-emerald-600">{lastReportResult}</p>
+                )}
+              </div>
+              <Button
+                onClick={async () => {
+                  setSendingReport(true);
+                  setLastReportResult(null);
+                  try {
+                    const { data, error } = await supabase.functions.invoke("send-admin-weekly-report");
+                    if (error) throw error;
+                    if (data?.success) {
+                      const msg = isArabic
+                        ? `✅ تم إرسال التقرير إلى ${data.recipients} مشرف`
+                        : `✅ Report sent to ${data.recipients} admin(s)`;
+                      toast.success(msg);
+                      setLastReportResult(msg);
+                    } else {
+                      toast.error(data?.error || "Failed");
+                    }
+                  } catch (err: any) {
+                    toast.error(err.message || "Error");
+                  } finally {
+                    setSendingReport(false);
+                  }
+                }}
+                disabled={sendingReport}
+                className="gap-2"
+              >
+                {sendingReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {isArabic ? "إرسال تقرير الآن" : "Send Report Now"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Latest Projects */}
         <Card className="border-border/50">
