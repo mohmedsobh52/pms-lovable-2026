@@ -338,21 +338,12 @@ export function SaveProjectButton({
     setIsSaving(true);
 
     try {
-      await supabase
-        .from('project_items' as any)
-        .delete()
-        .eq('project_id', duplicateProject.id);
-
-      await supabase
-        .from('project_data' as any)
-        .delete()
-        .eq('id', duplicateProject.id);
-
-      await supabase
-        .from('saved_projects')
-        .delete()
-        .eq('user_id', user.id)
-        .ilike('name', duplicateProject.name);
+      // Soft delete the old project instead of hard delete
+      const now = new Date().toISOString();
+      await Promise.all([
+        supabase.from('saved_projects').update({ is_deleted: true, deleted_at: now }).eq('id', duplicateProject.id),
+        supabase.from('project_data').update({ is_deleted: true, deleted_at: now }).eq('id', duplicateProject.id),
+      ]);
 
       await saveNewProject();
       setDuplicateProject(null);
@@ -475,7 +466,7 @@ export function SaveProjectButton({
               يوجد مشروع بنفس الاسم
             </AlertDialogTitle>
             <AlertDialogDescription>
-              يوجد مشروع محفوظ باسم "{duplicateProject?.name}". يمكنك استبداله بالبيانات الجديدة أو حفظه باسم مختلف.
+              يوجد مشروع محفوظ باسم "{duplicateProject?.name}". سيتم نقل القديم إلى سلة المحذوفات (يمكنك استعادته خلال 30 يوم) أو احفظ باسم مختلف.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
@@ -495,7 +486,7 @@ export function SaveProjectButton({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin ml-2" /> : null}
-              استبدال القديم
+              استبدال (نقل القديم للمحذوفات)
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

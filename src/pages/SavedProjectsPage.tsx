@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AttachmentsTab } from "@/components/projects/AttachmentsTab";
 import { ReportsTab } from "@/components/projects/ReportsTab";
 import { BOQAnalyzerPanel } from "@/components/BOQAnalyzerPanel";
+import { RecycleBin } from "@/components/RecycleBin";
 import {
   Select,
   SelectContent,
@@ -223,11 +224,13 @@ export default function SavedProjectsPage() {
           .from("saved_projects")
           .select("*")
           .eq("user_id", user.id)
+          .or("is_deleted.eq.false,is_deleted.is.null")
           .order("updated_at", { ascending: false }),
         supabase
           .from("project_data")
           .select("*")
           .eq("user_id", user.id)
+          .or("is_deleted.eq.false,is_deleted.is.null")
           .order("created_at", { ascending: false })
       ]);
 
@@ -362,56 +365,12 @@ export default function SavedProjectsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      // 1. Get project_items IDs for cascading deletes
-      const { data: projectItems } = await supabase
-        .from("project_items")
-        .select("id")
-        .eq("project_id", id);
-
-      const itemIds = (projectItems || []).map((i: any) => i.id);
-
-      // 2. Delete child tables linked via project_items
-      if (itemIds.length > 0) {
-        const { error: costErr } = await supabase
-          .from("item_costs")
-          .delete()
-          .in("project_item_id", itemIds);
-        if (costErr) throw costErr;
-
-        const { error: pricingErr } = await supabase
-          .from("item_pricing_details")
-          .delete()
-          .in("project_item_id", itemIds);
-        if (pricingErr) throw pricingErr;
-      }
-
-      // 3. Delete edited_boq_prices linked to project
-      const { error: boqErr } = await supabase
-        .from("edited_boq_prices")
-        .delete()
-        .or(`project_id.eq.${id},saved_project_id.eq.${id}`);
-      if (boqErr) throw boqErr;
-
-      // 4. Delete project_items
-      const { error: itemsErr } = await supabase
-        .from("project_items")
-        .delete()
-        .eq("project_id", id);
-      if (itemsErr) throw itemsErr;
-
-      // 5. Delete from project_data
-      const { error: pdErr } = await supabase
-        .from("project_data")
-        .delete()
-        .eq("id", id);
-      if (pdErr) throw pdErr;
-
-      // 6. Delete from saved_projects
-      const { error: spErr } = await supabase
-        .from("saved_projects")
-        .delete()
-        .eq("id", id);
-      if (spErr) throw spErr;
+      const now = new Date().toISOString();
+      // Soft delete: mark as deleted instead of removing
+      await Promise.all([
+        supabase.from("saved_projects").update({ is_deleted: true, deleted_at: now }).eq("id", id),
+        supabase.from("project_data").update({ is_deleted: true, deleted_at: now }).eq("id", id),
+      ]);
 
       // Clear cache and refresh
       if (user) {
@@ -419,7 +378,8 @@ export default function SavedProjectsPage() {
       }
 
       toast({
-        title: isArabic ? "تم حذف المشروع" : "Project deleted",
+        title: isArabic ? "تم نقل المشروع إلى سلة المحذوفات" : "Project moved to recycle bin",
+        description: isArabic ? "يمكنك استعادته خلال 30 يوم" : "You can restore it within 30 days",
       });
       fetchProjects(true);
     } catch (error: any) {
@@ -702,63 +662,19 @@ export default function SavedProjectsPage() {
     }
   };
 
-  // Bulk delete handler
+  // Bulk delete handler (soft delete)
   const handleBulkDelete = async () => {
     if (selectedProjectIds.size === 0) return;
     setIsBulkDeleting(true);
     try {
       const ids = Array.from(selectedProjectIds);
+      const now = new Date().toISOString();
+      
       for (const id of ids) {
-        // 1. Get project_items IDs
-        const { data: projectItems } = await supabase
-          .from("project_items")
-          .select("id")
-          .eq("project_id", id);
-
-        const itemIds = (projectItems || []).map((i: any) => i.id);
-
-        // 2. Delete child tables
-        if (itemIds.length > 0) {
-          const { error: costErr } = await supabase
-            .from("item_costs")
-            .delete()
-            .in("project_item_id", itemIds);
-          if (costErr) throw costErr;
-
-          const { error: pricingErr } = await supabase
-            .from("item_pricing_details")
-            .delete()
-            .in("project_item_id", itemIds);
-          if (pricingErr) throw pricingErr;
-        }
-
-        // 3. Delete edited_boq_prices
-        const { error: boqErr } = await supabase
-          .from("edited_boq_prices")
-          .delete()
-          .or(`project_id.eq.${id},saved_project_id.eq.${id}`);
-        if (boqErr) throw boqErr;
-
-        // 4. Delete project_items
-        const { error: itemsErr } = await supabase
-          .from("project_items")
-          .delete()
-          .eq("project_id", id);
-        if (itemsErr) throw itemsErr;
-
-        // 5. Delete from project_data
-        const { error: pdErr } = await supabase
-          .from("project_data")
-          .delete()
-          .eq("id", id);
-        if (pdErr) throw pdErr;
-
-        // 6. Delete from saved_projects
-        const { error: spErr } = await supabase
-          .from("saved_projects")
-          .delete()
-          .eq("id", id);
-        if (spErr) throw spErr;
+        await Promise.all([
+          supabase.from("saved_projects").update({ is_deleted: true, deleted_at: now }).eq("id", id),
+          supabase.from("project_data").update({ is_deleted: true, deleted_at: now }).eq("id", id),
+        ]);
       }
 
       // Clear cache
@@ -768,8 +684,8 @@ export default function SavedProjectsPage() {
 
       toast({
         title: isArabic
-          ? `تم حذف ${ids.length} مشروع بنجاح`
-          : `${ids.length} projects deleted successfully`,
+          ? `تم نقل ${ids.length} مشروع إلى سلة المحذوفات`
+          : `${ids.length} projects moved to recycle bin`,
       });
       setSelectedProjectIds(new Set());
       setShowBulkDeleteConfirm(false);
@@ -1189,7 +1105,7 @@ export default function SavedProjectsPage() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <TabsList className="grid w-full sm:w-auto grid-cols-4 p-1 h-auto tabs-navigation-safe bg-muted/50 backdrop-blur-sm">
+            <TabsList className="grid w-full sm:w-auto grid-cols-5 p-1 h-auto tabs-navigation-safe bg-muted/50 backdrop-blur-sm">
               <TabsTrigger
                 value="projects"
                 className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50"
@@ -1231,6 +1147,13 @@ export default function SavedProjectsPage() {
               >
                 <Paperclip className="w-4 h-4" />
                 <span className="hidden sm:inline">{isArabic ? "المرفقات" : "Attachments"}</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="recycle-bin"
+                className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">{isArabic ? "المحذوفات" : "Recycle Bin"}</span>
               </TabsTrigger>
             </TabsList>
 
@@ -1456,12 +1379,12 @@ export default function SavedProjectsPage() {
           <AlertDialogContent dir={isArabic ? 'rtl' : 'ltr'}>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                {isArabic ? "حذف المشاريع المحددة" : "Delete Selected Projects"}
+                {isArabic ? "نقل المشاريع المحددة لسلة المحذوفات" : "Move Selected to Recycle Bin"}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {isArabic
-                  ? `هل أنت متأكد من حذف ${selectedProjectIds.size} مشروع؟ لا يمكن التراجع عن هذا الإجراء.`
-                  : `Are you sure you want to delete ${selectedProjectIds.size} projects? This action cannot be undone.`}
+                  ? `سيتم نقل ${selectedProjectIds.size} مشروع إلى سلة المحذوفات. يمكنك استعادتها خلال 30 يوم.`
+                  : `${selectedProjectIds.size} projects will be moved to the recycle bin. You can restore them within 30 days.`}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="gap-2">
@@ -1738,13 +1661,13 @@ export default function SavedProjectsPage() {
                     </AlertDialogTrigger>
                     <AlertDialogContent dir={isArabic ? 'rtl' : 'ltr'}>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          {isArabic ? "حذف المشروع" : "Delete Project"}
+                         <AlertDialogTitle>
+                          {isArabic ? "نقل إلى سلة المحذوفات" : "Move to Recycle Bin"}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                           {isArabic 
-                            ? `هل أنت متأكد من حذف "${project.name}"؟ لا يمكن التراجع عن هذا الإجراء.`
-                            : `Are you sure you want to delete "${project.name}"? This action cannot be undone.`
+                            ? `سيتم نقل "${project.name}" إلى سلة المحذوفات. يمكنك استعادته خلال 30 يوم.`
+                            : `"${project.name}" will be moved to the recycle bin. You can restore it within 30 days.`
                           }
                         </AlertDialogDescription>
                       </AlertDialogHeader>
@@ -1754,7 +1677,7 @@ export default function SavedProjectsPage() {
                           onClick={() => handleDelete(project.id)}
                           className="bg-destructive text-destructive-foreground"
                         >
-                          {isArabic ? "حذف" : "Delete"}
+                          {isArabic ? "نقل للمحذوفات" : "Move to Bin"}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -1834,6 +1757,11 @@ export default function SavedProjectsPage() {
           {/* Attachments Tab */}
           <TabsContent value="attachments">
             <AttachmentsTab initialExtractionMode={extractionMode} />
+          </TabsContent>
+
+          {/* Recycle Bin Tab */}
+          <TabsContent value="recycle-bin">
+            <RecycleBin onRestored={() => fetchProjects(true)} />
           </TabsContent>
         </Tabs>
       </main>

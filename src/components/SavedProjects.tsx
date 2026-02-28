@@ -63,6 +63,7 @@ export function SavedProjects({ onLoadProject }: SavedProjectsProps) {
         .from("saved_projects")
         .select("*")
         .eq("user_id", user.id)
+        .or("is_deleted.eq.false,is_deleted.is.null")
         .order("created_at", { ascending: false });
 
       if (projectsError) throw projectsError;
@@ -110,9 +111,16 @@ export function SavedProjects({ onLoadProject }: SavedProjectsProps) {
   }, [projects, statusFilter, searchQuery]);
 
   const handleDelete = async (id: string) => {
+    const now = new Date().toISOString();
     const { error } = await supabase
       .from("saved_projects")
-      .delete()
+      .update({ is_deleted: true, deleted_at: now })
+      .eq("id", id);
+
+    // Also soft-delete from project_data
+    await supabase
+      .from("project_data")
+      .update({ is_deleted: true, deleted_at: now })
       .eq("id", id);
 
     if (error) {
@@ -123,7 +131,8 @@ export function SavedProjects({ onLoadProject }: SavedProjectsProps) {
       });
     } else {
       toast({
-        title: isArabic ? "تم حذف المشروع" : "Project deleted",
+        title: isArabic ? "تم نقل المشروع إلى سلة المحذوفات" : "Project moved to recycle bin",
+        description: isArabic ? "يمكنك استعادته خلال 30 يوم" : "You can restore it within 30 days",
       });
       fetchProjects();
     }
