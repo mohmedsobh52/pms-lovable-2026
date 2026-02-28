@@ -84,6 +84,15 @@ const AdminDashboardPage = () => {
     }
   };
 
+  const [autoSetupAttempted, setAutoSetupAttempted] = useState(false);
+
+  useEffect(() => {
+    if (!loading && !authorized && !autoSetupAttempted && user) {
+      setAutoSetupAttempted(true);
+      handleSetupAdmin();
+    }
+  }, [loading, authorized, autoSetupAttempted, user]);
+
   if (!loading && !authorized) {
     return (
       <div className="min-h-screen bg-background">
