@@ -67,7 +67,7 @@ const UserManagementPage = () => {
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.functions.invoke("manage-users", { method: "GET" });
+      const { data, error } = await supabase.functions.invoke("manage-users", { body: { action: "list_users" } });
       if (error) throw error;
       if (data?.error === "not_authenticated") {
         toast.error(isArabic ? "الجلسة منتهية، يرجى تسجيل الدخول مرة أخرى" : "Session expired, please log in again");
