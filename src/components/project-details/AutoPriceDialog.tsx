@@ -76,9 +76,9 @@ const EXPERT_KEYWORDS: Record<string, number> = {
   pipe: 7, pipeline: 7, hdpe: 8, upvc: 8, "ductile iron": 8, manhole: 8,
   valve: 7, hydrant: 7, "fire hydrant": 8, fitting: 6, joint: 5, coupling: 6,
   sewer: 7, drainage: 7, "storm water": 7, culvert: 7, "catch basin": 7, gully: 6,
-  // Electrical
-  cable: 7, conductor: 7, transformer: 8, switchgear: 8, "cable tray": 7,
-  conduit: 7, "street light": 7, lighting: 6, panel: 6, "mdb": 7, "db": 5,
+  // Electrical (base + MEP)
+  cable: 7, conductor: 7, transformer: 8, "cable tray": 7,
+  conduit: 7, "street light": 7, lighting: 6, panel: 6, "db": 5,
   // Roads & pavement
   asphalt: 8, bitumen: 7, subbase: 7, "base course": 7, curb: 7, kerb: 7,
   pavement: 7, sidewalk: 6, "road marking": 7, guardrail: 7, "traffic sign": 7,
@@ -97,6 +97,29 @@ const EXPERT_KEYWORDS: Record<string, number> = {
   "أنابيب": 7, "مواسير": 7, "غرف": 6, "تفتيش": 6, "كابلات": 7,
   "أسفلت": 8, "رصف": 7, "إنارة": 6, "صرف": 7, "مياه": 6,
   "عزل": 7, "دهانات": 5, "بلاط": 6, "أرضيات": 6, "سور": 6,
+  // MEP - Electrical keywords
+  mdb: 8, switchgear: 8, socket: 6, outlet: 6, led: 6, generator: 8,
+  ups: 7, breaker: 7, mcb: 7, mccb: 7, busbar: 7, earthing: 7,
+  grounding: 7, "emergency light": 7, "data cable": 6, cat6: 6,
+  // MEP - Plumbing keywords
+  ppr: 8, cpvc: 7, "copper pipe": 7, basin: 6, wc: 7, "water heater": 7,
+  mixer: 6, trap: 5, "floor drain": 6, faucet: 6, shower: 6, bathtub: 6,
+  lavatory: 6, "kitchen sink": 6, boiler: 7,
+  // MEP - HVAC keywords
+  chiller: 8, ahu: 8, fcu: 7, duct: 7, diffuser: 7, thermostat: 6,
+  vrf: 8, vrv: 8, "split unit": 7, "package unit": 7, "exhaust fan": 6,
+  // MEP - Fire Fighting keywords
+  "sprinkler system": 8, "fire hose": 7, extinguisher: 7, "smoke detector": 7,
+  "fire cabinet": 7, "fire pump": 8, fm200: 8, facp: 7, "heat detector": 7,
+  // MEP - Smart/BMS keywords
+  bms: 8, cctv: 7, "access control": 7, intercom: 6,
+  "pa system": 6, "sound system": 6, "security camera": 7,
+  // MEP Arabic keywords
+  "لوحة توزيع": 8, "قاطع": 7, "مقبس": 6, "بريزة": 6, "ليد": 6, "مولد": 8,
+  "سباكة": 8, "خلاط": 6, "مرحاض": 7, "سخان": 7, "حنفية": 6, "دش": 5,
+  "تكييف": 8, "تشيلر": 8, "دكت": 7, "مروحة": 6, "ثرموستات": 6, "سبلت": 7,
+  "رشاشات": 7, "طفاية": 7, "كاشف دخان": 8, "إنذار حريق": 8, "مضخة حريق": 8,
+  "كاميرا مراقبة": 7, "إنتركم": 6, "نظام صوت": 6, "تحكم دخول": 7,
 };
 
 // Common stop words that should NOT contribute to matching
@@ -165,7 +188,16 @@ function AutoPriceDialogComponent({
   isArabic,
   currency,
 }: AutoPriceDialogProps) {
-  const [confidenceThreshold, setConfidenceThreshold] = useState([30]);
+  // Load pricing settings from AnalysisSettings
+  const loadedSettings = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('analysis_settings');
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return {};
+  }, [isOpen]);
+  
+  const [confidenceThreshold, setConfidenceThreshold] = useState([loadedSettings.pricingConfidenceThreshold || 30]);
   const [isApplying, setIsApplying] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [historicalItems, setHistoricalItems] = useState<HistoricalItem[]>([]);
@@ -350,11 +382,32 @@ function AutoPriceDialogComponent({
       }
     }
     
-    // 3. Unit matching bonus (+20)
+    // 3. Unit matching bonus (+20) or penalty for mismatch
     const normItemUnit = normalizeUnit(itemUnit);
     const normRefUnit = normalizeUnit(refUnit);
-    if (normItemUnit && normRefUnit && normItemUnit === normRefUnit) {
-      score += 20;
+    if (normItemUnit && normRefUnit) {
+      if (normItemUnit === normRefUnit) {
+        score += 20;
+      } else {
+        // Penalize incompatible unit mismatches (e.g. m3 vs no)
+        const volumeUnits = new Set(["m3", "m2", "m", "kg", "ton"]);
+        const countUnits = new Set(["no", "set", "ls"]);
+        if ((volumeUnits.has(normItemUnit) && countUnits.has(normRefUnit)) ||
+            (countUnits.has(normItemUnit) && volumeUnits.has(normRefUnit))) {
+          score = Math.max(score - 15, 0);
+        }
+      }
+    }
+    
+    // 3b. MEP category boost (+20% weight for MEP items)
+    const mepCategories = new Set(["electrical", "plumbing", "hvac", "fire_fighting", "smart", "mep"]);
+    if (refCategory && mepCategories.has(refCategory.toLowerCase())) {
+      const descHasMEP = ["cable", "pipe", "duct", "pump", "valve", "light", "switch", "socket",
+        "كهرب", "سباكة", "تكييف", "مواسير", "إنارة", "مضخة", "صمام", "مقبس"
+      ].some(kw => descLower.includes(kw));
+      if (descHasMEP) {
+        score = Math.round(score * 1.2);
+      }
     }
     
     // 4. Category matching bonus (+15) 
@@ -426,9 +479,13 @@ function AutoPriceDialogComponent({
         }
       }
 
-      // 6. Check built-in reference prices (fallback)
+      // 6. Check built-in reference prices (fallback) - respect MEP setting
+      const enableMEP = loadedSettings.enableMEPPricing !== false; // default true
       if (!bestMatch || bestMatch.confidence < 50) {
+        const mepCats = new Set(["electrical", "plumbing", "hvac", "fire_fighting", "smart"]);
         for (const ref of REFERENCE_PRICES) {
+          // Skip MEP items if disabled
+          if (!enableMEP && mepCats.has(ref.category)) continue;
           const descLower = description.toLowerCase();
           let refScore = 0;
           

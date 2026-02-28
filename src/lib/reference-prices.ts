@@ -87,4 +87,64 @@ export const REFERENCE_PRICES: ReferencePrice[] = [
   // Concrete accessories
   { keywords: ["expansion joint", "joint sealant"], keywordsAr: ["فاصل تمدد", "فواصل"], unit: "m", minPrice: 30, maxPrice: 150, avgPrice: 75, category: "concrete" },
   { keywords: ["concrete block", "block work", "cmu", "hollow block"], keywordsAr: ["بلك", "بلوك", "طوب"], unit: "m2", minPrice: 25, maxPrice: 80, avgPrice: 50, category: "masonry" },
+
+  // ============= MEP - Electrical (Extended) =============
+  { keywords: ["main distribution board", "mdb", "main db"], keywordsAr: ["لوحة توزيع رئيسية", "لوحة رئيسية"], unit: "no", minPrice: 5000, maxPrice: 35000, avgPrice: 15000, category: "electrical" },
+  { keywords: ["sub distribution board", "sdb", "sub db"], keywordsAr: ["لوحة توزيع فرعية", "لوحة فرعية"], unit: "no", minPrice: 2000, maxPrice: 12000, avgPrice: 6000, category: "electrical" },
+  { keywords: ["circuit breaker", "mcb", "mccb", "breaker"], keywordsAr: ["قاطع كهربائي", "قاطع دارة"], unit: "no", minPrice: 20, maxPrice: 800, avgPrice: 150, category: "electrical" },
+  { keywords: ["switchgear", "switch gear", "lv switchgear", "mv switchgear"], keywordsAr: ["لوحة تحويل", "سويتش جير"], unit: "no", minPrice: 15000, maxPrice: 120000, avgPrice: 50000, category: "electrical" },
+  { keywords: ["socket outlet", "power socket", "socket", "outlet"], keywordsAr: ["مقبس كهرباء", "بريزة", "مأخذ كهربائي"], unit: "no", minPrice: 15, maxPrice: 80, avgPrice: 35, category: "electrical" },
+  { keywords: ["light switch", "switch plate", "dimmer"], keywordsAr: ["مفتاح إنارة", "مفتاح كهرباء"], unit: "no", minPrice: 10, maxPrice: 60, avgPrice: 30, category: "electrical" },
+  { keywords: ["led light", "led panel", "led downlight", "led fixture"], keywordsAr: ["إضاءة ليد", "لمبة ليد", "كشاف ليد"], unit: "no", minPrice: 30, maxPrice: 350, avgPrice: 120, category: "electrical" },
+  { keywords: ["emergency light", "exit light", "emergency lighting"], keywordsAr: ["إنارة طوارئ", "لمبة طوارئ"], unit: "no", minPrice: 50, maxPrice: 300, avgPrice: 150, category: "electrical" },
+  { keywords: ["ups", "uninterruptible power supply"], keywordsAr: ["يو بي اس", "مزود طاقة"], unit: "no", minPrice: 2000, maxPrice: 50000, avgPrice: 15000, category: "electrical" },
+  { keywords: ["generator", "diesel generator", "standby generator"], keywordsAr: ["مولد كهربائي", "مولد ديزل", "مولد احتياطي"], unit: "no", minPrice: 20000, maxPrice: 500000, avgPrice: 120000, category: "electrical" },
+  { keywords: ["earthing", "grounding", "earth pit", "ground rod"], keywordsAr: ["تأريض", "أرضي", "حفرة تأريض"], unit: "no", minPrice: 200, maxPrice: 1500, avgPrice: 600, category: "electrical" },
+  { keywords: ["lightning protection", "lightning rod", "lightning arrester"], keywordsAr: ["حماية صواعق", "مانعة صواعق"], unit: "no", minPrice: 500, maxPrice: 5000, avgPrice: 2000, category: "electrical" },
+  { keywords: ["data cable", "cat6", "cat6a", "network cable"], keywordsAr: ["كابل شبكة", "كابل بيانات"], unit: "m", minPrice: 5, maxPrice: 25, avgPrice: 12, category: "electrical" },
+  { keywords: ["busbar", "bus bar", "busway", "bus duct"], keywordsAr: ["بسبار", "قضبان توصيل"], unit: "m", minPrice: 200, maxPrice: 1500, avgPrice: 600, category: "electrical" },
+
+  // ============= MEP - Plumbing =============
+  { keywords: ["ppr pipe", "ppr", "polypropylene pipe"], keywordsAr: ["مواسير بي بي آر", "أنابيب بي بي آر"], unit: "m", minPrice: 8, maxPrice: 45, avgPrice: 22, category: "plumbing" },
+  { keywords: ["cpvc pipe", "cpvc"], keywordsAr: ["مواسير سي بي في سي"], unit: "m", minPrice: 10, maxPrice: 50, avgPrice: 25, category: "plumbing" },
+  { keywords: ["copper pipe", "copper tube"], keywordsAr: ["مواسير نحاس", "أنابيب نحاس"], unit: "m", minPrice: 25, maxPrice: 120, avgPrice: 60, category: "plumbing" },
+  { keywords: ["drainage pipe", "soil pipe", "waste pipe", "upvc drainage"], keywordsAr: ["مواسير صرف", "أنابيب صرف صحي"], unit: "m", minPrice: 15, maxPrice: 80, avgPrice: 40, category: "plumbing" },
+  { keywords: ["wash basin", "lavatory", "hand basin"], keywordsAr: ["حوض غسيل", "مغسلة", "حوض يد"], unit: "no", minPrice: 150, maxPrice: 1500, avgPrice: 500, category: "plumbing" },
+  { keywords: ["water closet", "wc", "toilet", "toilet seat"], keywordsAr: ["مرحاض", "كرسي حمام", "توالت"], unit: "no", minPrice: 300, maxPrice: 3000, avgPrice: 1000, category: "plumbing" },
+  { keywords: ["water heater", "boiler", "geyser", "electric heater"], keywordsAr: ["سخان مياه", "بويلر", "سخان كهربائي"], unit: "no", minPrice: 500, maxPrice: 5000, avgPrice: 1800, category: "plumbing" },
+  { keywords: ["mixer", "faucet", "tap", "water mixer"], keywordsAr: ["خلاط", "حنفية", "صنبور"], unit: "no", minPrice: 80, maxPrice: 800, avgPrice: 300, category: "plumbing" },
+  { keywords: ["floor drain", "floor trap"], keywordsAr: ["مصرف أرضي", "بالوعة"], unit: "no", minPrice: 20, maxPrice: 150, avgPrice: 60, category: "plumbing" },
+  { keywords: ["shower", "shower head", "shower mixer"], keywordsAr: ["دش", "رأس دش", "خلاط دش"], unit: "no", minPrice: 100, maxPrice: 1200, avgPrice: 400, category: "plumbing" },
+  { keywords: ["bathtub", "bath tub"], keywordsAr: ["حوض استحمام", "بانيو"], unit: "no", minPrice: 500, maxPrice: 5000, avgPrice: 2000, category: "plumbing" },
+  { keywords: ["kitchen sink", "sink"], keywordsAr: ["حوض مطبخ", "مجلى"], unit: "no", minPrice: 200, maxPrice: 2000, avgPrice: 800, category: "plumbing" },
+
+  // ============= MEP - HVAC =============
+  { keywords: ["chiller", "water cooled chiller", "air cooled chiller"], keywordsAr: ["تشيلر", "مبرد مياه", "مبرد هواء"], unit: "no", minPrice: 50000, maxPrice: 500000, avgPrice: 180000, category: "hvac" },
+  { keywords: ["air handling unit", "ahu"], keywordsAr: ["وحدة مناولة هواء", "إيه إتش يو"], unit: "no", minPrice: 15000, maxPrice: 120000, avgPrice: 50000, category: "hvac" },
+  { keywords: ["fan coil unit", "fcu"], keywordsAr: ["وحدة ملف مروحة", "فان كويل"], unit: "no", minPrice: 800, maxPrice: 5000, avgPrice: 2500, category: "hvac" },
+  { keywords: ["ductwork", "gi duct", "galvanized duct", "air duct"], keywordsAr: ["مجاري هواء", "دكت", "مجرى هواء"], unit: "kg", minPrice: 8, maxPrice: 25, avgPrice: 15, category: "hvac" },
+  { keywords: ["diffuser", "air diffuser", "supply diffuser", "return grille"], keywordsAr: ["موزع هواء", "فتحة هواء", "شبكة هواء"], unit: "no", minPrice: 30, maxPrice: 200, avgPrice: 80, category: "hvac" },
+  { keywords: ["thermostat", "room thermostat", "digital thermostat"], keywordsAr: ["ثرموستات", "منظم حرارة"], unit: "no", minPrice: 50, maxPrice: 500, avgPrice: 200, category: "hvac" },
+  { keywords: ["vrf", "vrv", "variable refrigerant"], keywordsAr: ["في آر إف", "تكييف متغير التبريد"], unit: "no", minPrice: 5000, maxPrice: 50000, avgPrice: 20000, category: "hvac" },
+  { keywords: ["split unit", "split ac", "wall mounted ac"], keywordsAr: ["سبلت", "مكيف سبلت", "مكيف جداري"], unit: "no", minPrice: 1500, maxPrice: 8000, avgPrice: 3500, category: "hvac" },
+  { keywords: ["package unit", "packaged unit", "rooftop unit"], keywordsAr: ["باكج", "وحدة مركبة"], unit: "no", minPrice: 8000, maxPrice: 60000, avgPrice: 25000, category: "hvac" },
+  { keywords: ["duct insulation", "thermal duct insulation"], keywordsAr: ["عزل مجاري هواء", "عزل دكت"], unit: "m2", minPrice: 15, maxPrice: 60, avgPrice: 35, category: "hvac" },
+  { keywords: ["exhaust fan", "ventilation fan", "extract fan"], keywordsAr: ["مروحة شفط", "مروحة تهوية"], unit: "no", minPrice: 100, maxPrice: 2000, avgPrice: 500, category: "hvac" },
+
+  // ============= MEP - Fire Fighting =============
+  { keywords: ["sprinkler system", "sprinkler network", "fire sprinkler system"], keywordsAr: ["نظام رشاشات", "شبكة رشاشات حريق"], unit: "no", minPrice: 30, maxPrice: 200, avgPrice: 100, category: "fire_fighting" },
+  { keywords: ["fire hose cabinet", "fire cabinet", "hose reel cabinet"], keywordsAr: ["صندوق حريق", "خزانة حريق", "بكرة خرطوم"], unit: "no", minPrice: 500, maxPrice: 3000, avgPrice: 1500, category: "fire_fighting" },
+  { keywords: ["fire extinguisher", "extinguisher", "co2 extinguisher", "powder extinguisher"], keywordsAr: ["طفاية حريق", "طفاية"], unit: "no", minPrice: 50, maxPrice: 500, avgPrice: 200, category: "fire_fighting" },
+  { keywords: ["fire alarm panel", "fire alarm control panel", "facp"], keywordsAr: ["لوحة إنذار حريق", "لوحة تحكم حريق"], unit: "no", minPrice: 3000, maxPrice: 25000, avgPrice: 10000, category: "fire_fighting" },
+  { keywords: ["smoke detector", "optical smoke detector"], keywordsAr: ["كاشف دخان", "حساس دخان"], unit: "no", minPrice: 30, maxPrice: 200, avgPrice: 80, category: "fire_fighting" },
+  { keywords: ["heat detector", "thermal detector"], keywordsAr: ["كاشف حرارة", "حساس حرارة"], unit: "no", minPrice: 25, maxPrice: 180, avgPrice: 70, category: "fire_fighting" },
+  { keywords: ["fire pump", "jockey pump", "fire fighting pump"], keywordsAr: ["مضخة حريق", "طلمبة حريق"], unit: "no", minPrice: 5000, maxPrice: 80000, avgPrice: 30000, category: "fire_fighting" },
+  { keywords: ["fm200", "fm-200", "clean agent", "gas suppression"], keywordsAr: ["إف إم 200", "غاز إطفاء نظيف"], unit: "no", minPrice: 10000, maxPrice: 100000, avgPrice: 40000, category: "fire_fighting" },
+
+  // ============= MEP - Smart/BMS =============
+  { keywords: ["bms", "building management system", "building automation"], keywordsAr: ["نظام إدارة المبنى", "بي إم إس", "أتمتة مبنى"], unit: "no", minPrice: 50000, maxPrice: 500000, avgPrice: 150000, category: "smart" },
+  { keywords: ["cctv", "surveillance camera", "security camera", "ip camera"], keywordsAr: ["كاميرا مراقبة", "نظام مراقبة", "كاميرا أمنية"], unit: "no", minPrice: 300, maxPrice: 3000, avgPrice: 1000, category: "smart" },
+  { keywords: ["access control", "card reader", "biometric access"], keywordsAr: ["نظام دخول", "تحكم دخول", "قارئ بطاقة"], unit: "no", minPrice: 500, maxPrice: 5000, avgPrice: 2000, category: "smart" },
+  { keywords: ["intercom", "video intercom", "door phone"], keywordsAr: ["إنتركم", "اتصال داخلي", "هاتف باب"], unit: "no", minPrice: 200, maxPrice: 3000, avgPrice: 1000, category: "smart" },
+  { keywords: ["public address", "pa system", "sound system", "speaker system"], keywordsAr: ["نظام صوت", "مكبرات صوت", "نظام إذاعة"], unit: "no", minPrice: 5000, maxPrice: 50000, avgPrice: 20000, category: "smart" },
 ];

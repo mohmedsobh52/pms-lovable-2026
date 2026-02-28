@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Settings2, Zap, FileText, Gauge, Layers, Archive, Clock, SplitSquareVertical, Bot, AlertTriangle, CheckCircle2, Server, Timer, Languages } from 'lucide-react';
+import { Settings2, Zap, FileText, Gauge, Layers, Archive, Clock, SplitSquareVertical, Bot, AlertTriangle, CheckCircle2, Server, Timer, Languages, DollarSign, Building2, Globe2 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -18,29 +25,31 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useAnalysisTracking, type AIProvider } from '@/hooks/useAnalysisTracking';
 
 export interface AnalysisSettings {
-  maxTextLength: number; // in thousands (50, 75, 100, 150)
+  maxTextLength: number;
   autoTruncate: boolean;
   enableRetry: boolean;
   maxRetries: number;
-  retryDelay: number; // in seconds
-  // New chunked analysis settings
+  retryDelay: number;
   enableChunkedAnalysis: boolean;
-  chunkSize: number; // in thousands (20, 30, 40, 50)
+  chunkSize: number;
   enableCompression: boolean;
   useJobQueue: boolean;
-  // Auto-chunk for large files
   autoChunkLargeFiles: boolean;
-  autoChunkThreshold: number; // in KB (size threshold for auto-chunking)
+  autoChunkThreshold: number;
   showEstimatedTime: boolean;
-  // Auto job queue for large files
-  autoJobQueueThreshold: number; // in KB (size threshold for auto job queue)
-  // Throttle settings - NEW
+  autoJobQueueThreshold: number;
   enableThrottle: boolean;
-  maxRequestsPerMinute: number; // 1-10 (default: 3)
-  delayBetweenChunks: number; // 1-30 seconds (default: 5)
-  // Arabic optimization - NEW
+  maxRequestsPerMinute: number;
+  delayBetweenChunks: number;
   arabicOptimization: boolean;
-  arabicChunkSize: number; // 10, 15, 20 (default: 15)
+  arabicChunkSize: number;
+  // Pricing settings
+  pricingConfidenceThreshold: number;
+  enableMEPPricing: boolean;
+  enableBilingualMatching: boolean;
+  applyCityFactor: boolean;
+  defaultCity: string;
+  pricingSourcePriority: string[];
 }
 
 const DEFAULT_SETTINGS: AnalysisSettings = {
@@ -57,13 +66,18 @@ const DEFAULT_SETTINGS: AnalysisSettings = {
   autoChunkThreshold: 500, // 500KB
   showEstimatedTime: true,
   autoJobQueueThreshold: 200, // 200KB - auto use job queue for files > 200KB
-  // Throttle settings - NEW
   enableThrottle: true,
   maxRequestsPerMinute: 3,
   delayBetweenChunks: 5,
-  // Arabic optimization - NEW
   arabicOptimization: true,
   arabicChunkSize: 15,
+  // Pricing defaults
+  pricingConfidenceThreshold: 30,
+  enableMEPPricing: true,
+  enableBilingualMatching: true,
+  applyCityFactor: true,
+  defaultCity: "Riyadh",
+  pricingSourcePriority: ["quotation", "historical", "library", "reference", "market_ai"],
 };
 
 const STORAGE_KEY = 'analysis_settings';
@@ -634,6 +648,132 @@ export function AnalysisSettingsDialog({ trigger, onSettingsChange }: AnalysisSe
               checked={settings.showEstimatedTime}
               onCheckedChange={(checked) => setSettings(s => ({ ...s, showEstimatedTime: checked }))}
             />
+          </div>
+
+          {/* ============= PRICING SETTINGS SECTION ============= */}
+          <div className="pt-4 border-t">
+            <div className="flex items-center gap-2 mb-4">
+              <DollarSign className="h-4 w-4 text-primary" />
+              <Label className="font-semibold text-base">
+                {isArabic ? 'إعدادات التسعير' : 'Pricing Settings'}
+              </Label>
+            </div>
+
+            {/* Confidence Threshold */}
+            <div className="space-y-4 mb-4">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Label>{isArabic ? 'حد الثقة الأدنى' : 'Min Confidence Threshold'}</Label>
+                  <Badge variant="outline" className="font-mono">{settings.pricingConfidenceThreshold}%</Badge>
+                </div>
+                <Slider
+                  value={[settings.pricingConfidenceThreshold]}
+                  onValueChange={([value]) => setSettings(s => ({ ...s, pricingConfidenceThreshold: value }))}
+                  min={10}
+                  max={80}
+                  step={5}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {isArabic 
+                    ? 'البنود ذات ثقة أقل من هذا الحد لن تُسعّر تلقائياً'
+                    : 'Items below this threshold won\'t be auto-priced'}
+                </p>
+              </div>
+            </div>
+
+            {/* Enable MEP Pricing */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  {isArabic ? 'تفعيل تسعير MEP المتقدم' : 'Advanced MEP Pricing'}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {isArabic 
+                    ? 'تضمين بنود كهرباء وسباكة وتكييف وحريق في المطابقة' 
+                    : 'Include electrical, plumbing, HVAC & fire items'}
+                </p>
+              </div>
+              <Switch
+                checked={settings.enableMEPPricing}
+                onCheckedChange={(checked) => setSettings(s => ({ ...s, enableMEPPricing: checked }))}
+              />
+            </div>
+
+            {/* Bilingual Matching */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <Languages className="h-4 w-4" />
+                  {isArabic ? 'مطابقة ثنائية اللغة' : 'Bilingual Matching'}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {isArabic 
+                    ? 'البحث بالعربي والإنجليزي معاً لدقة أعلى' 
+                    : 'Match in Arabic & English for higher accuracy'}
+                </p>
+              </div>
+              <Switch
+                checked={settings.enableBilingualMatching}
+                onCheckedChange={(checked) => setSettings(s => ({ ...s, enableBilingualMatching: checked }))}
+              />
+            </div>
+
+            {/* Apply City Factor */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <Globe2 className="h-4 w-4" />
+                  {isArabic ? 'تطبيق معامل المدينة' : 'Apply City Factor'}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {isArabic 
+                    ? 'تعديل الأسعار حسب معاملات المدينة الجغرافية' 
+                    : 'Adjust prices based on city geographic factors'}
+                </p>
+              </div>
+              <Switch
+                checked={settings.applyCityFactor}
+                onCheckedChange={(checked) => setSettings(s => ({ ...s, applyCityFactor: checked }))}
+              />
+            </div>
+
+            {/* Default City */}
+            {settings.applyCityFactor && (
+              <div className="space-y-2 mb-4 pl-6 border-l-2 border-muted">
+                <Label>{isArabic ? 'المدينة الافتراضية' : 'Default City'}</Label>
+                <Select
+                  value={settings.defaultCity}
+                  onValueChange={(value) => setSettings(s => ({ ...s, defaultCity: value }))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Riyadh">{isArabic ? 'الرياض' : 'Riyadh'}</SelectItem>
+                    <SelectItem value="Jeddah">{isArabic ? 'جدة' : 'Jeddah'}</SelectItem>
+                    <SelectItem value="Dammam">{isArabic ? 'الدمام' : 'Dammam'}</SelectItem>
+                    <SelectItem value="Makkah">{isArabic ? 'مكة المكرمة' : 'Makkah'}</SelectItem>
+                    <SelectItem value="Madinah">{isArabic ? 'المدينة المنورة' : 'Madinah'}</SelectItem>
+                    <SelectItem value="Abha">{isArabic ? 'أبها' : 'Abha'}</SelectItem>
+                    <SelectItem value="Tabuk">{isArabic ? 'تبوك' : 'Tabuk'}</SelectItem>
+                    <SelectItem value="Dubai">{isArabic ? 'دبي' : 'Dubai'}</SelectItem>
+                    <SelectItem value="Cairo">{isArabic ? 'القاهرة' : 'Cairo'}</SelectItem>
+                    <SelectItem value="Kuwait">{isArabic ? 'الكويت' : 'Kuwait'}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Source Priority Info */}
+            <div className="p-3 rounded-lg bg-muted/50 border text-xs text-muted-foreground">
+              <p className="font-medium mb-1">{isArabic ? 'أولوية مصادر التسعير:' : 'Pricing Source Priority:'}</p>
+              <p>
+                {isArabic 
+                  ? '١. عروض أسعار ← ٢. بيانات تاريخية ← ٣. مكتبة المواد ← ٤. أسعار مرجعية ← ٥. ذكاء السوق AI'
+                  : '1. Quotations → 2. Historical → 3. Library → 4. Reference → 5. Market AI'}
+              </p>
+            </div>
           </div>
         </div>
 
