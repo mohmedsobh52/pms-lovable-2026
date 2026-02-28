@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { 
   Users, FolderOpen, FileText, TrendingUp, 
-  ShieldAlert, ArrowLeft, BarChart3, Clock
+  ShieldAlert, ArrowLeft, BarChart3, Clock, Shield
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -60,6 +60,30 @@ const AdminDashboardPage = () => {
     }
   };
 
+  const [settingUpAdmin, setSettingUpAdmin] = useState(false);
+
+  const handleSetupAdmin = async () => {
+    try {
+      setSettingUpAdmin(true);
+      const { data, error } = await supabase.functions.invoke("setup-admin");
+      if (error) throw error;
+      if (data?.success) {
+        toast.success(isArabic ? "تم تعيينك كمشرف رئيسي بنجاح!" : "You are now the system admin!");
+        fetchAdminStats();
+      } else if (data?.error === "admin_exists") {
+        toast.info(isArabic ? "يوجد مشرف بالفعل في النظام" : "An admin already exists");
+        fetchAdminStats();
+      } else {
+        toast.error(data?.error || "Error");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(isArabic ? "خطأ في تعيين المشرف" : "Error setting up admin");
+    } finally {
+      setSettingUpAdmin(false);
+    }
+  };
+
   if (!loading && !authorized) {
     return (
       <div className="min-h-screen bg-background">
@@ -70,12 +94,20 @@ const AdminDashboardPage = () => {
             {isArabic ? "غير مصرح" : "Unauthorized"}
           </h1>
           <p className="text-muted-foreground mb-6">
-            {isArabic ? "ليس لديك صلاحية للوصول لهذه الصفحة" : "You don't have permission to access this page"}
+            {isArabic ? "ليس لديك صلاحية للوصول لهذه الصفحة. إذا كنت أول مستخدم، يمكنك تعيين نفسك كمشرف." : "You don't have permission. If you're the first user, you can set yourself as admin."}
           </p>
-          <Button onClick={() => navigate("/")} variant="outline">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            {isArabic ? "العودة للرئيسية" : "Back to Home"}
-          </Button>
+          <div className="flex items-center justify-center gap-3">
+            <Button onClick={() => navigate("/")} variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              {isArabic ? "العودة للرئيسية" : "Back to Home"}
+            </Button>
+            <Button onClick={handleSetupAdmin} disabled={settingUpAdmin} variant="default">
+              <Shield className="w-4 h-4 mr-2" />
+              {settingUpAdmin
+                ? (isArabic ? "جاري التعيين..." : "Setting up...")
+                : (isArabic ? "تعيين كمشرف أول" : "Set as First Admin")}
+            </Button>
+          </div>
         </div>
       </div>
     );
