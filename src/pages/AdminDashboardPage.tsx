@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { UnifiedHeader } from "@/components/UnifiedHeader";
+import { AdminNotificationsBell } from "@/components/AdminNotificationsBell";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -130,11 +131,14 @@ const AdminDashboardPage = () => {
     <div className="min-h-screen bg-background">
       <UnifiedHeader />
       <div className="container mx-auto px-4 py-6">
-        <PageHeader
-          icon={ShieldAlert}
-          title={isArabic ? "لوحة التحكم الإدارية" : "Admin Dashboard"}
-          subtitle={isArabic ? "إحصائيات استخدام النظام" : "System usage statistics"}
-        />
+        <div className="flex items-center justify-between mb-4">
+          <PageHeader
+            icon={ShieldAlert}
+            title={isArabic ? "لوحة التحكم الإدارية" : "Admin Dashboard"}
+            subtitle={isArabic ? "إحصائيات استخدام النظام" : "System usage statistics"}
+          />
+          <AdminNotificationsBell />
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">

@@ -91,6 +91,10 @@ export default function Auth() {
       }
 
       if (!isLogin) {
+        // Notify admins about new user registration
+        supabase.functions.invoke("notify-admin-new-user", {
+          body: { email },
+        }).catch(() => {}); // fire-and-forget
         toast({
           title: "تم إنشاء الحساب بنجاح",
           description: "تم تسجيل دخولك تلقائياً",

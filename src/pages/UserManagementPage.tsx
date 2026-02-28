@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { UnifiedHeader } from "@/components/UnifiedHeader";
+import { AdminNotificationsBell } from "@/components/AdminNotificationsBell";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -197,11 +198,14 @@ const UserManagementPage = () => {
     <div className="min-h-screen bg-background">
       <UnifiedHeader />
       <div className="container mx-auto px-4 py-6">
-        <PageHeader
-          icon={Users}
-          title={isArabic ? "إدارة المستخدمين والصلاحيات" : "User & Role Management"}
-          subtitle={isArabic ? "إدارة أدوار وصلاحيات المستخدمين" : "Manage user roles and permissions"}
-        />
+        <div className="flex items-center justify-between mb-4">
+          <PageHeader
+            icon={Users}
+            title={isArabic ? "إدارة المستخدمين والصلاحيات" : "User & Role Management"}
+            subtitle={isArabic ? "إدارة أدوار وصلاحيات المستخدمين" : "Manage user roles and permissions"}
+          />
+          <AdminNotificationsBell />
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
