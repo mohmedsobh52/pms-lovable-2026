@@ -1,46 +1,72 @@
 
-# خطة: تحسين صفحة المشاريع - حالة فارغة + تصفح بدون تسجيل دخول + مشاريع تجريبية
+# خطة: توسيع قاعدة بيانات MEP + إعدادات تحسين دقة التسعير
 
 ## نظرة عامة
 
-تحسين تجربة المستخدم في صفحة `/projects` عبر ثلاث نقاط: حالة فارغة محسنة، عرض مشاريع تجريبية للزوار غير المسجلين، وأزرار إنشاء مشروع جديد ورفع BOQ.
+توسيع قاعدة الأسعار المرجعية لتشمل بنود الكهرباء والسباكة والميكانيك (MEP) بالتفصيل، وإضافة إعدادات تسعير متقدمة في `AnalysisSettingsDialog` لزيادة دقة النتائج، مع تحسين keywords المطابقة في محرك التسعير التلقائي.
 
 ---
 
-## 1. تحسين الحالة الفارغة (عندما لا توجد مشاريع)
+## 1. توسيع قاعدة الأسعار المرجعية (MEP)
 
-الحالة الفارغة الحالية (سطر 1254) تحتوي على خطوات أساسية. سنحسنها لتشمل:
+### تحديث `src/lib/reference-prices.ts`
 
-- أيقونة أكبر وأكثر جاذبية مع تدرج لوني
-- رسالة ترحيبية واضحة مع شرح مختصر لكل خطوة
-- **زرين بارزين**: "إنشاء مشروع جديد" (يفتح `/projects/new`) + "رفع وتحليل BOQ" (ينتقل لتبويب analyze)
-- قسم "مشاريع تجريبية" يظهر أسفل الحالة الفارغة
+إضافة **50+ بند MEP جديد** مقسم إلى 5 فئات فرعية:
 
----
+| الفئة | عدد البنود | أمثلة |
+|---|---|---|
+| كهرباء (electrical) | ~15 بند | لوحة رئيسية MDB، قاطع، مفتاح، مقبس، UPS، مولد، إنارة LED، إنارة طوارئ |
+| سباكة (plumbing) | ~12 بند | أنابيب PPR، نحاس، مواسير صرف، أحواض، مراحيض، سخان مياه، خلاطات |
+| تكييف (hvac) | ~10 بنود | وحدة مركزية، مجاري هواء، diffuser، chiller، AHU، FCU، معزولات |
+| حريق (fire_fighting) | ~8 بنود | شبكة رشاشات، خرطوم، طفاية، لوحة إنذار، كاشف دخان، صندوق حريق |
+| ذكي/BMS (smart) | ~5 بنود | نظام BMS، كاميرات مراقبة، نظام دخول، إنتركم، أنظمة صوت |
 
-## 2. تصفح بدون تسجيل دخول مع مشاريع تجريبية
+### تحديث `src/components/project-details/AutoPriceDialog.tsx`
 
-### تغيير السلوك الحالي
-حالياً عندما لا يوجد مستخدم مسجل (سطر 890-903)، تظهر رسالة بسيطة "يجب تسجيل الدخول". سنستبدلها بواجهة كاملة تعرض:
-
-- **شريط تنبيه** أعلى الصفحة: "أنت تتصفح كزائر - سجل دخولك لحفظ مشاريعك"
-- **3-4 مشاريع تجريبية** (Demo Projects) مدمجة في الكود (static data) تمثل مشاريع بناء واقعية:
-  1. "مبنى سكني - الرياض" (120 بند، 2.5 مليون ر.س)
-  2. "مدرسة حكومية - جدة" (85 بند، 1.8 مليون ر.س)  
-  3. "مستودع صناعي - الدمام" (65 بند، 950 ألف ر.س)
-- كل بطاقة مشروع تجريبي تعرض: الاسم، عدد البنود، القيمة الإجمالية، نسبة التسعير
-- عند النقر على مشروع تجريبي: يفتح Dialog عرض فقط (read-only) يظهر بنود تجريبية
-- زر "سجل الدخول لحفظ مشاريعك" بارز أسفل المشاريع التجريبية
-- جميع أزرار الحذف والتعديل تكون معطلة مع tooltip "سجل دخولك أولاً"
+إضافة keywords خبير جديدة في `EXPERT_KEYWORDS`:
+- كهرباء: mdb, switchgear, socket, outlet, led, generator, ups, breaker, mcb
+- سباكة: ppr, cpvc, copper pipe, basin, wc, water heater, mixer, trap, floor drain
+- تكييف: chiller, ahu, fcu, duct, diffuser, thermostat, vrf, split, package unit
+- حريق: sprinkler system, fire hose, extinguisher, smoke detector, fire cabinet
+- BMS: bms, cctv, access control, intercom
 
 ---
 
-## 3. أزرار الإجراءات السريعة
+## 2. إعدادات تحسين دقة التسعير
 
-إضافة أزرار واضحة في الحالة الفارغة وفي وضع الزائر:
-- **"مشروع جديد"**: ينتقل لـ `/projects/new` (يطلب تسجيل الدخول إذا زائر)
-- **"رفع ملف BOQ"**: ينتقل لتبويب "تحليل BOQ" 
-- **"استيراد من Excel"**: اختصار مباشر لرفع ملف
+### تحديث `src/components/AnalysisSettingsDialog.tsx`
+
+إضافة قسم جديد "إعدادات التسعير" في الـ Dialog يتضمن:
+
+| الإعداد | النوع | الافتراضي | الوصف |
+|---|---|---|---|
+| حد الثقة الأدنى | Slider (10-80) | 30 | الحد الأدنى لنسبة الثقة لقبول السعر |
+| أولوية المصادر | ترتيب | عروض > تاريخي > مكتبة > مرجعي > AI | ترتيب مصادر التسعير |
+| تفعيل MEP المتقدم | Switch | true | تفعيل بنود MEP التفصيلية |
+| مطابقة ثنائية اللغة | Switch | true | البحث بالعربي والإنجليزي معاً |
+| تطبيق معامل المدينة | Switch | true | تطبيق City Factor تلقائياً |
+| المدينة الافتراضية | Select | Riyadh | المدينة المستخدمة للتسعير |
+
+### تحديث interface `AnalysisSettings`
+```text
++ pricingConfidenceThreshold: number (30)
++ enableMEPPricing: boolean (true)  
++ enableBilingualMatching: boolean (true)
++ applyCityFactor: boolean (true)
++ defaultCity: string ("Riyadh")
++ pricingSourcePriority: string[] (["quotation","historical","library","reference","market_ai"])
+```
+
+---
+
+## 3. تحسين دقة محرك المطابقة
+
+### تحديث `AutoPriceDialog.tsx` - خوارزمية المطابقة
+
+- إضافة **MEP-specific matching**: عند كشف بند MEP (كهرباء/سباكة/تكييف)، زيادة وزن keywords المتخصصة بنسبة 20%
+- إضافة **unit validation**: رفض المطابقة إذا كانت الوحدة مختلفة تماماً (مثلاً m3 vs no)
+- إضافة **cross-reference check**: مقارنة السعر المقترح مع النطاق المرجعي وتحذير إذا خرج عن النطاق
+- قراءة `pricingConfidenceThreshold` من الإعدادات بدلاً من القيمة الثابتة `[30]`
 
 ---
 
@@ -50,44 +76,51 @@
 
 | الملف | التغيير |
 |---|---|
-| `src/pages/SavedProjectsPage.tsx` | تحسين حالة `!user` لعرض مشاريع تجريبية + تحسين الحالة الفارغة |
+| `src/lib/reference-prices.ts` | إضافة 50+ بند MEP جديد |
+| `src/components/project-details/AutoPriceDialog.tsx` | إضافة MEP keywords + قراءة الإعدادات + تحسين المطابقة |
+| `src/components/AnalysisSettingsDialog.tsx` | إضافة قسم "إعدادات التسعير" مع 6 عناصر تحكم جديدة |
+| `src/lib/local-excel-analysis.ts` | إضافة فئات MEP فرعية للتصنيف |
 
-### بيانات المشاريع التجريبية
+### بنية بنود MEP المرجعية الجديدة
 
 ```text
-const DEMO_PROJECTS = [
-  {
-    id: "demo-1",
-    name: "مبنى سكني - الرياض / Residential Building - Riyadh",
-    items_count: 120,
-    total_value: 2500000,
-    currency: "SAR",
-    created_at: "2026-01-15",
-    pricing_pct: 75,
-    categories: ["أعمال خرسانية", "أعمال تشطيبات", "أعمال كهربائية"]
-  },
-  // ... 2 more projects
-]
+// Electrical - Extended
+{ keywords: ["main distribution board", "mdb"], keywordsAr: ["لوحة توزيع رئيسية"], unit: "no", category: "electrical" }
+{ keywords: ["socket outlet", "power socket"], keywordsAr: ["مقبس كهرباء", "بريزة"], unit: "no", category: "electrical" }
+{ keywords: ["led light", "led panel", "led downlight"], keywordsAr: ["إضاءة ليد", "لمبة ليد"], unit: "no", category: "electrical" }
+{ keywords: ["generator", "diesel generator"], keywordsAr: ["مولد كهربائي", "مولد ديزل"], unit: "no", category: "electrical" }
+
+// Plumbing  
+{ keywords: ["ppr pipe"], keywordsAr: ["مواسير بي بي آر"], unit: "m", category: "plumbing" }
+{ keywords: ["wash basin", "lavatory"], keywordsAr: ["حوض غسيل", "مغسلة"], unit: "no", category: "plumbing" }
+{ keywords: ["water closet", "wc", "toilet"], keywordsAr: ["مرحاض", "كرسي حمام"], unit: "no", category: "plumbing" }
+{ keywords: ["water heater", "boiler"], keywordsAr: ["سخان مياه", "بويلر"], unit: "no", category: "plumbing" }
+
+// HVAC
+{ keywords: ["chiller", "water cooled chiller"], keywordsAr: ["تشيلر", "مبرد مياه"], unit: "no", category: "hvac" }
+{ keywords: ["air handling unit", "ahu"], keywordsAr: ["وحدة مناولة هواء"], unit: "no", category: "hvac" }
+{ keywords: ["fan coil unit", "fcu"], keywordsAr: ["وحدة ملف مروحة"], unit: "no", category: "hvac" }
+{ keywords: ["ductwork", "gi duct", "galvanized duct"], keywordsAr: ["مجاري هواء", "دكت"], unit: "kg", category: "hvac" }
+
+// Fire Fighting
+{ keywords: ["fire hose cabinet", "fire cabinet"], keywordsAr: ["صندوق حريق", "خرطوم حريق"], unit: "no", category: "fire_fighting" }
+{ keywords: ["smoke detector"], keywordsAr: ["كاشف دخان"], unit: "no", category: "fire_fighting" }
 ```
 
-### هيكل واجهة الزائر
+### منطق إعدادات التسعير
 
 ```text
-SavedProjectsPage (guest mode)
-├── Guest Banner: "تتصفح كزائر" + زر تسجيل دخول
-├── PageHeader (same header, no user menu)
-├── Quick Actions: "مشروع جديد" + "رفع BOQ"
-├── Demo Projects Grid (3 cards)
-│   └── Each card: name, stats, "عرض تجريبي" button
-├── Demo Detail Dialog (read-only item preview)
-└── CTA Section: "سجل الآن لحفظ مشاريعك"
-```
+// في AutoPriceDialog - قراءة الإعدادات
+const settings = getAnalysisSettings();
+const threshold = settings.pricingConfidenceThreshold || 30;
 
-### منطق العرض
+// تصفية النتائج حسب الإعدادات
+if (!settings.enableMEPPricing) {
+  // تخطي بنود MEP من المطابقة المرجعية
+}
 
-```text
-if (authLoading) → spinner
-if (!user) → guest view with demo projects + CTA
-if (user && projects.length === 0) → enhanced empty state with 2 action buttons
-if (user && projects.length > 0) → normal project list (no changes)
+if (settings.applyCityFactor) {
+  // تطبيق معامل المدينة على السعر المقترح
+  suggestedPrice *= getCityFactor(settings.defaultCity);
+}
 ```
