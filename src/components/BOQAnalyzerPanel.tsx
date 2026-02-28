@@ -75,6 +75,7 @@ export function BOQAnalyzerPanel({ onProjectSaved, embedded = false, initialFile
   const [excelColumnMapping, setExcelColumnMapping] = useState<Record<string, number>>({});
   const [showExcelPreview, setShowExcelPreview] = useState(false);
   const [showAIEnrichmentOption, setShowAIEnrichmentOption] = useState(false);
+  const [isEnriching, setIsEnriching] = useState(false);
   
   // Save dialog
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
@@ -89,6 +90,87 @@ export function BOQAnalyzerPanel({ onProjectSaved, embedded = false, initialFile
       setSelectedFile(initialFile);
     }
   }, [initialFile]);
+
+  // AI Enrichment handler
+  const handleAIEnrichment = useCallback(async () => {
+    if (!analysisData?.items?.length) return;
+    
+    setIsEnriching(true);
+    toast({
+      title: isArabic ? '🔄 جاري التحسين بالذكاء الاصطناعي...' : '🔄 Enhancing with AI...',
+      description: isArabic 
+        ? `تحسين ${analysisData.items.length} بند` 
+        : `Improving ${analysisData.items.length} items`,
+    });
+
+    try {
+      const itemsText = analysisData.items.map((item: any, i: number) => 
+        `${item.item_number || i+1}. ${item.description || ''} | ${item.unit || ''} | ${item.quantity || ''} | ${item.unit_price || ''}`
+      ).join('\n');
+
+      const { data, error } = await supabase.functions.invoke('analyze-boq', {
+        body: {
+          text: itemsText,
+          analysis_type: 'extract_items',
+          language,
+          preferred_provider: selectedProvider,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (data?.items?.length) {
+        const enhancedItems = analysisData.items.map((original: any) => {
+          const improved = data.items.find((ai: any) => 
+            (ai.item_number || ai.item_no) === original.item_number ||
+            (ai.description && original.description && ai.description.includes(original.description?.substring(0, 20)))
+          );
+          if (improved) {
+            return {
+              ...original,
+              category: improved.category || improved.section_trade || original.category,
+              description_ar: improved.description_ar || original.description_ar,
+              description: improved.description || original.description,
+              unit: improved.unit || original.unit,
+            };
+          }
+          return original;
+        });
+
+        const improvedCount = enhancedItems.filter((item: any, i: number) => 
+          item.category !== analysisData.items[i]?.category || 
+          item.description_ar !== analysisData.items[i]?.description_ar
+        ).length;
+
+        setAnalysisData({
+          ...analysisData,
+          items: enhancedItems,
+          summary: {
+            ...analysisData.summary,
+            categories: [...new Set(enhancedItems.map((item: any) => item.category))],
+          },
+        });
+
+        setShowAIEnrichmentOption(false);
+        toast({
+          title: isArabic ? '✅ تم التحسين بنجاح' : '✅ Enhancement Complete',
+          description: isArabic 
+            ? `تم تحسين ${improvedCount} بند من أصل ${analysisData.items.length}`
+            : `Improved ${improvedCount} of ${analysisData.items.length} items`,
+        });
+      }
+    } catch (err: any) {
+      console.error('AI Enrichment error:', err);
+      toast({
+        title: isArabic ? '⚠️ فشل التحسين' : '⚠️ Enhancement Failed',
+        description: err?.message || (isArabic ? 'حدث خطأ أثناء التحسين' : 'An error occurred'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsEnriching(false);
+    }
+  }, [analysisData, isArabic, language, selectedProvider, setAnalysisData, toast]);
 
   const updateStepStatus = (stepId: string, status: StepStatus, progress?: number) => {
     setWorkflowSteps(prev =>
@@ -742,9 +824,21 @@ export function BOQAnalyzerPanel({ onProjectSaved, embedded = false, initialFile
                     ? 'يمكنك تحسين التصنيفات باستخدام الذكاء الاصطناعي'
                     : 'You can improve categories using AI'}
                 </span>
-                <Button size="sm" variant="outline" className="gap-1">
-                  <Sparkles className="w-3 h-3" />
-                  {isArabic ? 'تحسين بالـ AI' : 'Enhance with AI'}
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="gap-1"
+                  onClick={handleAIEnrichment}
+                  disabled={isEnriching}
+                >
+                  {isEnriching ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3 h-3" />
+                  )}
+                  {isEnriching 
+                    ? (isArabic ? 'جاري التحسين...' : 'Enhancing...') 
+                    : (isArabic ? 'تحسين بالـ AI' : 'Enhance with AI')}
                 </Button>
               </AlertDescription>
             </Alert>
