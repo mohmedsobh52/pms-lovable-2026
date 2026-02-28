@@ -13,7 +13,8 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
+      console.log("setup-admin: No auth token provided");
+      return new Response(JSON.stringify({ error: "not_authenticated", message: "No authentication token provided" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -29,11 +30,14 @@ Deno.serve(async (req) => {
     });
     const { data: { user }, error: userError } = await userClient.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
+      console.log("setup-admin: Invalid or expired token", userError?.message);
+      return new Response(JSON.stringify({ error: "not_authenticated", message: "Invalid or expired session. Please log in again." }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    console.log("setup-admin: Authenticated user:", user.id, user.email);
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -46,13 +50,14 @@ Deno.serve(async (req) => {
 
     if (checkError) {
       console.error("Check admin error:", checkError);
-      return new Response(JSON.stringify({ error: "Internal error" }), {
+      return new Response(JSON.stringify({ error: "internal_error", message: "Failed to check admin status" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (existingAdmins && existingAdmins.length > 0) {
+      console.log("setup-admin: Admin already exists");
       return new Response(JSON.stringify({ error: "admin_exists", message: "An admin already exists" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -66,19 +71,20 @@ Deno.serve(async (req) => {
 
     if (insertError) {
       console.error("Insert admin error:", insertError);
-      return new Response(JSON.stringify({ error: "Failed to assign admin role" }), {
+      return new Response(JSON.stringify({ error: "insert_failed", message: "Failed to assign admin role" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    console.log("setup-admin: Successfully assigned admin role to", user.email);
     return new Response(JSON.stringify({ success: true, message: "You are now the system admin" }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("Setup admin error:", err);
-    return new Response(JSON.stringify({ error: "Internal error" }), {
+    return new Response(JSON.stringify({ error: "internal_error", message: "Internal error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
