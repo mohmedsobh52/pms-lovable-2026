@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Users, ShieldAlert, ArrowLeft, Shield, UserCheck, Search, RefreshCw, Mail, Loader2,
+  Lightbulb, UserPlus, ShieldCheck, Share2, ArrowRight, UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -311,6 +312,53 @@ const UserManagementPage = () => {
             </>
           ) : null}
         </div>
+
+        {/* Smart Suggestions */}
+        {stats && (() => {
+          const suggestions: { icon: any; textAr: string; textEn: string; color: string; bg: string; action: () => void }[] = [];
+          if (stats.moderators === 0) suggestions.push({
+            icon: ShieldCheck, textAr: "عيّن مشرفين مساعدين لتوزيع المهام", textEn: "Assign moderators to distribute tasks", color: "text-orange-500", bg: "bg-orange-500/10", action: () => {}
+          });
+          if (stats.regular === 0 && stats.total > 0) suggestions.push({
+            icon: UserPlus, textAr: "ادعُ مستخدمين جدد للانضمام للنظام", textEn: "Invite new users to join the system", color: "text-blue-500", bg: "bg-blue-500/10", action: () => {}
+          });
+          if (stats.total <= 1) suggestions.push({
+            icon: Share2, textAr: "شارك رابط التسجيل مع فريقك لتوسيع النظام", textEn: "Share signup link with your team", color: "text-emerald-500", bg: "bg-emerald-500/10", action: () => { navigator.clipboard.writeText(window.location.origin + "/auth"); toast.success(isArabic ? "تم نسخ رابط التسجيل" : "Signup link copied"); }
+          });
+          if (stats.admins > 1) suggestions.push({
+            icon: Shield, textAr: "تأكد من مراجعة صلاحيات المشرفين بانتظام", textEn: "Review admin privileges regularly", color: "text-red-500", bg: "bg-red-500/10", action: () => {}
+          });
+          if (stats.total > 5 && stats.moderators === 0) suggestions.push({
+            icon: UsersRound, textAr: "مع تزايد المستخدمين، خصص مشرفين مساعدين", textEn: "With growing users, assign moderators", color: "text-purple-500", bg: "bg-purple-500/10", action: () => {}
+          });
+
+          if (suggestions.length === 0) return null;
+
+          return (
+            <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 mb-6">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-amber-500" />
+                  {isArabic ? "اقتراحات وتوصيات" : "Suggestions & Recommendations"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {suggestions.map((s, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-background/80 border border-border/50 hover:shadow-sm transition-shadow">
+                    <div className={`flex items-center justify-center w-9 h-9 rounded-lg ${s.bg} shrink-0`}>
+                      <s.icon className={`w-5 h-5 ${s.color}`} />
+                    </div>
+                    <p className="flex-1 text-sm font-medium">{isArabic ? s.textAr : s.textEn}</p>
+                    <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={s.action}>
+                      {isArabic ? "تنفيذ" : "Action"}
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
