@@ -375,6 +375,13 @@ export default function CostAnalysisPage() {
   const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
   const [editingHeaders, setEditingHeaders] = useState(false);
   
+  // Template import state
+  const [isImportingTemplate, setIsImportingTemplate] = useState(false);
+  const [importTemplateDialogOpen, setImportTemplateDialogOpen] = useState(false);
+  const [pendingTemplateItems, setPendingTemplateItems] = useState<CostItem[]>([]);
+  const [importTemplateName, setImportTemplateName] = useState("");
+  const templateFileRef = useRef<HTMLInputElement>(null);
+  
   const [savedTemplates, setSavedTemplates] = useState<CostTemplate[]>(() => {
     try {
       const stored = localStorage.getItem(TEMPLATES_KEY);
@@ -895,6 +902,174 @@ export default function CostAnalysisPage() {
     toast.success("تم حذف القالب");
   }, [savedTemplates]);
 
+  // Parse extracted text (from PDF/OCR) into CostItem[]
+  const parseExtractedTextToItems = useCallback((text: string): CostItem[] => {
+    const lines = text.split('\n').filter(l => l.trim());
+    const items: CostItem[] = [];
+    
+    for (const line of lines) {
+      // Try table format with | separator
+      if (line.includes('|')) {
+        const parts = line.split('|').map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          const name = parts.find(p => /[\u0600-\u06FFa-zA-Z]/.test(p)) || parts[0];
+          const numbers = parts.filter(p => /^\d+[\d,.]*$/.test(p.replace(/,/g, '')));
+          const productivity = numbers.length > 0 ? parseFloat(numbers[0].replace(/,/g, '')) : 0;
+          const rent = numbers.length > 1 ? parseFloat(numbers[1].replace(/,/g, '')) : 0;
+          if (name && name !== '---') {
+            items.push({
+              id: `tpl-${Date.now()}-${items.length}`,
+              name: name.trim(),
+              dailyProductivity: productivity,
+              dailyRent: rent,
+              costPerUnit: productivity > 0 && rent > 0 ? rent / productivity : 0,
+              isEditable: true,
+            });
+          }
+        }
+        continue;
+      }
+      
+      // Try space/tab separated with numbers
+      const numberMatches = line.match(/[\d,]+\.?\d*/g);
+      const textPart = line.replace(/[\d,]+\.?\d*/g, '').trim();
+      if (textPart.length > 2 && numberMatches && numberMatches.length >= 1) {
+        const nums = numberMatches.map(n => parseFloat(n.replace(/,/g, '')));
+        items.push({
+          id: `tpl-${Date.now()}-${items.length}`,
+          name: textPart,
+          dailyProductivity: nums[0] || 0,
+          dailyRent: nums[1] || 0,
+          costPerUnit: nums[0] > 0 && nums[1] > 0 ? nums[1] / nums[0] : 0,
+          isEditable: true,
+        });
+      }
+    }
+    return items;
+  }, []);
+
+  // Template file import handler
+  const handleTemplateFileImport = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    event.target.value = '';
+
+    const ext = file.name.toLowerCase();
+    const isExcel = ext.endsWith('.xlsx') || ext.endsWith('.xls');
+    const isPDF = ext.endsWith('.pdf');
+    const isImage = ext.endsWith('.png') || ext.endsWith('.jpg') || ext.endsWith('.jpeg');
+
+    if (!isExcel && !isPDF && !isImage) {
+      toast.error("يُرجى اختيار ملف Excel أو PDF أو صورة");
+      return;
+    }
+
+    setIsImportingTemplate(true);
+    try {
+      let extractedItems: CostItem[] = [];
+
+      if (isExcel) {
+        const buffer = await file.arrayBuffer();
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buffer);
+        const ws = wb.worksheets[0];
+        if (ws) {
+          let counter = 0;
+          ws.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return;
+            const vals = row.values as any[];
+            if (!vals || vals.length < 2) return;
+            const name = String(vals[1] || vals[2] || `بند ${counter + 1}`);
+            const qty = parseFloat(vals[2]) || parseFloat(vals[3]) || 0;
+            const price = parseFloat(vals[3]) || parseFloat(vals[4]) || 0;
+            extractedItems.push({
+              id: `tpl-${Date.now()}-${counter}`,
+              name,
+              dailyProductivity: qty,
+              dailyRent: price,
+              costPerUnit: qty > 0 && price > 0 ? price / qty : 0,
+              isEditable: true,
+            });
+            counter++;
+          });
+        }
+      } else if (isPDF) {
+        toast.info("جاري استخراج النص من PDF...");
+        const { extractTextFromPDF } = await import('@/lib/pdf-utils');
+        const extractedText = await extractTextFromPDF(file);
+        if (extractedText && extractedText.length > 10) {
+          extractedItems = parseExtractedTextToItems(extractedText);
+        }
+      } else if (isImage) {
+        toast.info("جاري استخراج النص من الصورة (OCR)...");
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const { data, error } = await supabase.functions.invoke('ocr-extract', {
+          body: { imageBase64: base64, pageNumber: 1, totalPages: 1, fileName: file.name }
+        });
+
+        if (error) throw error;
+        if (data?.text) {
+          extractedItems = parseExtractedTextToItems(data.text);
+        }
+      }
+
+      if (extractedItems.length === 0) {
+        toast.error("لم يتم العثور على بنود في الملف");
+        setIsImportingTemplate(false);
+        return;
+      }
+
+      setPendingTemplateItems(extractedItems);
+      setImportTemplateName(file.name.replace(/\.[^.]+$/, ''));
+      setImportTemplateDialogOpen(true);
+    } catch (error) {
+      console.error("Template import error:", error);
+      toast.error("فشل استيراد الملف كقالب");
+    }
+    setIsImportingTemplate(false);
+  }, [parseExtractedTextToItems]);
+
+  // Save imported template
+  const saveImportedTemplate = useCallback(() => {
+    if (!importTemplateName.trim()) {
+      toast.error("يرجى إدخال اسم القالب");
+      return;
+    }
+
+    const template: CostTemplate = {
+      id: `template-${Date.now()}`,
+      name: importTemplateName.trim(),
+      items: pendingTemplateItems.map(({ id, ...rest }) => rest),
+      wastePercentage,
+      adminPercentage,
+      headers,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedTemplates = [...savedTemplates, template];
+    setSavedTemplates(updatedTemplates);
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(updatedTemplates));
+    setImportTemplateDialogOpen(false);
+    setPendingTemplateItems([]);
+    setImportTemplateName("");
+    toast.success(`تم حفظ القالب "${template.name}" (${pendingTemplateItems.length} بند)`);
+  }, [importTemplateName, pendingTemplateItems, wastePercentage, adminPercentage, headers, savedTemplates]);
+
+  // Load imported items without saving as template
+  const loadImportedItemsOnly = useCallback(() => {
+    setItems(prev => [...prev, ...pendingTemplateItems]);
+    setImportTemplateDialogOpen(false);
+    toast.success(`تم تحميل ${pendingTemplateItems.length} بند`);
+    setPendingTemplateItems([]);
+    setImportTemplateName("");
+  }, [pendingTemplateItems]);
+
   const exportToExcel = useCallback(() => {
     const workbook = XLSX.utils.book_new();
     
@@ -1213,10 +1388,33 @@ export default function CostAnalysisPage() {
                     </Button>
                   </div>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={() => setShowTemplateInput(true)} className="w-full gap-1">
-                    <Plus className="w-3 h-3" />
-                    حفظ كقالب جديد
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setShowTemplateInput(true)} className="flex-1 gap-1">
+                      <Plus className="w-3 h-3" />
+                      حفظ كقالب جديد
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => templateFileRef.current?.click()}
+                      disabled={isImportingTemplate}
+                      className="flex-1 gap-1 border-accent text-accent-foreground hover:bg-accent/10"
+                    >
+                      {isImportingTemplate ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Upload className="w-3 h-3" />
+                      )}
+                      استيراد قالب من ملف
+                    </Button>
+                    <input
+                      ref={templateFileRef}
+                      type="file"
+                      accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg"
+                      onChange={handleTemplateFileImport}
+                      className="hidden"
+                    />
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -1827,6 +2025,63 @@ export default function CostAnalysisPage() {
               </Button>
               <Button size="sm" onClick={handleMultiSheetImport} disabled={!availableSheets.some(s => s.selected)}>
                 استيراد المحدد
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Import Template Dialog */}
+        <Dialog open={importTemplateDialogOpen} onOpenChange={setImportTemplateDialogOpen}>
+          <DialogContent className="max-w-md" dir="rtl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileUp className="w-5 h-5 text-primary" />
+                استيراد قالب من ملف
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
+                <FileCheck className="w-5 h-5 text-primary" />
+                <span className="text-sm font-medium">تم استخراج {pendingTemplateItems.length} بند</span>
+              </div>
+              
+              {pendingTemplateItems.length > 0 && (
+                <ScrollArea className="max-h-40 border rounded-md p-2">
+                  <div className="space-y-1">
+                    {pendingTemplateItems.slice(0, 10).map((item, i) => (
+                      <div key={i} className="text-xs flex justify-between py-1 border-b border-muted last:border-0">
+                        <span className="truncate flex-1">{item.name}</span>
+                        <span className="text-muted-foreground mr-2">{item.dailyProductivity} | {item.dailyRent}</span>
+                      </div>
+                    ))}
+                    {pendingTemplateItems.length > 10 && (
+                      <div className="text-xs text-muted-foreground text-center py-1">
+                        ... و {pendingTemplateItems.length - 10} بند آخر
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              )}
+
+              <div>
+                <label className="text-sm font-medium mb-1 block">اسم القالب</label>
+                <Input
+                  value={importTemplateName}
+                  onChange={(e) => setImportTemplateName(e.target.value)}
+                  placeholder="أدخل اسم القالب..."
+                  className="text-right"
+                  onKeyDown={(e) => e.key === 'Enter' && saveImportedTemplate()}
+                />
+              </div>
+            </div>
+            <DialogFooter className="flex gap-2 sm:gap-2">
+              <Button variant="outline" onClick={loadImportedItemsOnly} className="gap-1">
+                <Download className="w-3 h-3" />
+                تحميل بدون حفظ
+              </Button>
+              <Button onClick={saveImportedTemplate} className="gap-1">
+                <Save className="w-3 h-3" />
+                حفظ كقالب
               </Button>
             </DialogFooter>
           </DialogContent>
