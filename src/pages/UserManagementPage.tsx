@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { UnifiedHeader } from "@/components/UnifiedHeader";
 import { AdminNotificationsBell } from "@/components/AdminNotificationsBell";
 import { PageHeader } from "@/components/PageHeader";
+import { PageTipsBox } from "@/components/PageTipsBox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Users, ShieldAlert, ArrowLeft, Shield, UserCheck, Search, RefreshCw,
+  Users, ShieldAlert, ArrowLeft, Shield, UserCheck, Search, RefreshCw, Mail, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -60,6 +61,9 @@ const UserManagementPage = () => {
   const [authorized, setAuthorized] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [adminEmail, setAdminEmail] = useState<string | null>(null);
+  const [adminExists, setAdminExists] = useState(false);
+  const [checkingAdmin, setCheckingAdmin] = useState(false);
 
   // Confirm dialog
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -77,6 +81,7 @@ const UserManagementPage = () => {
       }
       if (data?.error === "unauthorized") {
         setAuthorized(false);
+        checkAdminStatus();
         return;
       }
       setAuthorized(true);
@@ -89,6 +94,21 @@ const UserManagementPage = () => {
       setLoading(false);
     }
   }, [isArabic]);
+
+  const checkAdminStatus = async () => {
+    try {
+      setCheckingAdmin(true);
+      const { data } = await supabase.functions.invoke("setup-admin");
+      if (data?.error === "admin_exists") {
+        setAdminExists(true);
+        setAdminEmail(data.admin_email || null);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCheckingAdmin(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
@@ -165,30 +185,65 @@ const UserManagementPage = () => {
     }
   };
 
-
   // Unauthorized view
   if (!loading && !authorized) {
     return (
       <div className="min-h-screen bg-background">
         <UnifiedHeader />
-        <div className="container mx-auto px-4 py-20 text-center">
+        <div className="container mx-auto px-4 py-16 max-w-lg text-center">
           <ShieldAlert className="w-16 h-16 mx-auto text-destructive mb-4" />
           <h1 className="text-2xl font-bold mb-2">{isArabic ? "غير مصرح" : "Unauthorized"}</h1>
-          <p className="text-muted-foreground mb-6">
-            {isArabic ? "ليس لديك صلاحية للوصول لهذه الصفحة. إذا كنت أول مستخدم، يمكنك تعيين نفسك كمشرف." : "You don't have permission. If you're the first user, you can set yourself as admin."}
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <Button onClick={() => navigate("/")} variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              {isArabic ? "العودة للرئيسية" : "Back to Home"}
-            </Button>
-            <Button onClick={handleSetupAdmin} disabled={settingUpAdmin} variant="default">
-              <Shield className="w-4 h-4 mr-2" />
-              {settingUpAdmin
-                ? (isArabic ? "جاري التعيين..." : "Setting up...")
-                : (isArabic ? "تعيين كمشرف أول" : "Set as First Admin")}
-            </Button>
-          </div>
+          
+          {adminExists ? (
+            <div className="mt-6 space-y-4">
+              <div className="bg-muted/50 rounded-lg p-5 text-start space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0 mt-0.5">1</div>
+                  <p className="text-sm">{isArabic ? "هذه الصفحة مخصصة للمشرفين فقط." : "This page is for administrators only."}</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0 mt-0.5">2</div>
+                  <div className="text-sm">
+                    <p>{isArabic ? "تواصل مع المشرف الحالي:" : "Contact the current admin:"}</p>
+                    {adminEmail && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-mono text-primary">{adminEmail}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0 mt-0.5">3</div>
+                  <p className="text-sm">{isArabic ? "اطلب منه منحك صلاحية من صفحة إدارة الصلاحيات." : "Ask them to grant you access from the User Management page."}</p>
+                </div>
+              </div>
+              <Button onClick={() => navigate("/")} variant="outline" className="gap-2">
+                <ArrowLeft className="w-4 h-4" />
+                {isArabic ? "العودة للرئيسية" : "Back to Home"}
+              </Button>
+            </div>
+          ) : checkingAdmin ? (
+            <div className="mt-6">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="mt-6 space-y-4">
+              <p className="text-muted-foreground">
+                {isArabic ? "لا يوجد مشرف في النظام بعد. يمكنك تعيين نفسك كمشرف أول." : "No admin exists yet. You can set yourself as the first admin."}
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <Button onClick={() => navigate("/")} variant="outline">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  {isArabic ? "العودة للرئيسية" : "Back to Home"}
+                </Button>
+                <Button onClick={handleSetupAdmin} disabled={settingUpAdmin}>
+                  <Shield className="w-4 h-4 mr-2" />
+                  {settingUpAdmin ? (isArabic ? "جاري التعيين..." : "Setting up...") : (isArabic ? "تعيين كمشرف أول" : "Set as First Admin")}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -206,6 +261,8 @@ const UserManagementPage = () => {
           />
           <AdminNotificationsBell />
         </div>
+
+        <PageTipsBox />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

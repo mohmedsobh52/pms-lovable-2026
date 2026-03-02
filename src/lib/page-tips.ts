@@ -155,6 +155,24 @@ const tipEntries: TipEntry[] = [
       { en: "Navigate through project lifecycle phases from the home page.", ar: "تنقل عبر مراحل دورة حياة المشروع من الصفحة الرئيسية." },
     ],
   },
+  {
+    pattern: /^\/admin\/dashboard$/,
+    tips: [
+      { en: "Monitor system stats: users, projects, contracts.", ar: "راقب إحصائيات النظام: المستخدمين، المشاريع، العقود." },
+      { en: "Send an automatic weekly report from the Reports button.", ar: "أرسل تقرير أسبوعي تلقائي من زر التقارير." },
+      { en: "Track daily activity via the charts.", ar: "تابع النشاط اليومي عبر الرسوم البيانية." },
+      { en: "Click on a project in the table to view its details.", ar: "اضغط على مشروع في الجدول لعرض تفاصيله." },
+    ],
+  },
+  {
+    pattern: /^\/admin\/users$/,
+    tips: [
+      { en: "Change any user's role from the dropdown next to their name.", ar: "غيّر دور أي مستخدم من القائمة المنسدلة بجانب اسمه." },
+      { en: "Use search to find a user by email.", ar: "استخدم البحث لإيجاد مستخدم بالبريد الإلكتروني." },
+      { en: "Filter users by role: Admin, Moderator, User.", ar: "فلتر المستخدمين حسب الدور: مشرف، مشرف مساعد، مستخدم." },
+      { en: "Review activity logs from the Activity Log page.", ar: "راجع سجل النشاطات من صفحة سجل النشاط." },
+    ],
+  },
 ];
 
 export function getTipsForPath(pathname: string): PageTip[] {

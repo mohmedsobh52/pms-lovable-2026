@@ -5,6 +5,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "***@***";
+  const visible = local.slice(0, 2);
+  return `${visible}***@${domain}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -24,7 +31,6 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Verify user with getClaims
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -46,7 +52,7 @@ Deno.serve(async (req) => {
     // Check if any admin already exists
     const { data: existingAdmins, error: checkError } = await adminClient
       .from("user_roles")
-      .select("id")
+      .select("user_id")
       .eq("role", "admin")
       .limit(1);
 
@@ -60,7 +66,24 @@ Deno.serve(async (req) => {
 
     if (existingAdmins && existingAdmins.length > 0) {
       console.log("setup-admin: Admin already exists");
-      return new Response(JSON.stringify({ error: "admin_exists", message: "An admin already exists" }), {
+      
+      // Get admin email for contact info
+      let adminEmail = "";
+      try {
+        const adminUserId = existingAdmins[0].user_id;
+        const { data: adminUser } = await adminClient.auth.admin.getUserById(adminUserId);
+        if (adminUser?.user?.email) {
+          adminEmail = maskEmail(adminUser.user.email);
+        }
+      } catch (e) {
+        console.error("Error fetching admin email:", e);
+      }
+
+      return new Response(JSON.stringify({ 
+        error: "admin_exists", 
+        message: "An admin already exists",
+        admin_email: adminEmail || undefined,
+      }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

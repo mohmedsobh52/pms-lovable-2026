@@ -6,12 +6,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { UnifiedHeader } from "@/components/UnifiedHeader";
 import { AdminNotificationsBell } from "@/components/AdminNotificationsBell";
 import { PageHeader } from "@/components/PageHeader";
+import { PageTipsBox } from "@/components/PageTipsBox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Users, FolderOpen, FileText, TrendingUp,
-  ShieldAlert, ArrowLeft, BarChart3, Clock, Shield, Send, CalendarClock, Loader2
+  ShieldAlert, ArrowLeft, BarChart3, Clock, Shield, Send, CalendarClock, Loader2,
+  Mail, ListOrdered
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -42,6 +44,9 @@ const AdminDashboardPage = () => {
   const [authorized, setAuthorized] = useState(false);
   const [sendingReport, setSendingReport] = useState(false);
   const [lastReportResult, setLastReportResult] = useState<string | null>(null);
+  const [adminEmail, setAdminEmail] = useState<string | null>(null);
+  const [adminExists, setAdminExists] = useState(false);
+  const [checkingAdmin, setCheckingAdmin] = useState(false);
 
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
@@ -56,7 +61,12 @@ const AdminDashboardPage = () => {
         toast.error(isArabic ? "الجلسة منتهية" : "Session expired");
         navigate("/auth"); return;
       }
-      if (data?.error === "unauthorized") { setAuthorized(false); return; }
+      if (data?.error === "unauthorized") { 
+        setAuthorized(false);
+        // Check admin status for better UX
+        checkAdminStatus();
+        return; 
+      }
       setAuthorized(true);
       setStats(data);
     } catch (err: any) {
@@ -64,6 +74,21 @@ const AdminDashboardPage = () => {
       toast.error(isArabic ? "خطأ في جلب الإحصائيات" : "Error fetching stats");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkAdminStatus = async () => {
+    try {
+      setCheckingAdmin(true);
+      const { data } = await supabase.functions.invoke("setup-admin");
+      if (data?.error === "admin_exists") {
+        setAdminExists(true);
+        setAdminEmail(data.admin_email || null);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCheckingAdmin(false);
     }
   };
 
@@ -95,22 +120,60 @@ const AdminDashboardPage = () => {
     return (
       <div className="min-h-screen bg-background">
         <UnifiedHeader />
-        <div className="container mx-auto px-4 py-20 text-center">
+        <div className="container mx-auto px-4 py-16 max-w-lg text-center">
           <ShieldAlert className="w-16 h-16 mx-auto text-destructive mb-4" />
           <h1 className="text-2xl font-bold mb-2">{isArabic ? "غير مصرح" : "Unauthorized"}</h1>
-          <p className="text-muted-foreground mb-6">
-            {isArabic ? "ليس لديك صلاحية. إذا كنت أول مستخدم، يمكنك تعيين نفسك كمشرف." : "You don't have permission. If you're the first user, you can set yourself as admin."}
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <Button onClick={() => navigate("/")} variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              {isArabic ? "العودة للرئيسية" : "Back to Home"}
-            </Button>
-            <Button onClick={handleSetupAdmin} disabled={settingUpAdmin}>
-              <Shield className="w-4 h-4 mr-2" />
-              {settingUpAdmin ? (isArabic ? "جاري التعيين..." : "Setting up...") : (isArabic ? "تعيين كمشرف أول" : "Set as First Admin")}
-            </Button>
-          </div>
+          
+          {adminExists ? (
+            <div className="mt-6 space-y-4">
+              <div className="bg-muted/50 rounded-lg p-5 text-start space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0 mt-0.5">1</div>
+                  <p className="text-sm">{isArabic ? "هذه الصفحة مخصصة للمشرفين فقط." : "This page is for administrators only."}</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0 mt-0.5">2</div>
+                  <div className="text-sm">
+                    <p>{isArabic ? "تواصل مع المشرف الحالي:" : "Contact the current admin:"}</p>
+                    {adminEmail && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-mono text-primary">{adminEmail}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0 mt-0.5">3</div>
+                  <p className="text-sm">{isArabic ? "اطلب منه منحك صلاحية من صفحة إدارة الصلاحيات." : "Ask them to grant you access from the User Management page."}</p>
+                </div>
+              </div>
+              <Button onClick={() => navigate("/")} variant="outline" className="gap-2">
+                <ArrowLeft className="w-4 h-4" />
+                {isArabic ? "العودة للرئيسية" : "Back to Home"}
+              </Button>
+            </div>
+          ) : checkingAdmin ? (
+            <div className="mt-6">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="mt-6 space-y-4">
+              <p className="text-muted-foreground">
+                {isArabic ? "لا يوجد مشرف في النظام بعد. يمكنك تعيين نفسك كمشرف أول." : "No admin exists yet. You can set yourself as the first admin."}
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <Button onClick={() => navigate("/")} variant="outline">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  {isArabic ? "العودة للرئيسية" : "Back to Home"}
+                </Button>
+                <Button onClick={handleSetupAdmin} disabled={settingUpAdmin}>
+                  <Shield className="w-4 h-4 mr-2" />
+                  {settingUpAdmin ? (isArabic ? "جاري التعيين..." : "Setting up...") : (isArabic ? "تعيين كمشرف أول" : "Set as First Admin")}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -143,6 +206,8 @@ const AdminDashboardPage = () => {
           />
           <AdminNotificationsBell />
         </div>
+
+        <PageTipsBox />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
