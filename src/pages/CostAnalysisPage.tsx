@@ -994,29 +994,6 @@ export default function CostAnalysisPage() {
   const [activeSheetTab, setActiveSheetTab] = useState("main");
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
 
-  // Smart suggestions
-  const suggestions = useMemo(() => {
-    const s: { icon: any; textAr: string; textEn: string; color: string; bg: string }[] = [];
-    const hasAI = items.some(i => i.aiSuggestedProductivity || i.aiSuggestedRent);
-    if (!hasAI && items.length > 0) s.push({ icon: Sparkles, textAr: "استخدم تحليل AI السريع لتقدير الإنتاجية والإيجار", textEn: "Use AI analysis to estimate productivity & rent", color: "text-amber-500", bg: "bg-amber-500/10" });
-    if (savedTemplates.length === 0) s.push({ icon: Save, textAr: "احفظ إعداداتك كقالب لإعادة استخدامها", textEn: "Save your settings as a reusable template", color: "text-blue-500", bg: "bg-blue-500/10" });
-    if (wastePercentage === 0) s.push({ icon: TrendingUp, textAr: "أضف نسبة هالك لتقدير أدق للتكلفة", textEn: "Add waste percentage for more accurate costing", color: "text-orange-500", bg: "bg-orange-500/10" });
-    if (!localStorage.getItem(SHARED_ITEMS_KEY)) s.push({ icon: Link2, textAr: "استورد بنود من تحليل BOQ الرئيسي", textEn: "Import items from main BOQ analysis", color: "text-purple-500", bg: "bg-purple-500/10" });
-    if (hasAI) {
-      const bigDiff = items.some(i => {
-        if (!i.aiSuggestedProductivity) return false;
-        const diff = Math.abs((i.aiSuggestedProductivity - i.dailyProductivity) / (i.dailyProductivity || 1)) * 100;
-        return diff > 30;
-      });
-      if (bigDiff) s.push({ icon: TrendingDown, textAr: "راجع البنود ذات الانحراف الكبير عن تقديرات AI", textEn: "Review items with large deviation from AI estimates", color: "text-red-500", bg: "bg-red-500/10" });
-    }
-    // New suggestions
-    const isDefaultWidths = columnWidths.workItem === 220 && columnWidths.productivity === 110;
-    if (!isDefaultWidths && columnWidths.workItem < 180) s.push({ icon: FileSpreadsheet, textAr: "وسّع أعمدة الجدول لقراءة أفضل للنصوص والأرقام", textEn: "Expand table columns for better readability", color: "text-indigo-500", bg: "bg-indigo-500/10" });
-    if (items.length > 3) s.push({ icon: Download, textAr: "استخدم تصدير Excel لمشاركة التحليل مع الفريق", textEn: "Export to Excel to share analysis with your team", color: "text-green-500", bg: "bg-green-500/10" });
-    return s;
-  }, [items, savedTemplates, wastePercentage, columnWidths]);
-
   // Multi-sheet Excel import handler - creates tabs
   const handleMultiSheetImport = useCallback(async () => {
     if (!pendingWorkbook) return;
@@ -1099,6 +1076,61 @@ export default function CostAnalysisPage() {
     toast.success(`تم دمج ${allItems.length} بند في البنود الأساسية`);
   }, [sheetTabs]);
 
+  // Smart suggestions
+  const suggestions = useMemo(() => {
+    const s: { icon: any; textAr: string; textEn: string; color: string; bg: string; action?: () => void }[] = [];
+    const hasAI = items.some(i => i.aiSuggestedProductivity || i.aiSuggestedRent);
+    const allWithoutAI = items.length > 0 && items.every(i => !i.aiSuggestedProductivity && !i.aiSuggestedRent);
+
+    // Empty state
+    if (items.length === 0) {
+      s.push({ icon: Plus, textAr: "ابدأ بإضافة بند أو استورد من ملف Excel", textEn: "Start by adding an item or importing from Excel", color: "text-emerald-500", bg: "bg-emerald-500/10", action: handleAddNewItem });
+    }
+
+    // Admin percentage missing
+    if (adminPercentage === 0) {
+      s.push({ icon: TrendingUp, textAr: "أضف نسبة مصاريف إدارية لتقدير شامل", textEn: "Add admin percentage for comprehensive estimate", color: "text-orange-500", bg: "bg-orange-500/10" });
+    }
+
+    // Sheet tabs available - suggest merging
+    if (sheetTabs.length > 0) {
+      s.push({ icon: GitMerge, textAr: "ادمج الشيتات المستوردة في البنود الأساسية", textEn: "Merge imported sheets into main items", color: "text-violet-500", bg: "bg-violet-500/10", action: mergeAllSheets });
+    }
+
+    // Items > 5 - suggest PDF export
+    if (items.length > 5) {
+      s.push({ icon: FileText, textAr: "صدّر التحليل كتقرير PDF احترافي", textEn: "Export analysis as professional PDF report", color: "text-rose-500", bg: "bg-rose-500/10" });
+    }
+
+    // All items without AI - suggest batch analysis
+    if (allWithoutAI) {
+      s.push({ icon: Sparkles, textAr: "حلل جميع البنود بالذكاء الاصطناعي دفعة واحدة", textEn: "Analyze all items with AI in batch", color: "text-amber-500", bg: "bg-amber-500/10", action: analyzeAllWithAI });
+    }
+
+    // Total cost > 0 - suggest historical comparison
+    if (calculations.grandTotal > 0) {
+      s.push({ icon: ArrowLeftRight, textAr: "قارن التكلفة مع الأسعار التاريخية", textEn: "Compare cost with historical prices", color: "text-cyan-500", bg: "bg-cyan-500/10" });
+    }
+
+    // Existing suggestions
+    if (!hasAI && items.length > 0 && !allWithoutAI) s.push({ icon: Sparkles, textAr: "استخدم تحليل AI السريع لتقدير الإنتاجية والإيجار", textEn: "Use AI analysis to estimate productivity & rent", color: "text-amber-500", bg: "bg-amber-500/10" });
+    if (savedTemplates.length === 0) s.push({ icon: Save, textAr: "احفظ إعداداتك كقالب لإعادة استخدامها", textEn: "Save your settings as a reusable template", color: "text-blue-500", bg: "bg-blue-500/10" });
+    if (wastePercentage === 0) s.push({ icon: TrendingUp, textAr: "أضف نسبة هالك لتقدير أدق للتكلفة", textEn: "Add waste percentage for more accurate costing", color: "text-orange-500", bg: "bg-orange-500/10" });
+    if (!localStorage.getItem(SHARED_ITEMS_KEY)) s.push({ icon: Link2, textAr: "استورد بنود من تحليل BOQ الرئيسي", textEn: "Import items from main BOQ analysis", color: "text-purple-500", bg: "bg-purple-500/10" });
+    if (hasAI) {
+      const bigDiff = items.some(i => {
+        if (!i.aiSuggestedProductivity) return false;
+        const diff = Math.abs((i.aiSuggestedProductivity - i.dailyProductivity) / (i.dailyProductivity || 1)) * 100;
+        return diff > 30;
+      });
+      if (bigDiff) s.push({ icon: TrendingDown, textAr: "راجع البنود ذات الانحراف الكبير عن تقديرات AI", textEn: "Review items with large deviation from AI estimates", color: "text-red-500", bg: "bg-red-500/10" });
+    }
+    // Column width suggestion
+    const isDefaultWidths = columnWidths.workItem === 220 && columnWidths.productivity === 110;
+    if (!isDefaultWidths && columnWidths.workItem < 180) s.push({ icon: FileSpreadsheet, textAr: "وسّع أعمدة الجدول لقراءة أفضل للنصوص والأرقام", textEn: "Expand table columns for better readability", color: "text-indigo-500", bg: "bg-indigo-500/10", action: resetColumnWidths });
+    if (items.length > 3) s.push({ icon: Download, textAr: "استخدم تصدير Excel لمشاركة التحليل مع الفريق", textEn: "Export to Excel to share analysis with your team", color: "text-green-500", bg: "bg-green-500/10" });
+    return s;
+  }, [items, savedTemplates, wastePercentage, adminPercentage, columnWidths, sheetTabs, calculations.grandTotal, handleAddNewItem, analyzeAllWithAI, mergeAllSheets, resetColumnWidths]);
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -1735,11 +1767,17 @@ export default function CostAnalysisPage() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {suggestions.map((s, i) => (
-                    <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-background/80 border border-border/50">
+                    <div
+                      key={i}
+                      className={`flex items-center gap-2 p-2 rounded-lg bg-background/80 border border-border/50 ${s.action ? 'cursor-pointer hover:bg-muted/60 transition-colors' : ''}`}
+                      onClick={s.action}
+                      role={s.action ? 'button' : undefined}
+                    >
                       <div className={`flex items-center justify-center w-7 h-7 rounded-md ${s.bg} shrink-0`}>
                         <s.icon className={`w-4 h-4 ${s.color}`} />
                       </div>
-                      <p className="text-xs font-medium">{s.textAr}</p>
+                      <p className="text-xs font-medium flex-1">{s.textAr}</p>
+                      {s.action && <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />}
                     </div>
                   ))}
                 </CardContent>

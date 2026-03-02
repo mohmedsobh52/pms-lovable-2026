@@ -129,6 +129,10 @@ const tipEntries: TipEntry[] = [
       { en: "Use AI analysis to estimate productivity and daily rental rates.", ar: "استخدم تحليل AI لتقدير الإنتاجية والإيجار اليومي." },
       { en: "Save your settings as a template for reuse in other projects.", ar: "احفظ إعداداتك كقالب لإعادة استخدامها في مشاريع أخرى." },
       { en: "Export reports in Excel or PDF from the sidebar.", ar: "صدّر التقرير بصيغة Excel أو PDF من القائمة الجانبية." },
+      { en: "Use drag and drop to reorder items by priority.", ar: "استخدم السحب والإفلات لإعادة ترتيب البنود حسب الأولوية." },
+      { en: "Click on any number in the table to edit it directly.", ar: "اضغط على أي رقم في الجدول لتعديله مباشرة." },
+      { en: "Import a multi-sheet Excel file and each sheet will appear as a separate tab.", ar: "استورد ملف Excel متعدد الشيتات وسيظهر كل شيت كتاب منفصل." },
+      { en: "Add waste and admin percentages for a comprehensive cost estimate.", ar: "أضف نسبة الهالك والمصاريف الإدارية للحصول على تكلفة شاملة." },
     ],
   },
   {
