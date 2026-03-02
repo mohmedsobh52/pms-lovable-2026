@@ -79,6 +79,10 @@ const tipEntries: TipEntry[] = [
     tips: [
       { en: "Upload and compare supplier quotations.", ar: "ارفع وقارن عروض أسعار الموردين." },
       { en: "Use AI to analyze quotation documents automatically.", ar: "استخدم الذكاء الاصطناعي لتحليل مستندات عروض الأسعار تلقائيًا." },
+      { en: "Upload PDF or Excel quotations for automatic AI analysis.", ar: "ارفع عروض أسعار PDF أو Excel لتحليلها تلقائياً بالذكاء الاصطناعي." },
+      { en: "Compare quotations from different suppliers to choose the best.", ar: "قارن بين عروض الأسعار من موردين مختلفين لاختيار الأفضل." },
+      { en: "Import analyzed items to the price library for future use.", ar: "استورد البنود المحللة إلى مكتبة الأسعار لاستخدامها لاحقاً." },
+      { en: "Export comparison reports as professional PDF files.", ar: "صدّر تقرير مقارنة العروض كملف PDF احترافي." },
     ],
   },
   {
