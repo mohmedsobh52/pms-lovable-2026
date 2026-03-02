@@ -1,4 +1,4 @@
-import { useState, ReactNode } from "react";
+import { useState, useCallback, useMemo, ReactNode } from "react";
 import {
   Dialog,
   DialogContent,
@@ -46,12 +46,17 @@ interface SearchResult {
   total_estimated_max?: number;
 }
 
-const suggestions = [
+const allSuggestions = [
   { en: "Need 10 laptops for development team", ar: "نحتاج 10 أجهزة لابتوب لفريق التطوير" },
   { en: "Office furniture for 50 employees", ar: "أثاث مكتبي لـ 50 موظف" },
   { en: "Construction materials for building project", ar: "مواد بناء لمشروع إنشائي" },
   { en: "Electrical equipment and supplies", ar: "معدات ولوازم كهربائية" },
   { en: "HVAC systems for commercial building", ar: "أنظمة تكييف لمبنى تجاري" },
+  { en: "Reinforcing steel for residential project", ar: "حديد تسليح لمشروع سكني" },
+  { en: "Plumbing works and pipes", ar: "أعمال سباكة ومواسير" },
+  { en: "Interior and exterior painting", ar: "أعمال دهانات داخلية وخارجية" },
+  { en: "Safety and protection equipment", ar: "معدات سلامة ووقاية" },
+  { en: "Ready-mix concrete for commercial project", ar: "خرسانة جاهزة لمشروع تجاري" },
 ];
 
 type DialogStep = 'input' | 'processing' | 'results';
@@ -87,11 +92,13 @@ export const RequestOfferDialog = ({
     }
   };
 
-  const handleSuggestionClick = (suggestion: { en: string; ar: string }) => {
+  const suggestions = useMemo(() => allSuggestions, []);
+
+  const handleSuggestionClick = useCallback((suggestion: { en: string; ar: string }) => {
     const text = isArabic ? suggestion.ar : suggestion.en;
     setRequest(text);
     handleSubmitWithQuery(text);
-  };
+  }, [isArabic]);
 
   const saveToDatabase = async (query: string, results: SearchResult) => {
     try {
@@ -184,10 +191,10 @@ export const RequestOfferDialog = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     handleSubmitWithQuery(request);
-  };
+  }, [request]);
 
   const handleNewRequest = () => {
     setStep('input');
@@ -342,8 +349,8 @@ export const RequestOfferDialog = ({
   // Input View
   const renderInputView = () => (
     <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-      <div className="bg-muted/50 rounded-xl p-4 space-y-3">
-        <p className="text-sm text-muted-foreground">
+      <div className="bg-muted/30 rounded-xl p-5 space-y-3 border border-border/50">
+        <p className="text-sm text-foreground/70">
           {isArabic
             ? "أدخل طلبك بالتفصيل للحصول على أفضل عروض الأسعار من الموردين"
             : "Enter your request in detail to get the best price quotes from suppliers"}
@@ -359,7 +366,7 @@ export const RequestOfferDialog = ({
                 : "Write your request here..."
             }
             rows={4}
-            className="resize-none pe-10 bg-background"
+            className="resize-none pe-10 bg-background text-foreground border-border/60"
           />
           <button
             type="button"
@@ -372,16 +379,16 @@ export const RequestOfferDialog = ({
       </div>
 
       <div className="space-y-3">
-        <p className="text-sm font-medium text-muted-foreground">
+        <p className="text-sm font-semibold text-foreground">
           {isArabic ? "اقتراحات جاهزة:" : "Suggested requests:"}
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2">
           {suggestions.map((suggestion, index) => (
             <button
               key={index}
               type="button"
               onClick={() => handleSuggestionClick(suggestion)}
-              className="px-3 py-1.5 text-xs rounded-full border border-border bg-background hover:bg-accent hover:border-primary/50 transition-colors"
+              className="w-full text-start px-4 py-3 text-sm rounded-xl border border-border/60 bg-background text-foreground hover:bg-accent hover:border-primary/50 transition-all duration-150"
             >
               {isArabic ? suggestion.ar : suggestion.en}
             </button>
@@ -423,7 +430,7 @@ export const RequestOfferDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
