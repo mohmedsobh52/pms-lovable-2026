@@ -381,6 +381,7 @@ export default function CostAnalysisPage() {
   const [pendingTemplateItems, setPendingTemplateItems] = useState<CostItem[]>([]);
   const [importTemplateName, setImportTemplateName] = useState("");
   const templateFileRef = useRef<HTMLInputElement>(null);
+  const [isDragOverTemplate, setIsDragOverTemplate] = useState(false);
   
   const [savedTemplates, setSavedTemplates] = useState<CostTemplate[]>(() => {
     try {
@@ -948,11 +949,8 @@ export default function CostAnalysisPage() {
     return items;
   }, []);
 
-  // Template file import handler
-  const handleTemplateFileImport = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    event.target.value = '';
+  // Shared template file processor
+  const processTemplateFile = useCallback(async (file: File) => {
 
     const ext = file.name.toLowerCase();
     const isExcel = ext.endsWith('.xlsx') || ext.endsWith('.xls');
@@ -1034,6 +1032,22 @@ export default function CostAnalysisPage() {
     }
     setIsImportingTemplate(false);
   }, [parseExtractedTextToItems]);
+
+  // Template file input handler
+  const handleTemplateFileImport = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    event.target.value = '';
+    processTemplateFile(file);
+  }, [processTemplateFile]);
+
+  // Template drop handler
+  const handleTemplateDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOverTemplate(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processTemplateFile(file);
+  }, [processTemplateFile]);
 
   // Save imported template
   const saveImportedTemplate = useCallback(() => {
@@ -1388,25 +1402,31 @@ export default function CostAnalysisPage() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setShowTemplateInput(true)} className="flex-1 gap-1">
+                  <div className="space-y-2">
+                    <Button variant="outline" size="sm" onClick={() => setShowTemplateInput(true)} className="w-full gap-1">
                       <Plus className="w-3 h-3" />
                       حفظ كقالب جديد
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => templateFileRef.current?.click()}
-                      disabled={isImportingTemplate}
-                      className="flex-1 gap-1 border-accent text-accent-foreground hover:bg-accent/10"
+                    <div
+                      onClick={() => !isImportingTemplate && templateFileRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setIsDragOverTemplate(true); }}
+                      onDragLeave={() => setIsDragOverTemplate(false)}
+                      onDrop={handleTemplateDrop}
+                      className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg cursor-pointer transition-all border-2 border-dashed ${
+                        isDragOverTemplate
+                          ? 'border-primary bg-primary/5'
+                          : 'border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/50'
+                      }`}
                     >
                       {isImportingTemplate ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
                       ) : (
-                        <Upload className="w-3 h-3" />
+                        <Upload className="w-8 h-8 text-foreground" />
                       )}
-                      استيراد قالب من ملف
-                    </Button>
+                      <span className="text-sm font-medium text-foreground">استيراد قالب من ملف</span>
+                      <span className="text-xs text-muted-foreground">اسحب الملف هنا أو اضغط للاختيار</span>
+                      <span className="text-xs text-muted-foreground">Excel, PDF, PNG, JPG</span>
+                    </div>
                     <input
                       ref={templateFileRef}
                       type="file"
