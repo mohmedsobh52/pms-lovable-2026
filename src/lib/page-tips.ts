@@ -125,8 +125,10 @@ const tipEntries: TipEntry[] = [
   {
     pattern: /^\/cost-analysis$/,
     tips: [
-      { en: "Break down item costs into materials, labor, and equipment.", ar: "حلل تكاليف البنود إلى مواد وعمالة ومعدات." },
-      { en: "Calculate profit margins and overhead costs.", ar: "احسب هوامش الربح والتكاليف العامة." },
+      { en: "Add cost items manually or import them from an Excel file.", ar: "أضف بنود التكاليف يدوياً أو استوردها من ملف Excel." },
+      { en: "Use AI analysis to estimate productivity and daily rental rates.", ar: "استخدم تحليل AI لتقدير الإنتاجية والإيجار اليومي." },
+      { en: "Save your settings as a template for reuse in other projects.", ar: "احفظ إعداداتك كقالب لإعادة استخدامها في مشاريع أخرى." },
+      { en: "Export reports in Excel or PDF from the sidebar.", ar: "صدّر التقرير بصيغة Excel أو PDF من القائمة الجانبية." },
     ],
   },
   {

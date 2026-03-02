@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
-import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload, FileUp, RotateCcw, Link2, ArrowLeftRight } from "lucide-react";
+import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload, FileUp, RotateCcw, Link2, ArrowLeftRight, Lightbulb, FileCheck } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { extractDataFromExcel } from "@/lib/excel-utils";
 import {
@@ -47,6 +47,10 @@ import { XLSX } from '@/lib/exceljs-utils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { PageTipsBox } from "@/components/PageTipsBox";
+import ExcelJS from 'exceljs';
 
 interface CostItem {
   id: string;
@@ -565,8 +569,27 @@ export default function CostAnalysisPage() {
 
     try {
       if (isExcel) {
+        // Check for multi-sheet workbook
+        const buffer = await file.arrayBuffer();
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buffer);
+        
+        if (wb.worksheets.length > 1) {
+          // Multi-sheet: show selection dialog
+          const sheets = wb.worksheets.map(ws => ({
+            name: ws.name,
+            rowCount: ws.rowCount > 0 ? ws.rowCount - 1 : 0,
+            selected: false,
+          }));
+          setAvailableSheets(sheets);
+          setPendingWorkbook(wb);
+          setSheetDialogOpen(true);
+          event.target.value = '';
+          return;
+        }
+
+        // Single sheet: use existing extraction
         const result = await extractDataFromExcel(file);
-        console.log('Excel extraction result:', result);
         
         if (result.items.length > 0) {
           const newItems: CostItem[] = result.items.map((item, index) => ({
@@ -578,12 +601,7 @@ export default function CostAnalysisPage() {
             isEditable: true,
           }));
 
-          console.log('New items to import:', newItems.length);
-          setItems(prev => {
-            const updated = [...prev, ...newItems];
-            console.log('Total items after import:', updated.length);
-            return updated;
-          });
+          setItems(prev => [...prev, ...newItems]);
           toast.success(`تم استيراد ${newItems.length} بند من ملف Excel`);
         } else {
           toast.error("لم يتم العثور على بنود في الملف");
@@ -967,19 +985,70 @@ export default function CostAnalysisPage() {
 
   const formatNumber = (num: number) => num.toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-background border rounded-lg p-2 shadow-lg">
-          <p className="font-medium text-sm">{payload[0].payload.fullName}</p>
-          <p className="text-sm text-muted-foreground">
-            {formatNumber(payload[0].value)} {currency} ({payload[0].payload.percentage}%)
-          </p>
-        </div>
-      );
+  // Sheet selection dialog state for multi-sheet Excel import
+  const [sheetDialogOpen, setSheetDialogOpen] = useState(false);
+  const [availableSheets, setAvailableSheets] = useState<{ name: string; rowCount: number; selected: boolean }[]>([]);
+  const [pendingWorkbook, setPendingWorkbook] = useState<ExcelJS.Workbook | null>(null);
+
+  // Smart suggestions
+  const suggestions = useMemo(() => {
+    const s: { icon: any; textAr: string; textEn: string; color: string; bg: string }[] = [];
+    const hasAI = items.some(i => i.aiSuggestedProductivity || i.aiSuggestedRent);
+    if (!hasAI && items.length > 0) s.push({ icon: Sparkles, textAr: "استخدم تحليل AI السريع لتقدير الإنتاجية والإيجار", textEn: "Use AI analysis to estimate productivity & rent", color: "text-amber-500", bg: "bg-amber-500/10" });
+    if (savedTemplates.length === 0) s.push({ icon: Save, textAr: "احفظ إعداداتك كقالب لإعادة استخدامها", textEn: "Save your settings as a reusable template", color: "text-blue-500", bg: "bg-blue-500/10" });
+    if (wastePercentage === 0) s.push({ icon: TrendingUp, textAr: "أضف نسبة هالك لتقدير أدق للتكلفة", textEn: "Add waste percentage for more accurate costing", color: "text-orange-500", bg: "bg-orange-500/10" });
+    if (!localStorage.getItem(SHARED_ITEMS_KEY)) s.push({ icon: Link2, textAr: "استورد بنود من تحليل BOQ الرئيسي", textEn: "Import items from main BOQ analysis", color: "text-purple-500", bg: "bg-purple-500/10" });
+    if (hasAI) {
+      const bigDiff = items.some(i => {
+        if (!i.aiSuggestedProductivity) return false;
+        const diff = Math.abs((i.aiSuggestedProductivity - i.dailyProductivity) / (i.dailyProductivity || 1)) * 100;
+        return diff > 30;
+      });
+      if (bigDiff) s.push({ icon: TrendingDown, textAr: "راجع البنود ذات الانحراف الكبير عن تقديرات AI", textEn: "Review items with large deviation from AI estimates", color: "text-red-500", bg: "bg-red-500/10" });
     }
-    return null;
-  };
+    return s;
+  }, [items, savedTemplates, wastePercentage]);
+
+  // Multi-sheet Excel import handler
+  const handleMultiSheetImport = useCallback(async () => {
+    if (!pendingWorkbook) return;
+    const selected = availableSheets.filter(s => s.selected);
+    if (selected.length === 0) { toast.error("اختر شيت واحد على الأقل"); return; }
+
+    let totalImported = 0;
+    const newItems: CostItem[] = [];
+
+    for (const sheet of selected) {
+      const ws = pendingWorkbook.getWorksheet(sheet.name);
+      if (!ws) continue;
+      ws.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return; // skip header
+        const vals = row.values as any[];
+        if (!vals || vals.length < 2) return;
+        const name = String(vals[1] || vals[2] || `بند ${totalImported + 1}`);
+        const qty = parseFloat(vals[2]) || parseFloat(vals[3]) || 0;
+        const price = parseFloat(vals[3]) || parseFloat(vals[4]) || 0;
+        newItems.push({
+          id: `sheet-${Date.now()}-${totalImported}`,
+          name,
+          dailyProductivity: qty,
+          dailyRent: price,
+          costPerUnit: qty > 0 && price > 0 ? price / qty : 0,
+          isEditable: true,
+        });
+        totalImported++;
+      });
+    }
+
+    if (newItems.length > 0) {
+      setItems(prev => [...prev, ...newItems]);
+      toast.success(`تم استيراد ${newItems.length} بند من ${selected.length} شيت`);
+    } else {
+      toast.error("لم يتم العثور على بنود في الشيتات المحددة");
+    }
+    setSheetDialogOpen(false);
+    setPendingWorkbook(null);
+  }, [pendingWorkbook, availableSheets]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -1002,6 +1071,7 @@ export default function CostAnalysisPage() {
       />
 
       <main className="container mx-auto px-4 py-6">
+        <PageTipsBox />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Table - 2/3 width */}
           <div className="lg:col-span-2 space-y-4">
@@ -1455,9 +1525,21 @@ export default function CostAnalysisPage() {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip content={<CustomTooltip />} />
+                      <Tooltip content={({ active, payload }: any) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-background border rounded-lg p-2 shadow-lg">
+                              <p className="font-medium text-sm">{String(payload[0].payload.fullName || payload[0].name)}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {formatNumber(payload[0].value)} {currency} ({payload[0].payload.percentage}%)
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }} />
                       <Legend 
-                        formatter={(value) => <span className="text-xs">{value}</span>}
+                        formatter={(value) => <span className="text-xs">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>}
                         wrapperStyle={{ fontSize: '10px' }}
                       />
                     </PieChart>
@@ -1494,6 +1576,28 @@ export default function CostAnalysisPage() {
               </CardContent>
             </Card>
 
+            {/* Smart Suggestions */}
+            {suggestions.length > 0 && (
+              <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4 text-amber-500" />
+                    اقتراحات وتوصيات
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {suggestions.map((s, i) => (
+                    <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-background/80 border border-border/50">
+                      <div className={`flex items-center justify-center w-7 h-7 rounded-md ${s.bg} shrink-0`}>
+                        <s.icon className={`w-4 h-4 ${s.color}`} />
+                      </div>
+                      <p className="text-xs font-medium">{s.textAr}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Auto-save indicator */}
             <Card className="border-green-500/30 bg-green-500/5">
               <CardContent className="pt-4">
@@ -1505,6 +1609,42 @@ export default function CostAnalysisPage() {
             </Card>
           </div>
         </div>
+
+        {/* Multi-Sheet Selection Dialog */}
+        <Dialog open={sheetDialogOpen} onOpenChange={setSheetDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileCheck className="w-5 h-5 text-primary" />
+                اختيار الشيتات للاستيراد
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {availableSheets.map((sheet, idx) => (
+                <label key={idx} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors">
+                  <Checkbox
+                    checked={sheet.selected}
+                    onCheckedChange={(checked) => {
+                      setAvailableSheets(prev => prev.map((s, i) => i === idx ? { ...s, selected: !!checked } : s));
+                    }}
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{sheet.name}</p>
+                    <p className="text-xs text-muted-foreground">{sheet.rowCount} صف</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" size="sm" onClick={() => setAvailableSheets(prev => prev.map(s => ({ ...s, selected: true })))}>
+                تحديد الكل
+              </Button>
+              <Button size="sm" onClick={handleMultiSheetImport} disabled={!availableSheets.some(s => s.selected)}>
+                استيراد المحدد
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
