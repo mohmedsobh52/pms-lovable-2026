@@ -107,13 +107,13 @@ interface ColumnWidths {
 }
 
 const defaultColumnWidths: ColumnWidths = {
-  drag: 30,
-  workItem: 160,
-  productivity: 80,
-  aiProductivity: 100,
-  dailyRent: 60,
-  aiRent: 100,
-  costPerUnit: 80,
+  drag: 35,
+  workItem: 220,
+  productivity: 110,
+  aiProductivity: 120,
+  dailyRent: 100,
+  aiRent: 120,
+  costPerUnit: 110,
   actions: 80,
 };
 
@@ -175,7 +175,7 @@ function SortableRow({
   };
 
   return (
-    <TableRow ref={setNodeRef} style={style} className="hover:bg-muted/50">
+    <TableRow ref={setNodeRef} style={style} className="hover:bg-muted/50 even:bg-muted/20">
       <TableCell className="cursor-grab" {...attributes} {...listeners}>
         <GripVertical className="w-4 h-4 text-muted-foreground" />
       </TableCell>
@@ -183,15 +183,15 @@ function SortableRow({
         <Input
           value={item.name}
           onChange={(e) => handleItemChange(item.id, 'name', e.target.value)}
-          className="text-right h-7 text-sm border-0 bg-transparent focus:bg-background"
+          className="text-right h-8 text-sm min-w-[180px] border-0 bg-transparent focus:bg-background"
         />
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="text-center whitespace-nowrap">
         <Input
           type="number"
           value={item.dailyProductivity || ""}
           onChange={(e) => handleItemChange(item.id, 'dailyProductivity', parseFloat(e.target.value) || 0)}
-          className="text-center h-7 w-16 mx-auto text-sm"
+          className="text-center h-8 w-24 mx-auto text-sm"
           placeholder="0"
         />
       </TableCell>
@@ -204,9 +204,9 @@ function SortableRow({
               variant="ghost"
               size="sm"
               onClick={() => applyAISuggestion(item.id, 'productivity')}
-              className="h-5 px-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
+              className="h-6 px-2 text-xs min-w-[50px] bg-amber-100 hover:bg-amber-200 text-amber-700"
             >
-              {item.aiSuggestedProductivity}
+              {formatNumber(item.aiSuggestedProductivity)}
             </Button>
             {(() => {
               const diff = calculateDifference(item.dailyProductivity, item.aiSuggestedProductivity);
@@ -214,7 +214,7 @@ function SortableRow({
               return (
                 <Badge 
                   variant="outline" 
-                  className={`text-[9px] px-1 py-0 h-4 ${
+                  className={`text-[10px] px-1.5 py-0 h-4 ${
                     diff.type === 'up' ? 'text-green-600 border-green-300 bg-green-50' : 
                     diff.type === 'down' ? 'text-red-600 border-red-300 bg-red-50' : 
                     'text-muted-foreground'
@@ -239,12 +239,12 @@ function SortableRow({
           </Button>
         )}
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="text-center whitespace-nowrap">
         <Input
           type="number"
           value={item.dailyRent || ""}
           onChange={(e) => handleItemChange(item.id, 'dailyRent', parseFloat(e.target.value) || 0)}
-          className="text-center h-7 w-14 mx-auto text-sm"
+          className="text-center h-8 w-24 mx-auto text-sm"
           placeholder="0"
         />
       </TableCell>
@@ -257,9 +257,9 @@ function SortableRow({
               variant="ghost"
               size="sm"
               onClick={() => applyAISuggestion(item.id, 'rent')}
-              className="h-5 px-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700"
+              className="h-6 px-2 text-xs min-w-[50px] bg-amber-100 hover:bg-amber-200 text-amber-700"
             >
-              {item.aiSuggestedRent}
+              {formatNumber(item.aiSuggestedRent)}
             </Button>
             {(() => {
               const diff = calculateDifference(item.dailyRent, item.aiSuggestedRent);
@@ -267,7 +267,7 @@ function SortableRow({
               return (
                 <Badge 
                   variant="outline" 
-                  className={`text-[9px] px-1 py-0 h-4 ${
+                  className={`text-[10px] px-1.5 py-0 h-4 ${
                     diff.type === 'up' ? 'text-red-600 border-red-300 bg-red-50' : 
                     diff.type === 'down' ? 'text-green-600 border-green-300 bg-green-50' : 
                     'text-muted-foreground'
@@ -293,8 +293,8 @@ function SortableRow({
           </Button>
         )}
       </TableCell>
-      <TableCell className="text-center">
-        <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5">
+      <TableCell className="text-center whitespace-nowrap">
+        <Badge variant="secondary" className="font-mono text-sm px-3 py-1">
           {formatNumber(item.costPerUnit)}
         </Badge>
       </TableCell>
@@ -398,10 +398,7 @@ export default function CostAnalysisPage() {
   const [startX, setStartX] = useState(0);
   const [startWidth, setStartWidth] = useState(0);
 
-  // Debug log for items changes
-  useEffect(() => {
-    console.log('Items updated. Current count:', items.length, 'Items:', items);
-  }, [items]);
+  // Items change tracking (debug removed for performance)
 
   // Auto-save to localStorage whenever items, headers, or percentages change
   useEffect(() => {
@@ -545,12 +542,7 @@ export default function CostAnalysisPage() {
       costPerUnit: 0,
       isEditable: true,
     };
-    console.log('Adding new item:', newItem);
-    setItems(prevItems => {
-      const updated = [...prevItems, newItem];
-      console.log('Updated items count:', updated.length);
-      return updated;
-    });
+    setItems(prevItems => [...prevItems, newItem]);
     toast.success("تم إضافة صف جديد");
     
     // Scroll to bottom after adding
@@ -1018,8 +1010,12 @@ export default function CostAnalysisPage() {
       });
       if (bigDiff) s.push({ icon: TrendingDown, textAr: "راجع البنود ذات الانحراف الكبير عن تقديرات AI", textEn: "Review items with large deviation from AI estimates", color: "text-red-500", bg: "bg-red-500/10" });
     }
+    // New suggestions
+    const isDefaultWidths = columnWidths.workItem === 220 && columnWidths.productivity === 110;
+    if (!isDefaultWidths && columnWidths.workItem < 180) s.push({ icon: FileSpreadsheet, textAr: "وسّع أعمدة الجدول لقراءة أفضل للنصوص والأرقام", textEn: "Expand table columns for better readability", color: "text-indigo-500", bg: "bg-indigo-500/10" });
+    if (items.length > 3) s.push({ icon: Download, textAr: "استخدم تصدير Excel لمشاركة التحليل مع الفريق", textEn: "Export to Excel to share analysis with your team", color: "text-green-500", bg: "bg-green-500/10" });
     return s;
-  }, [items, savedTemplates, wastePercentage]);
+  }, [items, savedTemplates, wastePercentage, columnWidths]);
 
   // Multi-sheet Excel import handler - creates tabs
   const handleMultiSheetImport = useCallback(async () => {
@@ -1391,7 +1387,7 @@ export default function CostAnalysisPage() {
                     collisionDetection={closestCenter}
                     onDragEnd={handleDragEnd}
                   >
-                    <Table className="table-fixed">
+                    <Table>
                       <TableHeader>
                         <TableRow className="bg-primary/10">
                           <TableHead style={{ width: columnWidths.drag }} className="relative">
