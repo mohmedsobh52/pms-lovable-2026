@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import {
   Users, FolderOpen, FileText, TrendingUp,
   ShieldAlert, ArrowLeft, BarChart3, Clock, Shield, Send, CalendarClock, Loader2,
-  Mail, ListOrdered
+  Mail, ListOrdered, Lightbulb, Plus, Upload, LayoutTemplate, RefreshCw, UserPlus, ArrowRight
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -231,6 +231,56 @@ const AdminDashboardPage = () => {
             ))
           )}
         </div>
+
+        {/* Smart Suggestions */}
+        {stats && (() => {
+          const suggestions = [];
+          if (stats.totalUsers === 0) suggestions.push({
+            icon: UserPlus, textAr: "ادعُ مستخدمين جدد للنظام", textEn: "Invite new users to the system", path: "/admin/users", color: "text-blue-500", bg: "bg-blue-500/10"
+          });
+          if (stats.totalProjects === 0) suggestions.push({
+            icon: Plus, textAr: "أنشئ أول مشروع لتحليل بنود الأعمال", textEn: "Create your first BOQ project", path: "/new-project", color: "text-emerald-500", bg: "bg-emerald-500/10"
+          });
+          if (stats.totalContracts === 0) suggestions.push({
+            icon: FileText, textAr: "أضف عقوداً لتتبع الالتزامات المالية", textEn: "Add contracts to track financial commitments", path: "/contracts", color: "text-purple-500", bg: "bg-purple-500/10"
+          });
+          if (stats.totalQuotations === 0) suggestions.push({
+            icon: Upload, textAr: "ارفع عروض أسعار للمقارنة والتحليل", textEn: "Upload quotations for comparison & analysis", path: "/quotations", color: "text-pink-500", bg: "bg-pink-500/10"
+          });
+          if (stats.totalTemplates === 0) suggestions.push({
+            icon: LayoutTemplate, textAr: "أنشئ قوالب BOQ لتسريع العمل", textEn: "Create BOQ templates to speed up work", path: "/templates", color: "text-teal-500", bg: "bg-teal-500/10"
+          });
+          if (stats.recentProjects === 0 && stats.totalProjects > 0) suggestions.push({
+            icon: RefreshCw, textAr: "راجع المشاريع القائمة وقم بتحديثها", textEn: "Review and update existing projects", path: "/saved-projects", color: "text-orange-500", bg: "bg-orange-500/10"
+          });
+
+          if (suggestions.length === 0) return null;
+
+          return (
+            <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 mb-8">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-amber-500" />
+                  {isArabic ? "اقتراحات وتوصيات" : "Suggestions & Recommendations"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {suggestions.map((s, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-background/80 border border-border/50 hover:shadow-sm transition-shadow">
+                    <div className={`flex items-center justify-center w-9 h-9 rounded-lg ${s.bg} shrink-0`}>
+                      <s.icon className={`w-5 h-5 ${s.color}`} />
+                    </div>
+                    <p className="flex-1 text-sm font-medium">{isArabic ? s.textAr : s.textEn}</p>
+                    <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={() => navigate(s.path)}>
+                      {isArabic ? "ابدأ" : "Go"}
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Quick Actions */}
         <div className="mb-8 flex items-center gap-3 flex-wrap">
