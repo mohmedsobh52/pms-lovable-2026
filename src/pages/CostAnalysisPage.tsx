@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
-import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload, FileUp, RotateCcw, Link2, ArrowLeftRight, Lightbulb, FileCheck } from "lucide-react";
+import { Calculator, Save, Plus, Trash2, Download, FileSpreadsheet, FileText, Copy, PieChart as PieChartIcon, Sparkles, Loader2, TrendingUp, TrendingDown, Minus, Zap, GripVertical, Edit2, ArrowRight, Upload, FileUp, RotateCcw, Link2, ArrowLeftRight, Lightbulb, FileCheck, X, GitMerge } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { extractDataFromExcel } from "@/lib/excel-utils";
 import {
@@ -50,7 +50,14 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PageTipsBox } from "@/components/PageTipsBox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import ExcelJS from 'exceljs';
+
+interface SheetTab {
+  name: string;
+  items: CostItem[];
+}
 
 interface CostItem {
   id: string;
@@ -990,6 +997,11 @@ export default function CostAnalysisPage() {
   const [availableSheets, setAvailableSheets] = useState<{ name: string; rowCount: number; selected: boolean }[]>([]);
   const [pendingWorkbook, setPendingWorkbook] = useState<ExcelJS.Workbook | null>(null);
 
+  // Sheet tabs state
+  const [sheetTabs, setSheetTabs] = useState<SheetTab[]>([]);
+  const [activeSheetTab, setActiveSheetTab] = useState("main");
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+
   // Smart suggestions
   const suggestions = useMemo(() => {
     const s: { icon: any; textAr: string; textEn: string; color: string; bg: string }[] = [];
@@ -1009,46 +1021,87 @@ export default function CostAnalysisPage() {
     return s;
   }, [items, savedTemplates, wastePercentage]);
 
-  // Multi-sheet Excel import handler
+  // Multi-sheet Excel import handler - creates tabs
   const handleMultiSheetImport = useCallback(async () => {
     if (!pendingWorkbook) return;
     const selected = availableSheets.filter(s => s.selected);
     if (selected.length === 0) { toast.error("اختر شيت واحد على الأقل"); return; }
 
-    let totalImported = 0;
-    const newItems: CostItem[] = [];
+    const newTabs: SheetTab[] = [];
 
     for (const sheet of selected) {
       const ws = pendingWorkbook.getWorksheet(sheet.name);
       if (!ws) continue;
+      const tabItems: CostItem[] = [];
+      let counter = 0;
       ws.eachRow((row, rowNumber) => {
-        if (rowNumber === 1) return; // skip header
+        if (rowNumber === 1) return;
         const vals = row.values as any[];
         if (!vals || vals.length < 2) return;
-        const name = String(vals[1] || vals[2] || `بند ${totalImported + 1}`);
+        const name = String(vals[1] || vals[2] || `بند ${counter + 1}`);
         const qty = parseFloat(vals[2]) || parseFloat(vals[3]) || 0;
         const price = parseFloat(vals[3]) || parseFloat(vals[4]) || 0;
-        newItems.push({
-          id: `sheet-${Date.now()}-${totalImported}`,
+        tabItems.push({
+          id: `sheet-${Date.now()}-${counter}-${Math.random().toString(36).substr(2, 5)}`,
           name,
           dailyProductivity: qty,
           dailyRent: price,
           costPerUnit: qty > 0 && price > 0 ? price / qty : 0,
           isEditable: true,
         });
-        totalImported++;
+        counter++;
       });
+      if (tabItems.length > 0) {
+        newTabs.push({ name: sheet.name, items: tabItems });
+      }
     }
 
-    if (newItems.length > 0) {
-      setItems(prev => [...prev, ...newItems]);
-      toast.success(`تم استيراد ${newItems.length} بند من ${selected.length} شيت`);
+    if (newTabs.length > 0) {
+      setSheetTabs(prev => [...prev, ...newTabs]);
+      const total = newTabs.reduce((sum, t) => sum + t.items.length, 0);
+      toast.success(`تم استيراد ${total} بند في ${newTabs.length} تاب`);
     } else {
       toast.error("لم يتم العثور على بنود في الشيتات المحددة");
     }
     setSheetDialogOpen(false);
     setPendingWorkbook(null);
   }, [pendingWorkbook, availableSheets]);
+
+  // Delete all data handler
+  const handleDeleteAll = useCallback(() => {
+    setItems([]);
+    setSheetTabs([]);
+    setActiveSheetTab("main");
+    setConfirmDeleteAll(false);
+    toast.success("تم حذف جميع البيانات");
+  }, []);
+
+  // Merge sheet tab into main items
+  const mergeSheetToMain = useCallback((tabIndex: number) => {
+    const tab = sheetTabs[tabIndex];
+    if (!tab) return;
+    setItems(prev => [...prev, ...tab.items]);
+    setSheetTabs(prev => prev.filter((_, i) => i !== tabIndex));
+    setActiveSheetTab("main");
+    toast.success(`تم دمج ${tab.items.length} بند من "${tab.name}" في البنود الأساسية`);
+  }, [sheetTabs]);
+
+  // Remove a sheet tab
+  const removeSheetTab = useCallback((tabIndex: number) => {
+    const tab = sheetTabs[tabIndex];
+    setSheetTabs(prev => prev.filter((_, i) => i !== tabIndex));
+    if (activeSheetTab === `sheet-${tabIndex}`) setActiveSheetTab("main");
+    toast.success(`تم حذف تاب "${tab?.name}"`);
+  }, [sheetTabs, activeSheetTab]);
+
+  // Merge all sheets into main
+  const mergeAllSheets = useCallback(() => {
+    const allItems = sheetTabs.flatMap(t => t.items);
+    setItems(prev => [...prev, ...allItems]);
+    setSheetTabs([]);
+    setActiveSheetTab("main");
+    toast.success(`تم دمج ${allItems.length} بند في البنود الأساسية`);
+  }, [sheetTabs]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -1216,7 +1269,29 @@ export default function CostAnalysisPage() {
               </CardContent>
             </Card>
 
-            {/* Main Table */}
+            {/* Sheet Tabs + Main Table */}
+            <Tabs value={activeSheetTab} onValueChange={setActiveSheetTab}>
+              {sheetTabs.length > 0 && (
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <TabsList className="flex-wrap h-auto gap-1">
+                    <TabsTrigger value="main" className="text-xs gap-1">
+                      <FileSpreadsheet className="w-3 h-3" />
+                      البنود الأساسية ({items.length})
+                    </TabsTrigger>
+                    {sheetTabs.map((tab, idx) => (
+                      <TabsTrigger key={`sheet-${idx}`} value={`sheet-${idx}`} className="text-xs gap-1">
+                        {tab.name} ({tab.items.length})
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                  <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={mergeAllSheets}>
+                    <GitMerge className="w-3 h-3" />
+                    دمج الكل
+                  </Button>
+                </div>
+              )}
+
+              <TabsContent value="main" className="mt-0">
             <Card className="border-primary/20">
               <CardContent className="p-0">
                 <div className="flex items-center justify-between p-2 border-b bg-muted/30 gap-2 flex-wrap">
@@ -1249,6 +1324,32 @@ export default function CostAnalysisPage() {
                         </span>
                       </Button>
                     </label>
+                    <AlertDialog open={confirmDeleteAll} onOpenChange={setConfirmDeleteAll}>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 h-7 text-xs border-destructive/50 text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          حذف الكل
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>هل أنت متأكد من حذف جميع البنود؟</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            سيتم حذف جميع البنود والشيتات المستوردة. لا يمكن التراجع عن هذا الإجراء.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            حذف الكل
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                   <div className="flex items-center gap-2">
                     {hasUnsavedColumnWidths && (
@@ -1496,6 +1597,57 @@ export default function CostAnalysisPage() {
                 </Table>
               </CardContent>
             </Card>
+                </TabsContent>
+
+                {/* Sheet Tabs Content */}
+                {sheetTabs.map((tab, idx) => (
+                  <TabsContent key={`sheet-${idx}`} value={`sheet-${idx}`} className="mt-0">
+                    <Card className="border-primary/20">
+                      <CardContent className="p-0">
+                        <div className="flex items-center justify-between p-2 border-b bg-muted/30 gap-2">
+                          <h4 className="font-semibold text-sm">{tab.name} - {tab.items.length} بند</h4>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={() => mergeSheetToMain(idx)}>
+                              <GitMerge className="w-3 h-3" />
+                              دمج في الأساسية
+                            </Button>
+                            <Button variant="outline" size="sm" className="gap-1 h-7 text-xs border-destructive/50 text-destructive hover:bg-destructive/10" onClick={() => removeSheetTab(idx)}>
+                              <X className="w-3 h-3" />
+                              حذف التاب
+                            </Button>
+                          </div>
+                        </div>
+                        <ScrollArea className="max-h-[calc(100vh-300px)]">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-primary/10">
+                                <TableHead className="text-right font-bold text-primary">{headers.workItem}</TableHead>
+                                <TableHead className="text-center font-bold text-primary">{headers.productivity}</TableHead>
+                                <TableHead className="text-center font-bold text-primary">{headers.dailyRent}</TableHead>
+                                <TableHead className="text-center font-bold text-primary">{headers.costPerUnit}</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {tab.items.map((item) => (
+                                <TableRow key={item.id} className="hover:bg-muted/50">
+                                  <TableCell className="text-right font-medium text-sm">{item.name}</TableCell>
+                                  <TableCell className="text-center text-sm">{item.dailyProductivity}</TableCell>
+                                  <TableCell className="text-center text-sm">{item.dailyRent}</TableCell>
+                                  <TableCell className="text-center">
+                                    <Badge variant="secondary" className="font-mono text-xs">
+                                      {formatNumber(item.costPerUnit)}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </ScrollArea>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                ))}
+              </Tabs>
           </div>
 
           {/* Chart - 1/3 width */}
