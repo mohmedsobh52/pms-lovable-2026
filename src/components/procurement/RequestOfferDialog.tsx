@@ -47,16 +47,16 @@ interface SearchResult {
 }
 
 const allSuggestions = [
-  { en: "Need 10 laptops for development team", ar: "نحتاج 10 أجهزة لابتوب لفريق التطوير" },
-  { en: "Office furniture for 50 employees", ar: "أثاث مكتبي لـ 50 موظف" },
-  { en: "Construction materials for building project", ar: "مواد بناء لمشروع إنشائي" },
-  { en: "Electrical equipment and supplies", ar: "معدات ولوازم كهربائية" },
-  { en: "HVAC systems for commercial building", ar: "أنظمة تكييف لمبنى تجاري" },
-  { en: "Reinforcing steel for residential project", ar: "حديد تسليح لمشروع سكني" },
-  { en: "Plumbing works and pipes", ar: "أعمال سباكة ومواسير" },
-  { en: "Interior and exterior painting", ar: "أعمال دهانات داخلية وخارجية" },
-  { en: "Safety and protection equipment", ar: "معدات سلامة ووقاية" },
-  { en: "Ready-mix concrete for commercial project", ar: "خرسانة جاهزة لمشروع تجاري" },
+  { en: "Ready-mix concrete and reinforcing steel for construction project", ar: "خرسانة جاهزة وحديد تسليح لمشروع إنشائي" },
+  { en: "Earthworks, excavation, backfilling and land leveling", ar: "أعمال حفر وردم وتسوية أرض" },
+  { en: "Sewage and water pipe network", ar: "شبكة مواسير صرف صحي ومياه" },
+  { en: "Electrical cables and distribution boards (MDB/SMDB)", ar: "كابلات كهربائية ولوحات توزيع MDB/SMDB" },
+  { en: "Asphalt works and road curbs", ar: "أعمال أسفلت وبردورات طرق" },
+  { en: "Central HVAC systems (Chillers/VRF)", ar: "أنظمة تكييف مركزي HVAC (تشيلر/VRF)" },
+  { en: "PPR plumbing works and pipes", ar: "أعمال سباكة ومواسير PPR" },
+  { en: "Fire fighting system and sprinklers", ar: "نظام إطفاء حريق ورشاشات" },
+  { en: "CCTV cameras and BMS smart system", ar: "كاميرات مراقبة ونظام BMS ذكي" },
+  { en: "Waterproofing and thermal insulation for buildings", ar: "عزل مائي وحراري للمباني" },
 ];
 
 type DialogStep = 'input' | 'processing' | 'results';
@@ -100,7 +100,7 @@ export const RequestOfferDialog = ({
     handleSubmitWithQuery(text);
   }, [isArabic]);
 
-  const saveToDatabase = async (query: string, results: SearchResult) => {
+  const saveToDatabase = useCallback(async (query: string, results: SearchResult) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -121,7 +121,7 @@ export const RequestOfferDialog = ({
     } catch (error) {
       console.error('Error saving offer request:', error);
     }
-  };
+  }, [isArabic]);
 
   const handleSubmitWithQuery = async (query: string) => {
     if (!query.trim()) return;
@@ -196,12 +196,12 @@ export const RequestOfferDialog = ({
     handleSubmitWithQuery(request);
   }, [request]);
 
-  const handleNewRequest = () => {
+  const handleNewRequest = useCallback(() => {
     setStep('input');
     setProgress(0);
     setRequest("");
     setSearchResults(null);
-  };
+  }, []);
 
   // Results View
   const renderResultsView = () => {
@@ -217,33 +217,33 @@ export const RequestOfferDialog = ({
               {isArabic ? "تم تحليل الطلب بنجاح" : "Request analyzed successfully"}
             </span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">{searchResults.summary}</p>
+          <p className="text-sm text-foreground/70 mt-1">{searchResults.summary}</p>
         </div>
 
         {/* Estimated Items Table */}
         {searchResults.estimated_items.length > 0 && (
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/50 px-4 py-2 border-b">
-              <h4 className="font-medium text-sm">
+          <div className="border border-border/60 rounded-xl overflow-hidden">
+            <div className="bg-muted/60 px-4 py-3 border-b border-border/60">
+              <h4 className="font-bold text-sm text-foreground">
                 {isArabic ? "قائمة الموردين والأسعار" : "Suppliers & Prices"}
               </h4>
             </div>
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40%]">{isArabic ? "المادة" : "Item"}</TableHead>
-                  <TableHead className="w-[30%]">{isArabic ? "السعر (ر.س)" : "Price (SAR)"}</TableHead>
-                  <TableHead className="w-[30%]">{isArabic ? "الموردين" : "Suppliers"}</TableHead>
+                <TableRow className="bg-muted/40">
+                  <TableHead className="w-[40%] text-foreground font-bold">{isArabic ? "المادة" : "Item"}</TableHead>
+                  <TableHead className="w-[30%] text-foreground font-bold">{isArabic ? "السعر (ر.س)" : "Price (SAR)"}</TableHead>
+                  <TableHead className="w-[30%] text-foreground font-bold">{isArabic ? "الموردين" : "Suppliers"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {searchResults.estimated_items.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell className="text-primary font-medium">
+                  <TableRow key={index} className="hover:bg-muted/50">
+                    <TableCell className="font-semibold text-foreground">{item.name}</TableCell>
+                    <TableCell className="text-primary font-bold text-base">
                       {item.estimated_price_min?.toLocaleString()} - {item.estimated_price_max?.toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className="text-foreground/80 text-sm">
                       {item.suppliers?.join(isArabic ? "، " : ", ") || "-"}
                     </TableCell>
                   </TableRow>
@@ -290,11 +290,12 @@ export const RequestOfferDialog = ({
         )}
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 pt-2 sticky bottom-0 bg-background pb-2">
+        <div className="flex justify-end gap-3 pt-3 sticky bottom-0 bg-background pb-2 border-t border-border/40 mt-2">
           <Button
             type="button"
             variant="outline"
             onClick={handleNewRequest}
+            className="font-semibold"
           >
             <RotateCcw className="w-4 h-4 me-2" />
             {isArabic ? "طلب جديد" : "New Request"}
@@ -302,6 +303,7 @@ export const RequestOfferDialog = ({
           <Button
             type="button"
             onClick={() => onOpenChange(false)}
+            className="font-semibold"
           >
             {isArabic ? "إغلاق" : "Close"}
           </Button>
