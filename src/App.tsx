@@ -62,6 +62,7 @@ const NewCertificatePage = lazy(() => import("./pages/NewCertificatePage"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
 const UserManagementPage = lazy(() => import("./pages/UserManagementPage"));
 const ActivityLogPage = lazy(() => import("./pages/ActivityLogPage"));
+const DrawingAnalysisPage = lazy(() => import("./pages/DrawingAnalysisPage"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -148,6 +149,7 @@ const App = () => (
                         <Route path="/pricing-accuracy" element={<PricingAccuracyPage />} />
                         <Route path="/progress-certificates" element={<ProgressCertificatesPage />} />
                         <Route path="/progress-certificates/new" element={<NewCertificatePage />} />
+                        <Route path="/drawing-analysis" element={<DrawingAnalysisPage />} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
                       </Routes>
