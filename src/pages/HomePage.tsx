@@ -28,6 +28,7 @@ import {
   LayoutDashboard,
   Calculator,
   Shield,
+  Ruler,
 } from "lucide-react";
 
 type SectionItem = { nameAr: string; nameEn: string; descAr: string; descEn: string; path: string; icon: any; countKey: string | null };
@@ -46,6 +47,7 @@ const categories: { titleAr: string; titleEn: string; items: SectionItem[] }[] =
       { nameAr: "المشاريع", nameEn: "Projects", descAr: "إدارة ومتابعة المشاريع", descEn: "Manage & track projects", path: "/projects", icon: FolderOpen, countKey: "saved_projects" },
       { nameAr: "جدول الكميات", nameEn: "BOQ Items", descAr: "بنود الأعمال والكميات", descEn: "Work items & quantities", path: "/items", icon: Layers, countKey: "project_items" },
       { nameAr: "المستخلصات", nameEn: "Certificates", descAr: "الشهادات والمستخلصات", descEn: "Progress certificates", path: "/progress-certificates", icon: Award, countKey: "progress_certificates" },
+      { nameAr: "تحليل المخططات", nameEn: "Drawing Analysis", descAr: "استخراج الكميات من المخططات", descEn: "Extract quantities from drawings", path: "/drawing-analysis", icon: Ruler, countKey: "drawing_analyses" },
     ],
   },
   {
@@ -80,7 +82,7 @@ type ActivityItem = { type: string; name: string; date: string; icon: string };
 
 const tableKeys = [
   "saved_projects", "project_items", "cost_analysis", "contracts",
-  "external_partners", "subcontractors", "risks", "progress_certificates", "material_prices",
+  "external_partners", "subcontractors", "risks", "progress_certificates", "material_prices", "drawing_analyses",
 ] as const;
 
 const CACHE_KEY = "pms_home_counts";
