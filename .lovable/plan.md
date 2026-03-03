@@ -1,59 +1,60 @@
 
 
-# خطة: إنشاء شاشة تحليل المخططات المستقلة
+# خطة: حفظ نتائج تحليل المخططات + إضافة روابط التنقل
 
-## الهدف
-إنشاء صفحة مستقلة `/drawing-analysis` لتحليل المخططات الإنشائية (PDF، صور OCR) باستخدام الذكاء الاصطناعي، مع التركيز على حساب كميات الحفر والردم لخطوط الشبكات.
+## 1. إنشاء جدول قاعدة بيانات `drawing_analyses`
 
-> ملاحظة: ملفات DWG لا يمكن معالجتها مباشرة في المتصفح، لكن يمكن رفع صور مأخوذة منها أو ملفات PDF المحولة.
+جدول جديد لحفظ نتائج التحليل مرتبط بالمشاريع:
 
-## الملفات المطلوبة
+```sql
+CREATE TABLE public.drawing_analyses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  project_id UUID REFERENCES public.project_data(id) ON DELETE CASCADE,
+  drawing_type TEXT NOT NULL DEFAULT 'infrastructure',
+  file_names TEXT[] DEFAULT '{}',
+  drawing_info JSONB DEFAULT '{}',
+  results JSONB NOT NULL DEFAULT '[]',
+  summary JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
-### 1. إنشاء صفحة جديدة: `src/pages/DrawingAnalysisPage.tsx`
+ALTER TABLE public.drawing_analyses ENABLE ROW LEVEL SECURITY;
 
-**المكونات الرئيسية:**
-- **منطقة رفع الملفات**: Drop Zone كبيرة تدعم سحب وإفلات PDF وصور (PNG/JPG) مع معاينة فورية
-- **اختيار نوع المخطط**: قائمة منسدلة (بنية تحتية / إنشائي / معماري / كهرباء / ميكانيكا / صحي)
-- **زر تحليل**: يرسل الملفات إلى Edge Function `analyze-drawings` مع `drawingType: "infrastructure"` لتفعيل prompts الحفر والردم
-- **شريط تقدم**: يعرض حالة التحليل لكل ملف
-- **جدول النتائج**: يعرض الكميات المستخرجة مصنفة حسب الفئات:
-  - ⛏️ أعمال الحفر (Excavation) - حفر خنادق، حفر صخري
-  - 🏗️ أعمال الردم (Backfilling) - فرشة رملية، ردم جوانب، ردم نهائي
-  - 🔧 المواسير (Pipes) - القطر والمادة والطول
-  - ⚙️ القطع والتركيبات (Fittings)
-  - 🕳️ غرف التفتيش (Manholes)
-  - 🚰 المحابس (Valves)
-- **بطاقات ملخص**: إجمالي الحفر (م³)، إجمالي الردم (م³)، أطوال المواسير (م.ط)، عدد غرف التفتيش
-- **تصدير**: Excel و PDF
-
-**المنطق الأساسي:**
-- تحويل صفحات PDF إلى صور base64 باستخدام `pdfjs-dist` (كما في `FastExtractionDrawingAnalyzer`)
-- إرسال الصور إلى `supabase.functions.invoke("analyze-drawings")` مع `drawingType` و `language`
-- تطبيق `normalizeQuantities()` على النتائج
-- تجميع الكميات حسب الفئة وعرضها في بطاقات ملخصية
-
-### 2. تعديل: `src/App.tsx`
-- إضافة lazy import للصفحة الجديدة
-- إضافة Route: `<Route path="/drawing-analysis" element={<DrawingAnalysisPage />} />`
-
-## التفاصيل التقنية
-
-**البنية الوظيفية:**
-```text
-DrawingAnalysisPage
-├── Header (عنوان + أزرار)
-├── DropZone (سحب/إفلات + اختيار ملفات)
-├── DrawingTypeSelector (نوع المخطط)
-├── AnalyzeButton → calls analyze-drawings
-├── ProgressBar (أثناء التحليل)
-├── SummaryCards (حفر/ردم/مواسير/غرف)
-├── ResultsTable (جدول مفصل بالكميات)
-└── ExportButtons (Excel + PDF)
+-- RLS policies
+CREATE POLICY "Users can view own analyses" ON public.drawing_analyses FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create own analyses" ON public.drawing_analyses FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own analyses" ON public.drawing_analyses FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own analyses" ON public.drawing_analyses FOR DELETE USING (auth.uid() = user_id);
 ```
 
-**يعتمد على:**
-- Edge Function `analyze-drawings` الموجودة (تدعم infrastructure prompts بالفعل)
-- `pdfjs-dist` لتحويل PDF → صور
-- `ExcelJS` + `jsPDF` للتصدير
-- `normalizeQuantities()` من الكود الموجود
+## 2. تعديل `src/pages/DrawingAnalysisPage.tsx`
+
+- إضافة **قائمة اختيار مشروع** (Select) لربط التحليل بمشروع موجود أو جديد
+- إضافة **زر "حفظ النتائج"** بعد التحليل يحفظ في جدول `drawing_analyses`
+- إضافة **قائمة التحليلات المحفوظة** مع إمكانية تحميلها وعرضها
+- استخدام `useAuth` للحصول على `user_id`
+
+## 3. إضافة روابط التنقل
+
+### `src/components/MobileNavDrawer.tsx`
+إضافة عنصر "تحليل المخططات" ضمن مجموعة "Analysis & Estimating" children
+
+### `src/components/FloatingToolbar.tsx`
+إضافة عنصر قائمة جديد لتحليل المخططات
+
+### `src/hooks/useNavigationHistory.tsx`
+إضافة `/drawing-analysis` في `routeMap`
+
+### `src/components/home/PhaseActionsGrid.tsx`
+إضافة رابط تحليل المخططات في الـ phase المناسب
+
+## 4. الملفات المتأثرة
+- `src/pages/DrawingAnalysisPage.tsx` (تعديل رئيسي)
+- `src/components/MobileNavDrawer.tsx` (إضافة رابط)
+- `src/components/FloatingToolbar.tsx` (إضافة رابط)
+- `src/hooks/useNavigationHistory.tsx` (إضافة route info)
+- `src/components/home/PhaseActionsGrid.tsx` (إضافة رابط)
+- Migration SQL جديد
 
