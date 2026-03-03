@@ -272,6 +272,7 @@ export function FloatingToolbar({
     "quotations": "/quotations",
     "historical-pricing": "/historical-pricing",
     "fast-extraction": "/fast-extraction",
+    "drawing-analysis": "/drawing-analysis",
     // Library
     "library": "/library",
     // Procurement section
@@ -419,6 +420,14 @@ export function FloatingToolbar({
           icon: <Zap className="w-4 h-4" />,
           label: "Fast Extraction",
           labelAr: "الاستخراج السريع",
+          badge: "New",
+          badgeVariant: "destructive",
+        },
+        {
+          id: "drawing-analysis",
+          icon: <FileStack className="w-4 h-4" />,
+          label: "Drawing Analysis",
+          labelAr: "تحليل المخططات",
           badge: "New",
           badgeVariant: "destructive",
         },

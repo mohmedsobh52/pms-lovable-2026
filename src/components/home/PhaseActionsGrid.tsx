@@ -40,6 +40,7 @@ const phaseConfigs: PhaseConfig[] = [
     borderColor: "border-blue-500/20 hover:border-blue-500/50",
     actions: [
       { icon: FileUp, label: { ar: "تحليل BOQ", en: "Analyze BOQ" }, description: { ar: "تحليل جدول الكميات", en: "Analyze bill of quantities" }, href: "/projects?tab=analyze" },
+      { icon: Sparkles, label: { ar: "تحليل المخططات", en: "Drawing Analysis" }, description: { ar: "حساب كميات الحفر والردم", en: "Excavation & backfill quantities" }, href: "/drawing-analysis", isNew: true },
       { icon: Library, label: { ar: "المكتبة", en: "Library" }, description: { ar: "المواد والعمالة", en: "Materials & labor" }, href: "/library" },
       { icon: DollarSign, label: { ar: "أسعار المواد", en: "Material Prices" }, description: { ar: "قاعدة بيانات الأسعار", en: "Price database" }, href: "/material-prices" }
     ]

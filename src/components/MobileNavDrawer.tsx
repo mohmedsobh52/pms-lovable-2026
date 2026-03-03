@@ -77,6 +77,7 @@ const navItems: NavItem[] = [
       { id: "quotations", icon: <FileText className="w-4 h-4" />, label: "Quotations", labelAr: "عروض الأسعار", href: "/quotations" },
       { id: "historical", icon: <FileText className="w-4 h-4" />, label: "Historical Pricing", labelAr: "الأسعار التاريخية", href: "/historical-pricing" },
       { id: "fast-extraction", icon: <FileText className="w-4 h-4" />, label: "Fast Extraction", labelAr: "الاستخراج السريع", href: "/projects?tab=attachments&mode=extraction" },
+      { id: "drawing-analysis", icon: <FileText className="w-4 h-4" />, label: "Drawing Analysis", labelAr: "تحليل المخططات", href: "/drawing-analysis" },
     ],
   },
   {
