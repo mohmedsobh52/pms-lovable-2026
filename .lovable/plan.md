@@ -1,29 +1,36 @@
 
 
-# خطة: معالجة مشكلة تحويل ملفات PDF الكبيرة
+# معالجة خطأ "Failed to fetch dynamically imported module"
 
 ## المشكلة
-ملف PDF بحجم 54 ميغابايت يتسبب في توقف شريط التقدم عند 0% أثناء "Converting PDF to images". السبب:
-1. لا يوجد تحديث لشريط التقدم أثناء تحويل صفحات PDF (يُحدّث فقط بين الملفات)
-2. حجم الملف الكبير يستهلك ذاكرة كبيرة عند تحويل الصفحات بدقة عالية (scale 2.0)
-3. لا يوجد تحكم في حجم الصور الناتجة
+عند إعادة بناء التطبيق، تتغير أسماء ملفات JavaScript المجزأة (chunks). إذا كان المتصفح يحتفظ بنسخة قديمة مخزنة مؤقتاً، يحاول تحميل ملف لم يعد موجوداً مما يسبب هذا الخطأ.
 
-## التعديلات على `src/pages/DrawingAnalysisPage.tsx`
+## الحل
+إضافة دالة مساعدة `lazyWithRetry` في `src/App.tsx` تعيد محاولة تحميل الصفحة مع إعادة تحميل الصفحة تلقائياً عند فشل التحميل الديناميكي.
 
-### 1. إضافة تقدم لكل صفحة أثناء تحويل PDF
-تعديل `convertPdfToImages` ليقبل callback للتقدم وتحديث `progressText` و `progress` لكل صفحة.
+## التعديلات على `src/App.tsx`
 
-### 2. تقليل الدقة للملفات الكبيرة
-- إذا كان حجم الملف > 20MB، استخدام `scale: 1.5` بدلاً من `2.0`
-- ضغط الصور بصيغة JPEG بدلاً من PNG لتقليل حجم base64
+### 1. إضافة دالة `lazyWithRetry`
+```typescript
+function lazyWithRetry(importFn: () => Promise<any>) {
+  return lazy(() =>
+    importFn().catch(() => {
+      // Force reload on chunk load failure (stale cache)
+      if (!sessionStorage.getItem('chunk_retry')) {
+        sessionStorage.setItem('chunk_retry', '1');
+        window.location.reload();
+      }
+      return importFn();
+    })
+  );
+}
+```
 
-### 3. إضافة حد أقصى لحجم الملف مع تحذير
-- تحذير للمستخدم عند رفع ملفات أكبر من 50MB
-- عرض عدد الصفحات التي سيتم تحليلها
+### 2. استبدال جميع استدعاءات `lazy()` بـ `lazyWithRetry()`
+تحويل كل `const X = lazy(() => import(...))` إلى `const X = lazyWithRetry(() => import(...))`.
 
-### 4. تحسين شريط التقدم
-- عرض "صفحة X من Y" أثناء التحويل
-- تحديث النسبة المئوية بشكل تدريجي
+### 3. مسح علامة إعادة المحاولة عند التحميل الناجح
+إضافة `sessionStorage.removeItem('chunk_retry')` في `App` component لمنع حلقة إعادة التحميل.
 
-**ملف واحد يتأثر:** `src/pages/DrawingAnalysisPage.tsx`
+**ملف واحد يتأثر:** `src/App.tsx`
 
