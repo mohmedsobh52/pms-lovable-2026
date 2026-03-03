@@ -143,20 +143,32 @@ const DrawingAnalysisPage = () => {
     setFiles((prev) => prev.filter((_, i) => i !== idx));
   }, []);
 
-  const convertPdfToImages = async (file: File): Promise<string[]> => {
+  const convertPdfToImages = async (
+    file: File,
+    onPageProgress?: (current: number, total: number) => void
+  ): Promise<string[]> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const images: string[] = [];
     const maxPages = Math.min(pdf.numPages, 10);
+    const isLargeFile = file.size > 20 * 1024 * 1024;
+    const scale = isLargeFile ? 1.5 : 2.0;
+    const imageFormat = isLargeFile ? "image/jpeg" : "image/png";
+    const imageQuality = isLargeFile ? 0.75 : undefined;
+
     for (let i = 1; i <= maxPages; i++) {
+      onPageProgress?.(i, maxPages);
       const page = await pdf.getPage(i);
-      const viewport = page.getViewport({ scale: 2.0 });
+      const viewport = page.getViewport({ scale });
       const canvas = document.createElement("canvas");
       canvas.width = viewport.width;
       canvas.height = viewport.height;
       const ctx = canvas.getContext("2d")!;
       await page.render({ canvasContext: ctx, viewport }).promise;
-      images.push(canvas.toDataURL("image/png"));
+      images.push(canvas.toDataURL(imageFormat, imageQuality));
+      // Free memory
+      canvas.width = 0;
+      canvas.height = 0;
     }
     return images;
   };
@@ -178,17 +190,35 @@ const DrawingAnalysisPage = () => {
     let lastDrawingInfo: AnalysisResult["drawing_info"];
 
     try {
+      // Warn about very large files
+      const totalSize = files.reduce((s, f) => s + f.size, 0);
+      if (totalSize > 50 * 1024 * 1024) {
+        toast.warning(isArabic
+          ? "حجم الملفات كبير جداً، قد تستغرق المعالجة وقتاً أطول"
+          : "Files are very large, processing may take longer");
+      }
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         setProgressText(isArabic ? `تحليل ${file.name}...` : `Analyzing ${file.name}...`);
-        setProgress(((i) / files.length) * 100);
+        const fileBaseProgress = (i / files.length) * 100;
+        const fileProgressShare = 100 / files.length;
+        setProgress(fileBaseProgress);
 
         let payload: any = { fileName: file.name, drawingType, language: isArabic ? "ar" : "en" };
 
         if (file.type === "application/pdf") {
-          setProgressText(isArabic ? `تحويل PDF إلى صور: ${file.name}` : `Converting PDF to images: ${file.name}`);
-          const images = await convertPdfToImages(file);
+          const images = await convertPdfToImages(file, (current, total) => {
+            setProgressText(
+              isArabic
+                ? `تحويل صفحة ${current} من ${total}: ${file.name}`
+                : `Converting page ${current} of ${total}: ${file.name}`
+            );
+            setProgress(fileBaseProgress + (current / total) * fileProgressShare * 0.5);
+          });
           payload.images = images;
+          setProgressText(isArabic ? `إرسال للتحليل: ${file.name}` : `Sending for analysis: ${file.name}`);
+          setProgress(fileBaseProgress + fileProgressShare * 0.5);
         } else {
           const base64 = await fileToBase64(file);
           payload.imageBase64 = base64;
@@ -201,7 +231,7 @@ const DrawingAnalysisPage = () => {
           allQuantities.push(...normalized);
         }
         if (data?.drawing_info) lastDrawingInfo = data.drawing_info;
-        setProgress(((i + 1) / files.length) * 100);
+        setProgress(fileBaseProgress + fileProgressShare);
       }
 
       setResults(allQuantities);
