@@ -1,6 +1,7 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { PageLayout } from "@/components/PageLayout";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, FileImage, Trash2, Sparkles, Download, FileSpreadsheet, FileText, Shovel, Layers, Pipette, Eye, CircleDot, ArrowUpDown } from "lucide-react";
+import { Upload, FileImage, Trash2, Sparkles, Download, FileSpreadsheet, FileText, Shovel, Layers, Pipette, Eye, CircleDot, ArrowUpDown, Save, FolderOpen, Clock, RefreshCw } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
@@ -35,6 +36,21 @@ interface AnalysisResult {
   drawing_info?: { title?: string; type?: string; scale?: string; date?: string };
   quantities: ExtractedQuantity[];
   summary?: { total_items?: number; categories?: string[] };
+}
+
+interface SavedProject {
+  id: string;
+  name: string;
+}
+
+interface SavedAnalysis {
+  id: string;
+  drawing_type: string;
+  file_names: string[];
+  summary: any;
+  created_at: string;
+  project_id: string | null;
+  notes: string | null;
 }
 
 const DRAWING_TYPES = [
@@ -82,6 +98,7 @@ const normalizeQuantities = (quantities: any[]): ExtractedQuantity[] => {
 
 const DrawingAnalysisPage = () => {
   const { isArabic } = useLanguage();
+  const { user } = useAuth();
   const [files, setFiles] = useState<File[]>([]);
   const [drawingType, setDrawingType] = useState("infrastructure");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -89,6 +106,25 @@ const DrawingAnalysisPage = () => {
   const [progressText, setProgressText] = useState("");
   const [results, setResults] = useState<ExtractedQuantity[]>([]);
   const [drawingInfo, setDrawingInfo] = useState<AnalysisResult["drawing_info"]>();
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [projects, setProjects] = useState<SavedProject[]>([]);
+  const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [loadingAnalyses, setLoadingAnalyses] = useState(false);
+
+  // Load projects and saved analyses
+  useEffect(() => {
+    if (!user) return;
+    const loadData = async () => {
+      const [projectsRes, analysesRes] = await Promise.all([
+        supabase.from("saved_projects").select("id, name").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("drawing_analyses").select("id, drawing_type, file_names, summary, created_at, project_id, notes").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
+      ]);
+      if (projectsRes.data) setProjects(projectsRes.data);
+      if (analysesRes.data) setSavedAnalyses(analysesRes.data as SavedAnalysis[]);
+    };
+    loadData();
+  }, [user]);
 
   const handleFileDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -180,6 +216,76 @@ const DrawingAnalysisPage = () => {
     }
   }, [files, drawingType, isArabic]);
 
+  // Save results to database
+  const saveResults = useCallback(async () => {
+    if (!user) return toast.error(isArabic ? "يجب تسجيل الدخول أولاً" : "Please sign in first");
+    if (!results.length) return;
+    setIsSaving(true);
+    try {
+      const summaryObj = {
+        excavation: results.filter(r => r.category === "Excavation").reduce((s, r) => s + r.quantity, 0),
+        backfilling: results.filter(r => r.category === "Backfilling").reduce((s, r) => s + r.quantity, 0),
+        pipes: results.filter(r => r.category === "Pipes").reduce((s, r) => s + r.quantity, 0),
+        manholes: results.filter(r => r.category === "Manholes").reduce((s, r) => s + r.quantity, 0),
+        valves: results.filter(r => r.category === "Valves").reduce((s, r) => s + r.quantity, 0),
+        total_items: results.length,
+      };
+
+      const { error } = await supabase.from("drawing_analyses").insert({
+        user_id: user.id,
+        project_id: selectedProjectId || null,
+        drawing_type: drawingType,
+        file_names: files.map(f => f.name),
+        drawing_info: drawingInfo || {},
+        results: results as any,
+        summary: summaryObj as any,
+      });
+
+      if (error) throw error;
+      toast.success(isArabic ? "تم حفظ النتائج بنجاح" : "Results saved successfully");
+      
+      // Refresh saved analyses
+      const { data } = await supabase.from("drawing_analyses")
+        .select("id, drawing_type, file_names, summary, created_at, project_id, notes")
+        .eq("user_id", user.id).order("created_at", { ascending: false }).limit(20);
+      if (data) setSavedAnalyses(data as SavedAnalysis[]);
+    } catch (err: any) {
+      toast.error(err.message || (isArabic ? "فشل الحفظ" : "Save failed"));
+    } finally {
+      setIsSaving(false);
+    }
+  }, [user, results, selectedProjectId, drawingType, files, drawingInfo, isArabic]);
+
+  // Load a saved analysis
+  const loadAnalysis = useCallback(async (analysisId: string) => {
+    setLoadingAnalyses(true);
+    try {
+      const { data, error } = await supabase.from("drawing_analyses")
+        .select("*").eq("id", analysisId).single();
+      if (error) throw error;
+      if (data) {
+        const loadedResults = normalizeQuantities(data.results as any[]);
+        setResults(loadedResults);
+        setDrawingInfo(data.drawing_info as any);
+        setDrawingType(data.drawing_type);
+        setSelectedProjectId(data.project_id || "");
+        toast.success(isArabic ? "تم تحميل التحليل" : "Analysis loaded");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setLoadingAnalyses(false);
+    }
+  }, [isArabic]);
+
+  // Delete a saved analysis
+  const deleteAnalysis = useCallback(async (analysisId: string) => {
+    const { error } = await supabase.from("drawing_analyses").delete().eq("id", analysisId);
+    if (error) { toast.error(error.message); return; }
+    setSavedAnalyses(prev => prev.filter(a => a.id !== analysisId));
+    toast.success(isArabic ? "تم الحذف" : "Deleted");
+  }, [isArabic]);
+
   // Summary cards data
   const summaryData = useMemo(() => {
     const excavation = results.filter((r) => r.category === "Excavation").reduce((s, r) => s + r.quantity, 0);
@@ -254,18 +360,24 @@ const DrawingAnalysisPage = () => {
                 : "Upload PDF drawings or images to extract quantities and calculate excavation/backfill automatically"}
             </p>
           </div>
-          {results.length > 0 && (
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={exportToExcel}>
-                <FileSpreadsheet className="w-4 h-4 me-1" />
-                Excel
-              </Button>
-              <Button variant="outline" size="sm" onClick={exportToPdf}>
-                <FileText className="w-4 h-4 me-1" />
-                PDF
-              </Button>
-            </div>
-          )}
+          <div className="flex gap-2 flex-wrap">
+            {results.length > 0 && (
+              <>
+                <Button variant="outline" size="sm" onClick={exportToExcel}>
+                  <FileSpreadsheet className="w-4 h-4 me-1" />
+                  Excel
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportToPdf}>
+                  <FileText className="w-4 h-4 me-1" />
+                  PDF
+                </Button>
+                <Button size="sm" onClick={saveResults} disabled={isSaving || !user}>
+                  <Save className="w-4 h-4 me-1" />
+                  {isSaving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ النتائج" : "Save Results")}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Upload & Settings */}
@@ -336,6 +448,24 @@ const DrawingAnalysisPage = () => {
                       <SelectItem key={t.value} value={t.value}>
                         {isArabic ? t.labelAr : t.labelEn}
                       </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Project selector */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">
+                  {isArabic ? "ربط بمشروع (اختياري)" : "Link to Project (optional)"}
+                </label>
+                <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isArabic ? "اختر مشروع..." : "Select project..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{isArabic ? "بدون مشروع" : "No project"}</SelectItem>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -459,6 +589,62 @@ const DrawingAnalysisPage = () => {
               </Card>
             );
           })}
+
+        {/* Saved Analyses */}
+        {savedAnalyses.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                {isArabic ? "التحليلات المحفوظة" : "Saved Analyses"}
+                <Badge variant="secondary">{savedAnalyses.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40">
+                    <TableHead className="text-foreground font-bold">{isArabic ? "الملفات" : "Files"}</TableHead>
+                    <TableHead className="text-foreground font-bold">{isArabic ? "النوع" : "Type"}</TableHead>
+                    <TableHead className="text-foreground font-bold">{isArabic ? "البنود" : "Items"}</TableHead>
+                    <TableHead className="text-foreground font-bold">{isArabic ? "التاريخ" : "Date"}</TableHead>
+                    <TableHead className="text-foreground font-bold w-28">{isArabic ? "إجراءات" : "Actions"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {savedAnalyses.map((a) => (
+                    <TableRow key={a.id} className="hover:bg-muted/50">
+                      <TableCell className="text-foreground text-sm">
+                        {(a.file_names || []).join(", ") || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {DRAWING_TYPES.find(t => t.value === a.drawing_type)?.[isArabic ? "labelAr" : "labelEn"] || a.drawing_type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-foreground font-medium">
+                        {(a.summary as any)?.total_items || 0}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">
+                        {new Date(a.created_at).toLocaleDateString(isArabic ? "ar-SA" : "en-US")}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => loadAnalysis(a.id)} disabled={loadingAnalyses}>
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteAnalysis(a.id)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </PageLayout>
   );

@@ -969,6 +969,56 @@ export type Database = {
           },
         ]
       }
+      drawing_analyses: {
+        Row: {
+          created_at: string
+          drawing_info: Json | null
+          drawing_type: string
+          file_names: string[] | null
+          id: string
+          notes: string | null
+          project_id: string | null
+          results: Json
+          summary: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          drawing_info?: Json | null
+          drawing_type?: string
+          file_names?: string[] | null
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          results?: Json
+          summary?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          drawing_info?: Json | null
+          drawing_type?: string
+          file_names?: string[] | null
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          results?: Json
+          summary?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drawing_analyses_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       edited_boq_prices: {
         Row: {
           created_at: string

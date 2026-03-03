@@ -54,6 +54,7 @@ const routeMap: Record<string, RouteInfo> = {
   "/cost-control-report": { labelEn: "Cost Control Report", labelAr: "تقرير مراقبة التكاليف", icon: "BarChart3" },
   "/about": { labelEn: "About", labelAr: "حول", icon: "FileText" },
   "/changelog": { labelEn: "Changelog", labelAr: "سجل التغييرات", icon: "Clock" },
+  "/drawing-analysis": { labelEn: "Drawing Analysis", labelAr: "تحليل المخططات", icon: "FileText" },
 };
 
 // Get route info for a path (handles dynamic routes)
