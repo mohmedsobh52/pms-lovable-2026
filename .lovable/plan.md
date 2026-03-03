@@ -1,56 +1,59 @@
 
 
-# خطة: تطوير أداء شاشة النتائج وإضافة اقتراحات البنية التحتية
+# خطة: إنشاء شاشة تحليل المخططات المستقلة
 
-## 1. تحسين أداء وشكل شاشة النتائج
+## الهدف
+إنشاء صفحة مستقلة `/drawing-analysis` لتحليل المخططات الإنشائية (PDF، صور OCR) باستخدام الذكاء الاصطناعي، مع التركيز على حساب كميات الحفر والردم لخطوط الشبكات.
 
-### تحسينات الأداء:
-- تغليف `renderResultsView` و `renderInputView` و `renderProcessingView` بـ `useCallback` لمنع إعادة الإنشاء غير الضرورية
-- استخدام `React.memo` لجدول النتائج عبر فصله كمكون مستقل `ResultsTable`
-- تحسين `saveToDatabase` بـ `useCallback`
+> ملاحظة: ملفات DWG لا يمكن معالجتها مباشرة في المتصفح، لكن يمكن رفع صور مأخوذة منها أو ملفات PDF المحولة.
 
-### تحسينات الشكل:
-- تحسين ألوان النص في الجدول ليكون أسود/داكن بوضوح أكبر (`text-foreground` بدلاً من `text-muted-foreground`)
-- تحسين عناوين الجدول بخلفية أوضح وخط أثقل
-- تحسين مظهر أزرار "New Request" و "Close" بتصميم أكثر وضوحاً
-- تحسين تباعد الصفوف وحجم الخط في الجدول
+## الملفات المطلوبة
 
-## 2. إضافة اقتراحات البنية التحتية المتكاملة
+### 1. إنشاء صفحة جديدة: `src/pages/DrawingAnalysisPage.tsx`
 
-استبدال الاقتراحات الحالية (أجهزة لابتوب، أثاث مكتبي) باقتراحات مرتبطة بقواعد بيانات البنية التحتية من `reference-prices.ts`، مقسمة حسب الفئات:
+**المكونات الرئيسية:**
+- **منطقة رفع الملفات**: Drop Zone كبيرة تدعم سحب وإفلات PDF وصور (PNG/JPG) مع معاينة فورية
+- **اختيار نوع المخطط**: قائمة منسدلة (بنية تحتية / إنشائي / معماري / كهرباء / ميكانيكا / صحي)
+- **زر تحليل**: يرسل الملفات إلى Edge Function `analyze-drawings` مع `drawingType: "infrastructure"` لتفعيل prompts الحفر والردم
+- **شريط تقدم**: يعرض حالة التحليل لكل ملف
+- **جدول النتائج**: يعرض الكميات المستخرجة مصنفة حسب الفئات:
+  - ⛏️ أعمال الحفر (Excavation) - حفر خنادق، حفر صخري
+  - 🏗️ أعمال الردم (Backfilling) - فرشة رملية، ردم جوانب، ردم نهائي
+  - 🔧 المواسير (Pipes) - القطر والمادة والطول
+  - ⚙️ القطع والتركيبات (Fittings)
+  - 🕳️ غرف التفتيش (Manholes)
+  - 🚰 المحابس (Valves)
+- **بطاقات ملخص**: إجمالي الحفر (م³)، إجمالي الردم (م³)، أطوال المواسير (م.ط)، عدد غرف التفتيش
+- **تصدير**: Excel و PDF
 
-**الاقتراحات الجديدة (10 اقتراحات متخصصة):**
-- خرسانة جاهزة وحديد تسليح لمشروع إنشائي (concrete)
-- أعمال حفر وردم وتسوية أرض (earthworks)
-- شبكة مواسير صرف صحي ومياه (pipes)
-- كابلات كهربائية ولوحات توزيع (electrical)
-- أعمال أسفلت وبردورات طرق (roads)
-- أنظمة تكييف مركزي HVAC (hvac)
-- أعمال سباكة ومواسير PPR (plumbing)
-- نظام إطفاء حريق ورشاشات (fire_fighting)
-- كاميرات مراقبة ونظام BMS (smart)
-- عزل مائي وحراري للمباني (waterproofing)
+**المنطق الأساسي:**
+- تحويل صفحات PDF إلى صور base64 باستخدام `pdfjs-dist` (كما في `FastExtractionDrawingAnalyzer`)
+- إرسال الصور إلى `supabase.functions.invoke("analyze-drawings")` مع `drawingType` و `language`
+- تطبيق `normalizeQuantities()` على النتائج
+- تجميع الكميات حسب الفئة وعرضها في بطاقات ملخصية
 
-## 3. تفاصيل تقنية
+### 2. تعديل: `src/App.tsx`
+- إضافة lazy import للصفحة الجديدة
+- إضافة Route: `<Route path="/drawing-analysis" element={<DrawingAnalysisPage />} />`
 
-### الملف: `src/components/procurement/RequestOfferDialog.tsx`
+## التفاصيل التقنية
 
-**تغييرات الاقتراحات:**
-- استبدال مصفوفة `allSuggestions` بالاقتراحات المتخصصة في البنية التحتية
-- إضافة أيقونة فئة لكل اقتراح (اختياري)
+**البنية الوظيفية:**
+```text
+DrawingAnalysisPage
+├── Header (عنوان + أزرار)
+├── DropZone (سحب/إفلات + اختيار ملفات)
+├── DrawingTypeSelector (نوع المخطط)
+├── AnalyzeButton → calls analyze-drawings
+├── ProgressBar (أثناء التحليل)
+├── SummaryCards (حفر/ردم/مواسير/غرف)
+├── ResultsTable (جدول مفصل بالكميات)
+└── ExportButtons (Excel + PDF)
+```
 
-**تغييرات شكل الجدول:**
-- `TableHead`: إضافة `text-foreground font-bold` وخلفية أغمق
-- `TableCell` (الاسم): `text-foreground font-semibold`
-- `TableCell` (السعر): `text-primary font-bold text-base`
-- `TableCell` (الموردين): `text-foreground/80`
-- تحسين padding الخلايا
-- إضافة `hover:bg-muted/50` للصفوف
-- تحسين أزرار الإجراءات بتصميم أوضح
+**يعتمد على:**
+- Edge Function `analyze-drawings` الموجودة (تدعم infrastructure prompts بالفعل)
+- `pdfjs-dist` لتحويل PDF → صور
+- `ExcelJS` + `jsPDF` للتصدير
+- `normalizeQuantities()` من الكود الموجود
 
-**تحسينات الأداء:**
-- `useCallback` لـ `saveToDatabase`, `handleNewRequest`, `handleSubmitWithQuery`
-- `useMemo` لتحويل النتائج المعروضة
-
-### الملف المتأثر:
-- `src/components/procurement/RequestOfferDialog.tsx` فقط
