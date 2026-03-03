@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,50 +19,63 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { Loader2 } from "lucide-react";
 
+// Auto-retry dynamic imports on chunk load failure (stale cache)
+function lazyWithRetry(importFn: () => Promise<any>) {
+  return lazy(() =>
+    importFn().catch(() => {
+      if (!sessionStorage.getItem('chunk_retry')) {
+        sessionStorage.setItem('chunk_retry', '1');
+        window.location.reload();
+      }
+      return importFn();
+    })
+  );
+}
+
 // Lazy loaded pages for better initial load performance
-const Index = lazy(() => import("./pages/Index"));
-const HomePage = lazy(() => import("./pages/HomePage"));
-const Auth = lazy(() => import("./pages/Auth"));
-const SharedView = lazy(() => import("./pages/SharedView"));
-const SavedProjectsPage = lazy(() => import("./pages/SavedProjectsPage"));
-const About = lazy(() => import("./pages/About"));
-const CostAnalysisPage = lazy(() => import("./pages/CostAnalysisPage"));
-const Changelog = lazy(() => import("./pages/Changelog"));
-const AdminVersions = lazy(() => import("./pages/AdminVersions"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const DashboardPage = lazy(() => import("./pages/DashboardPage"));
-const ProcurementPage = lazy(() => import("./pages/ProcurementPage"));
-const SubcontractorsPage = lazy(() => import("./pages/SubcontractorsPage"));
-const QuotationsPage = lazy(() => import("./pages/QuotationsPage"));
-const ContractsPage = lazy(() => import("./pages/ContractsPage"));
-const RiskPage = lazy(() => import("./pages/RiskPage"));
+const Index = lazyWithRetry(() => import("./pages/Index"));
+const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
+const Auth = lazyWithRetry(() => import("./pages/Auth"));
+const SharedView = lazyWithRetry(() => import("./pages/SharedView"));
+const SavedProjectsPage = lazyWithRetry(() => import("./pages/SavedProjectsPage"));
+const About = lazyWithRetry(() => import("./pages/About"));
+const CostAnalysisPage = lazyWithRetry(() => import("./pages/CostAnalysisPage"));
+const Changelog = lazyWithRetry(() => import("./pages/Changelog"));
+const AdminVersions = lazyWithRetry(() => import("./pages/AdminVersions"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const DashboardPage = lazyWithRetry(() => import("./pages/DashboardPage"));
+const ProcurementPage = lazyWithRetry(() => import("./pages/ProcurementPage"));
+const SubcontractorsPage = lazyWithRetry(() => import("./pages/SubcontractorsPage"));
+const QuotationsPage = lazyWithRetry(() => import("./pages/QuotationsPage"));
+const ContractsPage = lazyWithRetry(() => import("./pages/ContractsPage"));
+const RiskPage = lazyWithRetry(() => import("./pages/RiskPage"));
 // ReportsPage lazy import removed - now integrated in SavedProjectsPage
-const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-const AnalysisToolsPage = lazy(() => import("./pages/AnalysisToolsPage"));
-const BOQItemsPage = lazy(() => import("./pages/BOQItemsPage"));
-const AttachmentsPage = lazy(() => import("./pages/AttachmentsPage"));
-const TemplatesPage = lazy(() => import("./pages/TemplatesPage"));
-const P6ExportPage = lazy(() => import("./pages/P6ExportPage"));
-const CompareVersionsPage = lazy(() => import("./pages/CompareVersionsPage"));
-const HistoricalPricingPage = lazy(() => import("./pages/HistoricalPricingPage"));
-const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
-const MaterialPricesPage = lazy(() => import("./pages/MaterialPricesPage"));
-const CalendarPage = lazy(() => import("./pages/CalendarPage"));
+const SettingsPage = lazyWithRetry(() => import("./pages/SettingsPage"));
+const AnalysisToolsPage = lazyWithRetry(() => import("./pages/AnalysisToolsPage"));
+const BOQItemsPage = lazyWithRetry(() => import("./pages/BOQItemsPage"));
+const AttachmentsPage = lazyWithRetry(() => import("./pages/AttachmentsPage"));
+const TemplatesPage = lazyWithRetry(() => import("./pages/TemplatesPage"));
+const P6ExportPage = lazyWithRetry(() => import("./pages/P6ExportPage"));
+const CompareVersionsPage = lazyWithRetry(() => import("./pages/CompareVersionsPage"));
+const HistoricalPricingPage = lazyWithRetry(() => import("./pages/HistoricalPricingPage"));
+const ResourcesPage = lazyWithRetry(() => import("./pages/ResourcesPage"));
+const MaterialPricesPage = lazyWithRetry(() => import("./pages/MaterialPricesPage"));
+const CalendarPage = lazyWithRetry(() => import("./pages/CalendarPage"));
 // FastExtractionPage removed - now integrated in AttachmentsTab
-const LibraryPage = lazy(() => import("./pages/LibraryPage"));
-const ProjectDetailsPage = lazy(() => import("./pages/ProjectDetailsPage"));
-const NewProjectPage = lazy(() => import("./pages/NewProjectPage"));
-const TenderSummaryPage = lazy(() => import("./pages/TenderSummaryPage"));
-const CompanySettingsPage = lazy(() => import("./pages/CompanySettingsPage"));
-const CostControlReportPage = lazy(() => import("./pages/CostControlReportPage"));
-const PricingAccuracyPage = lazy(() => import("./pages/PricingAccuracyPage"));
-const PartnerDetailsPage = lazy(() => import("./pages/PartnerDetailsPage"));
-const ProgressCertificatesPage = lazy(() => import("./pages/ProgressCertificatesPage"));
-const NewCertificatePage = lazy(() => import("./pages/NewCertificatePage"));
-const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
-const UserManagementPage = lazy(() => import("./pages/UserManagementPage"));
-const ActivityLogPage = lazy(() => import("./pages/ActivityLogPage"));
-const DrawingAnalysisPage = lazy(() => import("./pages/DrawingAnalysisPage"));
+const LibraryPage = lazyWithRetry(() => import("./pages/LibraryPage"));
+const ProjectDetailsPage = lazyWithRetry(() => import("./pages/ProjectDetailsPage"));
+const NewProjectPage = lazyWithRetry(() => import("./pages/NewProjectPage"));
+const TenderSummaryPage = lazyWithRetry(() => import("./pages/TenderSummaryPage"));
+const CompanySettingsPage = lazyWithRetry(() => import("./pages/CompanySettingsPage"));
+const CostControlReportPage = lazyWithRetry(() => import("./pages/CostControlReportPage"));
+const PricingAccuracyPage = lazyWithRetry(() => import("./pages/PricingAccuracyPage"));
+const PartnerDetailsPage = lazyWithRetry(() => import("./pages/PartnerDetailsPage"));
+const ProgressCertificatesPage = lazyWithRetry(() => import("./pages/ProgressCertificatesPage"));
+const NewCertificatePage = lazyWithRetry(() => import("./pages/NewCertificatePage"));
+const AdminDashboardPage = lazyWithRetry(() => import("./pages/AdminDashboardPage"));
+const UserManagementPage = lazyWithRetry(() => import("./pages/UserManagementPage"));
+const ActivityLogPage = lazyWithRetry(() => import("./pages/ActivityLogPage"));
+const DrawingAnalysisPage = lazyWithRetry(() => import("./pages/DrawingAnalysisPage"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -84,7 +97,12 @@ const PageLoader = () => (
   </div>
 );
 
-const App = () => (
+const App = () => {
+  useEffect(() => {
+    sessionStorage.removeItem('chunk_retry');
+  }, []);
+
+  return (
   <ThemeProvider>
   <LanguageProvider>
     <QueryClientProvider client={queryClient}>
@@ -165,6 +183,7 @@ const App = () => (
     </QueryClientProvider>
   </LanguageProvider>
   </ThemeProvider>
-);
+  );
+};
 
 export default App;
