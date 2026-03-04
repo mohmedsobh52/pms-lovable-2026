@@ -707,57 +707,47 @@ function AutoPriceDialogComponent({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            {isArabic ? "التسعير التلقائي الذكي" : "Smart Auto Pricing"}
+            {isArabic ? "التسعير التلقائي" : "Auto Pricing"}
           </DialogTitle>
           <DialogDescription>
             {isArabic 
-              ? "تسعير البنود تلقائياً من 7 مصادر: مكتبة المواد، العمالة، المعدات، البيانات التاريخية، أسعار مرجعية، عروض الأسعار، وأسعار السوق AI"
-              : "Auto-price items from 7 sources: Materials, Labor, Equipment, Historical, References, Quotations & AI Market Prices"
+              ? "تسعير البنود تلقائياً من مكتبة الأسعار السعودية 2026"
+              : "Auto-price items from Saudi Price Library 2026"
             }
           </DialogDescription>
         </DialogHeader>
 
-        {/* Estimation Warning Banner */}
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
-          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-          <p className="text-xs text-amber-800 dark:text-amber-300">
-            {isArabic 
-              ? "تنبيه: جميع الأسعار المعروضة تقديرية وقد تختلف عن أسعار السوق الفعلية. يجب مراجعتها والتحقق منها قبل الاعتماد."
-              : "Notice: All prices shown are estimates and may differ from actual market prices. Review and verify before approval."
-            }
-          </p>
-        </div>
-
         <div className="space-y-4 py-2">
-          {/* Confidence Threshold Slider */}
+          {/* Confidence Threshold - Quick Buttons */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">
-                {isArabic ? "الحد الأدنى للثقة" : "Minimum Confidence"}
-              </label>
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="number"
-                  min={15}
-                  max={90}
-                  value={confidenceThreshold[0]}
-                  onChange={(e) => {
-                    const val = Math.min(90, Math.max(15, Number(e.target.value) || 15));
-                    setConfidenceThreshold([val]);
-                  }}
-                  className="w-16 h-8 text-center font-bold text-sm px-1"
-                />
-                <span className="text-sm text-muted-foreground">%</span>
-              </div>
+            <label className="text-sm font-medium">
+              {isArabic ? "الحد الأدنى للثقة" : "Minimum Confidence"}
+            </label>
+            <div className="flex items-center gap-2">
+              {[80, 70, 50, 30].map((val) => (
+                <Button
+                  key={val}
+                  variant={confidenceThreshold[0] === val ? "default" : "outline"}
+                  size="sm"
+                  className="h-9 px-4 text-sm font-semibold"
+                  onClick={() => setConfidenceThreshold([val])}
+                >
+                  {val}%
+                </Button>
+              ))}
+              <Input
+                type="number"
+                min={15}
+                max={90}
+                value={confidenceThreshold[0]}
+                onChange={(e) => {
+                  const v = Math.min(90, Math.max(15, Number(e.target.value) || 15));
+                  setConfidenceThreshold([v]);
+                }}
+                className="w-20 h-9 text-center font-bold text-sm"
+              />
+              <span className="text-sm text-muted-foreground">%</span>
             </div>
-            <Slider
-              value={confidenceThreshold}
-              onValueChange={setConfidenceThreshold}
-              min={15}
-              max={90}
-              step={5}
-              className="w-full"
-            />
           </div>
 
           {/* What will happen info */}
@@ -765,140 +755,15 @@ function AutoPriceDialogComponent({
             <div className="flex items-start gap-2">
               <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
               <div className="flex-1 text-xs space-y-1 text-muted-foreground">
-                <p>{isArabic ? "• مطابقة ذكية مع مكتبة الأسعار + البيانات التاريخية" : "• Smart matching with price library + historical data"}</p>
-                <p>{isArabic ? "• مطابقة الوحدات والفئات لدقة أعلى" : "• Unit & category matching for higher accuracy"}</p>
+                <p>{isArabic ? "• مطابقة أوصاف البنود مع مواد المكتبة" : "• Match item descriptions with library materials"}</p>
+                <p>{isArabic ? "• تطبيق أسعار السوق السعودي 2026" : "• Apply Saudi market prices 2026"}</p>
+                <p>{isArabic ? "• حساب الإجمالي لكل بند" : "• Calculate total for each item"}</p>
                 <p>{isArabic ? "• البنود المسعرة مسبقاً لن تتأثر" : "• Already priced items won't be affected"}</p>
               </div>
             </div>
           </div>
 
-          {/* Statistics - 4 cards */}
-          <div className="grid grid-cols-4 gap-3">
-            <div className="text-center p-2.5 rounded-lg bg-muted/50">
-              <p className="text-xl font-bold">{unpricedItems.length}</p>
-              <p className="text-[10px] text-muted-foreground">{isArabic ? "غير مسعرة" : "Unpriced"}</p>
-            </div>
-            <div className="text-center p-2.5 rounded-lg bg-green-500/10">
-              <p className="text-xl font-bold text-green-600">{pricingResults.length}</p>
-              <p className="text-[10px] text-muted-foreground">{isArabic ? "يمكن تسعيرها" : "Can Price"}</p>
-            </div>
-            <div className="text-center p-2.5 rounded-lg bg-amber-500/10">
-              <p className="text-xl font-bold text-amber-600">{unpricedItems.length - pricingResults.length}</p>
-              <p className="text-[10px] text-muted-foreground">{isArabic ? "بدون مطابقة" : "No Match"}</p>
-            </div>
-            <div className="text-center p-2.5 rounded-lg bg-primary/10">
-              <p className="text-xl font-bold text-primary">{avgConfidence}%</p>
-              <p className="text-[10px] text-muted-foreground">{isArabic ? "متوسط الثقة" : "Avg Confidence"}</p>
-            </div>
-          </div>
-
-          {/* Source summary with filter buttons */}
-          {pricingResults.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-              <Button
-                variant={sourceFilter === null ? "default" : "outline"}
-                size="sm"
-                className="h-6 text-xs px-2"
-                onClick={() => setSourceFilter(null)}
-              >
-                {isArabic ? "الكل" : "All"} ({pricingResults.length})
-              </Button>
-              {sourceStats.library > 0 && (
-                <Button
-                  variant={sourceFilter === "library" ? "default" : "outline"}
-                  size="sm"
-                  className="h-6 text-xs px-2 gap-1"
-                  onClick={() => setSourceFilter(sourceFilter === "library" ? null : "library")}
-                >
-                  <Database className="w-3 h-3" /> {sourceStats.library}
-                </Button>
-              )}
-              {sourceStats.labor > 0 && (
-                <Button
-                  variant={sourceFilter === "labor" ? "default" : "outline"}
-                  size="sm"
-                  className="h-6 text-xs px-2 gap-1"
-                  onClick={() => setSourceFilter(sourceFilter === "labor" ? null : "labor")}
-                >
-                  <Users className="w-3 h-3" /> {sourceStats.labor}
-                </Button>
-              )}
-              {sourceStats.equipment > 0 && (
-                <Button
-                  variant={sourceFilter === "equipment" ? "default" : "outline"}
-                  size="sm"
-                  className="h-6 text-xs px-2 gap-1"
-                  onClick={() => setSourceFilter(sourceFilter === "equipment" ? null : "equipment")}
-                >
-                  <Wrench className="w-3 h-3" /> {sourceStats.equipment}
-                </Button>
-              )}
-              {sourceStats.historical > 0 && (
-                <Button
-                  variant={sourceFilter === "historical" ? "default" : "outline"}
-                  size="sm"
-                  className="h-6 text-xs px-2 gap-1"
-                  onClick={() => setSourceFilter(sourceFilter === "historical" ? null : "historical")}
-                >
-                  <History className="w-3 h-3" /> {sourceStats.historical}
-                </Button>
-              )}
-              {sourceStats.market > 0 && (
-                <Button
-                  variant={sourceFilter === "market" ? "default" : "outline"}
-                  size="sm"
-                  className="h-6 text-xs px-2 gap-1"
-                  onClick={() => setSourceFilter(sourceFilter === "market" ? null : "market")}
-                >
-                  <Globe className="w-3 h-3" /> {sourceStats.market}
-                </Button>
-              )}
-              {sourceStats.reference > 0 && (
-                <Button
-                  variant={sourceFilter === "reference" ? "default" : "outline"}
-                  size="sm"
-                  className="h-6 text-xs px-2 gap-1"
-                  onClick={() => setSourceFilter(sourceFilter === "reference" ? null : "reference")}
-                >
-                  <BookOpen className="w-3 h-3" /> {sourceStats.reference}
-                </Button>
-              )}
-              {sourceStats.quotation > 0 && (
-                <Button
-                  variant={sourceFilter === "quotation" ? "default" : "outline"}
-                  size="sm"
-                  className="h-6 text-xs px-2 gap-1"
-                  onClick={() => setSourceFilter(sourceFilter === "quotation" ? null : "quotation")}
-                >
-                  <FileText className="w-3 h-3" /> {sourceStats.quotation}
-                </Button>
-              )}
-            </div>
-          )}
-
-          {/* Market Search Button */}
-          {unpricedItems.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-2 border-teal-200 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400 dark:hover:bg-teal-950/30"
-              onClick={handleMarketSearch}
-              disabled={loadingMarket}
-            >
-              {loadingMarket ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Search className="w-4 h-4" />
-              )}
-              {loadingMarket
-                ? (isArabic ? "جاري البحث عن أسعار السوق..." : "Searching market prices...")
-                : marketSearchDone
-                  ? (isArabic ? "تم البحث عن أسعار السوق ✓" : "Market prices searched ✓")
-                  : (isArabic ? "🔍 بحث أسعار السوق الحقيقية (AI)" : "🔍 Search Real Market Prices (AI)")
-              }
-            </Button>
-          )}
+          {/* Market Search Button - hidden in initial clean view */}
           {/* Auto Preview Results */}
           <div className="space-y-2">
             <h4 className="font-medium flex items-center gap-2 text-sm">
@@ -1006,21 +871,21 @@ function AutoPriceDialogComponent({
 
               {/* Action Buttons */}
               <div className="flex items-center justify-between gap-3">
-                <Button variant="ghost" onClick={onClose} className="text-muted-foreground">
+                <Button variant="outline" onClick={onClose}>
                   {isArabic ? "إلغاء" : "Cancel"}
                 </Button>
                 <Button 
                   onClick={handleApply} 
                   disabled={pricingResults.length === 0 || isApplying}
                   size="lg"
-                  className="gap-2 min-w-[200px] bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg text-base font-semibold"
+                  className="gap-2 min-w-[200px]"
                 >
                   {isApplying ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <Sparkles className="w-5 h-5" />
                   )}
-                  {isArabic ? `تطبيق التسعير (${pricingResults.length})` : `Apply Pricing (${pricingResults.length})`}
+                  {isArabic ? "معاينة" : "Preview"}
                 </Button>
               </div>
             </div>
@@ -1029,9 +894,19 @@ function AutoPriceDialogComponent({
 
         {pricingResults.length === 0 && (
           <DialogFooter className="border-t pt-4">
-            <Button variant="outline" onClick={onClose}>
-              {isArabic ? "إلغاء" : "Cancel"}
-            </Button>
+            <div className="flex items-center justify-between w-full gap-3">
+              <Button variant="outline" onClick={onClose}>
+                {isArabic ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button 
+                onClick={handleApply} 
+                disabled={pricingResults.length === 0 || isApplying}
+                className="gap-2"
+              >
+                <Sparkles className="w-4 h-4" />
+                {isArabic ? "معاينة" : "Preview"}
+              </Button>
+            </div>
           </DialogFooter>
         )}
       </DialogContent>
