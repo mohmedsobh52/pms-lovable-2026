@@ -11,29 +11,9 @@ interface BOQItem {
 }
 
 interface LibraryData {
-  materials?: Array<{
-    name: string;
-    name_ar?: string;
-    unit_price: number;
-    unit: string;
-    category: string;
-    is_verified: boolean;
-    price_date?: string;
-  }>;
-  labor?: Array<{
-    name: string;
-    name_ar?: string;
-    unit_rate: number;
-    unit: string;
-    category?: string;
-  }>;
-  equipment?: Array<{
-    name: string;
-    name_ar?: string;
-    rental_rate: number;
-    unit: string;
-    category?: string;
-  }>;
+  materials?: Array<{ name: string; name_ar?: string; unit_price: number; unit: string; category: string; is_verified: boolean; }>;
+  labor?: Array<{ name: string; name_ar?: string; unit_rate: number; unit: string; }>;
+  equipment?: Array<{ name: string; name_ar?: string; rental_rate: number; unit: string; }>;
 }
 
 interface MarketRateSuggestion {
@@ -50,1011 +30,281 @@ interface MarketRateSuggestion {
   source: "library" | "reference" | "ai" | "historical";
 }
 
-interface HistoricalItem {
-  description: string;
-  unit: string;
-  unit_price: number;
-  source?: string;
-}
-
-// ==========================================
-// 🔥 EXPANDED REFERENCE PRICES DATABASE (100+ Categories)
-// ==========================================
-const REFERENCE_PRICES: Record<string, { min: number; max: number; unit: string; keywords: string[] }> = {
-  // ============ EXCAVATION & EARTHWORKS ============
-  "excavation_normal_0_2m": { min: 8, max: 18, unit: "m³", keywords: ["excavation", "حفر", "تربة", "عادي", "عمق 2م", "0-2m", "shallow"] },
-  "excavation_normal_2_4m": { min: 15, max: 28, unit: "m³", keywords: ["excavation", "حفر", "تربة", "عمق 4م", "2-4m", "medium depth"] },
-  "excavation_normal_over_4m": { min: 22, max: 45, unit: "m³", keywords: ["excavation", "حفر", "عميق", "over 4m", "deep excavation"] },
-  "excavation_rock_soft": { min: 40, max: 85, unit: "m³", keywords: ["rock", "صخر", "حفر صخر", "soft rock", "صخر لين"] },
-  "excavation_rock_hard": { min: 80, max: 180, unit: "m³", keywords: ["hard rock", "صخر صلب", "حفر صخر صلب", "granite"] },
-  "backfill_selected": { min: 12, max: 25, unit: "m³", keywords: ["backfill", "ردم", "ردم مختار", "selected fill", "approved backfill"] },
-  "backfill_sand": { min: 35, max: 65, unit: "m³", keywords: ["sand backfill", "ردم رمل", "sand fill", "رمل ردم"] },
-  "compaction": { min: 3, max: 8, unit: "m³", keywords: ["compaction", "دمك", "دحل", "دحل تربة", "soil compaction"] },
-  "grading": { min: 5, max: 15, unit: "m²", keywords: ["grading", "تسوية", "leveling", "تسوية أرض", "fine grading"] },
-  "dewatering": { min: 25, max: 60, unit: "m³", keywords: ["dewatering", "نزح مياه", "drainage", "water removal"] },
-  
-  // ============ CONCRETE WORK ============
-  "concrete_c15": { min: 320, max: 420, unit: "m³", keywords: ["c15", "concrete c15", "خرسانة عادية", "lean concrete", "blinding"] },
-  "concrete_c20": { min: 380, max: 480, unit: "m³", keywords: ["c20", "concrete c20", "خرسانة c20", "grade 20"] },
-  "concrete_c25": { min: 420, max: 550, unit: "m³", keywords: ["c25", "concrete c25", "خرسانة c25", "grade 25"] },
-  "concrete_c30": { min: 480, max: 650, unit: "m³", keywords: ["c30", "concrete c30", "خرسانة c30", "grade 30", "structural concrete"] },
-  "concrete_c35": { min: 550, max: 720, unit: "m³", keywords: ["c35", "concrete c35", "خرسانة c35", "grade 35"] },
-  "concrete_c40": { min: 620, max: 850, unit: "m³", keywords: ["c40", "concrete c40", "خرسانة c40", "grade 40", "high strength"] },
-  "concrete_c50": { min: 750, max: 1000, unit: "m³", keywords: ["c50", "concrete c50", "خرسانة c50", "grade 50"] },
-  "concrete_waterproof": { min: 650, max: 900, unit: "m³", keywords: ["waterproof", "مقاوم للماء", "water resistant concrete"] },
-  "concrete_exposed": { min: 700, max: 950, unit: "m³", keywords: ["exposed", "ظاهر", "architectural concrete", "fair face"] },
-  "concrete_pump": { min: 35, max: 70, unit: "m³", keywords: ["pump", "ضخ", "concrete pumping", "ضخ خرسانة"] },
-  
-  // ============ REINFORCEMENT ============
-  "rebar_supply_install": { min: 4200, max: 5800, unit: "ton", keywords: ["rebar", "حديد تسليح", "reinforcement", "steel bar", "توريد تركيب حديد"] },
-  "rebar_supply": { min: 3200, max: 4200, unit: "ton", keywords: ["rebar supply", "توريد حديد", "steel supply"] },
-  "rebar_install": { min: 800, max: 1400, unit: "ton", keywords: ["rebar installation", "تركيب حديد", "rebar fixing"] },
-  "mesh_reinforcement": { min: 25, max: 50, unit: "m²", keywords: ["mesh", "شبك", "wire mesh", "welded mesh", "شبك حديد"] },
-  "rebar_8mm": { min: 4000, max: 5200, unit: "ton", keywords: ["8mm", "قطر 8", "rebar 8mm"] },
-  "rebar_10mm": { min: 4100, max: 5300, unit: "ton", keywords: ["10mm", "قطر 10", "rebar 10mm"] },
-  "rebar_12mm": { min: 4200, max: 5400, unit: "ton", keywords: ["12mm", "قطر 12", "rebar 12mm"] },
-  "rebar_16mm": { min: 4300, max: 5500, unit: "ton", keywords: ["16mm", "قطر 16", "rebar 16mm"] },
-  "rebar_20mm": { min: 4400, max: 5600, unit: "ton", keywords: ["20mm", "قطر 20", "rebar 20mm"] },
-  "rebar_25mm": { min: 4500, max: 5800, unit: "ton", keywords: ["25mm", "قطر 25", "rebar 25mm"] },
-  
-  // ============ FORMWORK ============
-  "formwork_foundation": { min: 80, max: 160, unit: "m²", keywords: ["formwork", "شدة", "قوالب", "foundation formwork", "شدة أساسات"] },
-  "formwork_columns": { min: 120, max: 220, unit: "m²", keywords: ["column formwork", "شدة أعمدة", "قوالب أعمدة"] },
-  "formwork_beams": { min: 130, max: 240, unit: "m²", keywords: ["beam formwork", "شدة كمرات", "قوالب جسور"] },
-  "formwork_slabs": { min: 70, max: 140, unit: "m²", keywords: ["slab formwork", "شدة أسقف", "قوالب بلاطات"] },
-  "formwork_walls": { min: 100, max: 200, unit: "m²", keywords: ["wall formwork", "شدة حوائط", "قوالب جدران"] },
-  "formwork_stairs": { min: 180, max: 350, unit: "m²", keywords: ["stair formwork", "شدة سلالم", "قوالب درج"] },
-  
-  // ============ MASONRY & BLOCKS ============
-  "block_hollow_15cm": { min: 40, max: 70, unit: "m²", keywords: ["hollow block 15", "بلوك 15", "block 150mm", "بلوك أسمنتي 15"] },
-  "block_hollow_20cm": { min: 55, max: 95, unit: "m²", keywords: ["hollow block 20", "بلوك 20", "block 200mm", "بلوك أسمنتي 20"] },
-  "block_solid_20cm": { min: 75, max: 130, unit: "m²", keywords: ["solid block", "بلوك مصمت", "solid concrete block"] },
-  "block_insulated": { min: 90, max: 160, unit: "m²", keywords: ["insulated block", "بلوك عازل", "thermal block"] },
-  "brick_red": { min: 60, max: 110, unit: "m²", keywords: ["brick", "طوب", "red brick", "طوب أحمر"] },
-  "brick_facing": { min: 120, max: 220, unit: "m²", keywords: ["facing brick", "طوب وجاهي", "decorative brick"] },
-  "stone_wall": { min: 180, max: 400, unit: "m²", keywords: ["stone", "حجر", "stone wall", "جدار حجري"] },
-  
-  // ============ PLASTERING ============
-  "plaster_cement": { min: 35, max: 65, unit: "m²", keywords: ["cement plaster", "بياض", "لياسة", "مونة", "cement render"] },
-  "plaster_gypsum": { min: 25, max: 50, unit: "m²", keywords: ["gypsum plaster", "جبس", "gypsum render", "لياسة جبس"] },
-  "plaster_external": { min: 45, max: 85, unit: "m²", keywords: ["external plaster", "بياض خارجي", "external render"] },
-  "plaster_textured": { min: 50, max: 95, unit: "m²", keywords: ["textured", "ملون", "decorative plaster", "texture"] },
-  
-  // ============ WATERPROOFING & INSULATION ============
-  "waterproof_bitumen": { min: 35, max: 70, unit: "m²", keywords: ["bitumen", "بيتومين", "membrane", "عزل مائي", "waterproofing"] },
-  "waterproof_membrane": { min: 55, max: 110, unit: "m²", keywords: ["membrane", "أغشية", "sheet membrane", "عزل رولات"] },
-  "waterproof_liquid": { min: 45, max: 85, unit: "m²", keywords: ["liquid", "سائل", "liquid applied", "عزل سائل"] },
-  "insulation_thermal": { min: 40, max: 90, unit: "m²", keywords: ["thermal insulation", "عزل حراري", "insulation", "فوم"] },
-  "insulation_polystyrene_3cm": { min: 25, max: 50, unit: "m²", keywords: ["polystyrene 3", "بوليسترين 3", "eps 30mm"] },
-  "insulation_polystyrene_5cm": { min: 35, max: 70, unit: "m²", keywords: ["polystyrene 5", "بوليسترين 5", "eps 50mm"] },
-  "insulation_rockwool": { min: 50, max: 100, unit: "m²", keywords: ["rockwool", "صوف صخري", "mineral wool"] },
-  
-  // ============ TILING ============
-  "tiles_ceramic_local": { min: 60, max: 120, unit: "m²", keywords: ["ceramic local", "سيراميك محلي", "local tiles"] },
-  "tiles_ceramic_imported": { min: 100, max: 200, unit: "m²", keywords: ["ceramic imported", "سيراميك مستورد", "imported tiles"] },
-  "tiles_porcelain": { min: 120, max: 280, unit: "m²", keywords: ["porcelain", "بورسلين", "porcelain tiles"] },
-  "tiles_granite": { min: 200, max: 450, unit: "m²", keywords: ["granite", "جرانيت", "granite tiles", "بلاط جرانيت"] },
-  "tiles_marble": { min: 250, max: 600, unit: "m²", keywords: ["marble", "رخام", "marble tiles", "بلاط رخام"] },
-  "tiles_mosaic": { min: 150, max: 350, unit: "m²", keywords: ["mosaic", "موزايك", "mosaic tiles"] },
-  "tiles_interlock": { min: 80, max: 160, unit: "m²", keywords: ["interlock", "انترلوك", "paving", "رصف انترلوك"] },
-  "tiles_terrazzo": { min: 120, max: 250, unit: "m²", keywords: ["terrazzo", "تيرازو", "terrazzo tiles"] },
-  
-  // ============ PAINTING ============
-  "paint_emulsion": { min: 18, max: 40, unit: "m²", keywords: ["emulsion", "بلاستيك", "emulsion paint", "دهان بلاستيك", "interior paint"] },
-  "paint_oil": { min: 25, max: 55, unit: "m²", keywords: ["oil paint", "دهان زيتي", "enamel paint", "زيت"] },
-  "paint_external": { min: 30, max: 65, unit: "m²", keywords: ["external paint", "دهان خارجي", "exterior paint", "weather shield"] },
-  "paint_epoxy": { min: 45, max: 100, unit: "m²", keywords: ["epoxy", "إيبوكسي", "epoxy paint", "دهان ايبوكسي"] },
-  "paint_texture": { min: 35, max: 75, unit: "m²", keywords: ["texture paint", "دهان محبب", "textured coating"] },
-  "paint_anti_rust": { min: 35, max: 70, unit: "m²", keywords: ["anti rust", "مانع صدأ", "rust protection"] },
-  
-  // ============ DOORS & WINDOWS ============
-  "door_wood_flush": { min: 400, max: 800, unit: "no", keywords: ["flush door", "باب خشب", "hollow core", "باب HDF"] },
-  "door_wood_solid": { min: 800, max: 1800, unit: "no", keywords: ["solid door", "باب خشب مصمت", "solid wood door"] },
-  "door_fire_rated": { min: 2000, max: 4500, unit: "no", keywords: ["fire door", "باب حريق", "fire rated door", "باب مقاوم"] },
-  "door_steel": { min: 1200, max: 2800, unit: "no", keywords: ["steel door", "باب حديد", "metal door", "باب معدني"] },
-  "door_aluminum": { min: 1500, max: 3500, unit: "no", keywords: ["aluminum door", "باب ألمنيوم", "aluminium door"] },
-  "window_aluminum": { min: 350, max: 700, unit: "m²", keywords: ["aluminum window", "نافذة ألمنيوم", "شباك ألمنيوم"] },
-  "window_upvc": { min: 400, max: 850, unit: "m²", keywords: ["upvc", "نافذة UPVC", "شباك UPVC", "pvc window"] },
-  "window_double_glazed": { min: 500, max: 1100, unit: "m²", keywords: ["double glazed", "زجاج مزدوج", "double glass"] },
-  
-  // ============ CEILING ============
-  "ceiling_gypsum_board": { min: 55, max: 110, unit: "m²", keywords: ["gypsum board", "جبس بورد", "drywall ceiling", "سقف جبس"] },
-  "ceiling_suspended": { min: 70, max: 150, unit: "m²", keywords: ["suspended ceiling", "سقف معلق", "drop ceiling"] },
-  "ceiling_acoustic": { min: 90, max: 180, unit: "m²", keywords: ["acoustic", "صوتي", "acoustic ceiling", "سقف صوتي"] },
-  "ceiling_metal": { min: 100, max: 200, unit: "m²", keywords: ["metal ceiling", "سقف معدني", "aluminum ceiling"] },
-  
-  // ============ ELECTRICAL ============
-  "electrical_point": { min: 80, max: 180, unit: "no", keywords: ["electrical point", "نقطة كهرباء", "outlet", "مخرج كهرباء", "switch point"] },
-  "electrical_panel": { min: 1200, max: 4000, unit: "no", keywords: ["panel", "لوحة", "distribution board", "لوحة توزيع"] },
-  "cable_tray": { min: 120, max: 280, unit: "m", keywords: ["cable tray", "حامل كابلات", "tray", "مجرى كابلات"] },
-  "conduit_pvc": { min: 15, max: 35, unit: "m", keywords: ["conduit", "مواسير كهرباء", "pvc conduit"] },
-  "conduit_gi": { min: 35, max: 75, unit: "m", keywords: ["gi conduit", "مواسير حديد", "galvanized conduit"] },
-  "lighting_fixture": { min: 150, max: 500, unit: "no", keywords: ["light fixture", "إنارة", "lighting", "كشاف", "luminaire"] },
-  
-  // ============ PLUMBING ============
-  "pipe_pvc_50mm": { min: 35, max: 70, unit: "m", keywords: ["pvc 50", "مواسير 50", "pvc pipe 50mm"] },
-  "pipe_pvc_110mm": { min: 55, max: 110, unit: "m", keywords: ["pvc 110", "مواسير 110", "pvc pipe 110mm"] },
-  "pipe_ppr_20mm": { min: 25, max: 50, unit: "m", keywords: ["ppr 20", "مواسير ppr 20", "ppr pipe"] },
-  "pipe_ppr_25mm": { min: 30, max: 60, unit: "m", keywords: ["ppr 25", "مواسير ppr 25"] },
-  "pipe_copper": { min: 80, max: 180, unit: "m", keywords: ["copper pipe", "مواسير نحاس", "copper"] },
-  "sanitary_wc": { min: 400, max: 1200, unit: "no", keywords: ["wc", "مرحاض", "toilet", "water closet", "قاعدة حمام"] },
-  "sanitary_basin": { min: 200, max: 700, unit: "no", keywords: ["basin", "مغسلة", "wash basin", "حوض"] },
-  "sanitary_sink": { min: 300, max: 900, unit: "no", keywords: ["sink", "حوض مطبخ", "kitchen sink"] },
-  "water_heater": { min: 600, max: 2000, unit: "no", keywords: ["water heater", "سخان", "heater", "سخان مياه"] },
-  
-  // ============ HVAC ============
-  "ac_split_1ton": { min: 1200, max: 2500, unit: "no", keywords: ["split 1 ton", "سبليت 1 طن", "1 ton ac"] },
-  "ac_split_2ton": { min: 2000, max: 4000, unit: "no", keywords: ["split 2 ton", "سبليت 2 طن", "2 ton ac"] },
-  "ac_ducted": { min: 200, max: 450, unit: "ton", keywords: ["ducted", "مخفي", "concealed ac", "تكييف مركزي"] },
-  "duct_gi": { min: 80, max: 180, unit: "m²", keywords: ["gi duct", "مجاري هواء", "galvanized duct"] },
-  "duct_insulation": { min: 35, max: 75, unit: "m²", keywords: ["duct insulation", "عزل مجاري", "insulation wrap"] },
-  
-  // ============ FIRE PROTECTION ============
-  "sprinkler_head": { min: 120, max: 280, unit: "no", keywords: ["sprinkler", "رشاش", "fire sprinkler", "مرش إطفاء"] },
-  "fire_pipe_2inch": { min: 80, max: 160, unit: "m", keywords: ["fire pipe 2", "مواسير إطفاء 2", "2 inch fire pipe"] },
-  "fire_extinguisher": { min: 150, max: 400, unit: "no", keywords: ["extinguisher", "طفاية", "fire extinguisher"] },
-  "fire_alarm_device": { min: 180, max: 450, unit: "no", keywords: ["fire alarm", "إنذار حريق", "smoke detector"] },
-  "fire_hose_cabinet": { min: 800, max: 2000, unit: "no", keywords: ["hose cabinet", "خزانة إطفاء", "fire hose reel"] },
-  
-  // ============ STEEL STRUCTURE ============
-  "steel_structure": { min: 8500, max: 14000, unit: "ton", keywords: ["steel structure", "هيكل معدني", "structural steel"] },
-  "steel_fabrication": { min: 2500, max: 5000, unit: "ton", keywords: ["fabrication", "تصنيع", "steel fabrication"] },
-  "steel_erection": { min: 1500, max: 3500, unit: "ton", keywords: ["erection", "تركيب", "steel erection"] },
-  "steel_painting": { min: 35, max: 80, unit: "m²", keywords: ["steel painting", "دهان حديد", "metal painting"] },
-  
-  // ============ ROADS & INFRASTRUCTURE ============
-  "asphalt_base": { min: 45, max: 90, unit: "m²", keywords: ["asphalt base", "طبقة أساس", "base course"] },
-  "asphalt_wearing": { min: 35, max: 70, unit: "m²", keywords: ["wearing course", "طبقة سطحية", "surface course"] },
-  "curb_concrete": { min: 45, max: 100, unit: "m", keywords: ["curb", "بردورة", "concrete curb", "kerb"] },
-  "manhole_concrete": { min: 1500, max: 4000, unit: "no", keywords: ["manhole", "غرفة تفتيش", "inspection chamber"] },
-  "drainage_pipe": { min: 150, max: 400, unit: "m", keywords: ["drainage", "صرف", "storm drain", "drainage pipe"] },
+// Compact reference prices - top 30 categories only
+const REF: Record<string, { min: number; max: number; unit: string; kw: string[] }> = {
+  "exc_0_2": { min: 8, max: 18, unit: "m³", kw: ["excavation", "حفر", "تربة"] },
+  "exc_rock": { min: 40, max: 180, unit: "m³", kw: ["rock", "صخر"] },
+  "backfill": { min: 12, max: 65, unit: "m³", kw: ["backfill", "ردم", "fill"] },
+  "c15": { min: 320, max: 420, unit: "m³", kw: ["c15", "خرسانة عادية", "lean", "blinding"] },
+  "c25": { min: 420, max: 550, unit: "m³", kw: ["c25", "خرسانة c25"] },
+  "c30": { min: 480, max: 650, unit: "m³", kw: ["c30", "خرسانة c30", "structural"] },
+  "c40": { min: 620, max: 850, unit: "m³", kw: ["c40", "خرسانة c40", "high strength"] },
+  "rebar": { min: 4200, max: 5800, unit: "ton", kw: ["rebar", "حديد تسليح", "reinforcement", "steel bar"] },
+  "formwork": { min: 80, max: 220, unit: "m²", kw: ["formwork", "شدة", "قوالب"] },
+  "block_20": { min: 55, max: 95, unit: "m²", kw: ["block 20", "بلوك 20", "hollow block"] },
+  "block_15": { min: 40, max: 70, unit: "m²", kw: ["block 15", "بلوك 15"] },
+  "plaster": { min: 25, max: 85, unit: "m²", kw: ["plaster", "بياض", "لياسة", "render"] },
+  "waterproof": { min: 35, max: 110, unit: "m²", kw: ["waterproof", "عزل مائي", "bitumen", "membrane"] },
+  "insulation": { min: 25, max: 100, unit: "m²", kw: ["insulation", "عزل حراري", "polystyrene", "rockwool"] },
+  "tile_ceramic": { min: 60, max: 200, unit: "m²", kw: ["ceramic", "سيراميك", "tiles", "بلاط"] },
+  "tile_porcelain": { min: 120, max: 280, unit: "m²", kw: ["porcelain", "بورسلين"] },
+  "tile_marble": { min: 250, max: 600, unit: "m²", kw: ["marble", "رخام", "granite", "جرانيت"] },
+  "paint": { min: 18, max: 65, unit: "m²", kw: ["paint", "دهان", "emulsion", "بلاستيك"] },
+  "door_wood": { min: 400, max: 1800, unit: "no", kw: ["door", "باب", "خشب"] },
+  "window_alum": { min: 350, max: 850, unit: "m²", kw: ["window", "نافذة", "شباك", "aluminum"] },
+  "ceiling_gyp": { min: 55, max: 150, unit: "m²", kw: ["gypsum board", "جبس بورد", "ceiling", "سقف"] },
+  "elec_point": { min: 80, max: 180, unit: "no", kw: ["electrical", "كهرباء", "outlet", "switch"] },
+  "pipe_pvc": { min: 35, max: 110, unit: "m", kw: ["pvc", "مواسير", "pipe"] },
+  "sanitary_wc": { min: 400, max: 1200, unit: "no", kw: ["wc", "مرحاض", "toilet"] },
+  "ac_split": { min: 1200, max: 4000, unit: "no", kw: ["split", "سبليت", "ac", "تكييف"] },
+  "steel_str": { min: 8500, max: 14000, unit: "ton", kw: ["steel structure", "هيكل معدني"] },
+  "asphalt": { min: 35, max: 90, unit: "m²", kw: ["asphalt", "أسفلت", "wearing", "base course"] },
+  "interlock": { min: 80, max: 160, unit: "m²", kw: ["interlock", "انترلوك", "paving"] },
+  "curb": { min: 45, max: 100, unit: "m", kw: ["curb", "بردورة", "kerb"] },
+  "manhole": { min: 1500, max: 4000, unit: "no", kw: ["manhole", "غرفة تفتيش"] },
 };
 
-// ==========================================
-// 🏙️ CITY PERFORMANCE FACTORS
-// ==========================================
-const CITY_FACTORS: Record<string, { factor: number; label: string }> = {
-  // Saudi Arabia (Baseline)
-  "Riyadh":  { factor: 1.00, label: "Baseline" },
-  "Jeddah":  { factor: 1.05, label: "+5%" },
-  "Dammam":  { factor: 0.97, label: "-3%" },
-  "Makkah":  { factor: 1.08, label: "+8%" },
-  "Madinah": { factor: 1.04, label: "+4%" },
-  "Khobar":  { factor: 0.98, label: "-2%" },
-  "Tabuk":   { factor: 1.12, label: "+12% (remote)" },
-  "Abha":    { factor: 1.10, label: "+10% (mountain)" },
-  "NEOM":    { factor: 1.35, label: "+35% (giga project)" },
-  "Qiddiya": { factor: 1.25, label: "+25% (giga project)" },
-  "Red Sea": { factor: 1.30, label: "+30% (giga project)" },
-  "Jubail":  { factor: 1.03, label: "+3% (industrial)" },
-  "Yanbu":   { factor: 1.08, label: "+8% (industrial)" },
-  "Hail":    { factor: 1.10, label: "+10% (north)" },
-  "Jazan":   { factor: 1.12, label: "+12% (south)" },
-  "Najran":  { factor: 1.14, label: "+14% (far south)" },
-  "Al Ahsa": { factor: 0.95, label: "-5% (east)" },
-  "Taif":    { factor: 1.02, label: "+2% (west)" },
-  "Buraidah": { factor: 1.06, label: "+6% (Qassim)" },
-  "Khamis Mushait": { factor: 1.10, label: "+10% (Asir)" },
-  "Al Kharj": { factor: 0.98, label: "-2% (near Riyadh)" },
-  "Al Baha": { factor: 1.14, label: "+14% (mountain remote)" },
-  "Arar":    { factor: 1.16, label: "+16% (north border)" },
-  "Sakaka":  { factor: 1.14, label: "+14% (Al Jouf)" },
-  "Dawadmi": { factor: 1.06, label: "+6% (central)" },
-  "Zulfi":   { factor: 1.08, label: "+8% (central)" },
-  // UAE
-  "Dubai":   { factor: 1.25, label: "+25%" },
-  "Abu Dhabi": { factor: 1.20, label: "+20%" },
-  "Sharjah": { factor: 1.15, label: "+15%" },
-  "Ajman":   { factor: 1.10, label: "+10%" },
-  // Egypt
-  "Cairo":   { factor: 0.45, label: "-55%" },
-  "Alexandria": { factor: 0.42, label: "-58%" },
-  "Giza":    { factor: 0.44, label: "-56%" },
-  // Qatar
-  "Doha":    { factor: 1.30, label: "+30%" },
-  "Al Wakrah": { factor: 1.25, label: "+25%" },
-  // Kuwait
-  "Kuwait City": { factor: 1.15, label: "+15%" },
-  "Hawalli": { factor: 1.12, label: "+12%" },
-  // Bahrain
-  "Manama":  { factor: 1.10, label: "+10%" },
-  "Muharraq": { factor: 1.08, label: "+8%" },
-  // Oman
-  "Muscat":  { factor: 1.05, label: "+5%" },
-  "Salalah": { factor: 1.08, label: "+8%" },
+// Compact city factors
+const CITIES: Record<string, number> = {
+  "Riyadh": 1, "Jeddah": 1.05, "Dammam": 0.97, "Makkah": 1.08, "Madinah": 1.04,
+  "Khobar": 0.98, "Tabuk": 1.12, "Abha": 1.1, "NEOM": 1.35, "Jubail": 1.03,
+  "Dubai": 1.25, "Abu Dhabi": 1.2, "Doha": 1.3, "Kuwait City": 1.15, "Muscat": 1.05,
+  "Cairo": 0.45, "Manama": 1.1,
 };
 
-// ==========================================
-// 🔍 FUZZY MATCHING FUNCTIONS
-// ==========================================
-function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[أإآ]/g, 'ا')
-    .replace(/[ى]/g, 'ي')
-    .replace(/[ة]/g, 'ه')
-    .replace(/[ؤ]/g, 'و')
-    .replace(/[ئ]/g, 'ي')
-    .replace(/[ء]/g, '')
-    .replace(/ال/g, '')
-    .replace(/[\s\-_,،.;:()]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+function norm(t: string): string {
+  return t.toLowerCase().replace(/[أإآ]/g,'ا').replace(/[ى]/g,'ي').replace(/[ة]/g,'ه')
+    .replace(/[\s\-_,،.;:()]+/g,' ').trim();
 }
 
-function fuzzyMatch(text1: string, text2: string): number {
-  const n1 = normalizeText(text1);
-  const n2 = normalizeText(text2);
-  
-  if (n1 === n2) return 1;
-  if (n1.includes(n2) || n2.includes(n1)) return 0.85;
-  
-  const words1 = n1.split(' ').filter(w => w.length > 1);
-  const words2 = n2.split(' ').filter(w => w.length > 1);
-  
-  let matches = 0;
-  for (const w1 of words1) {
-    for (const w2 of words2) {
-      if (w1 === w2) {
-        matches += 1;
-        break;
-      }
-      if (w1.includes(w2) || w2.includes(w1)) {
-        matches += 0.7;
-        break;
-      }
-      // Levenshtein-lite for Arabic typos (2-char tolerance for words > 4 chars)
-      if (w1.length > 4 && w2.length > 4) {
-        let diff = 0;
-        const minLen = Math.min(w1.length, w2.length);
-        for (let i = 0; i < minLen; i++) {
-          if (w1[i] !== w2[i]) diff++;
-        }
-        diff += Math.abs(w1.length - w2.length);
-        if (diff <= 2) {
-          matches += 0.5;
-          break;
-        }
-      }
+function matchScore(desc: string, kws: string[]): number {
+  const d = norm(desc);
+  let score = 0;
+  for (const k of kws) {
+    const kn = norm(k);
+    if (d.includes(kn)) score += 15;
+    else {
+      const words = kn.split(' ');
+      for (const w of words) { if (w.length > 2 && d.includes(w)) score += 6; }
     }
   }
-  
-  return matches / Math.max(words1.length, words2.length);
+  return score;
 }
 
-// ==========================================
-// 📊 FIND MATCHING REFERENCE PRICE
-// ==========================================
-function findReferencePrice(description: string, unit: string): { key: string; ref: typeof REFERENCE_PRICES[string]; score: number } | null {
-  const descNorm = normalizeText(description);
-  let bestMatch: { key: string; ref: typeof REFERENCE_PRICES[string]; score: number } | null = null;
-  
-  for (const [key, ref] of Object.entries(REFERENCE_PRICES)) {
-    let score = 0;
-    
-    // Check keywords
-    for (const keyword of ref.keywords) {
-      const keywordNorm = normalizeText(keyword);
-      if (descNorm.includes(keywordNorm)) {
-        score += 15;
-      } else if (keywordNorm.length > 3 && descNorm.includes(keywordNorm.substring(0, Math.ceil(keywordNorm.length * 0.7)))) {
-        // Substring partial match
-        score += 8;
-      }
-      if (fuzzyMatch(descNorm, keywordNorm) > 0.6) {
-        score += 10;
-      } else if (fuzzyMatch(descNorm, keywordNorm) > 0.4) {
-        score += 5;
-      }
-    }
-    
-    // Unit matching bonus (increased weight)
-    const unitNorm = (unit || '').toLowerCase().trim();
-    const refUnitNorm = (ref.unit || '').toLowerCase().trim();
-    if (unitNorm === refUnitNorm) {
-      score += 12;
-    } else if (
-      (unitNorm === 'm2' && refUnitNorm === 'm²') || (unitNorm === 'm²' && refUnitNorm === 'm2') ||
-      (unitNorm === 'm3' && refUnitNorm === 'm³') || (unitNorm === 'm³' && refUnitNorm === 'm3') ||
-      (unitNorm === 'sqm' && refUnitNorm === 'm²') || (unitNorm === 'cum' && refUnitNorm === 'm³')
-    ) {
-      score += 10;
-    }
-    
-    if (score > 0 && (!bestMatch || score > bestMatch.score)) {
-      bestMatch = { key, ref, score };
-    }
+function findRef(desc: string, unit: string): { key: string; min: number; max: number; score: number } | null {
+  let best: { key: string; min: number; max: number; score: number } | null = null;
+  for (const [key, r] of Object.entries(REF)) {
+    let s = matchScore(desc, r.kw);
+    const u1 = (unit || '').toLowerCase().replace(/[²³]/g, m => m === '²' ? '2' : '3');
+    const u2 = r.unit.toLowerCase().replace(/[²³]/g, m => m === '²' ? '2' : '3');
+    if (u1 === u2) s += 10;
+    if (s > 0 && (!best || s > best.score)) best = { key, min: r.min, max: r.max, score: s };
   }
-  
-  // Lowered threshold from 25 to 20 for wider coverage
-  return bestMatch && bestMatch.score >= 20 ? bestMatch : null;
+  return best && best.score >= 18 ? best : null;
 }
 
-// ==========================================
-// 📚 FIND PRICE FROM LOCAL LIBRARY
-// ==========================================
-function findLibraryPrice(description: string, unit: string, libraryData?: LibraryData): { price: number; confidence: number; source: string } | null {
-  if (!libraryData) return null;
-  
-  const descNorm = normalizeText(description);
-  
-  // Check materials
-  if (libraryData.materials) {
-    for (const mat of libraryData.materials) {
-      const matText = normalizeText((mat.name || '') + ' ' + (mat.name_ar || ''));
-      const score = fuzzyMatch(descNorm, matText);
-      
-      if (score >= 0.7 && mat.is_verified) {
-        return { price: mat.unit_price, confidence: 95, source: 'library_verified' };
-      }
-      if (score >= 0.7) {
-        return { price: mat.unit_price, confidence: 88, source: 'library' };
-      }
+function findLibPrice(desc: string, lib?: LibraryData): { price: number; src: string } | null {
+  if (!lib) return null;
+  const d = norm(desc);
+  if (lib.materials) {
+    for (const m of lib.materials) {
+      const mt = norm((m.name||'') + ' ' + (m.name_ar||''));
+      if (mt && d.includes(mt.split(' ')[0]) && mt.split(' ').some(w => w.length > 2 && d.includes(w)))
+        return { price: m.unit_price, src: m.is_verified ? 'library_verified' : 'library' };
     }
   }
-  
-  // Check labor
-  if (libraryData.labor) {
-    for (const lab of libraryData.labor) {
-      const labText = normalizeText((lab.name || '') + ' ' + (lab.name_ar || ''));
-      if (fuzzyMatch(descNorm, labText) >= 0.6) {
-        return { price: lab.unit_rate, confidence: 85, source: 'library_labor' };
-      }
+  if (lib.labor) {
+    for (const l of lib.labor) {
+      const lt = norm((l.name||'') + ' ' + (l.name_ar||''));
+      if (lt && lt.split(' ').filter(w => w.length > 2 && d.includes(w)).length >= 1)
+        return { price: l.unit_rate, src: 'library_labor' };
     }
   }
-  
-  // Check equipment
-  if (libraryData.equipment) {
-    for (const eq of libraryData.equipment) {
-      const eqText = normalizeText((eq.name || '') + ' ' + (eq.name_ar || ''));
-      if (fuzzyMatch(descNorm, eqText) >= 0.6) {
-        return { price: eq.rental_rate, confidence: 85, source: 'library_equipment' };
-      }
+  if (lib.equipment) {
+    for (const e of lib.equipment) {
+      const et = norm((e.name||'') + ' ' + (e.name_ar||''));
+      if (et && et.split(' ').filter(w => w.length > 2 && d.includes(w)).length >= 1)
+        return { price: e.rental_rate, src: 'library_equipment' };
     }
   }
-  
   return null;
-}
-
-// ==========================================
-// 📜 FIND PRICE FROM HISTORICAL DATA
-// ==========================================
-function findHistoricalPrice(description: string, unit: string, historicalData?: HistoricalItem[]): { price: number; confidence: number; source: string; projectName: string } | null {
-  if (!historicalData || historicalData.length === 0) return null;
-  
-  const descNorm = normalizeText(description);
-  
-  for (const hist of historicalData) {
-    const histText = normalizeText(hist.description || '');
-    const score = fuzzyMatch(descNorm, histText);
-    
-    // Check unit match too
-    const unitMatch = (hist.unit || '').toLowerCase().trim() === unit.toLowerCase().trim();
-    
-    if (score >= 0.65 && unitMatch && hist.unit_price > 0) {
-      // Dynamic inflation adjustment based on age (estimate ~4% per year)
-      const inflationRate = 1.04; // annual
-      const adjustedPrice = Math.round(hist.unit_price * inflationRate * 100) / 100;
-      const conf = score >= 0.8 ? 92 : score >= 0.7 ? 88 : 80;
-      return { price: adjustedPrice, confidence: conf, source: 'historical', projectName: hist.source || 'Historical Project' };
-    }
-    if (score >= 0.5 && unitMatch && hist.unit_price > 0) {
-      const adjustedPrice = Math.round(hist.unit_price * 1.04 * 100) / 100;
-      return { price: adjustedPrice, confidence: 68, source: 'historical', projectName: hist.source || 'Historical Project' };
-    }
-  }
-  
-  return null;
-}
-
-// ==========================================
-// ✅ VALIDATE AND ADJUST AI PRICE
-// ==========================================
-function validatePrice(aiPrice: number, refPrice: { min: number; max: number } | null, libraryPrice?: number): { 
-  price: number; 
-  confidence: number; 
-  adjusted: boolean;
-  notes: string;
-} {
-  let confidence = 70;
-  let adjusted = false;
-  let finalPrice = aiPrice;
-  let notes: string[] = [];
-  
-  // Check against reference range (enhanced ±15% tolerance for high confidence)
-  if (refPrice) {
-    const refAvg = (refPrice.min + refPrice.max) / 2;
-    if (aiPrice >= refPrice.min && aiPrice <= refPrice.max) {
-      confidence += 18;
-      notes.push("Within reference range");
-    } else if (aiPrice >= refAvg * 0.85 && aiPrice <= refAvg * 1.15) {
-      confidence += 12;
-      notes.push("Close to reference range (±15%)");
-    } else if (aiPrice < refPrice.min * 0.5 || aiPrice > refPrice.max * 2) {
-      // Way outside range - clamp it
-      finalPrice = aiPrice < refPrice.min ? refPrice.min : refPrice.max;
-      adjusted = true;
-      confidence -= 10;
-      notes.push("Adjusted to reference range");
-    } else {
-      // Slightly outside - mild adjustment
-      if (aiPrice < refPrice.min) {
-        finalPrice = (aiPrice + refPrice.min) / 2;
-      } else if (aiPrice > refPrice.max) {
-        finalPrice = (aiPrice + refPrice.max) / 2;
-      }
-      adjusted = true;
-      notes.push("Blended with reference");
-    }
-  }
-  
-  // Cross-validate with library
-  if (libraryPrice && libraryPrice > 0) {
-    const deviation = Math.abs(finalPrice - libraryPrice) / libraryPrice;
-    if (deviation < 0.15) {
-      confidence += 12;
-      notes.push("Matches library price");
-    } else if (deviation < 0.30) {
-      finalPrice = (finalPrice + libraryPrice) / 2;
-      adjusted = true;
-      notes.push("Blended with library");
-    }
-  }
-
-  // Cross-validation boost: if ref + library + AI all align within ±20%, boost to high confidence
-  if (refPrice && libraryPrice && libraryPrice > 0) {
-    const refAvg = (refPrice.min + refPrice.max) / 2;
-    const allClose = Math.abs(finalPrice - refAvg) / refAvg < 0.20 && Math.abs(finalPrice - libraryPrice) / libraryPrice < 0.20;
-    if (allClose) {
-      confidence = Math.max(confidence, 92);
-      notes.push("Cross-validated (Ref+Lib+AI aligned)");
-    }
-  }
-  
-  return { 
-    price: Math.round(finalPrice * 100) / 100, 
-    confidence: Math.min(confidence, 98), 
-    adjusted,
-    notes: notes.join("; ")
-  };
-}
-
-// Retry configuration
-const MAX_RETRIES = 3;
-const INITIAL_DELAY_MS = 1000;
-const REQUEST_TIMEOUT_MS = 60000;
-
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  
-  try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    return response;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-async function fetchWithRetry(
-  url: string, 
-  options: RequestInit, 
-  maxRetries: number = MAX_RETRIES,
-  initialDelayMs: number = INITIAL_DELAY_MS
-): Promise<Response> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      console.log(`Attempt ${attempt + 1}/${maxRetries}...`);
-      const response = await fetchWithTimeout(url, options, REQUEST_TIMEOUT_MS);
-      
-      if (response.status === 429) {
-        const delay = initialDelayMs * Math.pow(2, attempt);
-        console.log(`Rate limited. Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        continue;
-      }
-      
-      return response;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      
-      if (lastError.name === 'AbortError') {
-        lastError = new Error(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000} seconds`);
-      }
-      
-      if (attempt < maxRetries - 1) {
-        const delay = initialDelayMs * Math.pow(2, attempt);
-        console.log(`Attempt ${attempt + 1} failed: ${lastError.message}. Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  
-  throw lastError || new Error(`Failed after ${maxRetries} attempts`);
-}
-
-// Process items in batches with enhanced validation
-async function processBatch(
-  items: BOQItem[],
-  location: string,
-  apiKey: string,
-  model: string = "google/gemini-2.5-flash",
-  libraryData?: LibraryData,
-  historicalData?: HistoricalItem[],
-  dynamicCityFactors?: Record<string, { factor: number; label: string }>
-): Promise<{ suggestions: MarketRateSuggestion[]; aiCount: number; refCount: number; libCount: number; histCount: number }> {
-  
-  const suggestions: MarketRateSuggestion[] = [];
-  let aiCount = 0, refCount = 0, libCount = 0, histCount = 0;
-  
-  // Use dynamic factors if available, fallback to static
-  const factorsSource = dynamicCityFactors || CITY_FACTORS;
-  const cityData = factorsSource[location] || { factor: 1.0, label: "Default" };
-  const cityFactor = cityData.factor;
-  console.log(`City factor for ${location}: ${cityFactor} (${cityData.label}) [source: ${dynamicCityFactors ? 'database' : 'static'}]`);
-  
-  // Helper to apply city factor to a price
-  const applyFactor = (price: number) => Math.round(price * cityFactor * 100) / 100;
-  
-  // First pass: Try to match from library and reference
-  const itemsNeedingAI: typeof items = [];
-  
-  for (const item of items) {
-    // Try library first (highest confidence)
-    const libPrice = findLibraryPrice(item.description, item.unit, libraryData);
-    if (libPrice && libPrice.confidence >= 85) {
-      const adjPrice = applyFactor(libPrice.price);
-      const variance = item.unit_price && item.unit_price > 0 
-        ? Math.round(((adjPrice - item.unit_price) / item.unit_price) * 100)
-        : 0;
-      
-      suggestions.push({
-        item_number: item.item_number,
-        description: item.description,
-        current_price: item.unit_price || 0,
-        suggested_min: Math.round(applyFactor(libPrice.price * 0.9)),
-        suggested_max: Math.round(applyFactor(libPrice.price * 1.1)),
-        suggested_avg: adjPrice,
-        confidence: "High",
-        trend: "Stable",
-        variance_percent: variance,
-        notes: `From local library (${libPrice.source})${cityFactor !== 1 ? ` | City factor: ${cityData.label}` : ''}`,
-        source: "library"
-      });
-      libCount++;
-      continue;
-    }
-    
-    // Try historical prices (second priority - lowered threshold to 65)
-    const histPrice = findHistoricalPrice(item.description, item.unit, historicalData);
-    if (histPrice && histPrice.confidence >= 65) {
-      const adjPrice = applyFactor(histPrice.price);
-      const variance = item.unit_price && item.unit_price > 0 
-        ? Math.round(((adjPrice - item.unit_price) / item.unit_price) * 100)
-        : 0;
-      
-      suggestions.push({
-        item_number: item.item_number,
-        description: item.description,
-        current_price: item.unit_price || 0,
-        suggested_min: Math.round(applyFactor(histPrice.price * 0.9)),
-        suggested_max: Math.round(applyFactor(histPrice.price * 1.1)),
-        suggested_avg: adjPrice,
-        confidence: histPrice.confidence >= 85 ? "High" : "Medium",
-        trend: "Stable",
-        variance_percent: variance,
-        notes: `From historical: ${histPrice.projectName} (+4% inflation)${cityFactor !== 1 ? ` | City: ${cityData.label}` : ''}`,
-        source: "historical"
-      });
-      histCount++;
-      continue;
-    }
-    
-    // Try reference prices (medium-high confidence - lowered threshold to 20)
-    const refMatch = findReferencePrice(item.description, item.unit);
-    if (refMatch && refMatch.score >= 20) {
-      const avgPrice = (refMatch.ref.min + refMatch.ref.max) / 2;
-      const adjAvg = applyFactor(avgPrice);
-      const variance = item.unit_price && item.unit_price > 0 
-        ? Math.round(((adjAvg - item.unit_price) / item.unit_price) * 100)
-        : 0;
-      
-      suggestions.push({
-        item_number: item.item_number,
-        description: item.description,
-        current_price: item.unit_price || 0,
-        suggested_min: Math.round(applyFactor(refMatch.ref.min)),
-        suggested_max: Math.round(applyFactor(refMatch.ref.max)),
-        suggested_avg: Math.round(adjAvg),
-        confidence: refMatch.score >= 35 ? "High" : "Medium",
-        trend: "Stable",
-        variance_percent: variance,
-        notes: `Reference: ${refMatch.key.replace(/_/g, ' ')}${cityFactor !== 1 ? ` | City: ${cityData.label}` : ''}`,
-        source: "reference"
-      });
-      refCount++;
-      continue;
-    }
-    
-    // Add to AI processing queue
-    itemsNeedingAI.push(item);
-  }
-  
-  // Second pass: Process remaining items with AI
-  if (itemsNeedingAI.length > 0) {
-    const itemsSummary = itemsNeedingAI.map(item => ({
-      item_number: item.item_number,
-      description: item.description,
-      unit: item.unit,
-      current_price: item.unit_price || 0,
-    }));
-
-    // Build reference context for AI
-    const referenceContext = itemsNeedingAI.map(item => {
-      const ref = findReferencePrice(item.description, item.unit);
-      if (ref) {
-        return `${item.item_number}: ${ref.ref.min}-${ref.ref.max} ${ref.ref.unit}`;
-      }
-      return null;
-    }).filter(Boolean).join('\n');
-
-    const systemPrompt = `You are an expert construction cost estimator specializing in the Middle East and Gulf region with 20+ years of experience.
-Your estimates must be ACCURATE and based on real 2024-2025 market data for ${location}.
-
-CRITICAL CONSTRAINTS:
-1. Your prices MUST be realistic for the ${location} market specifically
-2. Consider current material costs, labor rates, supply chain factors, and regional variations within the country
-3. Account for city-specific pricing differences (e.g., Riyadh vs Jeddah vs remote areas)
-4. If uncertain, provide conservative estimates within typical ranges
-5. Currency is SAR (Saudi Riyal) unless otherwise specified
-6. Consider recent inflation, VAT (15%), and municipality fees where applicable
-
-${referenceContext ? `REFERENCE PRICE RANGES (use these as calibration guides, adjust for ${location}):
-${referenceContext}` : ''}
-
-Analyze each BOQ item and provide:
-- suggested_min: Conservative lower bound for ${location}
-- suggested_max: Upper bound with contingency for ${location}
-- suggested_avg: Most likely current market rate for ${location}
-- confidence: "High" if common item with well-known pricing, "Medium" if specialized, "Low" if uncertain
-- trend: "Increasing", "Stable", or "Decreasing" based on 2024-2025 market conditions in the region
-- notes: Brief 10-word max justification with key pricing factor`;
-
-    const userPrompt = `Analyze these BOQ items for ${location}, Saudi Arabia (prices in SAR):
-
-${JSON.stringify(itemsSummary, null, 2)}
-
-Return accurate 2025 market rates.`;
-
-    try {
-      const response = await fetchWithRetry(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt }
-            ],
-            tools: [
-              {
-                type: "function",
-                function: {
-                  name: "suggest_market_rates",
-                  description: "Return validated market rate suggestions for BOQ items",
-                  parameters: {
-                    type: "object",
-                    properties: {
-                      suggestions: {
-                        type: "array",
-                        items: {
-                          type: "object",
-                          properties: {
-                            item_number: { type: "string" },
-                            description: { type: "string" },
-                            current_price: { type: "number" },
-                            suggested_min: { type: "number" },
-                            suggested_max: { type: "number" },
-                            suggested_avg: { type: "number" },
-                            confidence: { type: "string", enum: ["High", "Medium", "Low"] },
-                            trend: { type: "string", enum: ["Increasing", "Stable", "Decreasing"] },
-                            notes: { type: "string" }
-                          },
-                          required: ["item_number", "suggested_min", "suggested_max", "suggested_avg", "confidence", "trend"]
-                        }
-                      }
-                    },
-                    required: ["suggestions"]
-                  }
-                }
-              }
-            ],
-            tool_choice: { type: "function", function: { name: "suggest_market_rates" } }
-          }),
-        }
-      );
-
-      if (response.ok) {
-        const responseText = await response.text();
-        if (responseText) {
-          const aiResponse = JSON.parse(responseText);
-          let aiSuggestions: any[] = [];
-          
-          const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
-          if (toolCall?.function?.arguments) {
-            const parsed = JSON.parse(toolCall.function.arguments);
-            aiSuggestions = parsed.suggestions || [];
-          }
-          
-          if (aiSuggestions.length === 0) {
-            const content = aiResponse.choices?.[0]?.message?.content;
-            if (content) {
-              const jsonMatch = content.match(/\[[\s\S]*\]/);
-              if (jsonMatch) {
-                aiSuggestions = JSON.parse(jsonMatch[0]);
-              }
-            }
-          }
-          
-          // Validate and adjust AI suggestions
-          for (const aiSug of aiSuggestions) {
-            const item = itemsNeedingAI.find(i => i.item_number === aiSug.item_number);
-            if (!item) continue;
-            
-            const refMatch = findReferencePrice(item.description, item.unit);
-            const libPrice = findLibraryPrice(item.description, item.unit, libraryData);
-            
-            const validated = validatePrice(
-              aiSug.suggested_avg,
-              refMatch?.ref || null,
-              libPrice?.price
-            );
-            
-            const adjPrice = applyFactor(validated.price);
-            const variance = item.unit_price && item.unit_price > 0 
-              ? Math.round(((adjPrice - item.unit_price) / item.unit_price) * 100)
-              : 0;
-            
-            let confidence: "High" | "Medium" | "Low" = 
-              validated.confidence >= 85 ? "High" : 
-              validated.confidence >= 70 ? "Medium" : "Low";
-            
-            suggestions.push({
-              item_number: aiSug.item_number,
-              description: aiSug.description || item.description,
-              current_price: item.unit_price || 0,
-              suggested_min: Math.round(applyFactor(validated.price * 0.9)),
-              suggested_max: Math.round(applyFactor(validated.price * 1.15)),
-              suggested_avg: adjPrice,
-              confidence: confidence,
-              trend: aiSug.trend || "Stable",
-              variance_percent: variance,
-              notes: validated.adjusted 
-                ? `AI+Validated: ${validated.notes}` 
-                : `AI: ${aiSug.notes || 'Market estimate'}`,
-              source: "ai"
-            });
-            aiCount++;
-          }
-        }
-      }
-    } catch (error) {
-      console.error("AI processing error:", error);
-    }
-    
-    // Fallback for items not processed
-    for (const item of itemsNeedingAI) {
-      if (!suggestions.find(s => s.item_number === item.item_number)) {
-        const basePrice = item.unit_price || 100;
-        suggestions.push({
-          item_number: item.item_number,
-          description: item.description,
-          current_price: basePrice,
-          suggested_min: Math.round(basePrice * 0.85),
-          suggested_max: Math.round(basePrice * 1.15),
-          suggested_avg: basePrice,
-          confidence: "Low",
-          trend: "Stable",
-          variance_percent: 0,
-          notes: "Fallback estimate - manual review recommended",
-          source: "ai"
-        });
-      }
-    }
-  }
-  
-  return { suggestions, aiCount, refCount, libCount, histCount };
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const { userId, error: authError } = await verifyAuth(req);
-  if (authError) {
-    return authError;
-  }
-  console.log(`Authenticated user: ${userId}`);
+  if (authError) return authError;
 
   try {
-    const { 
-      items, 
-      location = "Riyadh", 
-      model = "google/gemini-2.5-flash",
-      libraryData,
-      historicalData
-    }: { 
-      items: BOQItem[]; 
-      location: string; 
-      model?: string;
-      libraryData?: LibraryData;
-      historicalData?: HistoricalItem[];
-    } = await req.json();
+    const { items, location = "Riyadh", model = "google/gemini-2.5-flash", libraryData, historicalData }:
+      { items: BOQItem[]; location: string; model?: string; libraryData?: LibraryData; historicalData?: any[] } = await req.json();
 
-    if (!items || items.length === 0) {
+    if (!items?.length) {
       return new Response(JSON.stringify({ error: "No items provided" }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`Analyzing ${items.length} items for ${location} with model: ${model}`);
-    console.log(`Library data: materials=${libraryData?.materials?.length || 0}, labor=${libraryData?.labor?.length || 0}, equipment=${libraryData?.equipment?.length || 0}, historical=${historicalData?.length || 0}`);
-
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // Fetch dynamic city factors from database
-    let dynamicCityFactors: Record<string, { factor: number; label: string }> | undefined;
+    // Get city factor
+    let cityFactor = CITIES[location] || 1;
     try {
       const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-      const supabaseAdmin = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-      );
-      const { data: cityFactorsData } = await supabaseAdmin
-        .from('city_pricing_factors')
-        .select('city_name, factor, label');
-      if (cityFactorsData && cityFactorsData.length > 0) {
-        dynamicCityFactors = {};
-        for (const cf of cityFactorsData) {
-          dynamicCityFactors[cf.city_name] = { factor: Number(cf.factor), label: cf.label || 'Base' };
+      const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+      const { data } = await sb.from('city_pricing_factors').select('factor').eq('city_name', location).maybeSingle();
+      if (data?.factor) cityFactor = Number(data.factor);
+    } catch (_) { /* use static */ }
+
+    const applyF = (p: number) => Math.round(p * cityFactor * 100) / 100;
+
+    const suggestions: MarketRateSuggestion[] = [];
+    const needAI: BOQItem[] = [];
+    let libCount = 0, refCount = 0, aiCount = 0, histCount = 0;
+
+    // Historical lookup
+    const histMap = new Map<string, { price: number; src: string }>();
+    if (historicalData?.length) {
+      for (const h of historicalData) {
+        if (h.unit_price > 0) histMap.set(norm(h.description || ''), { price: h.unit_price * 1.04, src: h.source || 'Historical' });
+      }
+    }
+
+    // Pass 1: library, historical, reference
+    for (const item of items) {
+      const lib = findLibPrice(item.description, libraryData);
+      if (lib) {
+        const p = applyF(lib.price);
+        const v = item.unit_price && item.unit_price > 0 ? Math.round(((p - item.unit_price) / item.unit_price) * 100) : 0;
+        suggestions.push({ item_number: item.item_number, description: item.description, current_price: item.unit_price || 0,
+          suggested_min: applyF(lib.price * 0.9), suggested_max: applyF(lib.price * 1.1), suggested_avg: p,
+          confidence: "High", trend: "Stable", variance_percent: v, notes: `Library (${lib.src})`, source: "library" });
+        libCount++; continue;
+      }
+
+      // Historical
+      const dn = norm(item.description);
+      let foundHist = false;
+      for (const [hk, hv] of histMap) {
+        if (dn.includes(hk.split(' ')[0]) && hk.split(' ').some(w => w.length > 2 && dn.includes(w))) {
+          const p = applyF(hv.price);
+          const v = item.unit_price && item.unit_price > 0 ? Math.round(((p - item.unit_price) / item.unit_price) * 100) : 0;
+          suggestions.push({ item_number: item.item_number, description: item.description, current_price: item.unit_price || 0,
+            suggested_min: applyF(hv.price * 0.9), suggested_max: applyF(hv.price * 1.1), suggested_avg: p,
+            confidence: "Medium", trend: "Stable", variance_percent: v, notes: `Historical: ${hv.src}`, source: "historical" });
+          histCount++; foundHist = true; break;
         }
-        console.log(`Loaded ${cityFactorsData.length} dynamic city factors from database`);
       }
-    } catch (e) {
-      console.warn('Failed to load dynamic city factors, using static fallback:', e);
+      if (foundHist) continue;
+
+      // Reference
+      const ref = findRef(item.description, item.unit);
+      if (ref) {
+        const avg = applyF((ref.min + ref.max) / 2);
+        const v = item.unit_price && item.unit_price > 0 ? Math.round(((avg - item.unit_price) / item.unit_price) * 100) : 0;
+        suggestions.push({ item_number: item.item_number, description: item.description, current_price: item.unit_price || 0,
+          suggested_min: applyF(ref.min), suggested_max: applyF(ref.max), suggested_avg: avg,
+          confidence: ref.score >= 30 ? "High" : "Medium", trend: "Stable", variance_percent: v,
+          notes: `Reference: ${ref.key}`, source: "reference" });
+        refCount++; continue;
+      }
+
+      needAI.push(item);
     }
 
-    const BATCH_SIZE = 20;
-    const allSuggestions: MarketRateSuggestion[] = [];
-    let totalAI = 0, totalRef = 0, totalLib = 0, totalHist = 0;
-    const totalBatches = Math.ceil(items.length / BATCH_SIZE);
-    
-    console.log(`Processing ${totalBatches} batches`);
+    // Pass 2: AI for remaining items (batch max 20)
+    if (needAI.length > 0) {
+      const batch = needAI.slice(0, 20);
+      const itemsList = batch.map(i => ({ n: i.item_number, d: i.description, u: i.unit, p: i.unit_price || 0 }));
 
-    for (let i = 0; i < items.length; i += BATCH_SIZE) {
-      const batchItems = items.slice(i, i + BATCH_SIZE);
-      const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
-      console.log(`Batch ${batchNumber}/${totalBatches}: ${batchItems.length} items`);
-      
-      const result = await processBatch(batchItems, location, LOVABLE_API_KEY, model, libraryData, historicalData, dynamicCityFactors);
-      allSuggestions.push(...result.suggestions);
-      totalAI += result.aiCount;
-      totalRef += result.refCount;
-      totalLib += result.libCount;
-      totalHist += result.histCount;
-      
-      if (i + BATCH_SIZE < items.length) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+      try {
+        const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: `Construction cost estimator for ${location}. Return JSON array of objects with: item_number, suggested_min, suggested_max, suggested_avg, confidence (High/Medium/Low), trend (Increasing/Stable/Decreasing), notes. Prices in SAR. Be accurate.` },
+              { role: "user", content: `Estimate 2025 market rates for:\n${JSON.stringify(itemsList)}` }
+            ],
+            temperature: 0.3,
+            max_tokens: 3000,
+          }),
+        });
+
+        if (resp.ok) {
+          const data = await resp.json();
+          const content = data.choices?.[0]?.message?.content || "";
+          const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+          let aiItems: any[] = [];
+
+          if (toolCall?.function?.arguments) {
+            const parsed = JSON.parse(toolCall.function.arguments);
+            aiItems = parsed.suggestions || parsed;
+          } else if (content) {
+            const jsonStr = content.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+            const match = jsonStr.match(/\[[\s\S]*\]/);
+            if (match) aiItems = JSON.parse(match[0]);
+          }
+
+          for (const ai of aiItems) {
+            const item = batch.find(i => i.item_number === ai.item_number);
+            if (!item) continue;
+            const avg = applyF(ai.suggested_avg || (ai.suggested_min + ai.suggested_max) / 2);
+            const v = item.unit_price && item.unit_price > 0 ? Math.round(((avg - item.unit_price) / item.unit_price) * 100) : 0;
+            suggestions.push({ item_number: ai.item_number, description: item.description, current_price: item.unit_price || 0,
+              suggested_min: applyF(ai.suggested_min || avg * 0.9), suggested_max: applyF(ai.suggested_max || avg * 1.15),
+              suggested_avg: avg, confidence: ai.confidence || "Medium", trend: ai.trend || "Stable",
+              variance_percent: v, notes: `AI: ${ai.notes || 'Market estimate'}`, source: "ai" });
+            aiCount++;
+          }
+        } else {
+          await resp.text(); // consume body
+        }
+      } catch (e) { console.error("AI error:", e); }
+
+      // Fallback for unprocessed
+      for (const item of needAI) {
+        if (!suggestions.find(s => s.item_number === item.item_number)) {
+          const p = item.unit_price || 100;
+          suggestions.push({ item_number: item.item_number, description: item.description, current_price: p,
+            suggested_min: Math.round(p * 0.85), suggested_max: Math.round(p * 1.15), suggested_avg: p,
+            confidence: "Low", trend: "Stable", variance_percent: 0, notes: "Fallback - review needed", source: "ai" });
+        }
       }
     }
 
-    // Calculate accuracy metrics
-    const highConfidence = allSuggestions.filter(s => s.confidence === "High").length;
-    const mediumConfidence = allSuggestions.filter(s => s.confidence === "Medium").length;
-    const estimatedAccuracy = Math.round(
-      ((highConfidence * 0.95) + (mediumConfidence * 0.80) + ((allSuggestions.length - highConfidence - mediumConfidence) * 0.65)) 
-      / allSuggestions.length * 100
-    );
-
-    // Save pricing history to database
+    // Save history (non-blocking)
     try {
       const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-      const supabaseAdmin = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-      );
+      const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+      await sb.from('pricing_history').insert(suggestions.slice(0, 50).map(s => ({
+        item_number: s.item_number, item_description: s.description, suggested_price: s.suggested_avg,
+        suggested_min: s.suggested_min, suggested_max: s.suggested_max, confidence: s.confidence,
+        source: s.source, location, model_used: model, user_id: userId, is_approved: false
+      })));
+    } catch (_) { /* non-critical */ }
 
-      const historyRecords = allSuggestions.map(s => ({
-        item_number: s.item_number,
-        item_description: s.description,
-        suggested_price: s.suggested_avg,
-        suggested_min: s.suggested_min,
-        suggested_max: s.suggested_max,
-        confidence: s.confidence,
-        source: s.source,
-        location: location,
-        model_used: model,
-        user_id: userId,
-        is_approved: false
-      }));
+    const high = suggestions.filter(s => s.confidence === "High").length;
+    const med = suggestions.filter(s => s.confidence === "Medium").length;
+    const acc = suggestions.length > 0 ? Math.round(((high * 95 + med * 80 + (suggestions.length - high - med) * 65) / suggestions.length)) : 0;
 
-      const { error: historyError } = await supabaseAdmin
-        .from('pricing_history')
-        .insert(historyRecords);
-
-      if (historyError) {
-        console.error('Error saving pricing history:', historyError);
-      } else {
-        console.log(`Saved ${historyRecords.length} pricing history records`);
-      }
-    } catch (historyErr) {
-      console.error('Failed to save pricing history:', historyErr);
-    }
-
-    console.log(`Analysis complete: ${allSuggestions.length} items`);
-    console.log(`Sources: Library=${totalLib}, Reference=${totalRef}, AI=${totalAI}, Historical=${totalHist}`);
-    console.log(`Estimated accuracy: ${estimatedAccuracy}%`);
-
-    return new Response(JSON.stringify({ 
-      suggestions: allSuggestions,
-      location,
-      analyzed_at: new Date().toISOString(),
-      total_items: items.length,
-      analyzed_items: allSuggestions.length,
-      batches_processed: totalBatches,
-      model_used: model,
-      data_source: {
-        library_count: totalLib,
-        reference_count: totalRef,
-        ai_count: totalAI,
-        historical_count: totalHist,
-        estimated_accuracy: `${estimatedAccuracy}%`
-      },
-      accuracy_metrics: {
-        high_confidence: highConfidence,
-        medium_confidence: mediumConfidence,
-        low_confidence: allSuggestions.length - highConfidence - mediumConfidence,
-        estimated_accuracy: estimatedAccuracy
-      }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({
+      suggestions, location, analyzed_at: new Date().toISOString(),
+      total_items: items.length, analyzed_items: suggestions.length,
+      batches_processed: 1, model_used: model,
+      data_source: { library_count: libCount, reference_count: refCount, ai_count: aiCount, historical_count: histCount, estimated_accuracy: `${acc}%` },
+      accuracy_metrics: { high_confidence: high, medium_confidence: med, low_confidence: suggestions.length - high - med, estimated_accuracy: acc }
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
-    console.error("Error in suggest-market-rates:", error);
-    
-    if (error instanceof Error) {
-      if (error.message.includes("429")) {
-        return new Response(JSON.stringify({ error: "Rate limits exceeded. Please try again in a few minutes." }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      if (error.message.includes("402")) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add funds to continue." }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
-    
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : "Unknown error occurred"
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.error("Error:", error);
+    const msg = error instanceof Error ? error.message : "Internal error";
+    const status = msg.includes("429") ? 429 : msg.includes("402") ? 402 : 500;
+    return new Response(JSON.stringify({ error: msg }), {
+      status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
