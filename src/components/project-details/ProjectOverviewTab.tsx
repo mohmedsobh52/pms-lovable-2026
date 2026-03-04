@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { History, TrendingUp, Database } from "lucide-react";
+import { History, TrendingUp, Database, Lightbulb, CheckCircle2, AlertTriangle, FileText, Link2, Zap } from "lucide-react";
 import {
   PricingDistributionChart,
   CategoryDistributionChart,
@@ -195,8 +195,74 @@ export function ProjectOverviewTab({
         </Card>
       </div>
 
+      {/* Improvement Suggestions */}
+      <ImprovementSuggestions pricingStats={pricingStats} items={project} isArabic={isArabic} />
+
       {/* Pricing Accuracy Dashboard */}
       <PricingAccuracyDashboard projectId={projectId} />
     </div>
+  );
+}
+
+function ImprovementSuggestions({ pricingStats, items, isArabic }: { pricingStats: PricingStats; items: ProjectData; isArabic: boolean }) {
+  const suggestions: { icon: React.ReactNode; text: string; type: 'warning' | 'info' | 'success' }[] = [];
+
+  if (pricingStats.pricingPercentage < 100) {
+    suggestions.push({
+      icon: <AlertTriangle className="w-4 h-4 text-amber-500" />,
+      text: isArabic ? `أكمل تسعير البنود المتبقية (${pricingStats.unpricedItems} بند)` : `Complete pricing for remaining items (${pricingStats.unpricedItems} items)`,
+      type: 'warning',
+    });
+  }
+
+  if (pricingStats.pricingPercentage < 50) {
+    suggestions.push({
+      icon: <Zap className="w-4 h-4 text-primary" />,
+      text: isArabic ? "استخدم التسعير التلقائي لتسريع العملية" : "Use Auto Pricing to speed up the process",
+      type: 'info',
+    });
+  }
+
+  if (pricingStats.totalItems > 0 && pricingStats.pricingPercentage >= 100) {
+    suggestions.push({
+      icon: <CheckCircle2 className="w-4 h-4 text-green-500" />,
+      text: isArabic ? "تم تسعير جميع البنود بنجاح!" : "All items have been priced successfully!",
+      type: 'success',
+    });
+  }
+
+  suggestions.push({
+    icon: <FileText className="w-4 h-4 text-blue-500" />,
+    text: isArabic ? "أرفق المستندات المرجعية للمشروع" : "Attach reference documents to the project",
+    type: 'info',
+  });
+
+  suggestions.push({
+    icon: <Link2 className="w-4 h-4 text-purple-500" />,
+    text: isArabic ? "أضف عقد للمشروع لتتبع التنفيذ" : "Add a contract to track execution",
+    type: 'info',
+  });
+
+  if (suggestions.length === 0) return null;
+
+  return (
+    <Card className="border-border/50 bg-gradient-to-br from-amber-500/5 to-transparent">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Lightbulb className="w-5 h-5 text-amber-500" />
+          {isArabic ? "اقتراحات للتحسين" : "Improvement Suggestions"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {suggestions.map((s, i) => (
+            <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-background border border-border/50">
+              {s.icon}
+              <span className="text-sm">{s.text}</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

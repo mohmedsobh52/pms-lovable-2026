@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import OnboardingModal from "@/components/OnboardingModal";
 import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Loader2, FolderOpen, Upload, X, FileText, FileUp, Wand2, Download, BarChart3 } from "lucide-react";
+import { Loader2, FolderOpen, Upload, X, FileText, FileUp, Wand2, Download, BarChart3, Save } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BOQAnalyzerPanel } from "@/components/BOQAnalyzerPanel";
 import { Button } from "@/components/ui/button";
@@ -1104,6 +1104,42 @@ export default function ProjectDetailsPage() {
             </button>
           </div>
         )}
+
+        {/* Save Project Button */}
+        <div className="flex justify-end mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={async () => {
+              if (!projectId || !user) return;
+              setIsSaving(true);
+              try {
+                const table = projectSource === "saved_projects" ? "saved_projects" : "project_data";
+                const { error } = await supabase
+                  .from(table)
+                  .update({ updated_at: new Date().toISOString() })
+                  .eq("id", projectId);
+                if (error) throw error;
+                toast({
+                  title: isArabic ? "تم حفظ المشروع بنجاح" : "Project saved successfully",
+                });
+              } catch (error: any) {
+                toast({
+                  title: isArabic ? "خطأ في الحفظ" : "Error saving",
+                  description: error.message,
+                  variant: "destructive",
+                });
+              } finally {
+                setIsSaving(false);
+              }
+            }}
+            disabled={isSaving}
+          >
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {isArabic ? "حفظ المشروع" : "Save Project"}
+          </Button>
+        </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="tabs-navigation-safe">
           <TabsList className="flex w-full overflow-x-auto mb-6 tabs-navigation-safe">
