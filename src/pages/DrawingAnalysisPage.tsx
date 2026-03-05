@@ -740,6 +740,79 @@ const DrawingAnalysisPage = () => {
   const saveBatch=(b: any)=>{try{localStorage.setItem("alimtyaz_v9_batch",JSON.stringify(b));}catch{}};
   const clearBatch=()=>{try{localStorage.removeItem("alimtyaz_v9_batch");}catch{}};
 
+  // Fetch saved analyses for comparison
+  const fetchSavedAnalyses = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from("drawing_analyses").select("id,created_at,drawing_type,file_names,summary,results").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50);
+    if (data) setSavedAnalyses(data);
+  }, [user]);
+
+  useEffect(() => { if (user && tab === "history") fetchSavedAnalyses(); }, [user, tab, fetchSavedAnalyses]);
+
+  // Fetch saved projects for export
+  const fetchSavedProjects = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from("saved_projects").select("id,name,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50);
+    if (data) setSavedProjects(data);
+  }, [user]);
+
+  useEffect(() => { if (showExportToProject) fetchSavedProjects(); }, [showExportToProject, fetchSavedProjects]);
+
+  // Export BOQ items to an existing project
+  const exportToProject = useCallback(async (projectId: string) => {
+    if (!user || !msgs.length) return;
+    setExportingToProject(true);
+    try {
+      const allText = msgs.filter((m: any) => m.role === "assistant").map((m: any) => m.content || "").join("\n");
+      // Extract BOQ rows from markdown tables
+      const rows = allText.split("\n").filter(l => l.includes("|") && !l.match(/^[\|\-\s:]+$/) && /KSA-|SAR|ريال|م[²³]|عدد|طن/i.test(l));
+      const items: any[] = [];
+      rows.forEach((row, idx) => {
+        const cells = row.split("|").map(c => c.trim()).filter(Boolean);
+        if (cells.length >= 4) {
+          const desc = cells.find(c => c.length > 10 && !/^\d/.test(c)) || cells[1] || "";
+          const unit = cells.find(c => /^(م[²³]|م\.ط|عدد|طن|كجم|لتر|m[²³]|m\.l|no|ton|kg|ls|set|ea|pcs)$/i.test(c)) || cells[3] || "";
+          const qty = parseFloat((cells.find(c => /^\d+[.,]?\d*$/.test(c) && parseFloat(c) < 999999) || "0").replace(",", "."));
+          const price = parseFloat((cells.find(c => /^\d+[.,]?\d*$/.test(c) && parseFloat(c) >= 10) || "0").replace(",", "."));
+          const code = (cells.find(c => /^KSA-/.test(c)) || "").trim();
+          if (desc.length > 3) {
+            items.push({
+              project_id: projectId,
+              item_number: code || String(idx + 1),
+              description: desc,
+              unit: unit,
+              quantity: qty || 0,
+              unit_price: price || null,
+              total_price: (qty && price) ? qty * price : null,
+              sort_order: idx,
+              category: code.includes("EARTH") ? "Earthworks" : code.includes("SEWER") ? "Sewer" : code.includes("WATER") ? "Water" : code.includes("ROAD") ? "Roads" : null,
+            });
+          }
+        }
+      });
+      if (items.length === 0) {
+        alert("لم يتم العثور على بنود BOQ قابلة للتصدير");
+        return;
+      }
+
+      // Ensure project_data record exists
+      const { data: pdExists } = await supabase.from("project_data").select("id").eq("id", projectId).maybeSingle();
+      if (!pdExists) {
+        const proj = savedProjects.find(p => p.id === projectId);
+        await supabase.from("project_data").insert({ id: projectId, user_id: user.id, name: proj?.name || "Project", file_name: "", analysis_data: {} });
+      }
+
+      const { error } = await supabase.from("project_items").insert(items);
+      if (error) throw error;
+      setShowExportToProject(false);
+      alert(`✅ تم تصدير ${items.length} بند BOQ إلى المشروع بنجاح`);
+    } catch (err: any) {
+      alert(`❌ خطأ: ${err.message}`);
+    } finally {
+      setExportingToProject(false);
+    }
+  }, [user, msgs, savedProjects]);
+
   const cfgStr=useCallback(()=>{
     const ml=Object.entries(mods).filter(([,v])=>v).map(([k])=>k.split("_").slice(1).join(" "));
     return `الجهة:${CFG_O.authority[cfg.authority]}|النوع:${CFG_O.projectType[cfg.projectType]}|الدور:${CFG_O.roleMode[cfg.roleMode]}|المناطق:${CFG_O.zoneStr[cfg.zoneStr]}|الوحدات:${ml.join(",")|| "الكل"}`;
