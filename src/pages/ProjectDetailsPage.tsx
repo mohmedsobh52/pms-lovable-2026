@@ -1185,6 +1185,8 @@ export default function ProjectDetailsPage() {
                 ]);
 
                 setLastSaved(new Date());
+                savedSnapshotRef.current = JSON.stringify({ items: items.map(i => ({ id: i.id, unit_price: i.unit_price, total_price: i.total_price, quantity: i.quantity, description: i.description })), editForm });
+                setHasUnsavedChanges(false);
                 toast({
                   title: isArabic ? "تم حفظ المشروع بنجاح" : "Project saved successfully",
                   description: isArabic ? `تم حفظ ${items.length} بند` : `${items.length} items saved`,
