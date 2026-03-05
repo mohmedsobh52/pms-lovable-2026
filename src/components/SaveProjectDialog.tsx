@@ -177,17 +177,18 @@ export function SaveProjectDialog({
 
       const { error: spError } = await supabase
         .from("saved_projects")
-        .insert({
+        .upsert({
           id: projectId,
           user_id: user.id,
           name,
           file_name: fileName || null,
           analysis_data: analysisData,
           wbs_data: wbsData,
-        });
+        }, { onConflict: 'id' });
 
       if (spError) {
-        console.warn("saved_projects insert warning:", spError.message);
+        console.error("saved_projects upsert error:", spError.message);
+        throw spError;
       }
 
       if (items.length > 0) {
