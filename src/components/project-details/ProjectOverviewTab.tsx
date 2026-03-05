@@ -202,7 +202,7 @@ export function ProjectOverviewTab({
       </div>
 
       {/* Improvement Suggestions */}
-      <ImprovementSuggestions pricingStats={pricingStats} items={project} isArabic={isArabic} />
+      <ImprovementSuggestions pricingStats={pricingStats} items={project} isArabic={isArabic} projectItems={items} attachments={attachments} onNavigateToTab={onNavigateToTab} />
 
       {/* Pricing Accuracy Dashboard */}
       <PricingAccuracyDashboard projectId={projectId} />
