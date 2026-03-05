@@ -102,6 +102,7 @@ export default function ProjectDetailsPage() {
     status: "draft"
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   // BOQ pricing state
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
