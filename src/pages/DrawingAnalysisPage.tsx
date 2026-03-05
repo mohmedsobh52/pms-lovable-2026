@@ -1310,8 +1310,41 @@ const DrawingAnalysisPage = () => {
               <button className="bo" style={{fontSize:9,padding:"3px 9px"}} onClick={()=>exportMD(msgs,cfgStr())} title="MD">⬇️ MD</button>
               <button className="bo" style={{fontSize:9,padding:"3px 9px"}} onClick={()=>exportJSON(msgs,feState,cfgStr())} title="JSON">⬇️ JSON</button>
               {feState?.extractedData&&Object.keys(feState.extractedData).length>0&&<button className="bo" style={{fontSize:9,padding:"3px 9px"}} onClick={()=>exportTXT(feState)} title="TXT">⬇️ TXT</button>}
+              {boqCount>0&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:T.grn,color:T.grn}} onClick={()=>setShowExportToProject(true)} title="تصدير لمشروع">📤 تصدير لمشروع</button>}
             </>}
           </div>
+
+          {/* EXPORT TO PROJECT DIALOG */}
+          {showExportToProject&&(
+            <div style={{position:"fixed",inset:0,background:"#000000a0",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowExportToProject(false)}>
+              <div className="card" style={{maxWidth:480,width:"100%",maxHeight:"70vh",overflow:"auto",padding:0}} onClick={(e:any)=>e.stopPropagation()}>
+                <div style={{padding:"14px 18px",borderBottom:`1px solid ${T.bd}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <span style={{fontSize:13,fontWeight:700,color:T.gold}}>📤 تصدير بنود BOQ إلى مشروع</span>
+                  <button onClick={()=>setShowExportToProject(false)} style={{background:"none",border:"none",color:T.t3,cursor:"pointer",fontSize:18}}>✕</button>
+                </div>
+                <div style={{padding:"14px 18px"}}>
+                  <div style={{fontSize:10,color:T.t3,marginBottom:10}}>اختر المشروع لتصدير {boqCount} بند BOQ إليه:</div>
+                  {savedProjects.length===0?<div style={{textAlign:"center",padding:20,color:T.t3,fontSize:11}}>لا توجد مشاريع محفوظة</div>:
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {savedProjects.map((p:any)=>(
+                      <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:9,border:`1px solid ${T.bd}`,background:T.bg3,cursor:"pointer",transition:"all .15s"}}
+                        onClick={()=>!exportingToProject&&exportToProject(p.id)}
+                        onMouseOver={e=>(e.currentTarget.style.borderColor=T.gold)}
+                        onMouseOut={e=>(e.currentTarget.style.borderColor=T.bd)}>
+                        <span style={{fontSize:14}}>📁</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:11,fontWeight:600,color:T.t1}}>{p.name}</div>
+                          <div style={{fontSize:8,color:T.t3}}>{new Date(p.created_at).toLocaleDateString("ar-SA")}</div>
+                        </div>
+                        {exportingToProject?<div style={{width:14,height:14,border:`2px solid ${T.gold}`,borderTopColor:"transparent",borderRadius:"50%",animation:"alim-spin .8s linear infinite"}}/>:
+                        <span style={{fontSize:9,color:T.grn,fontWeight:700}}>تصدير ←</span>}
+                      </div>
+                    ))}
+                  </div>}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* CONFIG TAB */}
           {tab==="config"&&(
