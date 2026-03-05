@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, FileImage, Trash2, Sparkles, Download, FileSpreadsheet, FileText, Shovel, Layers, Pipette, Eye, CircleDot, ArrowUpDown, Save, FolderOpen, Clock, RefreshCw } from "lucide-react";
+import { Upload, FileImage, Trash2, Sparkles, Download, FileSpreadsheet, FileText, Shovel, Layers, Pipette, Eye, CircleDot, ArrowUpDown, Save, FolderOpen, Clock, RefreshCw, Lightbulb, AlertCircle, LinkIcon, HardDrive, FileCheck, Database, Share2 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
