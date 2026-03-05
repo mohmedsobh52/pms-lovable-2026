@@ -642,6 +642,11 @@ const DrawingAnalysisPage = () => {
   const [sideOpen, setSideOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState(-1);
+  const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
+  const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
+  const [showExportToProject, setShowExportToProject] = useState(false);
+  const [savedProjects, setSavedProjects] = useState<any[]>([]);
+  const [exportingToProject, setExportingToProject] = useState(false);
   const totalTokens = useMemo(()=>msgs.reduce((s: number,m: any)=>s+(m.tokens||0),0),[msgs]);
   const boqCount = useMemo(()=>(msgs.filter((m: any)=>m.role==="assistant").map((m: any)=>m.content||"").join("\n").match(/KSA-[A-Z]{2,6}-/g)||[]).length,[msgs]);
 
