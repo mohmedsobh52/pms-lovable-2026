@@ -38,6 +38,9 @@ export function ProjectOverviewTab({
   formatCurrency,
   formatDate,
   projectId,
+  items = [],
+  attachments = [],
+  onNavigateToTab,
 }: ProjectOverviewTabProps) {
   const [historicalCount, setHistoricalCount] = useState(0);
   const [savedProjectsCount, setSavedProjectsCount] = useState(0);
