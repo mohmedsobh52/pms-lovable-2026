@@ -1516,6 +1516,77 @@ const DrawingAnalysisPage = () => {
             )
           )}
 
+          {/* HISTORY / COMPARISON TAB */}
+          {tab==="history"&&(
+            <div style={{flex:1,overflowY:"auto",padding:"18px 16px"}}>
+              <div style={{maxWidth:900,margin:"0 auto"}}>
+                <div style={{marginBottom:16}}>
+                  <span style={{background:D?"#1c1404":"#fef3c7",color:T.gold,border:`1px solid ${T.gold}40`,padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>مقارنة التحليلات</span>
+                  <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>تتبع <span className="g">تحسن الدقة</span></h2>
+                  <div style={{fontSize:10,color:T.t3,marginTop:4}}>اختر تحليلين أو أكثر لمقارنة نتائجهما</div>
+                </div>
+                {compareIds.size>=2&&(
+                  <div style={{background:D?"linear-gradient(135deg,#1a1400,#201808)":"linear-gradient(135deg,#fffbeb,#fef3c7)",border:`1px solid ${D?"#854d0e40":"#fde68a"}`,borderRadius:12,padding:16,marginBottom:16}}>
+                    <div style={{fontSize:12,fontWeight:700,color:T.gold,marginBottom:12}}>📊 مقارنة {compareIds.size} تحليل</div>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                        <thead><tr>
+                          <th style={{background:D?"#0a1f10":"#f0fdf4",color:T.gold,padding:"8px 12px",textAlign:"right",border:`1px solid ${T.bd}`,fontWeight:700}}>البيان</th>
+                          {savedAnalyses.filter(a=>compareIds.has(a.id)).map((a,i)=>(
+                            <th key={a.id} style={{background:D?"#0a1f10":"#f0fdf4",color:T.gold,padding:"8px 12px",textAlign:"center",border:`1px solid ${T.bd}`,fontWeight:700,minWidth:130}}>
+                              تحليل {i+1}<br/><span style={{fontSize:8,color:T.t3,fontWeight:400}}>{new Date(a.created_at).toLocaleDateString("ar-SA")}</span>
+                            </th>
+                          ))}
+                        </tr></thead>
+                        <tbody>
+                          {[
+                            {l:"📄 الملفات",k:"files",fn:(a:any)=>(a.file_names||[]).join(", ")||"-"},
+                            {l:"🏷️ نوع التحليل",k:"type",fn:(a:any)=>DRAW_TYPES[a.drawing_type]?.ar||a.drawing_type||"-"},
+                            {l:"📊 عدد النتائج",k:"results",fn:(a:any)=>{const r=a.results;return Array.isArray(r)?r.length:typeof r==="object"?Object.keys(r).length:"-"}},
+                            {l:"💰 إجمالي التكلفة",k:"cost",fn:(a:any)=>{const s=a.summary as any;return s?.total_cost?`${Number(s.total_cost).toLocaleString()} SAR`:"-"}},
+                            {l:"📐 عدد بنود BOQ",k:"boq",fn:(a:any)=>{const s=a.summary as any;return s?.boq_count||s?.items_count||"-"}},
+                            {l:"⚠️ مستوى المخاطر",k:"risk",fn:(a:any)=>{const s=a.summary as any;return s?.risk_level||"-"}},
+                          ].map(row=>(
+                            <tr key={row.k}>
+                              <td style={{padding:"7px 12px",border:`1px solid ${T.bd}`,fontWeight:600,color:T.t2}}>{row.l}</td>
+                              {savedAnalyses.filter(a=>compareIds.has(a.id)).map(a=>(
+                                <td key={a.id} style={{padding:"7px 12px",border:`1px solid ${T.bd}`,textAlign:"center",color:T.t1}}>{row.fn(a)}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {savedAnalyses.length===0?<div style={{textAlign:"center",padding:40,color:T.t3}}><div style={{fontSize:40,marginBottom:10}}>📊</div><div style={{fontSize:12}}>لا توجد تحليلات محفوظة بعد</div><div style={{fontSize:10,marginTop:4}}>حلّل مخططاً واحفظ النتائج لتظهر هنا</div></div>:
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {savedAnalyses.map(a=>{
+                    const sel=compareIds.has(a.id);
+                    const s=a.summary as any;
+                    return(
+                      <div key={a.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderRadius:11,border:`2px solid ${sel?T.gold:T.bd}`,background:sel?(D?"#1c140420":"#fef3c720"):T.card,cursor:"pointer",transition:"all .15s"}}
+                        onClick={()=>setCompareIds(prev=>{const n=new Set(prev);n.has(a.id)?n.delete(a.id):n.add(a.id);return n;})}>
+                        <div style={{width:18,height:18,borderRadius:5,border:`2px solid ${sel?T.gold:T.bd}`,background:sel?T.gold:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          {sel&&<span style={{color:"#fff",fontSize:11,fontWeight:900}}>✓</span>}
+                        </div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:11,fontWeight:600,color:T.t1}}>{(a.file_names||[]).join(", ")||"تحليل بدون ملف"}</div>
+                          <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}}>
+                            <span style={{fontSize:8,color:T.t3}}>📅 {new Date(a.created_at).toLocaleDateString("ar-SA")}</span>
+                            <span style={{fontSize:8,color:T.t3}}>🏷️ {DRAW_TYPES[a.drawing_type]?.ar||a.drawing_type}</span>
+                            {s?.boq_count&&<span style={{fontSize:8,color:T.grn}}>📊 {s.boq_count} بند</span>}
+                            {s?.total_cost&&<span style={{fontSize:8,color:T.gold}}>💰 {Number(s.total_cost).toLocaleString()} SAR</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>}
+              </div>
+            </div>
+          )}
+
           {/* ANALYSIS TAB */}
           {tab==="analysis"&&(
             <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",padding:"9px 14px",gap:8}}>
