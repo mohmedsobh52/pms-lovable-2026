@@ -122,12 +122,14 @@ export function SaveProjectDialog({
     const trimmedName = projectName.trim();
     setIsSaving(true);
     try {
-      // Delete old project data from all tables
+      // Soft delete old project (move to recycle bin instead of hard delete)
       const idToDelete = existingProjectIds.savedId || existingProjectIds.dataId;
       if (idToDelete) {
-        await supabase.from("project_items").delete().eq("project_id", idToDelete);
-        await supabase.from("project_data").delete().eq("id", idToDelete);
-        await supabase.from("saved_projects").delete().eq("id", idToDelete);
+        const now = new Date().toISOString();
+        await Promise.all([
+          supabase.from("saved_projects").update({ is_deleted: true, deleted_at: now }).eq("id", idToDelete),
+          supabase.from("project_data").update({ is_deleted: true, deleted_at: now }).eq("id", idToDelete),
+        ]);
       }
       await doSave(trimmedName);
     } catch (error: any) {
