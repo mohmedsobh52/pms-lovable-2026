@@ -1553,6 +1553,30 @@ export default function ProjectDetailsPage() {
       </div>
       {/* Bottom padding for mobile to account for sticky bar */}
       <div className="h-14 md:hidden" />
+
+      {/* Unsaved changes navigation blocker dialog */}
+      {blocker.state === "blocked" && (
+        <Dialog open onOpenChange={() => blocker.reset()}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{isArabic ? "تغييرات غير محفوظة" : "Unsaved Changes"}</DialogTitle>
+              <DialogDescription>
+                {isArabic 
+                  ? "لديك تغييرات غير محفوظة. هل تريد المغادرة بدون حفظ؟" 
+                  : "You have unsaved changes. Are you sure you want to leave without saving?"}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => blocker.reset()}>
+                {isArabic ? "البقاء" : "Stay"}
+              </Button>
+              <Button variant="destructive" onClick={() => blocker.proceed()}>
+                {isArabic ? "مغادرة بدون حفظ" : "Leave without saving"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
