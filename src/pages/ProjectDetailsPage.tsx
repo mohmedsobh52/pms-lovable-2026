@@ -301,6 +301,32 @@ export default function ProjectDetailsPage() {
     fetchProjectData();
   }, [user, projectId]);
 
+  // Track unsaved changes by comparing current data with saved snapshot
+  useEffect(() => {
+    if (!project || items.length === 0) return;
+    const currentSnapshot = JSON.stringify({ items: items.map(i => ({ id: i.id, unit_price: i.unit_price, total_price: i.total_price, quantity: i.quantity, description: i.description })), editForm });
+    if (savedSnapshotRef.current === "") {
+      savedSnapshotRef.current = currentSnapshot;
+      return;
+    }
+    setHasUnsavedChanges(currentSnapshot !== savedSnapshotRef.current);
+  }, [items, editForm, project]);
+
+  // Warn before browser close/refresh
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsavedChanges]);
+
+  // Block in-app navigation
+  const blocker = useBlocker(hasUnsavedChanges);
+
   // Fetch attachments
   const fetchAttachments = async () => {
     if (!projectId || !user) return;
