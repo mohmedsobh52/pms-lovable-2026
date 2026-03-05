@@ -645,6 +645,78 @@ const DrawingAnalysisPage = () => {
   const totalTokens = useMemo(()=>msgs.reduce((s: number,m: any)=>s+(m.tokens||0),0),[msgs]);
   const boqCount = useMemo(()=>(msgs.filter((m: any)=>m.role==="assistant").map((m: any)=>m.content||"").join("\n").match(/KSA-[A-Z]{2,6}-/g)||[]).length,[msgs]);
 
+  // Smart suggestions logic
+  const configSuggestions = useMemo<Suggestion[]>(()=>{
+    const s: Suggestion[] = [];
+    // Performance suggestions
+    if(pdfSess && pdfSess.chunkSize > 25 && xStats && xStats.avgDensity >= 2){
+      s.push({id:"chunk-high-density",icon:"📦",type:"performance",text:"حجم الدُفعة كبير مع صفحات غنية المحتوى — قلّل حجم الدُفعة لتحسين دقة الاستخراج.",actionLabel:"تعيين 15 صفحة",action:()=>setPdfSess((p:any)=>({...p,chunkSize:15})),priority:1});
+    }
+    if(pdfSess && pdfSess.quality==="high" && pdfSess.numPages > 50){
+      s.push({id:"high-quality-large",icon:"🐢",type:"performance",text:`الوضع البصري العالي مع ${pdfSess.numPages} صفحة سيستغرق وقتاً طويلاً — جرّب المدمج أو البنية التحتية.`,actionLabel:"تبديل للمدمج",action:()=>setPdfSess((p:any)=>({...p,quality:"hybrid"})),priority:1});
+    }
+    if(pdfSess && pdfSess.quality==="fast" && xStats && xStats.rich > 3){
+      s.push({id:"fast-visual-miss",icon:"🖼️",type:"performance",text:"الوضع النصي السريع قد يفقد تفاصيل بصرية من الصفحات الغنية — جرّب الوضع المدمج.",actionLabel:"تبديل للمدمج",action:()=>setPdfSess((p:any)=>({...p,quality:"hybrid"})),priority:2});
+    }
+    if(xStats && xStats.empty > xStats.total * 0.3 && pdfSess){
+      s.push({id:"many-empty",icon:"⬜",type:"performance",text:`${xStats.empty} صفحة فارغة من أصل ${xStats.total} — استبعدها لتوفير الوقت والتكلفة.`,actionLabel:"تصفية تلقائية",action:()=>{
+        const densMap = pdfSess.densities || {};
+        const nonEmpty = Object.entries(densMap).filter(([,d]:any)=>d>0).map(([p]:any)=>+p).sort((a:number,b:number)=>a-b);
+        if(nonEmpty.length) setPdfSess((p:any)=>({...p,selPages:nonEmpty,mode:"custom"}));
+      },priority:2});
+    }
+
+    // Accuracy suggestions
+    if(depth === "quick"){
+      s.push({id:"depth-low",icon:"📉",type:"accuracy",text:"التحليل السريع بدقة ~70% — ارفع العمق للحصول على BOQ أدق وتحقق مزدوج.",actionLabel:"رفع للقياسي",action:()=>{setDepth("standard");save(cfg,mods,"standard");},priority:1});
+    }
+    if(!ocr && xStats && (xStats.rich > 2 || (xStats.diameters?.length||0) > 3)){
+      s.push({id:"ocr-off-visual",icon:"🔤",type:"accuracy",text:"مخططات غنية بالتفاصيل البصرية — فعّل OCR لاستخراج الأبعاد والنصوص بدقة أعلى.",actionLabel:"تفعيل OCR",action:()=>setOcr(true),priority:1});
+    }
+    const activeMods = Object.entries(mods).filter(([,v])=>v).length;
+    if(activeMods === 0){
+      s.push({id:"no-mods",icon:"🔧",type:"accuracy",text:"لا توجد وحدات تحليلية مختارة — فعّل الوحدات المناسبة للحصول على تحليل متخصص.",actionLabel:"تفعيل الكل",action:()=>{
+        const allMods: Record<string,boolean> = {};
+        Object.entries(MODS_O).forEach(([cat,ms])=>ms.forEach(m=>{allMods[`${cat}_${m}`]=true;}));
+        setMods(allMods); save(cfg,allMods,depth);
+      },priority:2});
+    }
+    if(xStats && (xStats.diameters?.length||0) > 0 && !mods["⚠️ مخاطر_أقطار كبيرة"] && !mods["🔧 هندسية_مراجعة التعارضات"]){
+      s.push({id:"pipe-no-conflict",icon:"🔩",type:"accuracy",text:`تم اكتشاف ${xStats.diameters?.length} قطر أنبوب — فعّل وحدة "مراجعة التعارضات" لتحليل شبكات المواسير.`,actionLabel:"تفعيل",action:()=>{
+        setMods(prev=>({...prev,"🔧 هندسية_مراجعة التعارضات":true,"⚠️ مخاطر_أقطار كبيرة":true}));
+      },priority:2});
+    }
+    return s;
+  },[pdfSess,xStats,depth,ocr,mods,cfg]);
+
+  const analysisSuggestions = useMemo<Suggestion[]>(()=>{
+    const s: Suggestion[] = [];
+    // Check for error chunks
+    const errorChunks = feState?.chunks?.filter((c:any)=>c.status==="error") || [];
+    if(errorChunks.length > 0){
+      s.push({id:"error-chunks",icon:"🔄",type:"accuracy",text:`${errorChunks.length} دُفعة فشلت — أعد التحليل للحصول على نتائج كاملة.`,actionLabel:"إعادة التحليل",action:()=>{if(pdfSess)runExtraction();},priority:1});
+    }
+    // Check for unmerged results
+    const assistantMsgs = msgs.filter((m:any)=>m.role==="assistant"&&m.isChunk);
+    const hasMerged = msgs.some((m:any)=>m.isMerged);
+    if(assistantMsgs.length > 1 && !hasMerged && feState?.phase==="done"){
+      s.push({id:"no-merge",icon:"🔗",type:"accuracy",text:`${assistantMsgs.length} دُفعة بدون دمج — ادمج النتائج للحصول على BOQ موحد.`,actionLabel:"إعادة الدمج",action:()=>{if(pdfSess)runExtraction();},priority:1});
+    }
+    // Suggest OCR if not enabled and in analysis
+    if(!ocr && pdfSess && feState?.phase==="done"){
+      s.push({id:"suggest-ocr-analysis",icon:"🔤",type:"accuracy",text:"فعّل OCR وأعد التحليل لاستخراج الأبعاد والمناسيب من المخططات البصرية.",actionLabel:"تفعيل OCR",action:()=>setOcr(true),priority:3});
+    }
+    // Suggest deeper analysis
+    if(depth==="quick" && feState?.phase==="done" && msgs.length > 0){
+      s.push({id:"upgrade-depth",icon:"🔬",type:"accuracy",text:"حلّلت بعمق سريع — أعد التحليل بالعمق القياسي أو العميق لنتائج أدق.",actionLabel:"رفع العمق",action:()=>{setDepth("standard");save(cfg,mods,"standard");},priority:2});
+    }
+    // No pages selected warning
+    if(pdfSess && selPages(pdfSess).length === 0){
+      s.push({id:"no-pages",icon:"📌",type:"performance",text:"لم يتم اختيار صفحات للتحليل — اذهب لمدير PDF واختر الصفحات.",actionLabel:"فتح مدير PDF",action:()=>setTab("pdf"),priority:1});
+    }
+    return s;
+  },[feState,msgs,ocr,depth,pdfSess,cfg,mods]);
+
   const cancelRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const chatRef = useRef<HTMLDivElement>(null);
