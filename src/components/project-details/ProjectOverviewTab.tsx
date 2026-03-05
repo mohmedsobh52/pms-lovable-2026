@@ -23,6 +23,9 @@ interface ProjectOverviewTabProps {
   formatCurrency: (value: number) => string;
   formatDate: (dateString: string) => string;
   projectId: string;
+  items?: any[];
+  attachments?: any[];
+  onNavigateToTab?: (tab: string) => void;
 }
 
 export function ProjectOverviewTab({
@@ -35,6 +38,9 @@ export function ProjectOverviewTab({
   formatCurrency,
   formatDate,
   projectId,
+  items = [],
+  attachments = [],
+  onNavigateToTab,
 }: ProjectOverviewTabProps) {
   const [historicalCount, setHistoricalCount] = useState(0);
   const [savedProjectsCount, setSavedProjectsCount] = useState(0);
@@ -196,7 +202,7 @@ export function ProjectOverviewTab({
       </div>
 
       {/* Improvement Suggestions */}
-      <ImprovementSuggestions pricingStats={pricingStats} items={project} isArabic={isArabic} />
+      <ImprovementSuggestions pricingStats={pricingStats} items={project} isArabic={isArabic} projectItems={items} attachments={attachments} onNavigateToTab={onNavigateToTab} />
 
       {/* Pricing Accuracy Dashboard */}
       <PricingAccuracyDashboard projectId={projectId} />
@@ -204,14 +210,31 @@ export function ProjectOverviewTab({
   );
 }
 
-function ImprovementSuggestions({ pricingStats, items, isArabic }: { pricingStats: PricingStats; items: ProjectData; isArabic: boolean }) {
-  const suggestions: { icon: React.ReactNode; text: string; type: 'warning' | 'info' | 'success' }[] = [];
+function ImprovementSuggestions({ pricingStats, items, isArabic, projectItems = [], attachments = [], onNavigateToTab }: { 
+  pricingStats: PricingStats; items: ProjectData; isArabic: boolean; 
+  projectItems?: any[]; attachments?: any[]; onNavigateToTab?: (tab: string) => void;
+}) {
+  const suggestions: { icon: React.ReactNode; text: string; type: 'warning' | 'info' | 'success'; action?: () => void; actionLabel?: string }[] = [];
 
-  if (pricingStats.pricingPercentage < 100) {
+  // Zero-quantity items
+  const zeroQtyItems = projectItems.filter(i => !i.is_section && (!i.quantity || i.quantity <= 0));
+  if (zeroQtyItems.length > 0) {
+    suggestions.push({
+      icon: <AlertTriangle className="w-4 h-4 text-amber-500" />,
+      text: isArabic ? `${zeroQtyItems.length} بند بكمية صفرية — تحقق منها` : `${zeroQtyItems.length} items with zero quantity — review them`,
+      type: 'warning',
+      action: onNavigateToTab ? () => onNavigateToTab('analyze-boq') : undefined,
+      actionLabel: isArabic ? "مراجعة البنود" : "Review Items",
+    });
+  }
+
+  if (pricingStats.pricingPercentage < 100 && pricingStats.pricingPercentage >= 50) {
     suggestions.push({
       icon: <AlertTriangle className="w-4 h-4 text-amber-500" />,
       text: isArabic ? `أكمل تسعير البنود المتبقية (${pricingStats.unpricedItems} بند)` : `Complete pricing for remaining items (${pricingStats.unpricedItems} items)`,
       type: 'warning',
+      action: onNavigateToTab ? () => onNavigateToTab('analyze-boq') : undefined,
+      actionLabel: isArabic ? "تسعير البنود" : "Price Items",
     });
   }
 
@@ -220,27 +243,35 @@ function ImprovementSuggestions({ pricingStats, items, isArabic }: { pricingStat
       icon: <Zap className="w-4 h-4 text-primary" />,
       text: isArabic ? "استخدم التسعير التلقائي لتسريع العملية" : "Use Auto Pricing to speed up the process",
       type: 'info',
+      action: onNavigateToTab ? () => onNavigateToTab('analyze-boq') : undefined,
+      actionLabel: isArabic ? "تسعير تلقائي" : "Auto Price",
     });
   }
 
   if (pricingStats.totalItems > 0 && pricingStats.pricingPercentage >= 100) {
     suggestions.push({
       icon: <CheckCircle2 className="w-4 h-4 text-green-500" />,
-      text: isArabic ? "تم تسعير جميع البنود بنجاح!" : "All items have been priced successfully!",
+      text: isArabic ? "تم تسعير جميع البنود بنجاح! 🎉" : "All items have been priced successfully! 🎉",
       type: 'success',
     });
   }
 
-  suggestions.push({
-    icon: <FileText className="w-4 h-4 text-blue-500" />,
-    text: isArabic ? "أرفق المستندات المرجعية للمشروع" : "Attach reference documents to the project",
-    type: 'info',
-  });
+  if (attachments.length === 0) {
+    suggestions.push({
+      icon: <FileText className="w-4 h-4 text-blue-500" />,
+      text: isArabic ? "أرفق المستندات المرجعية للمشروع" : "Attach reference documents to the project",
+      type: 'info',
+      action: onNavigateToTab ? () => onNavigateToTab('documents') : undefined,
+      actionLabel: isArabic ? "رفع مستندات" : "Upload Docs",
+    });
+  }
 
   suggestions.push({
     icon: <Link2 className="w-4 h-4 text-purple-500" />,
     text: isArabic ? "أضف عقد للمشروع لتتبع التنفيذ" : "Add a contract to track execution",
     type: 'info',
+    action: onNavigateToTab ? () => onNavigateToTab('contracts') : undefined,
+    actionLabel: isArabic ? "إضافة عقد" : "Add Contract",
   });
 
   if (suggestions.length === 0) return null;
@@ -250,7 +281,7 @@ function ImprovementSuggestions({ pricingStats, items, isArabic }: { pricingStat
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <Lightbulb className="w-5 h-5 text-amber-500" />
-          {isArabic ? "اقتراحات للتحسين" : "Improvement Suggestions"}
+          {isArabic ? "اقتراحات ذكية للتحسين" : "Smart Improvement Suggestions"}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -258,7 +289,12 @@ function ImprovementSuggestions({ pricingStats, items, isArabic }: { pricingStat
           {suggestions.map((s, i) => (
             <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-background border border-border/50">
               {s.icon}
-              <span className="text-sm">{s.text}</span>
+              <span className="text-sm flex-1">{s.text}</span>
+              {s.action && s.actionLabel && (
+                <Button variant="outline" size="sm" className="text-xs h-7 shrink-0" onClick={s.action}>
+                  {s.actionLabel}
+                </Button>
+              )}
             </div>
           ))}
         </div>

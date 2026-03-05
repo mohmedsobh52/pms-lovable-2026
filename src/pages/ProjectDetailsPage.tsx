@@ -1240,6 +1240,9 @@ export default function ProjectDetailsPage() {
               formatCurrency={formatCurrency}
               formatDate={formatDate}
               projectId={projectId || ""}
+              items={items}
+              attachments={attachments}
+              onNavigateToTab={setActiveTab}
             />
           </TabsContent>
 
