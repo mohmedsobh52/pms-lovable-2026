@@ -1431,6 +1431,7 @@ const DrawingAnalysisPage = () => {
                   </div>}
                 </div>
               )}
+              <SmartSuggestions suggestions={analysisSuggestions} T={T} D={D} context="analysis"/>
               <div style={{display:"flex",gap:4,flexWrap:"wrap",flexShrink:0,alignItems:"center"}}>
                 {TMPL.map(t=>(
                   <span key={t.l} className="chip" style={{fontSize:9}} onClick={()=>{setPrompt(t.p);}}>{t.i} {t.l}</span>
