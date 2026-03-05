@@ -538,6 +538,94 @@ const DrawingAnalysisPage = () => {
           </Card>
         )}
 
+        {/* Smart Suggestions */}
+        {(() => {
+          const suggestions: { icon: React.ReactNode; text: string; actionLabel?: string; action?: () => void }[] = [];
+          const hasZeroQuantities = results.some(r => r.quantity === 0);
+          const hasResults = results.length > 0;
+          const hasFiles = files.length > 0;
+          const hasProject = selectedProjectId && selectedProjectId !== "none";
+          const hasSavedAnalyses = savedAnalyses.length > 0;
+
+          if (!hasFiles && !hasResults) {
+            suggestions.push({
+              icon: <Upload className="w-4 h-4" />,
+              text: isArabic ? "ارفع مخططات PDF أو صور للبدء في استخراج الكميات" : "Upload PDF drawings or images to start extracting quantities",
+              actionLabel: isArabic ? "ارفع ملفات" : "Upload Files",
+              action: () => document.getElementById("drawing-file-input")?.click(),
+            });
+          }
+          if (hasFiles && !hasResults && !isAnalyzing) {
+            suggestions.push({
+              icon: <AlertCircle className="w-4 h-4" />,
+              text: isArabic ? "تأكد من اختيار نوع المخطط الصحيح للحصول على نتائج أدق" : "Select the correct drawing type for more accurate results",
+            });
+          }
+          if (!hasProject) {
+            suggestions.push({
+              icon: <LinkIcon className="w-4 h-4" />,
+              text: isArabic ? "اربط التحليل بمشروع لحفظ النتائج مع بيانات المشروع" : "Link analysis to a project to keep results organized",
+            });
+          }
+          if (hasResults) {
+            suggestions.push({
+              icon: <Save className="w-4 h-4" />,
+              text: isArabic ? "احفظ النتائج قبل مغادرة الصفحة لعدم فقدان البيانات" : "Save results before leaving the page to avoid data loss",
+              actionLabel: isArabic ? "حفظ النتائج" : "Save Results",
+              action: saveResults,
+            });
+          }
+          if (hasZeroQuantities) {
+            suggestions.push({
+              icon: <AlertCircle className="w-4 h-4" />,
+              text: isArabic ? "راجع النتائج - بعض البنود بكمية صفرية قد تحتاج مراجعة يدوية" : "Review results - some items have zero quantities and may need manual review",
+            });
+          }
+          if (!hasSavedAnalyses && !hasResults) {
+            suggestions.push({
+              icon: <Database className="w-4 h-4" />,
+              text: isArabic ? "ابدأ أول تحليل واحفظه لبناء قاعدة بيانات الكميات" : "Start your first analysis and save it to build a quantities database",
+            });
+          }
+          if (hasResults) {
+            suggestions.push({
+              icon: <Share2 className="w-4 h-4" />,
+              text: isArabic ? "صدّر النتائج إلى Excel أو PDF للمشاركة مع الفريق" : "Export results to Excel or PDF to share with your team",
+              actionLabel: isArabic ? "تصدير Excel" : "Export Excel",
+              action: exportToExcel,
+            });
+          }
+
+          if (suggestions.length === 0) return null;
+          return (
+            <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                  <Lightbulb className="w-5 h-5" />
+                  {isArabic ? "اقتراحات للتحسين" : "Suggestions"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-2">
+                  {suggestions.map((s, i) => (
+                    <div key={i} className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-amber-100/50 dark:bg-amber-900/20">
+                      <div className="flex items-center gap-2.5 text-sm text-amber-800 dark:text-amber-300 min-w-0">
+                        <span className="shrink-0">{s.icon}</span>
+                        <span>{s.text}</span>
+                      </div>
+                      {s.actionLabel && s.action && (
+                        <Button size="sm" variant="outline" className="shrink-0 text-xs border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40" onClick={s.action}>
+                          {s.actionLabel}
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
         {/* Summary Cards */}
         {results.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
