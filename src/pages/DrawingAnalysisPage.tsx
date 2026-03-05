@@ -642,6 +642,11 @@ const DrawingAnalysisPage = () => {
   const [sideOpen, setSideOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState(-1);
+  const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
+  const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
+  const [showExportToProject, setShowExportToProject] = useState(false);
+  const [savedProjects, setSavedProjects] = useState<any[]>([]);
+  const [exportingToProject, setExportingToProject] = useState(false);
   const totalTokens = useMemo(()=>msgs.reduce((s: number,m: any)=>s+(m.tokens||0),0),[msgs]);
   const boqCount = useMemo(()=>(msgs.filter((m: any)=>m.role==="assistant").map((m: any)=>m.content||"").join("\n").match(/KSA-[A-Z]{2,6}-/g)||[]).length,[msgs]);
 
@@ -734,6 +739,79 @@ const DrawingAnalysisPage = () => {
   const save = (c: any,m: any,d: string)=>{try{localStorage.setItem("alimtyaz_v9",JSON.stringify({cfg:c,mods:m,depth:d}));}catch{}};
   const saveBatch=(b: any)=>{try{localStorage.setItem("alimtyaz_v9_batch",JSON.stringify(b));}catch{}};
   const clearBatch=()=>{try{localStorage.removeItem("alimtyaz_v9_batch");}catch{}};
+
+  // Fetch saved analyses for comparison
+  const fetchSavedAnalyses = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from("drawing_analyses").select("id,created_at,drawing_type,file_names,summary,results").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50);
+    if (data) setSavedAnalyses(data);
+  }, [user]);
+
+  useEffect(() => { if (user && tab === "history") fetchSavedAnalyses(); }, [user, tab, fetchSavedAnalyses]);
+
+  // Fetch saved projects for export
+  const fetchSavedProjects = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from("saved_projects").select("id,name,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50);
+    if (data) setSavedProjects(data);
+  }, [user]);
+
+  useEffect(() => { if (showExportToProject) fetchSavedProjects(); }, [showExportToProject, fetchSavedProjects]);
+
+  // Export BOQ items to an existing project
+  const exportToProject = useCallback(async (projectId: string) => {
+    if (!user || !msgs.length) return;
+    setExportingToProject(true);
+    try {
+      const allText = msgs.filter((m: any) => m.role === "assistant").map((m: any) => m.content || "").join("\n");
+      // Extract BOQ rows from markdown tables
+      const rows = allText.split("\n").filter(l => l.includes("|") && !l.match(/^[\|\-\s:]+$/) && /KSA-|SAR|ريال|م[²³]|عدد|طن/i.test(l));
+      const items: any[] = [];
+      rows.forEach((row, idx) => {
+        const cells = row.split("|").map(c => c.trim()).filter(Boolean);
+        if (cells.length >= 4) {
+          const desc = cells.find(c => c.length > 10 && !/^\d/.test(c)) || cells[1] || "";
+          const unit = cells.find(c => /^(م[²³]|م\.ط|عدد|طن|كجم|لتر|m[²³]|m\.l|no|ton|kg|ls|set|ea|pcs)$/i.test(c)) || cells[3] || "";
+          const qty = parseFloat((cells.find(c => /^\d+[.,]?\d*$/.test(c) && parseFloat(c) < 999999) || "0").replace(",", "."));
+          const price = parseFloat((cells.find(c => /^\d+[.,]?\d*$/.test(c) && parseFloat(c) >= 10) || "0").replace(",", "."));
+          const code = (cells.find(c => /^KSA-/.test(c)) || "").trim();
+          if (desc.length > 3) {
+            items.push({
+              project_id: projectId,
+              item_number: code || String(idx + 1),
+              description: desc,
+              unit: unit,
+              quantity: qty || 0,
+              unit_price: price || null,
+              total_price: (qty && price) ? qty * price : null,
+              sort_order: idx,
+              category: code.includes("EARTH") ? "Earthworks" : code.includes("SEWER") ? "Sewer" : code.includes("WATER") ? "Water" : code.includes("ROAD") ? "Roads" : null,
+            });
+          }
+        }
+      });
+      if (items.length === 0) {
+        alert("لم يتم العثور على بنود BOQ قابلة للتصدير");
+        return;
+      }
+
+      // Ensure project_data record exists
+      const { data: pdExists } = await supabase.from("project_data").select("id").eq("id", projectId).maybeSingle();
+      if (!pdExists) {
+        const proj = savedProjects.find(p => p.id === projectId);
+        await supabase.from("project_data").insert({ id: projectId, user_id: user.id, name: proj?.name || "Project", file_name: "", analysis_data: {} });
+      }
+
+      const { error } = await supabase.from("project_items").insert(items);
+      if (error) throw error;
+      setShowExportToProject(false);
+      alert(`✅ تم تصدير ${items.length} بند BOQ إلى المشروع بنجاح`);
+    } catch (err: any) {
+      alert(`❌ خطأ: ${err.message}`);
+    } finally {
+      setExportingToProject(false);
+    }
+  }, [user, msgs, savedProjects]);
 
   const cfgStr=useCallback(()=>{
     const ml=Object.entries(mods).filter(([,v])=>v).map(([k])=>k.split("_").slice(1).join(" "));
@@ -1194,7 +1272,7 @@ const DrawingAnalysisPage = () => {
             </div>}
           </div>
           <div style={{flex:1,padding:"10px 7px",overflowY:"auto"}}>
-            {[{id:"analysis",i:"💬",l:"التحليل"},{id:"pdf",i:"📄",l:"مدير PDF"},{id:"config",i:"⚙️",l:"الإعداد"}].map(n=>(
+            {[{id:"analysis",i:"💬",l:"التحليل"},{id:"pdf",i:"📄",l:"مدير PDF"},{id:"config",i:"⚙️",l:"الإعداد"},{id:"history",i:"📊",l:"مقارنة التحليلات"}].map(n=>(
               <div key={n.id} className={`nav-i ${tab===n.id?"act":""}`} onClick={()=>setTab(n.id)} style={{justifyContent:sideOpen?"flex-start":"center"}}>
                 <span style={{fontSize:16,flexShrink:0}}>{n.i}</span>
                 {sideOpen&&<span>{n.l}</span>}
@@ -1232,8 +1310,41 @@ const DrawingAnalysisPage = () => {
               <button className="bo" style={{fontSize:9,padding:"3px 9px"}} onClick={()=>exportMD(msgs,cfgStr())} title="MD">⬇️ MD</button>
               <button className="bo" style={{fontSize:9,padding:"3px 9px"}} onClick={()=>exportJSON(msgs,feState,cfgStr())} title="JSON">⬇️ JSON</button>
               {feState?.extractedData&&Object.keys(feState.extractedData).length>0&&<button className="bo" style={{fontSize:9,padding:"3px 9px"}} onClick={()=>exportTXT(feState)} title="TXT">⬇️ TXT</button>}
+              {boqCount>0&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:T.grn,color:T.grn}} onClick={()=>setShowExportToProject(true)} title="تصدير لمشروع">📤 تصدير لمشروع</button>}
             </>}
           </div>
+
+          {/* EXPORT TO PROJECT DIALOG */}
+          {showExportToProject&&(
+            <div style={{position:"fixed",inset:0,background:"#000000a0",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowExportToProject(false)}>
+              <div className="card" style={{maxWidth:480,width:"100%",maxHeight:"70vh",overflow:"auto",padding:0}} onClick={(e:any)=>e.stopPropagation()}>
+                <div style={{padding:"14px 18px",borderBottom:`1px solid ${T.bd}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <span style={{fontSize:13,fontWeight:700,color:T.gold}}>📤 تصدير بنود BOQ إلى مشروع</span>
+                  <button onClick={()=>setShowExportToProject(false)} style={{background:"none",border:"none",color:T.t3,cursor:"pointer",fontSize:18}}>✕</button>
+                </div>
+                <div style={{padding:"14px 18px"}}>
+                  <div style={{fontSize:10,color:T.t3,marginBottom:10}}>اختر المشروع لتصدير {boqCount} بند BOQ إليه:</div>
+                  {savedProjects.length===0?<div style={{textAlign:"center",padding:20,color:T.t3,fontSize:11}}>لا توجد مشاريع محفوظة</div>:
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {savedProjects.map((p:any)=>(
+                      <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:9,border:`1px solid ${T.bd}`,background:T.bg3,cursor:"pointer",transition:"all .15s"}}
+                        onClick={()=>!exportingToProject&&exportToProject(p.id)}
+                        onMouseOver={e=>(e.currentTarget.style.borderColor=T.gold)}
+                        onMouseOut={e=>(e.currentTarget.style.borderColor=T.bd)}>
+                        <span style={{fontSize:14}}>📁</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:11,fontWeight:600,color:T.t1}}>{p.name}</div>
+                          <div style={{fontSize:8,color:T.t3}}>{new Date(p.created_at).toLocaleDateString("ar-SA")}</div>
+                        </div>
+                        {exportingToProject?<div style={{width:14,height:14,border:`2px solid ${T.gold}`,borderTopColor:"transparent",borderRadius:"50%",animation:"alim-spin .8s linear infinite"}}/>:
+                        <span style={{fontSize:9,color:T.grn,fontWeight:700}}>تصدير ←</span>}
+                      </div>
+                    ))}
+                  </div>}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* CONFIG TAB */}
           {tab==="config"&&(
@@ -1403,6 +1514,77 @@ const DrawingAnalysisPage = () => {
                 <input ref={fileRef} type="file" accept=".pdf" style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
               </div>
             )
+          )}
+
+          {/* HISTORY / COMPARISON TAB */}
+          {tab==="history"&&(
+            <div style={{flex:1,overflowY:"auto",padding:"18px 16px"}}>
+              <div style={{maxWidth:900,margin:"0 auto"}}>
+                <div style={{marginBottom:16}}>
+                  <span style={{background:D?"#1c1404":"#fef3c7",color:T.gold,border:`1px solid ${T.gold}40`,padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>مقارنة التحليلات</span>
+                  <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>تتبع <span className="g">تحسن الدقة</span></h2>
+                  <div style={{fontSize:10,color:T.t3,marginTop:4}}>اختر تحليلين أو أكثر لمقارنة نتائجهما</div>
+                </div>
+                {compareIds.size>=2&&(
+                  <div style={{background:D?"linear-gradient(135deg,#1a1400,#201808)":"linear-gradient(135deg,#fffbeb,#fef3c7)",border:`1px solid ${D?"#854d0e40":"#fde68a"}`,borderRadius:12,padding:16,marginBottom:16}}>
+                    <div style={{fontSize:12,fontWeight:700,color:T.gold,marginBottom:12}}>📊 مقارنة {compareIds.size} تحليل</div>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                        <thead><tr>
+                          <th style={{background:D?"#0a1f10":"#f0fdf4",color:T.gold,padding:"8px 12px",textAlign:"right",border:`1px solid ${T.bd}`,fontWeight:700}}>البيان</th>
+                          {savedAnalyses.filter(a=>compareIds.has(a.id)).map((a,i)=>(
+                            <th key={a.id} style={{background:D?"#0a1f10":"#f0fdf4",color:T.gold,padding:"8px 12px",textAlign:"center",border:`1px solid ${T.bd}`,fontWeight:700,minWidth:130}}>
+                              تحليل {i+1}<br/><span style={{fontSize:8,color:T.t3,fontWeight:400}}>{new Date(a.created_at).toLocaleDateString("ar-SA")}</span>
+                            </th>
+                          ))}
+                        </tr></thead>
+                        <tbody>
+                          {[
+                            {l:"📄 الملفات",k:"files",fn:(a:any)=>(a.file_names||[]).join(", ")||"-"},
+                            {l:"🏷️ نوع التحليل",k:"type",fn:(a:any)=>DRAW_TYPES[a.drawing_type]?.ar||a.drawing_type||"-"},
+                            {l:"📊 عدد النتائج",k:"results",fn:(a:any)=>{const r=a.results;return Array.isArray(r)?r.length:typeof r==="object"?Object.keys(r).length:"-"}},
+                            {l:"💰 إجمالي التكلفة",k:"cost",fn:(a:any)=>{const s=a.summary as any;return s?.total_cost?`${Number(s.total_cost).toLocaleString()} SAR`:"-"}},
+                            {l:"📐 عدد بنود BOQ",k:"boq",fn:(a:any)=>{const s=a.summary as any;return s?.boq_count||s?.items_count||"-"}},
+                            {l:"⚠️ مستوى المخاطر",k:"risk",fn:(a:any)=>{const s=a.summary as any;return s?.risk_level||"-"}},
+                          ].map(row=>(
+                            <tr key={row.k}>
+                              <td style={{padding:"7px 12px",border:`1px solid ${T.bd}`,fontWeight:600,color:T.t2}}>{row.l}</td>
+                              {savedAnalyses.filter(a=>compareIds.has(a.id)).map(a=>(
+                                <td key={a.id} style={{padding:"7px 12px",border:`1px solid ${T.bd}`,textAlign:"center",color:T.t1}}>{row.fn(a)}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {savedAnalyses.length===0?<div style={{textAlign:"center",padding:40,color:T.t3}}><div style={{fontSize:40,marginBottom:10}}>📊</div><div style={{fontSize:12}}>لا توجد تحليلات محفوظة بعد</div><div style={{fontSize:10,marginTop:4}}>حلّل مخططاً واحفظ النتائج لتظهر هنا</div></div>:
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {savedAnalyses.map(a=>{
+                    const sel=compareIds.has(a.id);
+                    const s=a.summary as any;
+                    return(
+                      <div key={a.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderRadius:11,border:`2px solid ${sel?T.gold:T.bd}`,background:sel?(D?"#1c140420":"#fef3c720"):T.card,cursor:"pointer",transition:"all .15s"}}
+                        onClick={()=>setCompareIds(prev=>{const n=new Set(prev);n.has(a.id)?n.delete(a.id):n.add(a.id);return n;})}>
+                        <div style={{width:18,height:18,borderRadius:5,border:`2px solid ${sel?T.gold:T.bd}`,background:sel?T.gold:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          {sel&&<span style={{color:"#fff",fontSize:11,fontWeight:900}}>✓</span>}
+                        </div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:11,fontWeight:600,color:T.t1}}>{(a.file_names||[]).join(", ")||"تحليل بدون ملف"}</div>
+                          <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}}>
+                            <span style={{fontSize:8,color:T.t3}}>📅 {new Date(a.created_at).toLocaleDateString("ar-SA")}</span>
+                            <span style={{fontSize:8,color:T.t3}}>🏷️ {DRAW_TYPES[a.drawing_type]?.ar||a.drawing_type}</span>
+                            {s?.boq_count&&<span style={{fontSize:8,color:T.grn}}>📊 {s.boq_count} بند</span>}
+                            {s?.total_cost&&<span style={{fontSize:8,color:T.gold}}>💰 {Number(s.total_cost).toLocaleString()} SAR</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>}
+              </div>
+            </div>
           )}
 
           {/* ANALYSIS TAB */}
