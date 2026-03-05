@@ -23,6 +23,9 @@ interface ProjectOverviewTabProps {
   formatCurrency: (value: number) => string;
   formatDate: (dateString: string) => string;
   projectId: string;
+  items?: any[];
+  attachments?: any[];
+  onNavigateToTab?: (tab: string) => void;
 }
 
 export function ProjectOverviewTab({
