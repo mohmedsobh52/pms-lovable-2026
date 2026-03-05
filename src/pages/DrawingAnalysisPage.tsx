@@ -458,6 +458,99 @@ const densityColor = (d: number) => d>=3?"#16a34a":d>=2?"#ca8a04":d>=1?"#2563eb"
 const densityLabel = (d: number) => d>=3?"🔥 غني":d>=2?"📊 متوسط":d>=1?"📄 خفيف":"⬜ فارغ";
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  SMART PERFORMANCE & ACCURACY SUGGESTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+interface Suggestion {
+  id: string;
+  icon: string;
+  type: "performance" | "accuracy";
+  text: string;
+  actionLabel: string;
+  action: () => void;
+  priority: number; // 1=high, 2=medium, 3=low
+}
+
+function SmartSuggestions({suggestions, T, D, context}: {suggestions: Suggestion[]; T: any; D: boolean; context: "config"|"analysis"}) {
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const visible = suggestions.filter(s => !dismissed.has(s.id)).sort((a,b) => a.priority - b.priority).slice(0, 5);
+  if (!visible.length) return null;
+
+  const perfSugs = visible.filter(s => s.type === "performance");
+  const accSugs = visible.filter(s => s.type === "accuracy");
+
+  const renderGroup = (title: string, icon: string, color: string, borderColor: string, bgGrad: string, items: Suggestion[]) => {
+    if (!items.length) return null;
+    return (
+      <div style={{
+        background: bgGrad,
+        border: `1px solid ${borderColor}`,
+        borderRadius: 11,
+        padding: "10px 14px",
+        marginBottom: 8,
+      }}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+          <div style={{fontSize:10,color,fontWeight:700,display:"flex",alignItems:"center",gap:4}}>
+            <span>{icon}</span> {title}
+          </div>
+          <span style={{fontSize:8,color:T.t3,background:D?"#ffffff10":"#00000008",padding:"1px 7px",borderRadius:8}}>{items.length} اقتراح</span>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {items.map(s => (
+            <div key={s.id} style={{
+              display:"flex",alignItems:"center",gap:8,
+              background:D?"#ffffff06":"#ffffff80",
+              border:`1px solid ${D?"#ffffff10":"#00000010"}`,
+              borderRadius:9,padding:"7px 10px",
+              transition:"all .15s",
+            }}>
+              <span style={{fontSize:16,flexShrink:0}}>{s.icon}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:10,color:T.t1,lineHeight:1.6}}>{s.text}</div>
+              </div>
+              <button
+                onClick={s.action}
+                style={{
+                  background:`linear-gradient(135deg,${color}20,${color}10)`,
+                  border:`1px solid ${color}40`,
+                  color,padding:"4px 10px",borderRadius:7,
+                  cursor:"pointer",fontSize:9,fontWeight:700,
+                  fontFamily:"inherit",whiteSpace:"nowrap",
+                  transition:"all .15s",
+                }}
+                onMouseOver={e=>(e.currentTarget.style.background=`${color}25`)}
+                onMouseOut={e=>(e.currentTarget.style.background=`linear-gradient(135deg,${color}20,${color}10)`)}
+              >
+                {s.actionLabel}
+              </button>
+              <button
+                onClick={()=>setDismissed(prev=>{const n=new Set(prev);n.add(s.id);return n;})}
+                style={{background:"none",border:"none",color:T.t3,cursor:"pointer",fontSize:10,padding:"2px",opacity:0.5}}
+                title="إخفاء"
+              >✕</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {renderGroup(
+        "اقتراحات تحسين الأداء", "⚡", D?"#f59e0b":"#b45309",
+        D?"#854d0e40":"#fde68a", D?"linear-gradient(135deg,#1a140a,#201808)":"linear-gradient(135deg,#fffbeb,#fef3c7)",
+        perfSugs
+      )}
+      {renderGroup(
+        "اقتراحات رفع الدقة", "🎯", D?"#34d399":"#15803d",
+        D?"#065f4640":"#bbf7d0", D?"linear-gradient(135deg,#0a1f14,#0d2810)":"linear-gradient(135deg,#f0fdf4,#dcfce7)",
+        accSugs
+      )}
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  PDF NAVIGATOR
 // ═══════════════════════════════════════════════════════════════════════════
 function PdfNav({sess, T, selPages, setPdfSess, loadThumbs, openPreview}: any) {
@@ -551,6 +644,78 @@ const DrawingAnalysisPage = () => {
   const [copiedIdx, setCopiedIdx] = useState(-1);
   const totalTokens = useMemo(()=>msgs.reduce((s: number,m: any)=>s+(m.tokens||0),0),[msgs]);
   const boqCount = useMemo(()=>(msgs.filter((m: any)=>m.role==="assistant").map((m: any)=>m.content||"").join("\n").match(/KSA-[A-Z]{2,6}-/g)||[]).length,[msgs]);
+
+  // Smart suggestions logic
+  const configSuggestions = useMemo<Suggestion[]>(()=>{
+    const s: Suggestion[] = [];
+    // Performance suggestions
+    if(pdfSess && pdfSess.chunkSize > 25 && xStats && xStats.avgDensity >= 2){
+      s.push({id:"chunk-high-density",icon:"📦",type:"performance",text:"حجم الدُفعة كبير مع صفحات غنية المحتوى — قلّل حجم الدُفعة لتحسين دقة الاستخراج.",actionLabel:"تعيين 15 صفحة",action:()=>setPdfSess((p:any)=>({...p,chunkSize:15})),priority:1});
+    }
+    if(pdfSess && pdfSess.quality==="high" && pdfSess.numPages > 50){
+      s.push({id:"high-quality-large",icon:"🐢",type:"performance",text:`الوضع البصري العالي مع ${pdfSess.numPages} صفحة سيستغرق وقتاً طويلاً — جرّب المدمج أو البنية التحتية.`,actionLabel:"تبديل للمدمج",action:()=>setPdfSess((p:any)=>({...p,quality:"hybrid"})),priority:1});
+    }
+    if(pdfSess && pdfSess.quality==="fast" && xStats && xStats.rich > 3){
+      s.push({id:"fast-visual-miss",icon:"🖼️",type:"performance",text:"الوضع النصي السريع قد يفقد تفاصيل بصرية من الصفحات الغنية — جرّب الوضع المدمج.",actionLabel:"تبديل للمدمج",action:()=>setPdfSess((p:any)=>({...p,quality:"hybrid"})),priority:2});
+    }
+    if(xStats && xStats.empty > xStats.total * 0.3 && pdfSess){
+      s.push({id:"many-empty",icon:"⬜",type:"performance",text:`${xStats.empty} صفحة فارغة من أصل ${xStats.total} — استبعدها لتوفير الوقت والتكلفة.`,actionLabel:"تصفية تلقائية",action:()=>{
+        const densMap = pdfSess.densities || {};
+        const nonEmpty = Object.entries(densMap).filter(([,d]:any)=>d>0).map(([p]:any)=>+p).sort((a:number,b:number)=>a-b);
+        if(nonEmpty.length) setPdfSess((p:any)=>({...p,selPages:nonEmpty,mode:"custom"}));
+      },priority:2});
+    }
+
+    // Accuracy suggestions
+    if(depth === "quick"){
+      s.push({id:"depth-low",icon:"📉",type:"accuracy",text:"التحليل السريع بدقة ~70% — ارفع العمق للحصول على BOQ أدق وتحقق مزدوج.",actionLabel:"رفع للقياسي",action:()=>{setDepth("standard");save(cfg,mods,"standard");},priority:1});
+    }
+    if(!ocr && xStats && (xStats.rich > 2 || (xStats.diameters?.length||0) > 3)){
+      s.push({id:"ocr-off-visual",icon:"🔤",type:"accuracy",text:"مخططات غنية بالتفاصيل البصرية — فعّل OCR لاستخراج الأبعاد والنصوص بدقة أعلى.",actionLabel:"تفعيل OCR",action:()=>setOcr(true),priority:1});
+    }
+    const activeMods = Object.entries(mods).filter(([,v])=>v).length;
+    if(activeMods === 0){
+      s.push({id:"no-mods",icon:"🔧",type:"accuracy",text:"لا توجد وحدات تحليلية مختارة — فعّل الوحدات المناسبة للحصول على تحليل متخصص.",actionLabel:"تفعيل الكل",action:()=>{
+        const allMods: Record<string,boolean> = {};
+        Object.entries(MODS_O).forEach(([cat,ms])=>ms.forEach(m=>{allMods[`${cat}_${m}`]=true;}));
+        setMods(allMods); save(cfg,allMods,depth);
+      },priority:2});
+    }
+    if(xStats && (xStats.diameters?.length||0) > 0 && !mods["⚠️ مخاطر_أقطار كبيرة"] && !mods["🔧 هندسية_مراجعة التعارضات"]){
+      s.push({id:"pipe-no-conflict",icon:"🔩",type:"accuracy",text:`تم اكتشاف ${xStats.diameters?.length} قطر أنبوب — فعّل وحدة "مراجعة التعارضات" لتحليل شبكات المواسير.`,actionLabel:"تفعيل",action:()=>{
+        setMods(prev=>({...prev,"🔧 هندسية_مراجعة التعارضات":true,"⚠️ مخاطر_أقطار كبيرة":true}));
+      },priority:2});
+    }
+    return s;
+  },[pdfSess,xStats,depth,ocr,mods,cfg]);
+
+  const analysisSuggestions = useMemo<Suggestion[]>(()=>{
+    const s: Suggestion[] = [];
+    // Check for error chunks
+    const errorChunks = feState?.chunks?.filter((c:any)=>c.status==="error") || [];
+    if(errorChunks.length > 0){
+      s.push({id:"error-chunks",icon:"🔄",type:"accuracy",text:`${errorChunks.length} دُفعة فشلت — أعد التحليل للحصول على نتائج كاملة.`,actionLabel:"إعادة التحليل",action:()=>{if(pdfSess)runExtraction();},priority:1});
+    }
+    // Check for unmerged results
+    const assistantMsgs = msgs.filter((m:any)=>m.role==="assistant"&&m.isChunk);
+    const hasMerged = msgs.some((m:any)=>m.isMerged);
+    if(assistantMsgs.length > 1 && !hasMerged && feState?.phase==="done"){
+      s.push({id:"no-merge",icon:"🔗",type:"accuracy",text:`${assistantMsgs.length} دُفعة بدون دمج — ادمج النتائج للحصول على BOQ موحد.`,actionLabel:"إعادة الدمج",action:()=>{if(pdfSess)runExtraction();},priority:1});
+    }
+    // Suggest OCR if not enabled and in analysis
+    if(!ocr && pdfSess && feState?.phase==="done"){
+      s.push({id:"suggest-ocr-analysis",icon:"🔤",type:"accuracy",text:"فعّل OCR وأعد التحليل لاستخراج الأبعاد والمناسيب من المخططات البصرية.",actionLabel:"تفعيل OCR",action:()=>setOcr(true),priority:3});
+    }
+    // Suggest deeper analysis
+    if(depth==="quick" && feState?.phase==="done" && msgs.length > 0){
+      s.push({id:"upgrade-depth",icon:"🔬",type:"accuracy",text:"حلّلت بعمق سريع — أعد التحليل بالعمق القياسي أو العميق لنتائج أدق.",actionLabel:"رفع العمق",action:()=>{setDepth("standard");save(cfg,mods,"standard");},priority:2});
+    }
+    // No pages selected warning
+    if(pdfSess && selPages(pdfSess).length === 0){
+      s.push({id:"no-pages",icon:"📌",type:"performance",text:"لم يتم اختيار صفحات للتحليل — اذهب لمدير PDF واختر الصفحات.",actionLabel:"فتح مدير PDF",action:()=>setTab("pdf"),priority:1});
+    }
+    return s;
+  },[feState,msgs,ocr,depth,pdfSess,cfg,mods]);
 
   const cancelRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -1122,6 +1287,7 @@ const DrawingAnalysisPage = () => {
                     ))}
                   </div>
                 </div>
+                <SmartSuggestions suggestions={configSuggestions} T={T} D={D} context="config"/>
                 <div style={{display:"flex",gap:8}}>
                   <button className="bg-btn" style={{fontSize:14,padding:"12px 30px"}} onClick={()=>{save(cfg,mods,depth);setTab("analysis");}}>🚀 بدء التحليل</button>
                   <button className="bo" onClick={()=>{setMods({});setMsgs([]);setQueue([]);setPdfSess(null);setFe(null);setXStats(null);}}>🔄 إعادة ضبط</button>
@@ -1265,6 +1431,7 @@ const DrawingAnalysisPage = () => {
                   </div>}
                 </div>
               )}
+              <SmartSuggestions suggestions={analysisSuggestions} T={T} D={D} context="analysis"/>
               <div style={{display:"flex",gap:4,flexWrap:"wrap",flexShrink:0,alignItems:"center"}}>
                 {TMPL.map(t=>(
                   <span key={t.l} className="chip" style={{fontSize:9}} onClick={()=>{setPrompt(t.p);}}>{t.i} {t.l}</span>
