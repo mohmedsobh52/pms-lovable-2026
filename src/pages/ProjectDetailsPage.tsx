@@ -40,6 +40,7 @@ import {
   EditFormData 
 } from "@/components/project-details/types";
 import React, { Suspense } from "react";
+import { AutoSaveIndicator } from "@/components/AutoSaveIndicator";
 
 const AnalysisResults = React.lazy(() => import("@/components/AnalysisResults").then(m => ({ default: m.AnalysisResults })));
 const ContractManagement = React.lazy(() => import("@/components/ContractManagement").then(m => ({ default: m.ContractManagement })));
@@ -101,6 +102,7 @@ export default function ProjectDetailsPage() {
     status: "draft"
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   // BOQ pricing state
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -1106,7 +1108,8 @@ export default function ProjectDetailsPage() {
         )}
 
         {/* Save Project Button */}
-        <div className="flex justify-end mb-4">
+        <div className="flex items-center justify-end gap-3 mb-4">
+          <AutoSaveIndicator lastSaved={lastSaved} hasUnsavedChanges={false} isSaving={isSaving} />
           <Button
             variant="outline"
             size="sm"
@@ -1153,6 +1156,7 @@ export default function ProjectDetailsPage() {
                   }).eq('id', projectId),
                 ]);
 
+                setLastSaved(new Date());
                 toast({
                   title: isArabic ? "تم حفظ المشروع بنجاح" : "Project saved successfully",
                   description: isArabic ? `تم حفظ ${items.length} بند` : `${items.length} items saved`,
