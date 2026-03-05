@@ -122,12 +122,14 @@ export function SaveProjectDialog({
     const trimmedName = projectName.trim();
     setIsSaving(true);
     try {
-      // Delete old project data from all tables
+      // Soft delete old project (move to recycle bin instead of hard delete)
       const idToDelete = existingProjectIds.savedId || existingProjectIds.dataId;
       if (idToDelete) {
-        await supabase.from("project_items").delete().eq("project_id", idToDelete);
-        await supabase.from("project_data").delete().eq("id", idToDelete);
-        await supabase.from("saved_projects").delete().eq("id", idToDelete);
+        const now = new Date().toISOString();
+        await Promise.all([
+          supabase.from("saved_projects").update({ is_deleted: true, deleted_at: now }).eq("id", idToDelete),
+          supabase.from("project_data").update({ is_deleted: true, deleted_at: now }).eq("id", idToDelete),
+        ]);
       }
       await doSave(trimmedName);
     } catch (error: any) {
@@ -175,17 +177,18 @@ export function SaveProjectDialog({
 
       const { error: spError } = await supabase
         .from("saved_projects")
-        .insert({
+        .upsert({
           id: projectId,
           user_id: user.id,
           name,
           file_name: fileName || null,
           analysis_data: analysisData,
           wbs_data: wbsData,
-        });
+        }, { onConflict: 'id' });
 
       if (spError) {
-        console.warn("saved_projects insert warning:", spError.message);
+        console.error("saved_projects upsert error:", spError.message);
+        throw spError;
       }
 
       if (items.length > 0) {
@@ -331,6 +334,7 @@ export function SaveProjectDialog({
               variant="destructive"
               className="gap-2"
               onClick={handleOverwriteAndDelete}
+              title="سيتم نقل المشروع القديم إلى سلة المحذوفات"
             >
               <Replace className="w-4 h-4" />
               استبدال وحذف القديم
