@@ -1473,6 +1473,71 @@ const DrawingAnalysisPage = () => {
                       <span style={{fontSize:9,color:T.t2}}><span style={{color:T.gold,fontWeight:700}}>{msgs.filter((m: any)=>m.role==="assistant").length}</span> تحليل</span>
                     </div>
                   )}
+                  {msgs.length>0&&boqCount>0&&(()=>{
+                    const allText = msgs.filter((m:any)=>m.role==="assistant").map((m:any)=>m.content||"").join("\n");
+                    const ksaLines = allText.match(/KSA-[^\n|]+/g)||[];
+                    const hasAr = (allText.match(/[\u0600-\u06FF]{5,}/g)||[]).length;
+                    const hasEn = (allText.match(/[a-zA-Z]{5,}/g)||[]).length;
+                    const descScore = (hasAr>0&&hasEn>0)?1:(hasAr>0||hasEn>0)?0.6:0;
+                    const validUnits = /م³|م²|م\.ط|م\.م|عدد|طن|كجم|لتر|m³|m²|m\.l|no|ton|kg|ls|set|ea|pcs|roll/gi;
+                    const unitMatches = (allText.match(validUnits)||[]).length;
+                    const unitScore = Math.min(1, unitMatches / Math.max(1, boqCount));
+                    const qtyMatches = (allText.match(/الكمية\s*[|:]\s*[\d,.]+|qty\s*[|:]\s*[\d,.]+/gi)||[]).length;
+                    const qtyScore = Math.min(1, qtyMatches / Math.max(1, boqCount * 0.5));
+                    const priceMatches = (allText.match(/SAR\s*[\d,.]+|ريال\s*[\d,.]+|سعر\s*[|:]\s*[\d,.]+/gi)||[]).length;
+                    const priceScore = Math.min(1, priceMatches / Math.max(1, boqCount * 0.3));
+                    const cats = ["EARTHWORKS","SEWER","CONCRETE","WATER","ROAD","STORM","MARINE","UTILITY","LABOUR","حفر","ردم","خرسان","أنابيب","صرف","مياه"];
+                    const catMatches = cats.filter(c=>allText.toUpperCase().includes(c.toUpperCase())).length;
+                    const catScore = Math.min(1, catMatches / 3);
+                    const overall = Math.round((descScore*0.25 + unitScore*0.20 + qtyScore*0.20 + priceScore*0.20 + catScore*0.15)*100);
+                    const clr = overall>=80?T.grn:overall>=50?T.gold:"#ef4444";
+                    const lbl = overall>=80?"ممتاز":overall>=50?"متوسط":"ضعيف";
+                    const metrics = [
+                      {l:"الأوصاف",s:descScore,i:"📝"},{l:"الوحدات",s:unitScore,i:"📏"},{l:"الكميات",s:qtyScore,i:"🔢"},{l:"الأسعار",s:priceScore,i:"💰"},{l:"التصنيفات",s:catScore,i:"🏷️"}
+                    ];
+                    const recs: string[] = [];
+                    if(descScore<0.7) recs.push("أضف أوصاف ثنائية اللغة");
+                    if(unitScore<0.7) recs.push("تحقق من وحدات القياس");
+                    if(priceScore<0.5) recs.push("راجع أسعار SAR المرجعية");
+                    if(catScore<0.5) recs.push("فعّل وحدات تحليل إضافية");
+                    return(
+                      <div style={{background:D?`linear-gradient(135deg,${overall>=80?"#0d1f14":"#1a1400"},${overall>=80?"#111e18":"#1f1a08"})`:`linear-gradient(135deg,${overall>=80?"#f0fdf4":"#fffbeb"},${overall>=80?"#dcfce7":"#fef3c7"})`,
+                        border:`1px solid ${overall>=80?(D?"#1a3025":"#bbf7d0"):(D?"#854d0e40":"#fde68a")}`,borderRadius:10,padding:"10px 14px",flexShrink:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                          <div style={{width:42,height:42,borderRadius:"50%",border:`2px solid ${clr}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                            <span style={{fontSize:13,fontWeight:900,color:clr}}>{overall}%</span>
+                          </div>
+                          <div>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              <span style={{fontSize:11,fontWeight:700,color:T.t1}}>جودة التحليل</span>
+                              <span style={{fontSize:8,background:overall>=80?(D?"#064e3b":"#dcfce7"):overall>=50?(D?"#451a03":"#fef3c7"):(D?"#450a0a":"#fee2e2"),
+                                color:clr,padding:"2px 8px",borderRadius:8,fontWeight:600}}>{lbl}</span>
+                            </div>
+                            <div style={{width:130,height:5,background:D?"#333":"#e5e7eb",borderRadius:4,marginTop:4,overflow:"hidden"}}>
+                              <div style={{height:"100%",width:`${overall}%`,background:clr,borderRadius:4,transition:"width .5s"}}/>
+                            </div>
+                          </div>
+                          <div style={{display:"flex",gap:6,flexWrap:"wrap",flex:1,justifyContent:"flex-end"}}>
+                            {metrics.map(m=>(
+                              <span key={m.l} style={{fontSize:8,background:D?"#ffffff08":"#f9fafb",border:`1px solid ${T.bd}`,padding:"3px 8px",borderRadius:6,display:"flex",alignItems:"center",gap:3}}>
+                                {m.i} <span style={{color:T.t3}}>{m.l}:</span>
+                                <span style={{fontWeight:700,color:m.s>=0.7?T.grn:m.s>=0.4?T.gold:"#ef4444"}}>{Math.round(m.s*100)}%</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {recs.length>0&&overall<90&&(
+                          <div style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap"}}>
+                            {recs.slice(0,3).map((r,i)=>(
+                              <span key={i} style={{fontSize:8,background:D?"#ffffff06":"#fff",border:`1px solid ${T.bd}`,padding:"3px 9px",borderRadius:8,color:T.t2,display:"flex",alignItems:"center",gap:3}}>
+                                ✨ {r}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {filteredMsgs.map((m: any,i: number)=>{
                     const isCol=collapsed.has(i);
                     const cls=m.role==="user"?"mu":m.isMerged?"mm":m.isHybrid?"mh":m.isFast?"mf":"ma";
