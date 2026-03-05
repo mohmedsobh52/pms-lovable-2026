@@ -1272,7 +1272,7 @@ const DrawingAnalysisPage = () => {
             </div>}
           </div>
           <div style={{flex:1,padding:"10px 7px",overflowY:"auto"}}>
-            {[{id:"analysis",i:"💬",l:"التحليل"},{id:"pdf",i:"📄",l:"مدير PDF"},{id:"config",i:"⚙️",l:"الإعداد"}].map(n=>(
+            {[{id:"analysis",i:"💬",l:"التحليل"},{id:"pdf",i:"📄",l:"مدير PDF"},{id:"config",i:"⚙️",l:"الإعداد"},{id:"history",i:"📊",l:"مقارنة التحليلات"}].map(n=>(
               <div key={n.id} className={`nav-i ${tab===n.id?"act":""}`} onClick={()=>setTab(n.id)} style={{justifyContent:sideOpen?"flex-start":"center"}}>
                 <span style={{fontSize:16,flexShrink:0}}>{n.i}</span>
                 {sideOpen&&<span>{n.l}</span>}
