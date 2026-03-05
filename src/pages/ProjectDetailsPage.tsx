@@ -1155,6 +1155,7 @@ export default function ProjectDetailsPage() {
                   }).eq('id', projectId),
                 ]);
 
+                setLastSaved(new Date());
                 toast({
                   title: isArabic ? "تم حفظ المشروع بنجاح" : "Project saved successfully",
                   description: isArabic ? `تم حفظ ${items.length} بند` : `${items.length} items saved`,
