@@ -1137,7 +1137,7 @@ export default function ProjectDetailsPage() {
 
         {/* Save Project Button */}
         <div className="flex items-center justify-end gap-3 mb-4">
-          <AutoSaveIndicator lastSaved={lastSaved} hasUnsavedChanges={false} isSaving={isSaving} />
+          <AutoSaveIndicator lastSaved={lastSaved} hasUnsavedChanges={hasUnsavedChanges} isSaving={isSaving} />
           <Button
             variant="outline"
             size="sm"
