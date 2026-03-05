@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import OnboardingModal from "@/components/OnboardingModal";
 import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useBlocker } from "react-router-dom";
 import { Loader2, FolderOpen, Upload, X, FileText, FileUp, Wand2, Download, BarChart3, Save } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BOQAnalyzerPanel } from "@/components/BOQAnalyzerPanel";
@@ -103,6 +103,8 @@ export default function ProjectDetailsPage() {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const savedSnapshotRef = useRef<string>("");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // BOQ pricing state
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -298,6 +300,32 @@ export default function ProjectDetailsPage() {
 
     fetchProjectData();
   }, [user, projectId]);
+
+  // Track unsaved changes by comparing current data with saved snapshot
+  useEffect(() => {
+    if (!project || items.length === 0) return;
+    const currentSnapshot = JSON.stringify({ items: items.map(i => ({ id: i.id, unit_price: i.unit_price, total_price: i.total_price, quantity: i.quantity, description: i.description })), editForm });
+    if (savedSnapshotRef.current === "") {
+      savedSnapshotRef.current = currentSnapshot;
+      return;
+    }
+    setHasUnsavedChanges(currentSnapshot !== savedSnapshotRef.current);
+  }, [items, editForm, project]);
+
+  // Warn before browser close/refresh
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsavedChanges]);
+
+  // Block in-app navigation
+  const blocker = useBlocker(hasUnsavedChanges);
 
   // Fetch attachments
   const fetchAttachments = async () => {
@@ -1109,7 +1137,7 @@ export default function ProjectDetailsPage() {
 
         {/* Save Project Button */}
         <div className="flex items-center justify-end gap-3 mb-4">
-          <AutoSaveIndicator lastSaved={lastSaved} hasUnsavedChanges={false} isSaving={isSaving} />
+          <AutoSaveIndicator lastSaved={lastSaved} hasUnsavedChanges={hasUnsavedChanges} isSaving={isSaving} />
           <Button
             variant="outline"
             size="sm"
@@ -1157,6 +1185,8 @@ export default function ProjectDetailsPage() {
                 ]);
 
                 setLastSaved(new Date());
+                savedSnapshotRef.current = JSON.stringify({ items: items.map(i => ({ id: i.id, unit_price: i.unit_price, total_price: i.total_price, quantity: i.quantity, description: i.description })), editForm });
+                setHasUnsavedChanges(false);
                 toast({
                   title: isArabic ? "تم حفظ المشروع بنجاح" : "Project saved successfully",
                   description: isArabic ? `تم حفظ ${items.length} بند` : `${items.length} items saved`,
@@ -1523,6 +1553,30 @@ export default function ProjectDetailsPage() {
       </div>
       {/* Bottom padding for mobile to account for sticky bar */}
       <div className="h-14 md:hidden" />
+
+      {/* Unsaved changes navigation blocker dialog */}
+      {blocker.state === "blocked" && (
+        <Dialog open onOpenChange={() => blocker.reset()}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{isArabic ? "تغييرات غير محفوظة" : "Unsaved Changes"}</DialogTitle>
+              <DialogDescription>
+                {isArabic 
+                  ? "لديك تغييرات غير محفوظة. هل تريد المغادرة بدون حفظ؟" 
+                  : "You have unsaved changes. Are you sure you want to leave without saving?"}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => blocker.reset()}>
+                {isArabic ? "البقاء" : "Stay"}
+              </Button>
+              <Button variant="destructive" onClick={() => blocker.proceed()}>
+                {isArabic ? "مغادرة بدون حفظ" : "Leave without saving"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
