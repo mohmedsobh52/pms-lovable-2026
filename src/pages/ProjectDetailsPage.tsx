@@ -40,6 +40,7 @@ import {
   EditFormData 
 } from "@/components/project-details/types";
 import React, { Suspense } from "react";
+import { AutoSaveIndicator } from "@/components/AutoSaveIndicator";
 
 const AnalysisResults = React.lazy(() => import("@/components/AnalysisResults").then(m => ({ default: m.AnalysisResults })));
 const ContractManagement = React.lazy(() => import("@/components/ContractManagement").then(m => ({ default: m.ContractManagement })));
