@@ -1287,6 +1287,7 @@ const DrawingAnalysisPage = () => {
                     ))}
                   </div>
                 </div>
+                <SmartSuggestions suggestions={configSuggestions} T={T} D={D} context="config"/>
                 <div style={{display:"flex",gap:8}}>
                   <button className="bg-btn" style={{fontSize:14,padding:"12px 30px"}} onClick={()=>{save(cfg,mods,depth);setTab("analysis");}}>🚀 بدء التحليل</button>
                   <button className="bo" onClick={()=>{setMods({});setMsgs([]);setQueue([]);setPdfSess(null);setFe(null);setXStats(null);}}>🔄 إعادة ضبط</button>
