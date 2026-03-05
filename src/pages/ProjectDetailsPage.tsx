@@ -1115,14 +1115,47 @@ export default function ProjectDetailsPage() {
               if (!projectId || !user) return;
               setIsSaving(true);
               try {
-                const table = projectSource === "saved_projects" ? "saved_projects" : "project_data";
-                const { error } = await supabase
-                  .from(table)
-                  .update({ updated_at: new Date().toISOString() })
-                  .eq("id", projectId);
-                if (error) throw error;
+                const now = new Date().toISOString();
+                const analysisPayload = project ? {
+                  items: items.map(i => ({
+                    item_number: i.item_number,
+                    description: i.description,
+                    unit: i.unit,
+                    quantity: i.quantity,
+                    unit_price: i.unit_price,
+                    total_price: i.total_price,
+                    category: i.category,
+                  })),
+                  summary: {
+                    total_items: items.length,
+                    total_value: items.reduce((s, i) => s + (i.total_price || 0), 0),
+                    currency: project.currency || 'SAR',
+                  },
+                } : undefined;
+
+                const totalValue = items.reduce((s, i) => s + (i.total_price || 0), 0);
+
+                // Update both tables in parallel
+                const updatePayload = {
+                  analysis_data: analysisPayload,
+                  wbs_data: project?.wbs_data,
+                  total_value: totalValue,
+                  items_count: items.length,
+                  updated_at: now,
+                };
+
+                await Promise.all([
+                  supabase.from('project_data').update(updatePayload).eq('id', projectId),
+                  supabase.from('saved_projects').update({
+                    analysis_data: analysisPayload as any,
+                    wbs_data: project?.wbs_data as any,
+                    updated_at: now,
+                  }).eq('id', projectId),
+                ]);
+
                 toast({
                   title: isArabic ? "تم حفظ المشروع بنجاح" : "Project saved successfully",
+                  description: isArabic ? `تم حفظ ${items.length} بند` : `${items.length} items saved`,
                 });
               } catch (error: any) {
                 toast({

@@ -334,6 +334,7 @@ export function SaveProjectDialog({
               variant="destructive"
               className="gap-2"
               onClick={handleOverwriteAndDelete}
+              title="سيتم نقل المشروع القديم إلى سلة المحذوفات"
             >
               <Replace className="w-4 h-4" />
               استبدال وحذف القديم

@@ -97,20 +97,21 @@ export function SaveProjectButton({
 
     const projectId = (projectData as any).id as string;
 
-    // 1.5. Also save to saved_projects table with SAME ID for consistency
+    // 1.5. Also save to saved_projects table with SAME ID for consistency (upsert to avoid conflicts)
     const { error: savedProjectError } = await supabase
       .from('saved_projects')
-      .insert([{
+      .upsert({
         id: projectId,
         user_id: user.id,
         name: (nameOverride || projectName).trim(),
         file_name: fileName || null,
         analysis_data: { items, summary } as any,
         wbs_data: wbsData as any,
-      }]);
+      }, { onConflict: 'id' });
 
     if (savedProjectError) {
       console.error('Error saving to saved_projects:', savedProjectError);
+      throw savedProjectError;
     }
 
     // 2. Insert all project items with sort_order to preserve original file sequence
