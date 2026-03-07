@@ -1273,6 +1273,11 @@ const DrawingAnalysisPage = () => {
     }
     clearBatch();
     setResumable(null);
+    // Signal batch completion if running in batch mode
+    if(analysisCompleteResolve.current){
+      analysisCompleteResolve.current();
+      analysisCompleteResolve.current = null;
+    }
   },[pdfSess,selPages,cfgStr,depth]);
 
   const mdCache = useRef(new Map<string,string>());
