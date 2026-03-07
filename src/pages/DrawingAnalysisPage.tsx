@@ -1043,20 +1043,54 @@ const DrawingAnalysisPage = () => {
       if (batchFiles[i].status === "done") continue;
       setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "analyzing" } : f));
       try {
+        // Open PDF
         const buf = await batchFiles[i].file.arrayBuffer();
         const doc = await pdfjsLib.getDocument({ data: buf }).promise;
         const numPages = doc.numPages;
         fname = batchFiles[i].name.replace(/\.pdf$/i, "");
-        setPdfSess({ file: batchFiles[i].file, doc, numPages, thumbs: {} as Record<number,string>, thumbsLoaded: new Set<number>(), mode: "range",
-          rangeStr: `1-${Math.min(numPages, 100)}`, selPages: [] as number[], chunkSize: 20, quality: "fast", densities: {} as Record<number,number> });
+
+        // Add file separator message
+        pushMsg("assistant", `\n---\n## 📁 ملف ${i+1}/${batchFiles.length}: ${batchFiles[i].name} (${numPages} صفحة)\n---`);
+
+        // Create session for this file
+        const sess = {
+          file: batchFiles[i].file, doc, numPages,
+          thumbs: {} as Record<number,string>,
+          thumbsLoaded: new Set<number>(),
+          mode: "range" as string,
+          rangeStr: `1-${Math.min(numPages, 100)}`,
+          selPages: [] as number[],
+          chunkSize: 20,
+          quality: "fast" as string,
+          densities: {} as Record<number,number>
+        };
+        setPdfSess(sess);
+
+        // Create promise to await analysis completion
+        const analysisPromise = new Promise<void>(resolve => {
+          analysisCompleteResolve.current = resolve;
+        });
+
+        // Small delay for state to settle, then run extraction with session override
+        await new Promise(r => setTimeout(r, 150));
+        await runExtraction(null, sess);
+        // Wait for completion signal (in case runExtraction is still processing)
+        await analysisPromise;
+
         setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "done" } : f));
       } catch (err: any) {
         setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "error", result: err.message } : f));
+        // Reset resolve ref on error
+        if(analysisCompleteResolve.current){
+          analysisCompleteResolve.current();
+          analysisCompleteResolve.current = null;
+        }
       }
       setBatchProgress(Math.round(((i + 1) / batchFiles.length) * 100));
     }
     setBatchAnalyzing(false);
-  }, [batchFiles]);
+    pushMsg("assistant", `\n---\n## ✅ اكتمل تحليل ${batchFiles.length} ملف بنجاح\n---`);
+  }, [batchFiles, runExtraction]);
 
   // ═══ ANALYSIS ENGINE v9 ═══
   const runExtraction=useCallback(async(resumeFrom: any=null, sessionOverride?: any)=>{
