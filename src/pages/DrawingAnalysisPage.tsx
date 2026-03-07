@@ -848,6 +848,7 @@ const DrawingAnalysisPage = () => {
   const cancelRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const chatRef = useRef<HTMLDivElement>(null);
+  const analysisCompleteResolve = useRef<(() => void) | null>(null);
   let fname = "BOQ";
 
   // Persistence via localStorage
