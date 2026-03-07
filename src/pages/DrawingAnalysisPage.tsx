@@ -1857,17 +1857,25 @@ const DrawingAnalysisPage = () => {
                     const cats = ["EARTHWORKS","SEWER","CONCRETE","WATER","ROAD","STORM","MARINE","UTILITY","LABOUR","حفر","ردم","خرسان","أنابيب","صرف","مياه"];
                     const catMatches = cats.filter(c=>allText.toUpperCase().includes(c.toUpperCase())).length;
                     const catScore = Math.min(1, catMatches / 3);
-                    const overall = Math.round((descScore*0.25 + unitScore*0.20 + qtyScore*0.20 + priceScore*0.20 + catScore*0.15)*100);
+                    // New: Pipe specification detail score
+                    const pipeSpecMatches = (allText.match(/(?:PVC|UPVC|HDPE|DI|GRP|PP|Steel|RCP)\s*(?:SN|PN|SDR)\s*\d+/gi)||[]).length;
+                    const pipeScore = Math.min(1, pipeSpecMatches / Math.max(1, boqCount * 0.1));
+                    // New: Calculation formula presence score
+                    const formulaMatches = (allText.match(/\d+[.,]?\d*\s*[×x]\s*\d+[.,]?\d*\s*[×x]\s*\d+[.,]?\d*|العرض\s*[×x]\s*العمق|المساحة\s*[×x]\s*السماكة/gi)||[]).length;
+                    const formulaScore = Math.min(1, formulaMatches / Math.max(1, boqCount * 0.05));
+                    const overall = Math.round((descScore*0.20 + unitScore*0.15 + qtyScore*0.15 + priceScore*0.15 + catScore*0.10 + pipeScore*0.13 + formulaScore*0.12)*100);
                     const clr = overall>=80?T.grn:overall>=50?T.gold:"#ef4444";
                     const lbl = overall>=80?"ممتاز":overall>=50?"متوسط":"ضعيف";
                     const metrics = [
-                      {l:"الأوصاف",s:descScore,i:"📝"},{l:"الوحدات",s:unitScore,i:"📏"},{l:"الكميات",s:qtyScore,i:"🔢"},{l:"الأسعار",s:priceScore,i:"💰"},{l:"التصنيفات",s:catScore,i:"🏷️"}
+                      {l:"الأوصاف",s:descScore,i:"📝"},{l:"الوحدات",s:unitScore,i:"📏"},{l:"الكميات",s:qtyScore,i:"🔢"},{l:"الأسعار",s:priceScore,i:"💰"},{l:"التصنيفات",s:catScore,i:"🏷️"},{l:"مواسير",s:pipeScore,i:"🔧"},{l:"معادلات",s:formulaScore,i:"📐"}
                     ];
                     const recs: string[] = [];
                     if(descScore<0.7) recs.push("أضف أوصاف ثنائية اللغة");
                     if(unitScore<0.7) recs.push("تحقق من وحدات القياس");
                     if(priceScore<0.5) recs.push("راجع أسعار SAR المرجعية");
                     if(catScore<0.5) recs.push("فعّل وحدات تحليل إضافية");
+                    if(pipeScore<0.5) recs.push("استخدم قالب 'مواسير تفصيلي' لتحسين مواصفات الأنابيب");
+                    if(formulaScore<0.5) recs.push("استخدم قالب 'حفر وردم' لإضافة معادلات الحساب");
                     return(
                       <div style={{background:D?`linear-gradient(135deg,${overall>=80?"#0d1f14":"#1a1400"},${overall>=80?"#111e18":"#1f1a08"})`:`linear-gradient(135deg,${overall>=80?"#f0fdf4":"#fffbeb"},${overall>=80?"#dcfce7":"#fef3c7"})`,
                         border:`1px solid ${overall>=80?(D?"#1a3025":"#bbf7d0"):(D?"#854d0e40":"#fde68a")}`,borderRadius:10,padding:"10px 14px",flexShrink:0}}>
