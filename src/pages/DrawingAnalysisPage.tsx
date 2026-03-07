@@ -957,26 +957,18 @@ const DrawingAnalysisPage = () => {
   },[]);
 
   const handleFiles=useCallback(async(files: FileList | null)=>{
-    for(const file of Array.from(files||[])){
+    const allFiles = Array.from(files||[]);
+    const pdfFiles = allFiles.filter(f => f.type==="application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
+    const otherFiles = allFiles.filter(f => !pdfFiles.includes(f));
+
+    // Handle non-PDF files as before
+    for(const file of otherFiles){
       const n=file.name.toLowerCase();
       if(file.type.startsWith("image/")||n.endsWith(".webp")||n.endsWith(".avif")){
         const reader=new FileReader();
         reader.onload=e=>{setQueue(prev=>[...prev,{src:e.target!.result,b64:(e.target!.result as string).split(",")[1],mime:file.type||"image/jpeg",name:file.name,type:"image"}]);};
         reader.readAsDataURL(file);
         setTab("analysis");
-      }else if(file.type==="application/pdf"||n.endsWith(".pdf")){
-        setProc({stage:"⏳ فتح الملف...",pct:5});
-        try{
-          const buf = await file.arrayBuffer();
-          const doc = await pdfjsLib.getDocument({ data: buf }).promise;
-          const numPages = doc.numPages;
-          setProc(null);
-          fname=file.name.replace(/\.pdf$/i,"");
-          setPdfSess({file,doc,numPages,thumbs:{} as Record<number,string>,thumbsLoaded:new Set<number>(),mode:"range",
-            rangeStr:`1-${Math.min(numPages,100)}`,selPages:[] as number[],chunkSize:20,quality:"fast",densities:{} as Record<number,number>});
-          setTab("pdf");
-          loadThumbs(doc,Array.from({length:Math.min(60,numPages)},(_,i)=>i+1));
-        }catch(err: any){setProc(null);pushMsg("assistant",`❌ خطأ في فتح PDF: ${err.message}`);}
       }else if(n.endsWith(".dwg")||n.endsWith(".dxf")){
         const meta=await parseDWG(file);
         const cv=document.createElement("canvas");cv.width=520;cv.height=200;
@@ -995,7 +987,29 @@ const DrawingAnalysisPage = () => {
         setTab("analysis");
       }
     }
-  },[loadThumbs]);
+
+    // Handle PDF files: first one opens directly, rest go to batch
+    if(pdfFiles.length === 1){
+      const file = pdfFiles[0];
+      setProc({stage:"⏳ فتح الملف...",pct:5});
+      try{
+        const buf = await file.arrayBuffer();
+        const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+        const numPages = doc.numPages;
+        setProc(null);
+        fname=file.name.replace(/\.pdf$/i,"");
+        setPdfSess({file,doc,numPages,thumbs:{} as Record<number,string>,thumbsLoaded:new Set<number>(),mode:"range",
+          rangeStr:`1-${Math.min(numPages,100)}`,selPages:[] as number[],chunkSize:20,quality:"fast",densities:{} as Record<number,number>});
+        setTab("pdf");
+        loadThumbs(doc,Array.from({length:Math.min(60,numPages)},(_,i)=>i+1));
+      }catch(err: any){setProc(null);pushMsg("assistant",`❌ خطأ في فتح PDF: ${err.message}`);}
+    } else if(pdfFiles.length > 1){
+      // Multiple PDFs → add all to batch queue
+      const newBatch = pdfFiles.map(f => ({ file: f, name: f.name, category: classifyFile(f.name), status: "pending" as const }));
+      setBatchFiles(prev => [...prev, ...newBatch]);
+      setTab("pdf");
+    }
+  },[loadThumbs, classifyFile]);
 
   // Batch file classification
   const classifyFile = useCallback((name: string): string => {
