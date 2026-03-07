@@ -1721,7 +1721,7 @@ const DrawingAnalysisPage = () => {
                   <button className="bg-btn" onClick={()=>fileRef.current?.click()}>📄 رفع ملف PDF</button>
                   <button className="bo" style={{fontSize:12,padding:"9px 18px"}} onClick={()=>folderRef.current?.click()}>📁 رفع مجلد</button>
                 </div>
-                <input ref={fileRef} type="file" accept=".pdf" style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
+                <input ref={fileRef} type="file" accept=".pdf" multiple style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
                 <input ref={folderRef} type="file" accept=".pdf" multiple style={{display:"none"}} {...{webkitdirectory:"",directory:""} as any} onChange={e=>handleBatchFiles(e.target.files)}/>
                 {/* Batch File Manager */}
                 {batchFiles.length > 0 && (
