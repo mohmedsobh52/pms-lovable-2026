@@ -746,6 +746,11 @@ const DrawingAnalysisPage = () => {
   const [showExportToProject, setShowExportToProject] = useState(false);
   const [savedProjects, setSavedProjects] = useState<any[]>([]);
   const [exportingToProject, setExportingToProject] = useState(false);
+  // Batch file management
+  const [batchFiles, setBatchFiles] = useState<{file:File;name:string;category:string;status:"pending"|"analyzing"|"done"|"error";result?:string}[]>([]);
+  const [batchAnalyzing, setBatchAnalyzing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(0);
+  const folderRef = useRef<HTMLInputElement>(null);
   const totalTokens = useMemo(()=>msgs.reduce((s: number,m: any)=>s+(m.tokens||0),0),[msgs]);
   const boqCount = useMemo(()=>(msgs.filter((m: any)=>m.role==="assistant").map((m: any)=>m.content||"").join("\n").match(/KSA-[A-Z]{2,6}-/g)||[]).length,[msgs]);
 
