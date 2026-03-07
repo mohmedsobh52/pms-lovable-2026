@@ -1658,11 +1658,46 @@ const DrawingAnalysisPage = () => {
                 </div>
               </div>
             ):(
-              <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:14}}>
+              <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:20}}>
                 <div style={{fontSize:48}}>📄</div>
                 <div style={{fontSize:14,color:T.t3}}>لا يوجد ملف PDF محمّل</div>
-                <button className="bg-btn" onClick={()=>fileRef.current?.click()}>📁 رفع ملف PDF</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button className="bg-btn" onClick={()=>fileRef.current?.click()}>📄 رفع ملف PDF</button>
+                  <button className="bo" style={{fontSize:12,padding:"9px 18px"}} onClick={()=>folderRef.current?.click()}>📁 رفع مجلد</button>
+                </div>
                 <input ref={fileRef} type="file" accept=".pdf" style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
+                <input ref={folderRef} type="file" accept=".pdf" multiple style={{display:"none"}} {...{webkitdirectory:"",directory:""} as any} onChange={e=>handleBatchFiles(e.target.files)}/>
+                {/* Batch File Manager */}
+                {batchFiles.length > 0 && (
+                  <div className="card" style={{width:"100%",maxWidth:700,padding:14}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                      <span style={{fontSize:12,fontWeight:700,color:T.gold}}>📂 ملفات مجمعة ({batchFiles.length})</span>
+                      <div style={{display:"flex",gap:6}}>
+                        <button className="fe-btn" style={{fontSize:10,padding:"5px 14px"}} onClick={runBatchAnalysis} disabled={batchAnalyzing}>
+                          {batchAnalyzing?"⏳ جاري...":"▶️ تحليل الكل"}
+                        </button>
+                        <button className="bo" style={{fontSize:9}} onClick={()=>setBatchFiles([])}>🗑️ مسح</button>
+                      </div>
+                    </div>
+                    {batchAnalyzing && <div className="prog" style={{marginBottom:8}}><div className="prog-f" style={{background:`linear-gradient(90deg,${T.grn},#4ade80)`,width:`${batchProgress}%`}}/></div>}
+                    <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:300,overflowY:"auto"}}>
+                      {batchFiles.map((bf, i) => (
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:8,border:`1px solid ${T.bd}`,background:bf.status==="done"?(D?"#064e3b20":"#dcfce720"):bf.status==="error"?(D?"#450a0a20":"#fee2e220"):T.bg3}}>
+                          <span style={{fontSize:14}}>{bf.status==="done"?"✅":bf.status==="error"?"❌":bf.status==="analyzing"?"⏳":"📄"}</span>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:10,fontWeight:600,color:T.t1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{bf.name}</div>
+                            <div style={{fontSize:8,color:T.t3}}>{(bf.file.size / 1024).toFixed(0)} KB</div>
+                          </div>
+                          <select value={bf.category} onChange={e=>setBatchFiles(prev=>prev.map((f,idx)=>idx===i?{...f,category:e.target.value}:f))}
+                            style={{background:T.bg3,border:`1px solid ${T.bd}`,color:DRAW_TYPES[bf.category]?.color||T.t2,padding:"3px 8px",borderRadius:6,fontSize:9,fontWeight:700,fontFamily:"inherit"}}>
+                            {Object.entries(DRAW_TYPES).map(([k,v])=><option key={k} value={k}>{v.ar}</option>)}
+                          </select>
+                          <button onClick={()=>setBatchFiles(prev=>prev.filter((_,idx)=>idx!==i))} style={{background:"none",border:"none",color:T.t3,cursor:"pointer",fontSize:12}}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )
           )}
