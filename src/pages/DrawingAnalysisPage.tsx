@@ -956,6 +956,20 @@ const DrawingAnalysisPage = () => {
     }
   },[]);
 
+  // Batch file classification
+  const classifyFile = useCallback((name: string): string => {
+    const n = name.toLowerCase();
+    if (/plan|مسقط|layout|general|key.*plan|site/i.test(n)) return "PLAN";
+    if (/profile|طولي|longitudinal/i.test(n)) return "PROFILE";
+    if (/section|عرضي|cross|typical/i.test(n)) return "SECTION";
+    if (/detail|تفصيل/i.test(n)) return "DETAIL";
+    if (/boq|كمي|bill|quantity|pricing/i.test(n)) return "BOQ";
+    if (/spec|مواصفات/i.test(n)) return "SPEC";
+    if (/struct|إنشائي|reinforce/i.test(n)) return "STRUCT";
+    if (/road|طريق|أسفلت|pavement/i.test(n)) return "ROAD";
+    return "PLAN";
+  }, []);
+
   const handleFiles=useCallback(async(files: FileList | null)=>{
     const allFiles = Array.from(files||[]);
     const pdfFiles = allFiles.filter(f => f.type==="application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
@@ -1011,20 +1025,6 @@ const DrawingAnalysisPage = () => {
     }
   },[loadThumbs, classifyFile]);
 
-  // Batch file classification
-  const classifyFile = useCallback((name: string): string => {
-    const n = name.toLowerCase();
-    if (/plan|مسقط|layout|general|key.*plan|site/i.test(n)) return "PLAN";
-    if (/profile|طولي|longitudinal/i.test(n)) return "PROFILE";
-    if (/section|عرضي|cross|typical/i.test(n)) return "SECTION";
-    if (/detail|تفصيل/i.test(n)) return "DETAIL";
-    if (/boq|كمي|bill|quantity|pricing/i.test(n)) return "BOQ";
-    if (/spec|مواصفات/i.test(n)) return "SPEC";
-    if (/struct|إنشائي|reinforce/i.test(n)) return "STRUCT";
-    if (/road|طريق|أسفلت|pavement/i.test(n)) return "ROAD";
-    return "PLAN";
-  }, []);
-
   const handleBatchFiles = useCallback((files: FileList | null) => {
     if (!files) return;
     const newFiles = Array.from(files)
@@ -1034,63 +1034,6 @@ const DrawingAnalysisPage = () => {
     setBatchFiles(prev => [...prev, ...newFiles]);
     setTab("pdf");
   }, [classifyFile]);
-
-  const runBatchAnalysis = useCallback(async () => {
-    if (batchFiles.length === 0) return;
-    setBatchAnalyzing(true);
-    setBatchProgress(0);
-    for (let i = 0; i < batchFiles.length; i++) {
-      if (batchFiles[i].status === "done") continue;
-      setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "analyzing" } : f));
-      try {
-        // Open PDF
-        const buf = await batchFiles[i].file.arrayBuffer();
-        const doc = await pdfjsLib.getDocument({ data: buf }).promise;
-        const numPages = doc.numPages;
-        fname = batchFiles[i].name.replace(/\.pdf$/i, "");
-
-        // Add file separator message
-        pushMsg("assistant", `\n---\n## 📁 ملف ${i+1}/${batchFiles.length}: ${batchFiles[i].name} (${numPages} صفحة)\n---`);
-
-        // Create session for this file
-        const sess = {
-          file: batchFiles[i].file, doc, numPages,
-          thumbs: {} as Record<number,string>,
-          thumbsLoaded: new Set<number>(),
-          mode: "range" as string,
-          rangeStr: `1-${Math.min(numPages, 100)}`,
-          selPages: [] as number[],
-          chunkSize: 20,
-          quality: "fast" as string,
-          densities: {} as Record<number,number>
-        };
-        setPdfSess(sess);
-
-        // Create promise to await analysis completion
-        const analysisPromise = new Promise<void>(resolve => {
-          analysisCompleteResolve.current = resolve;
-        });
-
-        // Small delay for state to settle, then run extraction with session override
-        await new Promise(r => setTimeout(r, 150));
-        await runExtraction(null, sess);
-        // Wait for completion signal (in case runExtraction is still processing)
-        await analysisPromise;
-
-        setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "done" } : f));
-      } catch (err: any) {
-        setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "error", result: err.message } : f));
-        // Reset resolve ref on error
-        if(analysisCompleteResolve.current){
-          analysisCompleteResolve.current();
-          analysisCompleteResolve.current = null;
-        }
-      }
-      setBatchProgress(Math.round(((i + 1) / batchFiles.length) * 100));
-    }
-    setBatchAnalyzing(false);
-    pushMsg("assistant", `\n---\n## ✅ اكتمل تحليل ${batchFiles.length} ملف بنجاح\n---`);
-  }, [batchFiles, runExtraction]);
 
   // ═══ ANALYSIS ENGINE v9 ═══
   const runExtraction=useCallback(async(resumeFrom: any=null, sessionOverride?: any)=>{
