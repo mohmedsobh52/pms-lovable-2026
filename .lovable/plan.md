@@ -1,21 +1,34 @@
 
 
-# إضافة زر حفظ المشروع وتحسينات مقترحة
+# إصلاح أخطاء شاشة تحليل المخططات
 
-## التغييرات المطلوبة
+## الأخطاء المكتشفة
 
-### 1. إضافة زر "حفظ المشروع" أعلى محتوى صفحة تفاصيل المشروع
-إضافة زر بتصميم مطابق للصورة (أيقونة حفظ + نص "حفظ المشروع") في `ProjectDetailsPage.tsx` أعلى التبويبات مباشرة. الزر سيقوم بحفظ/تحديث بيانات المشروع والبنود في قاعدة البيانات مع إشعار نجاح.
+### 1. خطأ قاتل: `Cannot access 'selPages' before initialization` (Runtime Error)
+**السبب**: دالة `selPages` معرّفة بـ `useCallback` في السطر 1029، لكنها تُستخدم قبل ذلك في `useMemo` الخاص بـ `configSuggestions` (سطر 823):
+```
+if(pdfSess && selPages(pdfSess).length === 0) // ← سطر 823 — قبل التعريف!
+```
+هذا يسبب خطأ TDZ (Temporal Dead Zone) في JavaScript ويُسقط الصفحة بالكامل.
 
-### 2. إضافة قسم "اقتراحات للتحسين" في تبويب النظرة العامة
-إضافة بطاقة ذكية في `ProjectOverviewTab.tsx` تعرض اقتراحات ديناميكية بناءً على حالة المشروع:
-- إذا لم يكتمل التسعير: "أكمل تسعير البنود المتبقية"
-- إذا كانت هناك بنود بكمية صفرية: "راجع البنود ذات الكمية الصفرية"
-- إذا لم يتم رفع مستندات: "أرفق المستندات المرجعية للمشروع"
-- إذا لم يتم ربط عقد: "أضف عقد للمشروع"
-- إذا كان التسعير أقل من 50%: "استخدم التسعير التلقائي لتسريع العملية"
+**الإصلاح**: نقل `selPages` useCallback إلى **قبل** `configSuggestions` useMemo (قبل سطر 758).
 
-### الملفات المتأثرة
-- **تعديل:** `src/pages/ProjectDetailsPage.tsx` - إضافة زر الحفظ ومنطق الحفظ
-- **تعديل:** `src/components/project-details/ProjectOverviewTab.tsx` - إضافة بطاقة الاقتراحات
+### 2. تحذير React: `Function components cannot be given refs`
+**السبب**: مكون `SmartSuggestions` (سطر 572) و `PageTransition` يتلقيان refs بدون `React.forwardRef`.
+
+**الإصلاح**: لف `SmartSuggestions` بـ `React.forwardRef` — أو الأبسط: التأكد من عدم تمرير ref إليه. بما أن التحذير من `PageLayout`، هذا ثانوي ولكن يُنظّف.
+
+### 3. مشاكل محتملة في تسلسل الـ hooks
+بعد نقل `selPages`، يجب التأكد من أن جميع المتغيرات التي يعتمد عليها (مثل `parseRange`) معرّفة قبله.
+
+## الملف المتأثر
+
+| الملف | التعديل |
+|-------|---------|
+| `src/pages/DrawingAnalysisPage.tsx` | نقل `selPages` + `pushMsg` + `suggestChunkSize` للأعلى قبل `configSuggestions`، إصلاح `SmartSuggestions` ref warning |
+
+## التغييرات
+1. نقل كتلة `selPages` useCallback (سطر 1027-1034) إلى ما بعد تعريفات الـ state مباشرة (بعد سطر 755)
+2. نقل `pushMsg` معها لأنها بنفس المنطقة
+3. لف `SmartSuggestions` بـ `React.memo` لإزالة تحذير الـ ref
 
