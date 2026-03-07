@@ -135,12 +135,66 @@ function detectScale(text: string): string | null {
   return null;
 }
 
+interface PipeDetail {
+  diameter: number;
+  material: string | null;
+  type: string | null;
+  pnClass: string | null;
+}
+
 function extractPipeDiameters(text: string): number[] {
+  return extractPipeDetails(text).map(p => p.diameter);
+}
+
+function extractPipeDetails(text: string): PipeDetail[] {
   if (!text) return [];
-  const found = new Set<number>();
-  const patterns = [/[ØøΦ]\s*(\d{2,4})\s*(?:mm)?/gi, /DN\s*(\d{2,4})/gi, /Ø\s*(\d{2,4})/gi, /قطر\s+(\d{2,4})\s*(?:مم|mm)/gi, /ID\s*=?\s*(\d{2,4})\s*(?:mm)/gi];
-  patterns.forEach(p => { let m; while ((m = p.exec(text)) !== null) { const d = parseInt(m[1]); if (d >= 50 && d <= 3000) found.add(d); } });
-  return [...found].sort((a,b)=>a-b);
+  const found = new Map<number, PipeDetail>();
+  // Diameter patterns
+  const diamPatterns = [
+    /[ØøΦ]\s*(\d{2,4})\s*(?:mm)?/gi,
+    /DN\s*(\d{2,4})/gi,
+    /Ø\s*(\d{2,4})/gi,
+    /قطر\s+(\d{2,4})\s*(?:مم|mm)/gi,
+    /ID\s*=?\s*(\d{2,4})\s*(?:mm)/gi,
+    /OD\s*=?\s*(\d{2,4})\s*(?:mm)/gi,
+    /NB\s*(\d{2,4})/gi,
+    /NPS\s*(\d{1,3})/gi,
+    /قطر\s*(?:خارجي|داخلي)\s*(\d{2,4})/gi,
+  ];
+  // Material detection near diameter
+  const matPatterns: [RegExp, string][] = [
+    [/PVC|UPVC|uPVC/i, "PVC"],
+    [/HDPE|PE100|PE80|بولي\s*إيثيلين/i, "HDPE"],
+    [/DI|دكتايل|ductile/i, "DI"],
+    [/GRP|FRP|فايبر/i, "GRP"],
+    [/RCP|كونكريت|خرسان/i, "RCP"],
+    [/PP|بولي\s*بروبيلين/i, "PP"],
+    [/Steel|حديد|فولاذ/i, "Steel"],
+    [/Corrugated|مموج/i, "Corrugated HDPE"],
+  ];
+  const pnPatterns = /(?:PN|SN|SDR)\s*(\d+(?:\.\d+)?)/gi;
+
+  diamPatterns.forEach(p => {
+    let m;
+    while ((m = p.exec(text)) !== null) {
+      const d = parseInt(m[1]);
+      if (d >= 50 && d <= 3000) {
+        const ctx = text.substring(Math.max(0, m.index - 80), Math.min(text.length, m.index + 80));
+        let material: string | null = null;
+        for (const [mp, mn] of matPatterns) {
+          if (mp.test(ctx)) { material = mn; break; }
+        }
+        let pnClass: string | null = null;
+        const pnMatch = ctx.match(pnPatterns);
+        if (pnMatch) pnClass = pnMatch[0];
+
+        if (!found.has(d) || (material && !found.get(d)!.material)) {
+          found.set(d, { diameter: d, material, type: material ? (material.includes("PE") ? "pressure" : "gravity") : null, pnClass });
+        }
+      }
+    }
+  });
+  return [...found.values()].sort((a, b) => a.diameter - b.diameter);
 }
 
 function extractInvertLevels(text: string): string[] {
