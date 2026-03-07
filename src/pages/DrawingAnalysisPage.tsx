@@ -1059,11 +1059,12 @@ const DrawingAnalysisPage = () => {
   }, [batchFiles]);
 
   // ═══ ANALYSIS ENGINE v9 ═══
-  const runExtraction=useCallback(async(resumeFrom: any=null)=>{
-    if(!pdfSess)return;
-    const pages=selPages(pdfSess);
+  const runExtraction=useCallback(async(resumeFrom: any=null, sessionOverride?: any)=>{
+    const sess = sessionOverride || pdfSess;
+    if(!sess)return;
+    const pages=selPages(sess);
     if(!pages.length)return;
-    const{doc,chunkSize,quality,file}=pdfSess;
+    const{doc,chunkSize,quality,file}=sess;
     const isFast=quality==="fast"||quality==="hybrid";
     const isHybrid=quality==="hybrid";
     const isVisual=!isFast;
