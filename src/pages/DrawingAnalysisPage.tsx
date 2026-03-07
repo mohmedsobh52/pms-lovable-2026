@@ -1129,7 +1129,7 @@ const DrawingAnalysisPage = () => {
         scales:[...allScales],
       };
       setXStats(stats);
-      setPdfSess((prev: any)=>({...prev,densities:densMap}));
+      setPdfSess((prev: any)=>prev ? ({...prev,densities:densMap}) : prev);
       setInfraMeta({drawTypes:topTypes,scales:[...allScales],diameters:[...allDiams].sort((a,b)=>a-b),typeCount,extractedData});
     }
 
