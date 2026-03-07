@@ -15,8 +15,14 @@ const SAR_REF_2025 = `
 ══ أسعار السوق السعودي 2025 (مرجع إلزامي — أبلغ عن أي انحراف) ══
 EARTHWORKS:
 • حفر خنادق يدوي: 45–80 SAR/م³ | آلي: 35–65 | صخر: 150–280
+• حفر في تربة رملية: 25–45 SAR/م³ | طينية: 35–60 | صخرية: 150–280 | مختلطة: 65–120
 • ردم داخلي مدموك: 20–40 SAR/م³ | ردم رملي: 30–50 | تخلص موقع: 25–45 | نقل خارج: 35–60
 • حفر عام: 18–35 SAR/م³ | رمل تسوية: 60–90 | حجر أساس مدموك: 95–130
+• فرشة رملية (bedding) 150mm: 25–40 SAR/م³ | 200mm: 30–50
+• دمك ميكانيكي: 8–15 SAR/م² | اختبار بروكتور: 350–600 SAR/اختبار | اختبار CBR: 800–1200
+• إزالة أسفلت قديم: 25–45 SAR/م² | تكسير خرسانة: 85–150 SAR/م³
+• معادلة الحفر: العرض × العمق × الطول لكل خط
+• معادلة الردم: حجم الحفر − حجم الأنبوب − حجم الفرشة
 
 CONCRETE & STRUCTURAL:
 • نظافة C15: 280–350 SAR/م³ | C25: 380–450 | C30: 420–500 | C35: 480–560
@@ -26,24 +32,44 @@ CONCRETE & STRUCTURAL:
 
 GRAVITY SEWER & DRAINAGE:
 • PVC SN8 Ø150: 60–85 SAR/م.ط | Ø200: 85–120 | Ø250: 115–155 | Ø300: 140–185 | Ø400: 210–270 | Ø500: 290–370
-• HDPE PE100 Ø110: 55–80 SAR/م.ط | Ø160: 95–130 | Ø200: 130–175 | Ø250: 180–240 | Ø315: 250–330
+• UPVC SN4 Ø110: 35–55 SAR/م.ط | Ø160: 55–80 | Ø200: 70–100 | Ø250: 90–130 | Ø315: 130–175
+• HDPE PE100 Ø75: 35–55 SAR/م.ط | Ø110: 55–80 | Ø125: 65–90 | Ø160: 95–130 | Ø200: 130–175 | Ø250: 180–240 | Ø315: 250–330 | Ø355: 300–400 | Ø450: 420–560 | Ø560: 600–800 | Ø630: 750–1000 | Ø710: 900–1200 | Ø800: 1050–1400
+• Corrugated HDPE SN8 Ø200: 45–70 SAR/م.ط | Ø300: 75–110 | Ø400: 120–170 | Ø500: 170–240 | Ø600: 240–340
+• PP (بولي بروبيلين) SN8 Ø160: 55–80 SAR/م.ط | Ø200: 75–105 | Ø250: 100–140 | Ø315: 145–200
+• Steel pipe Ø150: 180–260 SAR/م.ط | Ø200: 240–340 | Ø300: 380–520 | Ø400: 550–750 | (coated/lined +20%)
 • GRP (FRP) Ø400: 290–380 SAR/م.ط | Ø500: 380–520 | Ø600: 480–640 | Ø700: 620–800 | Ø800: 750–980 | Ø900: 850–1100 | Ø1000: 980–1280 | Ø1200: 1400–1800
 • DI (طي دكتايل) Ø100: 180–240 SAR/م.ط | Ø150: 240–320 | Ø200: 310–420 | Ø300: 480–630
 • غرفة صرف Ø1000: 3,500–5,500 SAR | Ø1200: 4,500–7,000 | Ø1500: 7,000–12,000 | Ø1800: 12,000–18,000
 • إطار وغطاء حديد زهر: 450–750 SAR/قطعة | D400: 650–900
 
+PIPE FITTINGS & ACCESSORIES:
+• كوع PVC 90° Ø200: 45–75 SAR | Ø300: 80–130 | Ø400: 150–220
+• تي PVC Ø200: 55–90 SAR | Ø300: 100–160 | Ø400: 180–280
+• ريديوسر PVC: 35–65 SAR | HDPE: 45–85
+• فلانجة HDPE Ø110: 120–180 SAR | Ø200: 200–320 | Ø315: 350–520
+• وصلة جيبلاند (gibault) Ø100: 85–130 SAR | Ø200: 150–240 | Ø300: 250–380
+• شريط تحذيري: 2–5 SAR/م.ط | لبادة حماية: 15–30 SAR/م²
+• خرسانة إحاطة (concrete encasement): 380–520 SAR/م.ط
+
 WATER SUPPLY:
 • DI PN16 Ø100: 200–280 SAR/م.ط | Ø150: 280–380 | Ø200: 360–490 | Ø300: 580–780 | Ø400: 850–1100
+• HDPE PN10 Ø63: 35–55 SAR/م.ط | Ø90: 55–80 | Ø110: 70–100 | Ø160: 110–155 | Ø200: 145–200
 • HDPE PN12.5 Ø63: 45–70 SAR/م.ط | Ø90: 70–100 | Ø110: 90–125 | Ø160: 140–190 | Ø200: 180–250
+• HDPE PN16 Ø63: 55–85 SAR/م.ط | Ø90: 85–120 | Ø110: 110–155 | Ø160: 170–235 | Ø200: 220–310
 • صمام بوابة: Ø100: 450–650 SAR | Ø150: 700–1000 | Ø200: 1000–1500 | Ø300: 2500–3500
 • صمام هواء: 350–600 SAR/قطعة | كتلة دفع C25: 180–350 SAR/م³
 
 ROADS & PAVEMENT:
-• رصف أسفلتي سطحي 50mm: 180–240 SAR/م² | 60mm: 210–275 | 75mm: 240–310
-• طبقة رابطة 60mm: 155–200 SAR/م² | أساس أسفلتي: 130–180
-• طبقة أساس مدموكة (مجروش) 200mm: 120–160 SAR/م² | 300mm: 165–215
+• رصف أسفلتي سطحي (Wearing Course) 50mm: 180–240 SAR/م² | 60mm: 210–275 | 75mm: 240–310
+• طبقة رابطة (Binder Course) 60mm: 155–200 SAR/م² | 70mm: 175–225
+• أساس أسفلتي (Base Course) 80mm: 130–180 SAR/م² | 100mm: 155–210
+• طبقة أساس حجري مدموكة (Sub-base) 200mm: 85–120 SAR/م² | 300mm: 120–165 | 400mm: 160–215
+• طبقة أساس مدموكة (مجروش/Aggregate Base) 200mm: 120–160 SAR/م² | 300mm: 165–215
+• طبقة تأسيس (Sub-grade) تحسين: 45–75 SAR/م² | جيوتكستايل: 18–35 SAR/م²
+• Prime Coat MC-70: 8–15 SAR/م² | Tack Coat: 5–10 SAR/م²
 • حواجز خرسانية نيوجرسي: 380–520 SAR/م.ط | رصيف: 85–130 | حافة طريق: 55–90
 • علامات مرورية: 180–320 SAR/م² | أعمدة: 850–1400/قطعة | إرشادية: 1200–2500
+• معادلة الأسفلت: المساحة × السماكة لكل طبقة
 
 STORMWATER & MARINE:
 • بلاعة أمطار بوكس: 1,800–3,200 SAR/قطعة | شبكية: 1,200–2,000
@@ -109,12 +135,66 @@ function detectScale(text: string): string | null {
   return null;
 }
 
+interface PipeDetail {
+  diameter: number;
+  material: string | null;
+  type: string | null;
+  pnClass: string | null;
+}
+
 function extractPipeDiameters(text: string): number[] {
+  return extractPipeDetails(text).map(p => p.diameter);
+}
+
+function extractPipeDetails(text: string): PipeDetail[] {
   if (!text) return [];
-  const found = new Set<number>();
-  const patterns = [/[ØøΦ]\s*(\d{2,4})\s*(?:mm)?/gi, /DN\s*(\d{2,4})/gi, /Ø\s*(\d{2,4})/gi, /قطر\s+(\d{2,4})\s*(?:مم|mm)/gi, /ID\s*=?\s*(\d{2,4})\s*(?:mm)/gi];
-  patterns.forEach(p => { let m; while ((m = p.exec(text)) !== null) { const d = parseInt(m[1]); if (d >= 50 && d <= 3000) found.add(d); } });
-  return [...found].sort((a,b)=>a-b);
+  const found = new Map<number, PipeDetail>();
+  // Diameter patterns
+  const diamPatterns = [
+    /[ØøΦ]\s*(\d{2,4})\s*(?:mm)?/gi,
+    /DN\s*(\d{2,4})/gi,
+    /Ø\s*(\d{2,4})/gi,
+    /قطر\s+(\d{2,4})\s*(?:مم|mm)/gi,
+    /ID\s*=?\s*(\d{2,4})\s*(?:mm)/gi,
+    /OD\s*=?\s*(\d{2,4})\s*(?:mm)/gi,
+    /NB\s*(\d{2,4})/gi,
+    /NPS\s*(\d{1,3})/gi,
+    /قطر\s*(?:خارجي|داخلي)\s*(\d{2,4})/gi,
+  ];
+  // Material detection near diameter
+  const matPatterns: [RegExp, string][] = [
+    [/PVC|UPVC|uPVC/i, "PVC"],
+    [/HDPE|PE100|PE80|بولي\s*إيثيلين/i, "HDPE"],
+    [/DI|دكتايل|ductile/i, "DI"],
+    [/GRP|FRP|فايبر/i, "GRP"],
+    [/RCP|كونكريت|خرسان/i, "RCP"],
+    [/PP|بولي\s*بروبيلين/i, "PP"],
+    [/Steel|حديد|فولاذ/i, "Steel"],
+    [/Corrugated|مموج/i, "Corrugated HDPE"],
+  ];
+  const pnPatterns = /(?:PN|SN|SDR)\s*(\d+(?:\.\d+)?)/gi;
+
+  diamPatterns.forEach(p => {
+    let m;
+    while ((m = p.exec(text)) !== null) {
+      const d = parseInt(m[1]);
+      if (d >= 50 && d <= 3000) {
+        const ctx = text.substring(Math.max(0, m.index - 80), Math.min(text.length, m.index + 80));
+        let material: string | null = null;
+        for (const [mp, mn] of matPatterns) {
+          if (mp.test(ctx)) { material = mn; break; }
+        }
+        let pnClass: string | null = null;
+        const pnMatch = ctx.match(pnPatterns);
+        if (pnMatch) pnClass = pnMatch[0];
+
+        if (!found.has(d) || (material && !found.get(d)!.material)) {
+          found.set(d, { diameter: d, material, type: material ? (material.includes("PE") ? "pressure" : "gravity") : null, pnClass });
+        }
+      }
+    }
+  });
+  return [...found.values()].sort((a, b) => a.diameter - b.diameter);
 }
 
 function extractInvertLevels(text: string): string[] {
@@ -181,6 +261,22 @@ ${projectCtx}
 أ) أعلن نوع كل مخطط فوراً: [PLN] [PRF] [XSC] [STR] [MHC] [BOQ] [SPC] [MAR]
 ب) حسب النوع — طبّق البروتوكول المناسب
 جدول BOQ الكامل بترميز KSA + أسعار SAR من المرجع المرفق.
+
+══ بروتوكول المواسير (إلزامي) ══
+• لكل خط أنابيب: اذكر المادة (PVC/UPVC/HDPE/DI/GRP/PP/Steel/RCP) + القطر + PN/SN/SDR
+• احسب أطوال الأنابيب من القطاعات الطولية (المسافة بين الغرف)
+• احسب الوصلات والملحقات لكل خط: كوع، تي، ريديوسر، فلانجة
+
+══ بروتوكول الحفر والردم ══
+• حفر الخنادق: العرض × العمق × الطول لكل خط (من GL إلى IL + 150mm فرشة)
+• الردم = حجم الحفر − حجم الأنبوب − حجم الفرشة الرملية
+• حدد نوع التربة إن أمكن (رملية/طينية/صخرية)
+
+══ بروتوكول الأسفلت والطرق ══
+• لكل طبقة: المساحة × السماكة = الحجم
+• الطبقات: Sub-grade → Sub-base → Base Course → Binder → Wearing Course
+• Prime Coat و Tack Coat: بالمساحة (م²)
+
 ${SAR_REF_2025}
 
 ✅ تحقق: هل المقاسات متسقة؟ | هل الميول منطقية؟ | هل يوجد تعارض بين مقطعين؟`;
@@ -439,11 +535,14 @@ const TMPL = [
   {i:"🔍",l:"مراجعة الامتثال",  p:"مراجعة شاملة MOT/NWC/SBC/MOMRA: كل بند مع رقم المعيار، الحالة ✓/✗، التصحيح المطلوب."},
   {i:"📉",l:"قطاع طولي",         p:"حلّل القطاع الطولي: منسوب GL و IL لكل غرفة | ميل الأنبوب (‰) | طول كل وصلة | أعماق الحفر (GL–IL)."},
   {i:"✂️",l:"قطاع عرضي",         p:"حلّل القطاع العرضي: عرض الطريق/الخندق | طبقات الرصف | الميل العرضي | متطلبات MOT."},
-  {i:"🏗️",l:"كميات الحفر",      p:"جدول كميات الحفر والردم المفصّل: حفر خنادق، حفر عام، ردم داخلي، ردم رملي، تخلص بعيد — بالم³."},
+  {i:"🏗️",l:"كميات الحفر",      p:"جدول كميات الحفر والردم المفصّل: حفر خنادق، حفر عام، ردم داخلي، ردم رملي، تخلص بعيد — بالم³. معادلة: العرض × العمق × الطول."},
   {i:"📊",l:"ملخص تنفيذي",      p:"ملخص تنفيذي 5 نقاط: حجم العمل، التكلفة الإجمالية SAR، المخاطر الرئيسية، فرص التوفير، توصيات."},
   {i:"🔤",l:"OCR نصوص",         p:"استخرج منظماً: Title Block | الأبعاد | أقطار الأنابيب | مستويات GL,IL,EGL,TW,INV | الإحداثيات."},
   {i:"🌊",l:"تصريف بحري",        p:"حلّل منظومة التصريف البحري: خط الـ outfall | موزعات الـ diffuser | BOQ مفصّل."},
   {i:"🔩",l:"جدول غرف MH",       p:"استخرج جدول الغرف الكامل: رقم الغرفة | Inv In/Out | منسوب GL | قطر الغرفة | BOQ تجميعي."},
+  {i:"🔧",l:"مواسير تفصيلي",    p:"حلّل جميع خطوط الأنابيب: المادة (PVC/HDPE/DI/GRP/PP/Steel) + القطر + PN/SN + الطول + الوصلات (كوع/تي/ريديوسر/فلانجة) + خرسانة إحاطة."},
+  {i:"🛣️",l:"حفر وردم تفصيلي", p:"جدول حفر وردم مفصّل لكل غرفة وخط: حجم الحفر (العرض×العمق×الطول) | حجم الفرشة | حجم الردم (الحفر−الأنبوب−الفرشة) | التخلص."},
+  {i:"🛤️",l:"أعمال الأسفلت",    p:"حلّل أعمال الأسفلت: لكل طبقة (Sub-base/Base/Binder/Wearing) احسب المساحة×السماكة | Prime Coat | Tack Coat | حواجز | رصيف."},
 ];
 const FT: Record<string,{c:string;i:string}> = {image:{c:"#2563eb",i:"🖼️"},pdf:{c:"#dc2626",i:"📄"},dwg:{c:"#16a34a",i:"📐"}};
 const QP: Record<string,{scale:number;quality:number;label:string;desc:string;tokEst:number;parallel:number}> = {
@@ -647,6 +746,11 @@ const DrawingAnalysisPage = () => {
   const [showExportToProject, setShowExportToProject] = useState(false);
   const [savedProjects, setSavedProjects] = useState<any[]>([]);
   const [exportingToProject, setExportingToProject] = useState(false);
+  // Batch file management
+  const [batchFiles, setBatchFiles] = useState<{file:File;name:string;category:string;status:"pending"|"analyzing"|"done"|"error";result?:string}[]>([]);
+  const [batchAnalyzing, setBatchAnalyzing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(0);
+  const folderRef = useRef<HTMLInputElement>(null);
   const totalTokens = useMemo(()=>msgs.reduce((s: number,m: any)=>s+(m.tokens||0),0),[msgs]);
   const boqCount = useMemo(()=>(msgs.filter((m: any)=>m.role==="assistant").map((m: any)=>m.content||"").join("\n").match(/KSA-[A-Z]{2,6}-/g)||[]).length,[msgs]);
 
@@ -872,6 +976,53 @@ const DrawingAnalysisPage = () => {
       }
     }
   },[loadThumbs]);
+
+  // Batch file classification
+  const classifyFile = useCallback((name: string): string => {
+    const n = name.toLowerCase();
+    if (/plan|مسقط|layout|general|key.*plan|site/i.test(n)) return "PLAN";
+    if (/profile|طولي|longitudinal/i.test(n)) return "PROFILE";
+    if (/section|عرضي|cross|typical/i.test(n)) return "SECTION";
+    if (/detail|تفصيل/i.test(n)) return "DETAIL";
+    if (/boq|كمي|bill|quantity|pricing/i.test(n)) return "BOQ";
+    if (/spec|مواصفات/i.test(n)) return "SPEC";
+    if (/struct|إنشائي|reinforce/i.test(n)) return "STRUCT";
+    if (/road|طريق|أسفلت|pavement/i.test(n)) return "ROAD";
+    return "PLAN";
+  }, []);
+
+  const handleBatchFiles = useCallback((files: FileList | null) => {
+    if (!files) return;
+    const newFiles = Array.from(files)
+      .filter(f => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"))
+      .map(f => ({ file: f, name: f.name, category: classifyFile(f.name), status: "pending" as const }));
+    if (newFiles.length === 0) return;
+    setBatchFiles(prev => [...prev, ...newFiles]);
+    setTab("pdf");
+  }, [classifyFile]);
+
+  const runBatchAnalysis = useCallback(async () => {
+    if (batchFiles.length === 0) return;
+    setBatchAnalyzing(true);
+    setBatchProgress(0);
+    for (let i = 0; i < batchFiles.length; i++) {
+      if (batchFiles[i].status === "done") continue;
+      setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "analyzing" } : f));
+      try {
+        const buf = await batchFiles[i].file.arrayBuffer();
+        const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+        const numPages = doc.numPages;
+        fname = batchFiles[i].name.replace(/\.pdf$/i, "");
+        setPdfSess({ file: batchFiles[i].file, doc, numPages, thumbs: {} as Record<number,string>, thumbsLoaded: new Set<number>(), mode: "range",
+          rangeStr: `1-${Math.min(numPages, 100)}`, selPages: [] as number[], chunkSize: 20, quality: "fast", densities: {} as Record<number,number> });
+        setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "done" } : f));
+      } catch (err: any) {
+        setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "error", result: err.message } : f));
+      }
+      setBatchProgress(Math.round(((i + 1) / batchFiles.length) * 100));
+    }
+    setBatchAnalyzing(false);
+  }, [batchFiles]);
 
   const pushMsg=(role: string,content: string,extra={})=>setMsgs(prev=>[...prev,{role,content,...extra}]);
 
@@ -1507,11 +1658,46 @@ const DrawingAnalysisPage = () => {
                 </div>
               </div>
             ):(
-              <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:14}}>
+              <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:20}}>
                 <div style={{fontSize:48}}>📄</div>
                 <div style={{fontSize:14,color:T.t3}}>لا يوجد ملف PDF محمّل</div>
-                <button className="bg-btn" onClick={()=>fileRef.current?.click()}>📁 رفع ملف PDF</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button className="bg-btn" onClick={()=>fileRef.current?.click()}>📄 رفع ملف PDF</button>
+                  <button className="bo" style={{fontSize:12,padding:"9px 18px"}} onClick={()=>folderRef.current?.click()}>📁 رفع مجلد</button>
+                </div>
                 <input ref={fileRef} type="file" accept=".pdf" style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
+                <input ref={folderRef} type="file" accept=".pdf" multiple style={{display:"none"}} {...{webkitdirectory:"",directory:""} as any} onChange={e=>handleBatchFiles(e.target.files)}/>
+                {/* Batch File Manager */}
+                {batchFiles.length > 0 && (
+                  <div className="card" style={{width:"100%",maxWidth:700,padding:14}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                      <span style={{fontSize:12,fontWeight:700,color:T.gold}}>📂 ملفات مجمعة ({batchFiles.length})</span>
+                      <div style={{display:"flex",gap:6}}>
+                        <button className="fe-btn" style={{fontSize:10,padding:"5px 14px"}} onClick={runBatchAnalysis} disabled={batchAnalyzing}>
+                          {batchAnalyzing?"⏳ جاري...":"▶️ تحليل الكل"}
+                        </button>
+                        <button className="bo" style={{fontSize:9}} onClick={()=>setBatchFiles([])}>🗑️ مسح</button>
+                      </div>
+                    </div>
+                    {batchAnalyzing && <div className="prog" style={{marginBottom:8}}><div className="prog-f" style={{background:`linear-gradient(90deg,${T.grn},#4ade80)`,width:`${batchProgress}%`}}/></div>}
+                    <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:300,overflowY:"auto"}}>
+                      {batchFiles.map((bf, i) => (
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:8,border:`1px solid ${T.bd}`,background:bf.status==="done"?(D?"#064e3b20":"#dcfce720"):bf.status==="error"?(D?"#450a0a20":"#fee2e220"):T.bg3}}>
+                          <span style={{fontSize:14}}>{bf.status==="done"?"✅":bf.status==="error"?"❌":bf.status==="analyzing"?"⏳":"📄"}</span>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:10,fontWeight:600,color:T.t1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{bf.name}</div>
+                            <div style={{fontSize:8,color:T.t3}}>{(bf.file.size / 1024).toFixed(0)} KB</div>
+                          </div>
+                          <select value={bf.category} onChange={e=>setBatchFiles(prev=>prev.map((f,idx)=>idx===i?{...f,category:e.target.value}:f))}
+                            style={{background:T.bg3,border:`1px solid ${T.bd}`,color:DRAW_TYPES[bf.category]?.color||T.t2,padding:"3px 8px",borderRadius:6,fontSize:9,fontWeight:700,fontFamily:"inherit"}}>
+                            {Object.entries(DRAW_TYPES).map(([k,v])=><option key={k} value={k}>{v.ar}</option>)}
+                          </select>
+                          <button onClick={()=>setBatchFiles(prev=>prev.filter((_,idx)=>idx!==i))} style={{background:"none",border:"none",color:T.t3,cursor:"pointer",fontSize:12}}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )
           )}
@@ -1671,17 +1857,25 @@ const DrawingAnalysisPage = () => {
                     const cats = ["EARTHWORKS","SEWER","CONCRETE","WATER","ROAD","STORM","MARINE","UTILITY","LABOUR","حفر","ردم","خرسان","أنابيب","صرف","مياه"];
                     const catMatches = cats.filter(c=>allText.toUpperCase().includes(c.toUpperCase())).length;
                     const catScore = Math.min(1, catMatches / 3);
-                    const overall = Math.round((descScore*0.25 + unitScore*0.20 + qtyScore*0.20 + priceScore*0.20 + catScore*0.15)*100);
+                    // New: Pipe specification detail score
+                    const pipeSpecMatches = (allText.match(/(?:PVC|UPVC|HDPE|DI|GRP|PP|Steel|RCP)\s*(?:SN|PN|SDR)\s*\d+/gi)||[]).length;
+                    const pipeScore = Math.min(1, pipeSpecMatches / Math.max(1, boqCount * 0.1));
+                    // New: Calculation formula presence score
+                    const formulaMatches = (allText.match(/\d+[.,]?\d*\s*[×x]\s*\d+[.,]?\d*\s*[×x]\s*\d+[.,]?\d*|العرض\s*[×x]\s*العمق|المساحة\s*[×x]\s*السماكة/gi)||[]).length;
+                    const formulaScore = Math.min(1, formulaMatches / Math.max(1, boqCount * 0.05));
+                    const overall = Math.round((descScore*0.20 + unitScore*0.15 + qtyScore*0.15 + priceScore*0.15 + catScore*0.10 + pipeScore*0.13 + formulaScore*0.12)*100);
                     const clr = overall>=80?T.grn:overall>=50?T.gold:"#ef4444";
                     const lbl = overall>=80?"ممتاز":overall>=50?"متوسط":"ضعيف";
                     const metrics = [
-                      {l:"الأوصاف",s:descScore,i:"📝"},{l:"الوحدات",s:unitScore,i:"📏"},{l:"الكميات",s:qtyScore,i:"🔢"},{l:"الأسعار",s:priceScore,i:"💰"},{l:"التصنيفات",s:catScore,i:"🏷️"}
+                      {l:"الأوصاف",s:descScore,i:"📝"},{l:"الوحدات",s:unitScore,i:"📏"},{l:"الكميات",s:qtyScore,i:"🔢"},{l:"الأسعار",s:priceScore,i:"💰"},{l:"التصنيفات",s:catScore,i:"🏷️"},{l:"مواسير",s:pipeScore,i:"🔧"},{l:"معادلات",s:formulaScore,i:"📐"}
                     ];
                     const recs: string[] = [];
                     if(descScore<0.7) recs.push("أضف أوصاف ثنائية اللغة");
                     if(unitScore<0.7) recs.push("تحقق من وحدات القياس");
                     if(priceScore<0.5) recs.push("راجع أسعار SAR المرجعية");
                     if(catScore<0.5) recs.push("فعّل وحدات تحليل إضافية");
+                    if(pipeScore<0.5) recs.push("استخدم قالب 'مواسير تفصيلي' لتحسين مواصفات الأنابيب");
+                    if(formulaScore<0.5) recs.push("استخدم قالب 'حفر وردم' لإضافة معادلات الحساب");
                     return(
                       <div style={{background:D?`linear-gradient(135deg,${overall>=80?"#0d1f14":"#1a1400"},${overall>=80?"#111e18":"#1f1a08"})`:`linear-gradient(135deg,${overall>=80?"#f0fdf4":"#fffbeb"},${overall>=80?"#dcfce7":"#fef3c7"})`,
                         border:`1px solid ${overall>=80?(D?"#1a3025":"#bbf7d0"):(D?"#854d0e40":"#fde68a")}`,borderRadius:10,padding:"10px 14px",flexShrink:0}}>
@@ -1777,16 +1971,17 @@ const DrawingAnalysisPage = () => {
                   onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)}
                   onDrop={e=>{e.preventDefault();setDrag(false);handleFiles(e.dataTransfer.files);}}>
                   <div style={{display:"flex",justifyContent:"center",gap:12,marginBottom:4}}>
-                    {[{c:T.grn,i:"⚡",l:"Fast"},{c:"#2563eb",i:"🔀",l:"Hybrid"},{c:"#2563eb",i:"🖼️",l:"PNG/WebP"},{c:"#dc2626",i:"📄",l:"PDF"},{c:T.grn,i:"📐",l:"DWG"}].map(f=>(
-                      <div key={f.l} style={{textAlign:"center"}}>
+                    {[{c:T.grn,i:"⚡",l:"Fast"},{c:"#2563eb",i:"🔀",l:"Hybrid"},{c:"#2563eb",i:"🖼️",l:"PNG/WebP"},{c:"#dc2626",i:"📄",l:"PDF"},{c:T.grn,i:"📐",l:"DWG"},{c:"#7c3aed",i:"📁",l:"مجلد"}].map(f=>(
+                      <div key={f.l} style={{textAlign:"center"}} onClick={f.l==="مجلد"?(e:any)=>{e.stopPropagation();folderRef.current?.click()}:undefined}>
                         <div style={{fontSize:14}}>{f.i}</div>
                         <div style={{fontSize:7,color:f.c,marginTop:1,fontWeight:600}}>{f.l}</div>
                       </div>
                     ))}
                   </div>
-                  <div style={{fontSize:9,color:T.t3}}>اسحب مخططاً أو أكثر · PNG, JPG, WebP · PDF حتى 10,000 صفحة</div>
+                  <div style={{fontSize:9,color:T.t3}}>اسحب ملفات أو مجلد · PNG, JPG, WebP · PDF حتى 10,000 صفحة</div>
                 </div>
                 <input ref={fileRef} type="file" accept="image/*,.webp,.pdf,.dwg,.dxf" multiple style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
+                <input ref={folderRef} type="file" accept=".pdf" multiple style={{display:"none"}} {...{webkitdirectory:"",directory:""} as any} onChange={e=>handleBatchFiles(e.target.files)}/>
                 <div style={{display:"flex",gap:5,marginBottom:6,alignItems:"center"}}>
                   <button className={`bo ${ocr?"chip on":""}`} style={{fontSize:9,padding:"3px 9px",borderColor:ocr?T.gold:T.bd}} onClick={()=>setOcr(v=>!v)}>🔤 OCR{ocr?" ✓":""}</button>
                   <span style={{fontSize:8,color:T.t3}}>{ocr?"استخراج نصوص وأبعاد":"تحليل هندسي شامل"}</span>
