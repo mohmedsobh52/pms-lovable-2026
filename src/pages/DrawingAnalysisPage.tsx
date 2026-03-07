@@ -1963,16 +1963,17 @@ const DrawingAnalysisPage = () => {
                   onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)}
                   onDrop={e=>{e.preventDefault();setDrag(false);handleFiles(e.dataTransfer.files);}}>
                   <div style={{display:"flex",justifyContent:"center",gap:12,marginBottom:4}}>
-                    {[{c:T.grn,i:"⚡",l:"Fast"},{c:"#2563eb",i:"🔀",l:"Hybrid"},{c:"#2563eb",i:"🖼️",l:"PNG/WebP"},{c:"#dc2626",i:"📄",l:"PDF"},{c:T.grn,i:"📐",l:"DWG"}].map(f=>(
-                      <div key={f.l} style={{textAlign:"center"}}>
+                    {[{c:T.grn,i:"⚡",l:"Fast"},{c:"#2563eb",i:"🔀",l:"Hybrid"},{c:"#2563eb",i:"🖼️",l:"PNG/WebP"},{c:"#dc2626",i:"📄",l:"PDF"},{c:T.grn,i:"📐",l:"DWG"},{c:"#7c3aed",i:"📁",l:"مجلد"}].map(f=>(
+                      <div key={f.l} style={{textAlign:"center"}} onClick={f.l==="مجلد"?(e:any)=>{e.stopPropagation();folderRef.current?.click()}:undefined}>
                         <div style={{fontSize:14}}>{f.i}</div>
                         <div style={{fontSize:7,color:f.c,marginTop:1,fontWeight:600}}>{f.l}</div>
                       </div>
                     ))}
                   </div>
-                  <div style={{fontSize:9,color:T.t3}}>اسحب مخططاً أو أكثر · PNG, JPG, WebP · PDF حتى 10,000 صفحة</div>
+                  <div style={{fontSize:9,color:T.t3}}>اسحب ملفات أو مجلد · PNG, JPG, WebP · PDF حتى 10,000 صفحة</div>
                 </div>
                 <input ref={fileRef} type="file" accept="image/*,.webp,.pdf,.dwg,.dxf" multiple style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
+                <input ref={folderRef} type="file" accept=".pdf" multiple style={{display:"none"}} {...{webkitdirectory:"",directory:""} as any} onChange={e=>handleBatchFiles(e.target.files)}/>
                 <div style={{display:"flex",gap:5,marginBottom:6,alignItems:"center"}}>
                   <button className={`bo ${ocr?"chip on":""}`} style={{fontSize:9,padding:"3px 9px",borderColor:ocr?T.gold:T.bd}} onClick={()=>setOcr(v=>!v)}>🔤 OCR{ocr?" ✓":""}</button>
                   <span style={{fontSize:8,color:T.t3}}>{ocr?"استخراج نصوص وأبعاد":"تحليل هندسي شامل"}</span>
