@@ -1257,7 +1257,56 @@ const DrawingAnalysisPage = () => {
     }
   },[pdfSess,selPages,cfgStr,depth]);
 
-  const mdCache = useRef(new Map<string,string>());
+  const runBatchAnalysis = useCallback(async () => {
+    if (batchFiles.length === 0) return;
+    setBatchAnalyzing(true);
+    setBatchProgress(0);
+    for (let i = 0; i < batchFiles.length; i++) {
+      if (batchFiles[i].status === "done") continue;
+      setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "analyzing" } : f));
+      try {
+        const buf = await batchFiles[i].file.arrayBuffer();
+        const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+        const numPages = doc.numPages;
+        fname = batchFiles[i].name.replace(/\.pdf$/i, "");
+
+        pushMsg("assistant", `\n---\n## 📁 ملف ${i+1}/${batchFiles.length}: ${batchFiles[i].name} (${numPages} صفحة)\n---`);
+
+        const sess = {
+          file: batchFiles[i].file, doc, numPages,
+          thumbs: {} as Record<number,string>,
+          thumbsLoaded: new Set<number>(),
+          mode: "range" as string,
+          rangeStr: `1-${Math.min(numPages, 100)}`,
+          selPages: [] as number[],
+          chunkSize: 20,
+          quality: "fast" as string,
+          densities: {} as Record<number,number>
+        };
+        setPdfSess(sess);
+
+        const analysisPromise = new Promise<void>(resolve => {
+          analysisCompleteResolve.current = resolve;
+        });
+
+        await new Promise(r => setTimeout(r, 150));
+        await runExtraction(null, sess);
+        await analysisPromise;
+
+        setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "done" } : f));
+      } catch (err: any) {
+        setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "error", result: err.message } : f));
+        if(analysisCompleteResolve.current){
+          analysisCompleteResolve.current();
+          analysisCompleteResolve.current = null;
+        }
+      }
+      setBatchProgress(Math.round(((i + 1) / batchFiles.length) * 100));
+    }
+    setBatchAnalyzing(false);
+    pushMsg("assistant", `\n---\n## ✅ اكتمل تحليل ${batchFiles.length} ملف بنجاح\n---`);
+  }, [batchFiles, runExtraction]);
+
   const mdCached = useCallback((text: string) => {
     if (!text) return "";
     if (mdCache.current.has(text)) return mdCache.current.get(text)!;
