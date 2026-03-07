@@ -1043,24 +1043,6 @@ const DrawingAnalysisPage = () => {
     setBatchAnalyzing(false);
   }, [batchFiles]);
 
-  const pushMsg=(role: string,content: string,extra={})=>setMsgs(prev=>[...prev,{role,content,...extra}]);
-
-  const selPages=useCallback((sess: any)=>{
-    if(!sess)return [];
-    if(sess.mode==="all")return Array.from({length:sess.numPages},(_,i)=>i+1);
-    if(sess.mode==="custom")return sess.selPages;
-    return parseRange(sess.rangeStr,sess.numPages);
-  },[]);
-
-  const suggestChunkSize = useCallback((densities: Record<number,number>, pages: number[]) => {
-    if(!pages.length)return 20;
-    const avg = pages.reduce((s,p)=>s+(densities[p]||0),0)/pages.length;
-    if(avg>=2.5)return 10;
-    if(avg>=1.5)return 15;
-    if(avg>=0.5)return 25;
-    return 30;
-  },[]);
-
   // ═══ ANALYSIS ENGINE v9 ═══
   const runExtraction=useCallback(async(resumeFrom: any=null)=>{
     if(!pdfSess)return;
