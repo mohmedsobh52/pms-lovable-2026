@@ -848,6 +848,7 @@ const DrawingAnalysisPage = () => {
   const cancelRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const chatRef = useRef<HTMLDivElement>(null);
+  const analysisCompleteResolve = useRef<(() => void) | null>(null);
   let fname = "BOQ";
 
   // Persistence via localStorage
@@ -955,27 +956,33 @@ const DrawingAnalysisPage = () => {
     }
   },[]);
 
+  // Batch file classification
+  const classifyFile = useCallback((name: string): string => {
+    const n = name.toLowerCase();
+    if (/plan|مسقط|layout|general|key.*plan|site/i.test(n)) return "PLAN";
+    if (/profile|طولي|longitudinal/i.test(n)) return "PROFILE";
+    if (/section|عرضي|cross|typical/i.test(n)) return "SECTION";
+    if (/detail|تفصيل/i.test(n)) return "DETAIL";
+    if (/boq|كمي|bill|quantity|pricing/i.test(n)) return "BOQ";
+    if (/spec|مواصفات/i.test(n)) return "SPEC";
+    if (/struct|إنشائي|reinforce/i.test(n)) return "STRUCT";
+    if (/road|طريق|أسفلت|pavement/i.test(n)) return "ROAD";
+    return "PLAN";
+  }, []);
+
   const handleFiles=useCallback(async(files: FileList | null)=>{
-    for(const file of Array.from(files||[])){
+    const allFiles = Array.from(files||[]);
+    const pdfFiles = allFiles.filter(f => f.type==="application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
+    const otherFiles = allFiles.filter(f => !pdfFiles.includes(f));
+
+    // Handle non-PDF files as before
+    for(const file of otherFiles){
       const n=file.name.toLowerCase();
       if(file.type.startsWith("image/")||n.endsWith(".webp")||n.endsWith(".avif")){
         const reader=new FileReader();
         reader.onload=e=>{setQueue(prev=>[...prev,{src:e.target!.result,b64:(e.target!.result as string).split(",")[1],mime:file.type||"image/jpeg",name:file.name,type:"image"}]);};
         reader.readAsDataURL(file);
         setTab("analysis");
-      }else if(file.type==="application/pdf"||n.endsWith(".pdf")){
-        setProc({stage:"⏳ فتح الملف...",pct:5});
-        try{
-          const buf = await file.arrayBuffer();
-          const doc = await pdfjsLib.getDocument({ data: buf }).promise;
-          const numPages = doc.numPages;
-          setProc(null);
-          fname=file.name.replace(/\.pdf$/i,"");
-          setPdfSess({file,doc,numPages,thumbs:{} as Record<number,string>,thumbsLoaded:new Set<number>(),mode:"range",
-            rangeStr:`1-${Math.min(numPages,100)}`,selPages:[] as number[],chunkSize:20,quality:"fast",densities:{} as Record<number,number>});
-          setTab("pdf");
-          loadThumbs(doc,Array.from({length:Math.min(60,numPages)},(_,i)=>i+1));
-        }catch(err: any){setProc(null);pushMsg("assistant",`❌ خطأ في فتح PDF: ${err.message}`);}
       }else if(n.endsWith(".dwg")||n.endsWith(".dxf")){
         const meta=await parseDWG(file);
         const cv=document.createElement("canvas");cv.width=520;cv.height=200;
@@ -994,21 +1001,29 @@ const DrawingAnalysisPage = () => {
         setTab("analysis");
       }
     }
-  },[loadThumbs]);
 
-  // Batch file classification
-  const classifyFile = useCallback((name: string): string => {
-    const n = name.toLowerCase();
-    if (/plan|مسقط|layout|general|key.*plan|site/i.test(n)) return "PLAN";
-    if (/profile|طولي|longitudinal/i.test(n)) return "PROFILE";
-    if (/section|عرضي|cross|typical/i.test(n)) return "SECTION";
-    if (/detail|تفصيل/i.test(n)) return "DETAIL";
-    if (/boq|كمي|bill|quantity|pricing/i.test(n)) return "BOQ";
-    if (/spec|مواصفات/i.test(n)) return "SPEC";
-    if (/struct|إنشائي|reinforce/i.test(n)) return "STRUCT";
-    if (/road|طريق|أسفلت|pavement/i.test(n)) return "ROAD";
-    return "PLAN";
-  }, []);
+    // Handle PDF files: first one opens directly, rest go to batch
+    if(pdfFiles.length === 1){
+      const file = pdfFiles[0];
+      setProc({stage:"⏳ فتح الملف...",pct:5});
+      try{
+        const buf = await file.arrayBuffer();
+        const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+        const numPages = doc.numPages;
+        setProc(null);
+        fname=file.name.replace(/\.pdf$/i,"");
+        setPdfSess({file,doc,numPages,thumbs:{} as Record<number,string>,thumbsLoaded:new Set<number>(),mode:"range",
+          rangeStr:`1-${Math.min(numPages,100)}`,selPages:[] as number[],chunkSize:20,quality:"fast",densities:{} as Record<number,number>});
+        setTab("pdf");
+        loadThumbs(doc,Array.from({length:Math.min(60,numPages)},(_,i)=>i+1));
+      }catch(err: any){setProc(null);pushMsg("assistant",`❌ خطأ في فتح PDF: ${err.message}`);}
+    } else if(pdfFiles.length > 1){
+      // Multiple PDFs → add all to batch queue
+      const newBatch = pdfFiles.map(f => ({ file: f, name: f.name, category: classifyFile(f.name), status: "pending" as const }));
+      setBatchFiles(prev => [...prev, ...newBatch]);
+      setTab("pdf");
+    }
+  },[loadThumbs, classifyFile]);
 
   const handleBatchFiles = useCallback((files: FileList | null) => {
     if (!files) return;
@@ -1020,35 +1035,13 @@ const DrawingAnalysisPage = () => {
     setTab("pdf");
   }, [classifyFile]);
 
-  const runBatchAnalysis = useCallback(async () => {
-    if (batchFiles.length === 0) return;
-    setBatchAnalyzing(true);
-    setBatchProgress(0);
-    for (let i = 0; i < batchFiles.length; i++) {
-      if (batchFiles[i].status === "done") continue;
-      setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "analyzing" } : f));
-      try {
-        const buf = await batchFiles[i].file.arrayBuffer();
-        const doc = await pdfjsLib.getDocument({ data: buf }).promise;
-        const numPages = doc.numPages;
-        fname = batchFiles[i].name.replace(/\.pdf$/i, "");
-        setPdfSess({ file: batchFiles[i].file, doc, numPages, thumbs: {} as Record<number,string>, thumbsLoaded: new Set<number>(), mode: "range",
-          rangeStr: `1-${Math.min(numPages, 100)}`, selPages: [] as number[], chunkSize: 20, quality: "fast", densities: {} as Record<number,number> });
-        setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "done" } : f));
-      } catch (err: any) {
-        setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "error", result: err.message } : f));
-      }
-      setBatchProgress(Math.round(((i + 1) / batchFiles.length) * 100));
-    }
-    setBatchAnalyzing(false);
-  }, [batchFiles]);
-
   // ═══ ANALYSIS ENGINE v9 ═══
-  const runExtraction=useCallback(async(resumeFrom: any=null)=>{
-    if(!pdfSess)return;
-    const pages=selPages(pdfSess);
+  const runExtraction=useCallback(async(resumeFrom: any=null, sessionOverride?: any)=>{
+    const sess = sessionOverride || pdfSess;
+    if(!sess)return;
+    const pages=selPages(sess);
     if(!pages.length)return;
-    const{doc,chunkSize,quality,file}=pdfSess;
+    const{doc,chunkSize,quality,file}=sess;
     const isFast=quality==="fast"||quality==="hybrid";
     const isHybrid=quality==="hybrid";
     const isVisual=!isFast;
@@ -1113,7 +1106,7 @@ const DrawingAnalysisPage = () => {
         scales:[...allScales],
       };
       setXStats(stats);
-      setPdfSess((prev: any)=>({...prev,densities:densMap}));
+      setPdfSess((prev: any)=>prev ? ({...prev,densities:densMap}) : prev);
       setInfraMeta({drawTypes:topTypes,scales:[...allScales],diameters:[...allDiams].sort((a,b)=>a-b),typeCount,extractedData});
     }
 
@@ -1257,7 +1250,62 @@ const DrawingAnalysisPage = () => {
     }
     clearBatch();
     setResumable(null);
+    // Signal batch completion if running in batch mode
+    if(analysisCompleteResolve.current){
+      analysisCompleteResolve.current();
+      analysisCompleteResolve.current = null;
+    }
   },[pdfSess,selPages,cfgStr,depth]);
+
+  const runBatchAnalysis = useCallback(async () => {
+    if (batchFiles.length === 0) return;
+    setBatchAnalyzing(true);
+    setBatchProgress(0);
+    for (let i = 0; i < batchFiles.length; i++) {
+      if (batchFiles[i].status === "done") continue;
+      setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "analyzing" } : f));
+      try {
+        const buf = await batchFiles[i].file.arrayBuffer();
+        const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+        const numPages = doc.numPages;
+        fname = batchFiles[i].name.replace(/\.pdf$/i, "");
+
+        pushMsg("assistant", `\n---\n## 📁 ملف ${i+1}/${batchFiles.length}: ${batchFiles[i].name} (${numPages} صفحة)\n---`);
+
+        const sess = {
+          file: batchFiles[i].file, doc, numPages,
+          thumbs: {} as Record<number,string>,
+          thumbsLoaded: new Set<number>(),
+          mode: "range" as string,
+          rangeStr: `1-${Math.min(numPages, 100)}`,
+          selPages: [] as number[],
+          chunkSize: 20,
+          quality: "fast" as string,
+          densities: {} as Record<number,number>
+        };
+        setPdfSess(sess);
+
+        const analysisPromise = new Promise<void>(resolve => {
+          analysisCompleteResolve.current = resolve;
+        });
+
+        await new Promise(r => setTimeout(r, 150));
+        await runExtraction(null, sess);
+        await analysisPromise;
+
+        setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "done" } : f));
+      } catch (err: any) {
+        setBatchFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: "error", result: err.message } : f));
+        if(analysisCompleteResolve.current){
+          analysisCompleteResolve.current();
+          analysisCompleteResolve.current = null;
+        }
+      }
+      setBatchProgress(Math.round(((i + 1) / batchFiles.length) * 100));
+    }
+    setBatchAnalyzing(false);
+    pushMsg("assistant", `\n---\n## ✅ اكتمل تحليل ${batchFiles.length} ملف بنجاح\n---`);
+  }, [batchFiles, runExtraction]);
 
   const mdCache = useRef(new Map<string,string>());
   const mdCached = useCallback((text: string) => {
@@ -1666,7 +1714,7 @@ const DrawingAnalysisPage = () => {
                   <button className="bg-btn" onClick={()=>fileRef.current?.click()}>📄 رفع ملف PDF</button>
                   <button className="bo" style={{fontSize:12,padding:"9px 18px"}} onClick={()=>folderRef.current?.click()}>📁 رفع مجلد</button>
                 </div>
-                <input ref={fileRef} type="file" accept=".pdf" style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
+                <input ref={fileRef} type="file" accept=".pdf" multiple style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
                 <input ref={folderRef} type="file" accept=".pdf" multiple style={{display:"none"}} {...{webkitdirectory:"",directory:""} as any} onChange={e=>handleBatchFiles(e.target.files)}/>
                 {/* Batch File Manager */}
                 {batchFiles.length > 0 && (
