@@ -1307,6 +1307,7 @@ const DrawingAnalysisPage = () => {
     pushMsg("assistant", `\n---\n## ✅ اكتمل تحليل ${batchFiles.length} ملف بنجاح\n---`);
   }, [batchFiles, runExtraction]);
 
+  const mdCache = useRef(new Map<string,string>());
   const mdCached = useCallback((text: string) => {
     if (!text) return "";
     if (mdCache.current.has(text)) return mdCache.current.get(text)!;
