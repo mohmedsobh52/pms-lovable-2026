@@ -268,19 +268,57 @@ export const LibraryDatabase = () => {
       });
     }
 
-    // Check expired prices
+    // Check expired prices across ALL data (not just current tab)
     if (totalItems > 0) {
-      const allData = getCurrentTabData();
-      const stats = getValidityStats(allData);
-      const expiredPct = allData.length > 0 ? (stats.expired / allData.length) * 100 : 0;
+      const allStats = getValidityStats(allLibraryData);
+      const expiredPct = allLibraryData.length > 0 ? (allStats.expired / allLibraryData.length) * 100 : 0;
       if (expiredPct > 30) {
         suggestions.push({
           id: 'expired_prices',
           icon: <Lightbulb className="h-4 w-4" />,
-          text: isArabic ? `${stats.expired} سعر منتهي الصلاحية (${Math.round(expiredPct)}%) — حدّث الأسعار` : `${stats.expired} expired prices (${Math.round(expiredPct)}%) — update prices`,
+          text: isArabic ? `${allStats.expired} سعر منتهي الصلاحية (${Math.round(expiredPct)}%) — حدّث الأسعار` : `${allStats.expired} expired prices (${Math.round(expiredPct)}%) — update prices`,
           action: () => setValidityFilter('expired'),
           actionLabel: isArabic ? 'عرض المنتهية' : 'Show Expired',
           priority: 3,
+        });
+      }
+    }
+
+    // NEW: Materials > 50 but no labor — suggest adding labor
+    if (materials.length > 50 && laborRates.length === 0) {
+      suggestions.push({
+        id: 'add_labor_for_pricing',
+        icon: <Users className="h-4 w-4" />,
+        text: isArabic ? 'أضف عمالة لتفعيل التسعير التفصيلي للبنود' : 'Add labor to enable detailed item pricing',
+        action: () => setActiveTab('labor'),
+        actionLabel: isArabic ? 'العمالة' : 'Labor',
+        priority: 2.5,
+      });
+    }
+
+    // NEW: Suggest auto-pricing when library has enough data
+    if (totalItems > 30) {
+      suggestions.push({
+        id: 'try_auto_pricing',
+        icon: <DollarSign className="h-4 w-4" />,
+        text: isArabic ? 'استخدم التسعير التلقائي لمشاريعك المحفوظة' : 'Use auto-pricing for your saved projects',
+        action: () => navigate('/saved-projects'),
+        actionLabel: isArabic ? 'المشاريع' : 'Projects',
+        priority: 6,
+      });
+    }
+
+    // NEW: Suggest market prices update for expired items
+    if (totalItems > 0) {
+      const allStats = getValidityStats(allLibraryData);
+      if (allStats.expired > 0 && allStats.valid > 0) {
+        suggestions.push({
+          id: 'market_price_update',
+          icon: <TrendingUp className="h-4 w-4" />,
+          text: isArabic ? 'حدّث الأسعار المنتهية من أسعار السوق' : 'Update expired prices from market data',
+          action: () => navigate('/material-prices'),
+          actionLabel: isArabic ? 'أسعار السوق' : 'Market Prices',
+          priority: 7,
         });
       }
     }
