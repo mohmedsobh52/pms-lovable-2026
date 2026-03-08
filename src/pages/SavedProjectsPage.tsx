@@ -620,6 +620,17 @@ export default function SavedProjectsPage() {
               </div>
             )}
 
+            {/* Smart Suggestions */}
+            {projects.length > 0 && (
+              <SmartSuggestionsBanner suggestions={(() => {
+                const s: SmartSuggestion[] = [];
+                const unpriced = projects.filter(p => !p.total_value || p.total_value === 0).length;
+                if (unpriced > 0) s.push({ id: 'unpriced', icon: <DollarSign className="h-4 w-4" />, text: isArabic ? `${unpriced} مشاريع بدون تسعير — سعّرها الآن` : `${unpriced} unpriced projects — price them now`, action: () => {}, actionLabel: isArabic ? 'تسعير' : 'Price' });
+                if (projects.length > 3) s.push({ id: 'reports', icon: <BarChart3 className="h-4 w-4" />, text: isArabic ? 'قارن مشاريعك في تقرير شامل' : 'Compare your projects in a comprehensive report', action: () => setActiveTab('reports'), actionLabel: isArabic ? 'التقارير' : 'Reports' });
+                return s.slice(0, 2);
+              })()} />
+            )}
+
             {/* Quick Upload Section */}
             <div className="glass-card p-6 bg-gradient-to-br from-primary/5 to-accent/5 border-primary/10">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
