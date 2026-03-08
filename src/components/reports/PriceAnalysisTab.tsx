@@ -354,7 +354,7 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
     return suggestions.filter(s => !dismissedSuggestions.includes(s.id)).slice(0, 3);
   }, [selectedProjectId, priceStats, pricingHistory, items, varianceItems, isArabic, dismissedSuggestions, navigate]);
 
-
+  const handleExportPriceComparison = (format: 'pdf' | 'excel') => {
     if (items.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
