@@ -1113,7 +1113,7 @@ const DrawingAnalysisPage = () => {
             <div style={{flex:1,overflowY:"auto",padding:"18px 16px"}}>
               <div style={{maxWidth:900,margin:"0 auto"}}>
                 <div style={{marginBottom:16}}>
-                  <span style={{background:D?"#0a2010":"#f0fdf4",color:T.grn,border:`1px solid ${T.grn}40`,padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>v11 · شبكة المواسير</span>
+                  <span style={{background:D?"#2a1a08":"#FFF5F0",color:T.gold,border:`1px solid ${T.gold}40`,padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>v11 · شبكة المواسير</span>
                   <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>🔧 تحليل <span className="g">شبكة المواسير</span></h2>
                 </div>
                 {pipeNetwork.length > 0 ? (
