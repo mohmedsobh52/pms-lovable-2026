@@ -173,8 +173,42 @@ const DrawingAnalysisPage = () => {
     if(pdfSess && selPages(pdfSess).length === 0){
       s.push({id:"no-pages",icon:"📌",type:"performance",text:"لم يتم اختيار صفحات للتحليل — اذهب لمدير PDF واختر الصفحات.",actionLabel:"فتح مدير PDF",action:()=>setTab("pdf"),priority:1});
     }
+    // v11: اقتراح استخدام قالب مواسير تفصيلي
+    if(pipeNetwork.length > 0 && feState?.phase==="done"){
+      s.push({id:"pipe-detail-tmpl",icon:"🔧",type:"accuracy",text:`شبكة أنابيب ${pipeNetwork.length} قطر — استعرض لوحة شبكة المواسير للتفاصيل.`,actionLabel:"عرض المواسير",action:()=>setTab("pipes"),priority:2});
+    }
+    // v11: حساب الحفر تلقائياً
+    if(infraMeta && !earthworksData && feState?.phase==="done"){
+      s.push({id:"calc-earthworks",icon:"🛣️",type:"accuracy",text:"بيانات حفر متاحة — احسب الحفر والردم تلقائياً.",actionLabel:"حساب",action:()=>{
+        const allText = Object.values(infraMeta.extractedData||{}).map((d:any)=>d.text||"").join("\n");
+        const ewData = extractEarthworksData(allText);
+        if(ewData) setEarthworksData(ewData);
+        setTab("earthworks");
+      },priority:2});
+    }
+    // v11: حساب الأسفلت تلقائياً
+    if(infraMeta?.typeCount?.ROAD && !asphaltData && feState?.phase==="done"){
+      s.push({id:"calc-asphalt",icon:"🛤️",type:"accuracy",text:"بيانات طرق متاحة — احسب طبقات الأسفلت تلقائياً.",actionLabel:"حساب",action:()=>{
+        const allText = Object.values(infraMeta.extractedData||{}).map((d:any)=>d.text||"").join("\n");
+        const aspData = extractAsphaltLayers(allText);
+        if(aspData) setAsphaltData(aspData);
+        setTab("asphalt");
+      },priority:2});
+    }
+    // v11: حفظ التحليل بعد الاكتمال
+    if(feState?.phase==="done" && msgs.length > 2 && user){
+      s.push({id:"save-analysis",icon:"💾",type:"performance",text:"اكتمل التحليل — احفظ النتائج لمقارنتها لاحقاً.",actionLabel:"حفظ",action:()=>{
+        // trigger save to DB
+        const allText = msgs.filter((m:any)=>m.role==="assistant").map((m:any)=>m.content||"").join("\n");
+        supabase.from("drawing_analyses").insert({
+          user_id: user.id, drawing_type: Object.keys(xStats?.typeCount||{})[0]||"PLAN",
+          file_names: pdfSess?[pdfSess.file?.name]:[],
+          results: {text:allText.slice(0,5000)}, summary: {boq_count:boqCount,pipe_count:pipeNetwork.length}
+        }).then(()=>fetchSavedAnalyses());
+      },priority:3});
+    }
     return s;
-  },[feState,msgs,ocr,depth,pdfSess,cfg,mods]);
+  },[feState,msgs,ocr,depth,pdfSess,cfg,mods,pipeNetwork,earthworksData,asphaltData,infraMeta,user,boqCount,xStats,fetchSavedAnalyses]);
 
   const cancelRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
