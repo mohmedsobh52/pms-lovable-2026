@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { ContractManagement } from "@/components/ContractManagement";
 import { FIDICContractTemplates } from "@/components/FIDICContractTemplates";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 import { ContractsDashboard } from "@/components/contracts/ContractsDashboard";
 import { ContractMilestones } from "@/components/contracts/ContractMilestones";
 import { ContractPayments } from "@/components/contracts/ContractPayments";
