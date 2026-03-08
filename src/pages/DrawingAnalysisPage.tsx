@@ -128,6 +128,28 @@ const DrawingAnalysisPage = () => {
         setMods(prev=>({...prev,"🔧 هندسية_مراجعة التعارضات":true,"⚠️ مخاطر_أقطار كبيرة":true}));
       },priority:2});
     }
+    // v11: اقتراح تفعيل وحدة الحفر عند اكتشاف أنابيب
+    if(xStats && (xStats.diameters?.length||0) > 0 && !earthworksData){
+      s.push({id:"enable-earthworks",icon:"🛣️",type:"accuracy",text:"تم اكتشاف أنابيب — فعّل وحدة الحفر والردم لحساب أحجام الخنادق تلقائياً.",actionLabel:"حساب الحفر",action:()=>{
+        if(infraMeta?.extractedData){
+          const allText = Object.values(infraMeta.extractedData).map((d:any)=>d.text||"").join("\n");
+          const ewData = extractEarthworksData(allText);
+          if(ewData) setEarthworksData(ewData);
+        }
+        setTab("earthworks");
+      },priority:2});
+    }
+    // v11: اقتراح تفعيل قالب الأسفلت عند اكتشاف ROAD
+    if(xStats?.typeCount?.ROAD && !asphaltData){
+      s.push({id:"enable-asphalt",icon:"🛤️",type:"accuracy",text:"تم اكتشاف مخططات طرق — فعّل قالب الأسفلت لحساب طبقات الرصف.",actionLabel:"حساب الأسفلت",action:()=>{
+        if(infraMeta?.extractedData){
+          const allText = Object.values(infraMeta.extractedData).map((d:any)=>d.text||"").join("\n");
+          const aspData = extractAsphaltLayers(allText);
+          if(aspData) setAsphaltData(aspData);
+        }
+        setTab("asphalt");
+      },priority:2});
+    }
     return s;
   },[pdfSess,xStats,depth,ocr,mods,cfg]);
 
