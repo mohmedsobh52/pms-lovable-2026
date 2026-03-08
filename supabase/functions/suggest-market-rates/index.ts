@@ -77,6 +77,9 @@ function norm(t: string): string {
     .replace(/[\s\-_,،.;:()]+/g,' ').trim();
 }
 
+// MEP keyword boost list
+const MEP_KW = ["mdb","sdb","generator","chiller","ahu","fcu","vrf","vrv","pump","bms","cctv","sprinkler","elevator","مصعد","مولد","تشيلر","مضخة","رشاش"];
+
 function matchScore(desc: string, kws: string[]): number {
   const d = norm(desc);
   let score = 0;
@@ -88,6 +91,8 @@ function matchScore(desc: string, kws: string[]): number {
       for (const w of words) { if (w.length > 2 && d.includes(w)) score += 6; }
     }
   }
+  // MEP keyword boost
+  for (const mk of MEP_KW) { if (d.includes(mk.toLowerCase())) { score += 5; break; } }
   return score;
 }
 
@@ -97,7 +102,11 @@ function findRef(desc: string, unit: string): { key: string; min: number; max: n
     let s = matchScore(desc, r.kw);
     const u1 = (unit || '').toLowerCase().replace(/[²³]/g, m => m === '²' ? '2' : '3');
     const u2 = r.unit.toLowerCase().replace(/[²³]/g, m => m === '²' ? '2' : '3');
-    if (u1 === u2) s += 10;
+    // Unit matching: bonus for match, penalty for mismatch
+    if (u1 && u2) {
+      if (u1 === u2) s += 15;
+      else if (s > 0) s -= 5; // penalty for unit mismatch
+    }
     if (s > 0 && (!best || s > best.score)) best = { key, min: r.min, max: r.max, score: s };
   }
   return best && best.score >= 18 ? best : null;
