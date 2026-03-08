@@ -1092,7 +1092,7 @@ const DrawingAnalysisPage = () => {
                   <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>🛣️ حساب <span className="g">الحفر والردم</span></h2>
                 </div>
                 {earthworksData ? (
-                  <EarthworksPanel data={earthworksData} T={T} D={D} />
+                  <EarthworksPanel xStats={{...xStats, earthworksData}} T={T} D={D} />
                 ) : (
                   <div style={{textAlign:"center",padding:40,color:T.t3}}>
                     <div style={{fontSize:40,marginBottom:10}}>🛣️</div>
