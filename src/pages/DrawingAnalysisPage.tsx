@@ -1071,7 +1071,7 @@ const DrawingAnalysisPage = () => {
                   <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>🔧 تحليل <span className="g">شبكة المواسير</span></h2>
                 </div>
                 {pipeNetwork.length > 0 ? (
-                  <PipeNetworkPanel pipes={pipeNetwork} T={T} D={D} />
+                  <PipeNetworkPanel xStats={{...xStats, pipeNetwork}} T={T} D={D} />
                 ) : (
                   <div style={{textAlign:"center",padding:40,color:T.t3}}>
                     <div style={{fontSize:40,marginBottom:10}}>🔧</div>
