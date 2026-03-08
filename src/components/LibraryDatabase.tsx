@@ -365,7 +365,7 @@ export const LibraryDatabase = () => {
       .filter(s => !dismissedSuggestions.includes(s.id))
       .sort((a, b) => a.priority - b.priority)
       .slice(0, 3);
-  }, [materials, laborRates, equipmentRates, totalItems, isArabic, sampleCounts.earthworksAsphalt, dismissedSuggestions, handleAddEarthworksData, handleAddNetworkLE, handleExportLibrary, navigate, activeTab]);
+  }, [materials, laborRates, equipmentRates, totalItems, isArabic, sampleCounts.earthworksAsphalt, dismissedSuggestions, handleAddEarthworksData, handleAddNetworkLE, handleExportLibrary, navigate, allLibraryData]);
 
   const ProgressBar = () => showProgress ? (
     <div className="mt-3 space-y-1">
