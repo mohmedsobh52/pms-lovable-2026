@@ -723,7 +723,7 @@ const DrawingAnalysisPage = () => {
             <div style={{width:34,height:34,background:`linear-gradient(135deg,${T.gold},${T.goldL})`,borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0,boxShadow:`0 2px 8px ${T.gold}30`}}>🏗️</div>
             {sideOpen&&<div>
               <div style={{fontSize:12,fontWeight:900,color:T.gold,letterSpacing:.5}}>ALIMTYAZ</div>
-              <div style={{fontSize:7.5,color:T.t3}}>v9 · محرك هندسي سعودي</div>
+              <div style={{fontSize:7.5,color:T.t3}}>v11 · محرك هندسي سعودي</div>
             </div>}
           </div>
           <div style={{flex:1,padding:"10px 7px",overflowY:"auto"}}>
