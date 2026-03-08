@@ -1287,7 +1287,7 @@ const DrawingAnalysisPage = () => {
                           <div>
                             <div style={{display:"flex",alignItems:"center",gap:6}}>
                               <span style={{fontSize:11,fontWeight:700,color:T.t1}}>جودة التحليل</span>
-                              <span style={{fontSize:8,background:overall>=80?(D?"#064e3b":"#dcfce7"):overall>=50?(D?"#451a03":"#FFF5F0"):(D?"#450a0a":"#fee2e2"),
+                              <span style={{fontSize:8,background:overall>=80?(D?"#064e3b":"#dcfce7"):overall>=50?(D?"#2a1a08":"#FFF5F0"):(D?"#450a0a":"#fee2e2"),
                                 color:clr,padding:"2px 8px",borderRadius:8,fontWeight:600}}>{lbl}</span>
                             </div>
                             <div style={{width:130,height:5,background:D?"#333":"#e5e7eb",borderRadius:4,marginTop:4,overflow:"hidden"}}>
