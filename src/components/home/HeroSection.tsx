@@ -168,7 +168,7 @@ export function HeroSection({ stats, recentTrend, projectDistribution }: HeroSec
               </div>
               <div className="min-w-0">
                 <span className="block text-[10px] text-muted-foreground truncate">{isArabic ? "الاتجاه" : "Trend"}</span>
-                <span className="flex items-center gap-1 text-sm font-semibold text-green-500">
+                <span className="flex items-center gap-1 text-sm font-semibold text-success">
                   <TrendingUp className="w-3 h-3" />
                   12%
                 </span>
