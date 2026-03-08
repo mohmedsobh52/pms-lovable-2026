@@ -590,7 +590,7 @@ export const LibraryDatabase = () => {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          )
+          )}
           {(activeTab === "labor" || activeTab === "equipment") && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
