@@ -142,8 +142,22 @@ export const ContractsDashboard = () => {
     );
   }
 
+  const contractSuggestions = useMemo((): SmartSuggestion[] => {
+    const list: SmartSuggestion[] = [];
+    const drafts = contracts.filter(c => c.status === 'draft').length;
+    if (drafts > 0) list.push({ id: 'drafts', icon: <FileText className="h-4 w-4" />, text: isArabic ? `${drafts} عقود مسودة — أكمل بياناتها وفعّلها` : `${drafts} draft contracts — complete and activate them`, action: () => {}, actionLabel: isArabic ? 'مراجعة' : 'Review' });
+    if (contracts.length === 0) list.push({ id: 'no_contracts', icon: <FileSignature className="h-4 w-4" />, text: isArabic ? 'أنشئ أول عقد لتتبع التنفيذ والمدفوعات' : 'Create your first contract to track execution & payments', action: () => navigate('/contracts'), actionLabel: isArabic ? 'إنشاء' : 'Create' });
+    const expiringContracts = contracts.filter(c => { if (!c.end_date) return false; const daysLeft = Math.ceil((new Date(c.end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)); return daysLeft > 0 && daysLeft <= 30; });
+    if (expiringContracts.length > 0) list.push({ id: 'expiring', icon: <AlertTriangle className="h-4 w-4" />, text: isArabic ? `${expiringContracts.length} عقود تنتهي خلال 30 يوم` : `${expiringContracts.length} contracts expiring within 30 days`, action: () => {}, actionLabel: isArabic ? 'عرض' : 'View' });
+    if (contracts.length > 0 && activeContracts === 0) list.push({ id: 'all_inactive', icon: <Calendar className="h-4 w-4" />, text: isArabic ? 'لا توجد عقود نشطة — فعّل عقداً أو أنشئ جديداً' : 'No active contracts — activate one or create new', action: () => navigate('/contracts'), actionLabel: isArabic ? 'إدارة' : 'Manage' });
+    return list.slice(0, 3);
+  }, [contracts, activeContracts, isArabic, navigate]);
+
   return (
     <div className="space-y-6">
+      {/* Smart Suggestions */}
+      <SmartSuggestionsBanner suggestions={contractSuggestions} />
+
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
