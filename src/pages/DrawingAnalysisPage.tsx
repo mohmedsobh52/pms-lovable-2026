@@ -150,8 +150,27 @@ const DrawingAnalysisPage = () => {
         setTab("asphalt");
       },priority:2});
     }
+    // v11: اقتراح حجم دُفعة مثالي بناءً على كثافة الصفحات
+    if(pdfSess && xStats){
+      const optChunk = suggestChunkSize(pdfSess.densities||{}, selPages(pdfSess));
+      if(pdfSess.chunkSize !== optChunk && Math.abs(pdfSess.chunkSize - optChunk) > 5){
+        s.push({id:"optimal-chunk",icon:"📦",type:"performance",text:`حجم الدُفعة الحالي ${pdfSess.chunkSize} — الحجم المثالي ${optChunk} بناءً على كثافة الصفحات.`,actionLabel:`تعيين ${optChunk}`,action:()=>setPdfSess((prev:any)=>({...prev,chunkSize:optChunk})),priority:3});
+      }
+    }
+    // v11: اقتراح العمق العميق للمشاريع ذات البيانات الغنية
+    if(xStats && xStats.rich > xStats.total * 0.5 && depth !== "deep"){
+      s.push({id:"suggest-deep",icon:"🔬",type:"accuracy",text:`${Math.round(xStats.rich/xStats.total*100)}% صفحات غنية بالبيانات — العمق العميق سيستخرج تفاصيل أكثر.`,actionLabel:"تفعيل العمق العميق",action:()=>{setDepth("deep");save(cfg,mods,"deep");},priority:3});
+    }
+    // v11: اقتراح الوضع الهجين إذا كان هناك مزيج من أنواع المخططات
+    if(pdfSess && xStats?.topTypes?.length >= 3 && pdfSess.quality !== "hybrid"){
+      s.push({id:"suggest-hybrid",icon:"🔀",type:"accuracy",text:`${xStats.topTypes.length} أنواع مخططات مختلفة — الوضع الهجين يجمع بين السرعة والدقة.`,actionLabel:"تغيير للهجين",action:()=>setPdfSess((prev:any)=>({...prev,quality:"hybrid"})),priority:2});
+    }
+    // v11: اقتراح تصدير النتائج لمشروع محفوظ
+    if(boqCount > 5 && !showExportToProject){
+      s.push({id:"export-to-project",icon:"📤",type:"performance",text:`${boqCount} بند BOQ جاهز — صدّر البنود إلى مشروع محفوظ مباشرة.`,actionLabel:"تصدير لمشروع",action:()=>setShowExportToProject(true),priority:3});
+    }
     return s;
-  },[pdfSess,xStats,depth,ocr,mods,cfg]);
+  },[pdfSess,xStats,depth,ocr,mods,cfg,earthworksData,asphaltData,infraMeta,boqCount,showExportToProject]);
 
   const analysisSuggestions = useMemo<Suggestion[]>(()=>{
     const s: Suggestion[] = [];
