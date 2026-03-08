@@ -219,14 +219,14 @@ const DrawingAnalysisPage = () => {
   // Persistence
   useEffect(()=>{
     try {
-      const r=localStorage.getItem("alimtyaz_v9");
+      const r=localStorage.getItem("alimtyaz_v11") || localStorage.getItem("alimtyaz_v9");
       if(r){const s=JSON.parse(r);if(s.cfg)setCfg(s.cfg);if(s.mods)setMods(s.mods);if(s.depth)setDepth(s.depth);}
-      const rr=localStorage.getItem("alimtyaz_v9_batch");
+      const rr=localStorage.getItem("alimtyaz_v11_batch") || localStorage.getItem("alimtyaz_v9_batch");
       if(rr){const b=JSON.parse(rr);if(b.partialResults?.length>0)setResumable(b);}
     }catch{}
   },[]);
-  const saveBatch=(b: any)=>{try{localStorage.setItem("alimtyaz_v9_batch",JSON.stringify(b));}catch{}};
-  const clearBatch=()=>{try{localStorage.removeItem("alimtyaz_v9_batch");}catch{}};
+  const saveBatch=(b: any)=>{try{localStorage.setItem("alimtyaz_v11_batch",JSON.stringify(b));}catch{}};
+  const clearBatch=()=>{try{localStorage.removeItem("alimtyaz_v11_batch");}catch{}};
 
   const fetchSavedAnalyses = useCallback(async () => {
     if (!user) return;
