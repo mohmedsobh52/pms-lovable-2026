@@ -1229,7 +1229,11 @@ const DrawingAnalysisPage = () => {
       if(parallelCount===1)await new Promise(r=>setTimeout(r,100));
     }
 
-    if(cancelRef.current){setFe((p: any)=>({...p,phase:"done",stage:"⏹ تم الإيقاف"}));return;}
+    if(cancelRef.current){
+      setFe((p: any)=>({...p,phase:"done",stage:"⏹ تم الإيقاف"}));
+      if(analysisCompleteResolve.current){analysisCompleteResolve.current();analysisCompleteResolve.current=null;}
+      return;
+    }
 
     // PHASE 3: SMART MERGE
     const goodResults=allResults.filter((r: any)=>!r.error&&r.reply!=="⏭ تخطي");
