@@ -1038,9 +1038,15 @@ const DrawingAnalysisPage = () => {
   // ═══ ANALYSIS ENGINE v9 ═══
   const runExtraction=useCallback(async(resumeFrom: any=null, sessionOverride?: any)=>{
     const sess = sessionOverride || pdfSess;
-    if(!sess)return;
+    if(!sess){
+      if(analysisCompleteResolve.current){analysisCompleteResolve.current();analysisCompleteResolve.current=null;}
+      return;
+    }
     const pages=selPages(sess);
-    if(!pages.length)return;
+    if(!pages.length){
+      if(analysisCompleteResolve.current){analysisCompleteResolve.current();analysisCompleteResolve.current=null;}
+      return;
+    }
     const{doc,chunkSize,quality,file}=sess;
     const isFast=quality==="fast"||quality==="hybrid";
     const isHybrid=quality==="hybrid";
@@ -1223,7 +1229,11 @@ const DrawingAnalysisPage = () => {
       if(parallelCount===1)await new Promise(r=>setTimeout(r,100));
     }
 
-    if(cancelRef.current){setFe((p: any)=>({...p,phase:"done",stage:"⏹ تم الإيقاف"}));return;}
+    if(cancelRef.current){
+      setFe((p: any)=>({...p,phase:"done",stage:"⏹ تم الإيقاف"}));
+      if(analysisCompleteResolve.current){analysisCompleteResolve.current();analysisCompleteResolve.current=null;}
+      return;
+    }
 
     // PHASE 3: SMART MERGE
     const goodResults=allResults.filter((r: any)=>!r.error&&r.reply!=="⏭ تخطي");
