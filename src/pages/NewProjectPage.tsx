@@ -142,6 +142,20 @@ export default function NewProjectPage() {
         .single();
       
       if (error) throw error;
+
+      // Sync to project_data for RLS consistency
+      const { error: pdError } = await supabase
+        .from("project_data")
+        .upsert({
+          id: data.id,
+          name: data.name,
+          user_id: user.id,
+          analysis_data: projectData.analysis_data,
+          wbs_data: null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'id' });
+      
+      if (pdError) console.error("project_data sync error:", pdError);
       
       toast({
         title: isArabic ? "🎉 تم إنشاء المشروع بنجاح" : "🎉 Project Created Successfully",
