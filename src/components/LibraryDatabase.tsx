@@ -349,6 +349,78 @@ export const LibraryDatabase = () => {
       });
     }
 
+    // NEW: Price consistency check within same category
+    if (materials.length > 10) {
+      const categoryPrices: Record<string, number[]> = {};
+      materials.forEach(m => {
+        if (m.category && m.unit_price > 0) {
+          if (!categoryPrices[m.category]) categoryPrices[m.category] = [];
+          categoryPrices[m.category].push(m.unit_price);
+        }
+      });
+      for (const [cat, prices] of Object.entries(categoryPrices)) {
+        if (prices.length >= 2) {
+          const maxP = Math.max(...prices);
+          const minP = Math.min(...prices);
+          if (minP > 0 && (maxP / minP) > 3) {
+            suggestions.push({
+              id: `price_variance_${cat}`,
+              icon: <Lightbulb className="h-4 w-4" />,
+              text: isArabic ? `تفاوت كبير في أسعار فئة "${cat}" (${prices.length} مادة)` : `Large price variance in "${cat}" category (${prices.length} items)`,
+              action: () => { setActiveTab('materials'); },
+              actionLabel: isArabic ? 'مراجعة' : 'Review',
+              priority: 3.5,
+            });
+            break; // Show only first variance warning
+          }
+        }
+      }
+    }
+
+    // NEW: Category coverage — sparse categories
+    if (materials.length > 20) {
+      const categoryCounts: Record<string, number> = {};
+      materials.forEach(m => {
+        if (m.category) categoryCounts[m.category] = (categoryCounts[m.category] || 0) + 1;
+      });
+      const sparseCategories = Object.entries(categoryCounts).filter(([_, count]) => count < 3);
+      if (sparseCategories.length > 0) {
+        const [sparseCat, sparseCount] = sparseCategories[0];
+        suggestions.push({
+          id: 'sparse_category',
+          icon: <PackagePlus className="h-4 w-4" />,
+          text: isArabic ? `أكمل فئة "${sparseCat}" — بها ${sparseCount} مادة فقط` : `Complete "${sparseCat}" category — only ${sparseCount} items`,
+          action: () => setActiveTab('materials'),
+          actionLabel: isArabic ? 'إكمال' : 'Complete',
+          priority: 4.5,
+        });
+      }
+    }
+
+    // NEW: Import from quotations
+    if (totalItems > 0) {
+      suggestions.push({
+        id: 'import_from_quotations',
+        icon: <Database className="h-4 w-4" />,
+        text: isArabic ? 'استورد أسعار من عروض الأسعار المحللة' : 'Import prices from analyzed quotations',
+        action: () => navigate('/quotations'),
+        actionLabel: isArabic ? 'العروض' : 'Quotations',
+        priority: 8,
+      });
+    }
+
+    // NEW: Compare with historical data
+    if (totalItems > 20) {
+      suggestions.push({
+        id: 'compare_historical',
+        icon: <BarChart3 className="h-4 w-4" />,
+        text: isArabic ? 'قارن أسعار المكتبة بالمشاريع السابقة' : 'Compare library prices with past projects',
+        action: () => navigate('/historical-pricing'),
+        actionLabel: isArabic ? 'المقارنة' : 'Compare',
+        priority: 9,
+      });
+    }
+
     // Library is complete — suggest export
     if (totalItems > 50 && suggestions.length === 0) {
       suggestions.push({

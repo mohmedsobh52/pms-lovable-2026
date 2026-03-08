@@ -22,8 +22,14 @@ import {
   AlertTriangle,
   CheckCircle,
   ArrowUpDown,
-  Loader2
+  Loader2,
+  Lightbulb,
+  Library,
+  DollarSign,
+  ChevronRight,
+  Globe
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart,
   Bar,
@@ -70,6 +76,7 @@ interface PriceAnalysisTabProps {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
+  const navigate = useNavigate();
   const { isArabic } = useLanguage();
   const { user } = useAuth();
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
@@ -268,6 +275,84 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
       };
     }).sort((a: any, b: any) => Math.abs(b.deviation) - Math.abs(a.deviation));
   }, [items, isArabic]);
+
+  // Smart suggestions engine
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<string[]>([]);
+  
+  const smartSuggestions = useMemo(() => {
+    if (!selectedProjectId || !priceStats) return [];
+    const suggestions: { id: string; icon: React.ReactNode; text: string; action: () => void; actionLabel: string }[] = [];
+
+    // Coverage < 50%
+    if (priceStats.pricingCoverage < 50) {
+      suggestions.push({
+        id: 'low_coverage',
+        icon: <Target className="h-4 w-4" />,
+        text: isArabic ? `أكمل تسعير البنود — التغطية ${priceStats.pricingCoverage.toFixed(0)}% فقط` : `Complete item pricing — only ${priceStats.pricingCoverage.toFixed(0)}% coverage`,
+        action: () => navigate(`/projects/${selectedProjectId}`),
+        actionLabel: isArabic ? 'التسعير' : 'Price',
+      });
+    }
+
+    // High variance items > 5
+    const highVarianceCount = varianceItems.filter((v: any) => Math.abs(v.deviation) > 20).length;
+    if (highVarianceCount > 5) {
+      suggestions.push({
+        id: 'high_variance',
+        icon: <AlertTriangle className="h-4 w-4" />,
+        text: isArabic ? `${highVarianceCount} بنود بفرق سعري كبير (>20%) — راجعها` : `${highVarianceCount} items with high variance (>20%) — review them`,
+        action: () => setShowVarianceDialog(true),
+        actionLabel: isArabic ? 'مراجعة' : 'Review',
+      });
+    }
+
+    // No pricing history
+    if (pricingHistory.length === 0 && items.length > 0) {
+      suggestions.push({
+        id: 'no_history',
+        icon: <History className="h-4 w-4" />,
+        text: isArabic ? 'فعّل التسعير التلقائي لبناء سجل الأسعار' : 'Enable auto-pricing to build price history',
+        action: () => navigate(`/projects/${selectedProjectId}`),
+        actionLabel: isArabic ? 'تفعيل' : 'Enable',
+      });
+    }
+
+    // Low accuracy < 70%
+    if (priceStats.avgAccuracy > 0 && priceStats.avgAccuracy < 70) {
+      suggestions.push({
+        id: 'low_accuracy',
+        icon: <Library className="h-4 w-4" />,
+        text: isArabic ? 'حسّن الدقة بتحديث أسعار المكتبة' : 'Improve accuracy by updating library prices',
+        action: () => navigate('/library'),
+        actionLabel: isArabic ? 'المكتبة' : 'Library',
+      });
+    }
+
+    // Items without suggested prices
+    const unpricedCount = items.filter((item: any) => !item.ai_suggested_rate && !item.unit_price).length;
+    if (unpricedCount > 0) {
+      suggestions.push({
+        id: 'unpriced_items',
+        icon: <Globe className="h-4 w-4" />,
+        text: isArabic ? `${unpricedCount} بنود بدون أسعار — استخدم أسعار السوق` : `${unpricedCount} unpriced items — use market prices`,
+        action: () => navigate('/material-prices'),
+        actionLabel: isArabic ? 'السوق' : 'Market',
+      });
+    }
+
+    // Complete data — suggest export
+    if (priceStats.pricingCoverage >= 80 && items.length > 0 && suggestions.length === 0) {
+      suggestions.push({
+        id: 'export_report',
+        icon: <FileDown className="h-4 w-4" />,
+        text: isArabic ? 'البيانات مكتملة — صدّر تقرير مقارنة شامل' : 'Data complete — export comprehensive comparison report',
+        action: () => handleExportPriceComparison('pdf'),
+        actionLabel: isArabic ? 'تصدير' : 'Export',
+      });
+    }
+
+    return suggestions.filter(s => !dismissedSuggestions.includes(s.id)).slice(0, 3);
+  }, [selectedProjectId, priceStats, pricingHistory, items, varianceItems, isArabic, dismissedSuggestions, navigate]);
 
   const handleExportPriceComparison = (format: 'pdf' | 'excel') => {
     if (items.length === 0) {
@@ -493,7 +578,40 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
         </CardContent>
       </Card>
 
-      {/* Price Stats Summary */}
+      {/* Smart Suggestions */}
+      {smartSuggestions.length > 0 && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+            <Lightbulb className="h-4 w-4" />
+            {isArabic ? 'اقتراحات لتحسين التسعير' : 'Pricing Improvement Suggestions'}
+          </div>
+          <div className="space-y-2">
+            {smartSuggestions.map((s) => (
+              <div key={s.id} className="flex items-center justify-between gap-3 bg-background/80 rounded-md p-2.5 border border-border/50">
+                <div className="flex items-center gap-2 text-sm text-foreground/80">
+                  <span className="text-primary">{s.icon}</span>
+                  {s.text}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="outline" onClick={s.action} className="h-7 text-xs gap-1">
+                    {s.actionLabel}
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => setDismissedSuggestions(prev => [...prev, s.id])}
+                  >
+                    ×
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {priceStats && !isLoadingItems && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
