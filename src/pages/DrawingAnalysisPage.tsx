@@ -1279,7 +1279,7 @@ const DrawingAnalysisPage = () => {
                     if(formulaScore<0.5) recs.push("استخدم قالب 'حفر وردم'");
                     return(
                       <div style={{background:D?`linear-gradient(135deg,${overall>=80?"#0d1f14":"#1a0e02"},${overall>=80?"#111e18":"#201204"})`:`linear-gradient(135deg,${overall>=80?"#f0fdf4":"#FFF5F0"},${overall>=80?"#dcfce7":"#FFE8DB"})`,
-                        border:`1px solid ${overall>=80?(D?"#1a3025":"#bbf7d0"):(D?"#854d0e40":"#FFE8DB")}`,borderRadius:10,padding:"10px 14px",flexShrink:0}}>
+                        border:`1px solid ${overall>=80?(D?"#1a3025":"#bbf7d0"):(D?T.gold+"30":T.gold+"40")}`,borderRadius:10,padding:"10px 14px",flexShrink:0}}>
                         <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                           <div style={{width:42,height:42,borderRadius:"50%",border:`2px solid ${clr}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
                             <span style={{fontSize:13,fontWeight:900,color:clr}}>{overall}%</span>
