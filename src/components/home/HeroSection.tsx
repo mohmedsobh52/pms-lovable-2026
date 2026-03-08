@@ -177,8 +177,8 @@ export function HeroSection({ stats, recentTrend, projectDistribution }: HeroSec
 
             {/* Items Count */}
             <div className="flex items-center gap-3 bg-card/70 backdrop-blur-md rounded-xl px-3 py-3 border border-border/40 shadow-lg hover:bg-card/80 transition-all group">
-              <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                <Layers className="w-5 h-5 text-blue-500" />
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Layers className="w-5 h-5 text-primary" />
               </div>
               <div className="min-w-0">
                 <span className="block text-[10px] text-muted-foreground truncate">{isArabic ? "البنود" : "Items"}</span>
