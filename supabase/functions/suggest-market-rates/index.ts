@@ -77,6 +77,9 @@ function norm(t: string): string {
     .replace(/[\s\-_,،.;:()]+/g,' ').trim();
 }
 
+// MEP keyword boost list
+const MEP_KW = ["mdb","sdb","generator","chiller","ahu","fcu","vrf","vrv","pump","bms","cctv","sprinkler","elevator","مصعد","مولد","تشيلر","مضخة","رشاش"];
+
 function matchScore(desc: string, kws: string[]): number {
   const d = norm(desc);
   let score = 0;
@@ -88,6 +91,8 @@ function matchScore(desc: string, kws: string[]): number {
       for (const w of words) { if (w.length > 2 && d.includes(w)) score += 6; }
     }
   }
+  // MEP keyword boost
+  for (const mk of MEP_KW) { if (d.includes(mk.toLowerCase())) { score += 5; break; } }
   return score;
 }
 
@@ -97,7 +102,11 @@ function findRef(desc: string, unit: string): { key: string; min: number; max: n
     let s = matchScore(desc, r.kw);
     const u1 = (unit || '').toLowerCase().replace(/[²³]/g, m => m === '²' ? '2' : '3');
     const u2 = r.unit.toLowerCase().replace(/[²³]/g, m => m === '²' ? '2' : '3');
-    if (u1 === u2) s += 10;
+    // Unit matching: bonus for match, penalty for mismatch
+    if (u1 && u2) {
+      if (u1 === u2) s += 15;
+      else if (s > 0) s -= 5; // penalty for unit mismatch
+    }
     if (s > 0 && (!best || s > best.score)) best = { key, min: r.min, max: r.max, score: s };
   }
   return best && best.score >= 18 ? best : null;
@@ -214,9 +223,9 @@ serve(async (req) => {
       needAI.push(item);
     }
 
-    // Pass 2: AI for remaining items (batch max 20)
+    // Pass 2: AI for remaining items (batch max 30)
     if (needAI.length > 0) {
-      const batch = needAI.slice(0, 20);
+      const batch = needAI.slice(0, 30);
       const itemsList = batch.map(i => ({ n: i.item_number, d: i.description, u: i.unit, p: i.unit_price || 0 }));
 
       try {
@@ -226,11 +235,11 @@ serve(async (req) => {
           body: JSON.stringify({
             model,
             messages: [
-              { role: "system", content: `Construction cost estimator for ${location}. Return JSON array of objects with: item_number, suggested_min, suggested_max, suggested_avg, confidence (High/Medium/Low), trend (Increasing/Stable/Decreasing), notes. Prices in SAR. Be accurate.` },
-              { role: "user", content: `Estimate 2025 market rates for:\n${JSON.stringify(itemsList)}` }
+              { role: "system", content: `Construction cost estimator for ${location}, Saudi Arabia. Return JSON array of objects with: item_number, suggested_min, suggested_max, suggested_avg, confidence (High/Medium/Low), trend (Increasing/Stable/Decreasing), market_trend (up/down/stable), notes. Prices in SAR 2026. Be accurate and consider regional pricing.` },
+              { role: "user", content: `Estimate 2026 market rates for:\n${JSON.stringify(itemsList)}` }
             ],
             temperature: 0.3,
-            max_tokens: 3000,
+            max_tokens: 4000,
           }),
         });
 

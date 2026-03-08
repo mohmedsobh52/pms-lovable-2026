@@ -49,7 +49,7 @@ const ProcurementPage = () => {
           subtitle={isArabic ? "إدارة الشركاء والمشتريات والعقود" : "Manage partners, procurement, and contracts"}
           actions={
             <RequestOfferDialog>
-              <Button className="bg-[#F5A623] hover:bg-[#e09515] text-white shadow-lg">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg">
                 <Sparkles className="w-4 h-4 me-2" />
                 {isArabic ? "طلب عرض سعر" : "Request Offer"}
               </Button>
