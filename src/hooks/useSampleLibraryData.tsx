@@ -191,6 +191,74 @@ const NETWORK_EQUIPMENT = [
   { code: "E025", name: "GPS RTK Survey Kit", name_ar: "جهاز مساحة GPS RTK", category: "survey", rental_rate: 500, includes_operator: false, includes_fuel: false },
 ];
 
+// Earthworks, Asphalt & Road Materials (~55 items) - v11
+const EARTHWORKS_ASPHALT_MATERIALS = [
+  // Earthworks - Trenching
+  { name: "Machine Trenching ≤2m", name_ar: "حفر خنادق آلي ≤2م", category: "earthworks", unit: "m3", unit_price: 18, specifications: "Depth ≤2m, Normal Soil" },
+  { name: "Machine Trenching 2-4m", name_ar: "حفر خنادق آلي 2-4م", category: "earthworks", unit: "m3", unit_price: 28, specifications: "Depth 2-4m, Normal Soil" },
+  { name: "Machine Trenching 4-6m", name_ar: "حفر خنادق آلي 4-6م", category: "earthworks", unit: "m3", unit_price: 42, specifications: "Depth 4-6m, Normal Soil" },
+  { name: "Rock Excavation (Mechanical)", name_ar: "حفر صخر ميكانيكي", category: "earthworks", unit: "m3", unit_price: 85, specifications: "Hydraulic Breaker" },
+  // Earthworks - Backfill
+  { name: "Fine Sand Backfill", name_ar: "ردم رمل ناعم", category: "earthworks", unit: "m3", unit_price: 35, specifications: "Compacted, around pipes" },
+  { name: "Compacted Soil Backfill", name_ar: "ردم تربة مدموكة", category: "earthworks", unit: "m3", unit_price: 22, specifications: "95% Proctor, Layers 200mm" },
+  { name: "Crushed Stone Backfill", name_ar: "ردم حجر مجروش", category: "earthworks", unit: "m3", unit_price: 55, specifications: "Graded, compacted" },
+  { name: "Sand Bedding 150mm", name_ar: "فرشة رملية 150مم", category: "earthworks", unit: "m2", unit_price: 12, specifications: "Fine sand bed for pipes" },
+  { name: "Concrete Protection Slab", name_ar: "حماية خرسانية للمواسير", category: "earthworks", unit: "m3", unit_price: 280, specifications: "C15, for pipe protection" },
+  // Earthworks - Support & Dewatering
+  { name: "Trench Shoring (Steel)", name_ar: "دعم جوانب خندق (حديد)", category: "earthworks", unit: "m2", unit_price: 45, specifications: "Steel sheet piling" },
+  { name: "Dewatering (Wellpoint)", name_ar: "ضخ مياه جوفية (ويلبوينت)", category: "earthworks", unit: "day", unit_price: 1500, specifications: "Complete system" },
+  { name: "Spoil Disposal Off-site", name_ar: "نقل حفريات خارج الموقع", category: "earthworks", unit: "m3", unit_price: 15, specifications: "Truck & disposal" },
+  { name: "Surplus Excavation Removal", name_ar: "التخلص من فائض الحفريات", category: "earthworks", unit: "m3", unit_price: 12, specifications: "Load & haul" },
+
+  // Asphalt - Wearing Course
+  { name: "Wearing Course 50mm", name_ar: "طبقة سطحية أسفلت 50مم", category: "asphalt", unit: "m2", unit_price: 28, specifications: "AC 14 Wearing, 50mm thick" },
+  { name: "Wearing Course 60mm", name_ar: "طبقة سطحية أسفلت 60مم", category: "asphalt", unit: "m2", unit_price: 33, specifications: "AC 14 Wearing, 60mm thick" },
+  // Asphalt - Binder Course
+  { name: "Binder Course 60mm", name_ar: "طبقة رابطة أسفلت 60مم", category: "asphalt", unit: "m2", unit_price: 30, specifications: "AC 20 Binder, 60mm thick" },
+  { name: "Binder Course 75mm", name_ar: "طبقة رابطة أسفلت 75مم", category: "asphalt", unit: "m2", unit_price: 38, specifications: "AC 20 Binder, 75mm thick" },
+  // Asphalt - Base Course
+  { name: "Asphalt Base Course 75mm", name_ar: "طبقة أساس أسفلتية 75مم", category: "asphalt", unit: "m2", unit_price: 35, specifications: "AC 25 Base, 75mm thick" },
+  { name: "Asphalt Base Course 100mm", name_ar: "طبقة أساس أسفلتية 100مم", category: "asphalt", unit: "m2", unit_price: 45, specifications: "AC 25 Base, 100mm thick" },
+  // Asphalt - Coats
+  { name: "Prime Coat (MC-30)", name_ar: "طبقة تأسيس (برايم كوت)", category: "asphalt", unit: "m2", unit_price: 5, specifications: "MC-30, 1.0 L/m²" },
+  { name: "Tack Coat (CSS-1)", name_ar: "طبقة لاصقة (تاك كوت)", category: "asphalt", unit: "m2", unit_price: 3, specifications: "CSS-1, 0.3 L/m²" },
+  // Asphalt - Maintenance
+  { name: "Asphalt Milling/Removal", name_ar: "إزالة أسفلت (قشط)", category: "asphalt", unit: "m2", unit_price: 15, specifications: "Cold milling, 50mm depth" },
+  { name: "Asphalt Patching", name_ar: "ترقيع أسفلت", category: "asphalt", unit: "m2", unit_price: 55, specifications: "Cut, remove & repave" },
+  { name: "Asphalt Cutting (Saw)", name_ar: "قطع أسفلت (منشار)", category: "asphalt", unit: "m", unit_price: 8, specifications: "Diamond saw, full depth" },
+
+  // Road Base Layers
+  { name: "Crushed Aggregate Base 200mm", name_ar: "أساس مجروش 200مم", category: "road_base", unit: "m2", unit_price: 25, specifications: "Graded aggregate, compacted 98%" },
+  { name: "Crushed Aggregate Base 300mm", name_ar: "أساس مجروش 300مم", category: "road_base", unit: "m2", unit_price: 35, specifications: "Graded aggregate, compacted 98%" },
+  { name: "Sand Sub-base 200mm", name_ar: "فرشة رمل أساس 200مم", category: "road_base", unit: "m2", unit_price: 15, specifications: "Select fill, compacted 95%" },
+  { name: "Cement Treated Base 200mm", name_ar: "أساس معالج بالأسمنت 200مم", category: "road_base", unit: "m2", unit_price: 40, specifications: "CTB, 4% cement" },
+
+  // Road Accessories
+  { name: "Pedestrian Curb 150mm", name_ar: "أرصفة مشاة 150مم", category: "road_accessories", unit: "m", unit_price: 45, specifications: "Precast concrete, 150x300mm" },
+  { name: "Road Kerb 150×300", name_ar: "حافة طريق 150×300", category: "road_accessories", unit: "m", unit_price: 55, specifications: "Precast, extruded" },
+  { name: "Road Kerb 200×400", name_ar: "حافة طريق 200×400", category: "road_accessories", unit: "m", unit_price: 75, specifications: "Precast, heavy duty" },
+  { name: "Jersey Barrier (New)", name_ar: "حاجز نيوجرسي (جديد)", category: "road_accessories", unit: "m", unit_price: 350, specifications: "Precast RC, F-shape" },
+  { name: "Road Marking (Thermoplastic)", name_ar: "علامات أرضية (ثرموبلاستك)", category: "road_accessories", unit: "m", unit_price: 12, specifications: "150mm wide, retroreflective" },
+  { name: "Traffic Sign (Reflective)", name_ar: "لوحة مرورية عاكسة", category: "road_accessories", unit: "unit", unit_price: 450, specifications: "Aluminum, Class II reflective" },
+  { name: "Street Light Pole 9m", name_ar: "عمود إنارة 9م", category: "road_accessories", unit: "unit", unit_price: 2800, specifications: "Hot-dip galvanized, LED 150W" },
+  { name: "Street Light Pole 12m", name_ar: "عمود إنارة 12م", category: "road_accessories", unit: "unit", unit_price: 4500, specifications: "Hot-dip galvanized, LED 250W" },
+
+  // Concrete Works (expanded)
+  { name: "Ready-Mix Concrete C20", name_ar: "خرسانة جاهزة C20", category: "concrete_works", unit: "m3", unit_price: 280, specifications: "Normal strength" },
+  { name: "Ready-Mix Concrete C25", name_ar: "خرسانة جاهزة C25", category: "concrete_works", unit: "m3", unit_price: 320, specifications: "Structural grade" },
+  { name: "Ready-Mix Concrete C35", name_ar: "خرسانة جاهزة C35", category: "concrete_works", unit: "m3", unit_price: 420, specifications: "High strength" },
+  { name: "Timber Formwork", name_ar: "قوالب خشبية", category: "concrete_works", unit: "m2", unit_price: 65, specifications: "Plywood, 3 uses" },
+  { name: "Steel Formwork", name_ar: "قوالب معدنية", category: "concrete_works", unit: "m2", unit_price: 45, specifications: "Steel panels, rental" },
+  { name: "Welded Wire Mesh", name_ar: "شبكة حديد ملحومة", category: "concrete_works", unit: "m2", unit_price: 22, specifications: "6mm@150mm, B500" },
+
+  // Safety & Temporary
+  { name: "Warning Tape", name_ar: "شريط تحذيري", category: "safety_temporary", unit: "m", unit_price: 0.5, specifications: "PE, red/white or yellow/black" },
+  { name: "Pipe Protection Padding", name_ar: "لبادة حماية مواسير", category: "safety_temporary", unit: "m2", unit_price: 8, specifications: "Geotextile, 200g/m²" },
+  { name: "Temporary Fencing", name_ar: "سياج مؤقت", category: "safety_temporary", unit: "m", unit_price: 35, specifications: "Steel panels, 2m height" },
+  { name: "Temporary Lighting", name_ar: "إضاءة مؤقتة", category: "safety_temporary", unit: "unit", unit_price: 250, specifications: "LED flood light on tripod" },
+  { name: "Traffic Cone", name_ar: "مخروط مروري", category: "safety_temporary", unit: "unit", unit_price: 15, specifications: "750mm, reflective" },
+];
+
 export const useSampleLibraryData = () => {
   const { user } = useAuth();
 
