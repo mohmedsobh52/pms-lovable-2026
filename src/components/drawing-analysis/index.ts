@@ -5,3 +5,6 @@ export * from "./helpers";
 export { default as PdfNav } from "./PdfNavigator";
 export { default as SmartSuggestions } from "./SmartSuggestions";
 export type { Suggestion } from "./SmartSuggestions";
+export { default as PipeNetworkPanel } from "./PipeNetworkPanel";
+export { default as EarthworksPanel } from "./EarthworksPanel";
+export { default as AsphaltPanel } from "./AsphaltPanel";
