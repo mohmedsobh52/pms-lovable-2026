@@ -22,6 +22,7 @@ import { ProjectsComparisonExport } from "@/components/reports/ProjectsCompariso
 import { AdvancedReportsTab } from "@/components/reports/AdvancedReportsTab";
 import { ReportsStatCards } from "@/components/reports/ReportsStatCards";
 import { PageHeader } from "@/components/PageHeader";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 import { 
   RefreshCw, 
   Filter, 
