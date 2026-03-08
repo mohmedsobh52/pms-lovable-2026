@@ -1014,7 +1014,7 @@ const DrawingAnalysisPage = () => {
                         <button className="bo" style={{fontSize:9}} onClick={()=>setBatchFiles([])}>🗑️ مسح</button>
                       </div>
                     </div>
-                    {batchAnalyzing && <div className="prog" style={{marginBottom:8}}><div className="prog-f" style={{background:`linear-gradient(90deg,${T.grn},#4ade80)`,width:`${batchProgress}%`}}/></div>}
+                    {batchAnalyzing && <div className="prog" style={{marginBottom:8}}><div className="prog-f" style={{background:`linear-gradient(90deg,${T.gold},${T.goldL})`,width:`${batchProgress}%`}}/></div>}
                     <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:300,overflowY:"auto"}}>
                       {batchFiles.map((bf, i) => (
                         <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:8,border:`1px solid ${T.bd}`,background:bf.status==="done"?(D?"#064e3b20":"#dcfce720"):bf.status==="error"?(D?"#450a0a20":"#fee2e220"):T.bg3}}>
