@@ -16,14 +16,17 @@ import {
   extractPageData, renderThumb, renderPreview, renderPageImg,
   apiCall, parseRange, parseDWG,
   md, exportCSV, exportMD, exportJSON, exportTXT,
+  exportPipeScheduleCSV, exportEarthworksCSV, exportAsphaltCSV,
+  buildPipeNetwork, calcTrenchEarthworks, calcAsphalt, extractEarthworksData, extractAsphaltLayers,
   PdfNav, SmartSuggestions,
+  PipeNetworkPanel, EarthworksPanel, AsphaltPanel,
   type ExtractedPage, type Suggestion,
 } from "@/components/drawing-analysis";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  MAIN COMPONENT — ALIMTYAZ v9
+//  MAIN COMPONENT — ALIMTYAZ v11
 // ═══════════════════════════════════════════════════════════════════════════
 const DrawingAnalysisPage = () => {
   const { isArabic } = useLanguage();
@@ -63,6 +66,9 @@ const DrawingAnalysisPage = () => {
   const [batchFiles, setBatchFiles] = useState<{file:File;name:string;category:string;status:"pending"|"analyzing"|"done"|"error";result?:string}[]>([]);
   const [batchAnalyzing, setBatchAnalyzing] = useState(false);
   const [batchProgress, setBatchProgress] = useState(0);
+  const [pipeNetwork, setPipeNetwork] = useState<any[]>([]);
+  const [earthworksData, setEarthworksData] = useState<any>(null);
+  const [asphaltData, setAsphaltData] = useState<any>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   const totalTokens = useMemo(()=>msgs.reduce((s: number,m: any)=>s+(m.tokens||0),0),[msgs]);
   const boqCount = useMemo(()=>(msgs.filter((m: any)=>m.role==="assistant").map((m: any)=>m.content||"").join("\n").match(/KSA-[A-Z]{2,6}-/g)||[]).length,[msgs]);
@@ -84,7 +90,7 @@ const DrawingAnalysisPage = () => {
   },[]);
 
   // Smart suggestions
-  const save = (c: any,m: any,d: string)=>{try{localStorage.setItem("alimtyaz_v9",JSON.stringify({cfg:c,mods:m,depth:d}));}catch{}};
+  const save = (c: any,m: any,d: string)=>{try{localStorage.setItem("alimtyaz_v11",JSON.stringify({cfg:c,mods:m,depth:d}));}catch{}};
 
   const configSuggestions = useMemo<Suggestion[]>(()=>{
     const s: Suggestion[] = [];
@@ -122,6 +128,28 @@ const DrawingAnalysisPage = () => {
         setMods(prev=>({...prev,"🔧 هندسية_مراجعة التعارضات":true,"⚠️ مخاطر_أقطار كبيرة":true}));
       },priority:2});
     }
+    // v11: اقتراح تفعيل وحدة الحفر عند اكتشاف أنابيب
+    if(xStats && (xStats.diameters?.length||0) > 0 && !earthworksData){
+      s.push({id:"enable-earthworks",icon:"🛣️",type:"accuracy",text:"تم اكتشاف أنابيب — فعّل وحدة الحفر والردم لحساب أحجام الخنادق تلقائياً.",actionLabel:"حساب الحفر",action:()=>{
+        if(infraMeta?.extractedData){
+          const allText = Object.values(infraMeta.extractedData).map((d:any)=>d.text||"").join("\n");
+          const ewData = extractEarthworksData(allText);
+          if(ewData) setEarthworksData(ewData);
+        }
+        setTab("earthworks");
+      },priority:2});
+    }
+    // v11: اقتراح تفعيل قالب الأسفلت عند اكتشاف ROAD
+    if(xStats?.typeCount?.ROAD && !asphaltData){
+      s.push({id:"enable-asphalt",icon:"🛤️",type:"accuracy",text:"تم اكتشاف مخططات طرق — فعّل قالب الأسفلت لحساب طبقات الرصف.",actionLabel:"حساب الأسفلت",action:()=>{
+        if(infraMeta?.extractedData){
+          const allText = Object.values(infraMeta.extractedData).map((d:any)=>d.text||"").join("\n");
+          const aspData = extractAsphaltLayers(allText);
+          if(aspData) setAsphaltData(aspData);
+        }
+        setTab("asphalt");
+      },priority:2});
+    }
     return s;
   },[pdfSess,xStats,depth,ocr,mods,cfg]);
 
@@ -145,8 +173,41 @@ const DrawingAnalysisPage = () => {
     if(pdfSess && selPages(pdfSess).length === 0){
       s.push({id:"no-pages",icon:"📌",type:"performance",text:"لم يتم اختيار صفحات للتحليل — اذهب لمدير PDF واختر الصفحات.",actionLabel:"فتح مدير PDF",action:()=>setTab("pdf"),priority:1});
     }
+    // v11: اقتراح استخدام قالب مواسير تفصيلي
+    if(pipeNetwork.length > 0 && feState?.phase==="done"){
+      s.push({id:"pipe-detail-tmpl",icon:"🔧",type:"accuracy",text:`شبكة أنابيب ${pipeNetwork.length} قطر — استعرض لوحة شبكة المواسير للتفاصيل.`,actionLabel:"عرض المواسير",action:()=>setTab("pipes"),priority:2});
+    }
+    // v11: حساب الحفر تلقائياً
+    if(infraMeta && !earthworksData && feState?.phase==="done"){
+      s.push({id:"calc-earthworks",icon:"🛣️",type:"accuracy",text:"بيانات حفر متاحة — احسب الحفر والردم تلقائياً.",actionLabel:"حساب",action:()=>{
+        const allText = Object.values(infraMeta.extractedData||{}).map((d:any)=>d.text||"").join("\n");
+        const ewData = extractEarthworksData(allText);
+        if(ewData) setEarthworksData(ewData);
+        setTab("earthworks");
+      },priority:2});
+    }
+    // v11: حساب الأسفلت تلقائياً
+    if(infraMeta?.typeCount?.ROAD && !asphaltData && feState?.phase==="done"){
+      s.push({id:"calc-asphalt",icon:"🛤️",type:"accuracy",text:"بيانات طرق متاحة — احسب طبقات الأسفلت تلقائياً.",actionLabel:"حساب",action:()=>{
+        const allText = Object.values(infraMeta.extractedData||{}).map((d:any)=>d.text||"").join("\n");
+        const aspData = extractAsphaltLayers(allText);
+        if(aspData) setAsphaltData(aspData);
+        setTab("asphalt");
+      },priority:2});
+    }
+    // v11: حفظ التحليل بعد الاكتمال
+    if(feState?.phase==="done" && msgs.length > 2 && user){
+      s.push({id:"save-analysis",icon:"💾",type:"performance",text:"اكتمل التحليل — احفظ النتائج لمقارنتها لاحقاً.",actionLabel:"حفظ",action:()=>{
+        const allText = msgs.filter((m:any)=>m.role==="assistant").map((m:any)=>m.content||"").join("\n");
+        supabase.from("drawing_analyses").insert({
+          user_id: user.id, drawing_type: Object.keys(xStats?.typeCount||{})[0]||"PLAN",
+          file_names: pdfSess?[pdfSess.file?.name]:[],
+          results: {text:allText.slice(0,5000)}, summary: {boq_count:boqCount,pipe_count:pipeNetwork.length}
+        });
+      },priority:3});
+    }
     return s;
-  },[feState,msgs,ocr,depth,pdfSess,cfg,mods]);
+  },[feState,msgs,ocr,depth,pdfSess,cfg,mods,pipeNetwork,earthworksData,asphaltData,infraMeta,user,boqCount,xStats]);
 
   const cancelRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -157,14 +218,14 @@ const DrawingAnalysisPage = () => {
   // Persistence
   useEffect(()=>{
     try {
-      const r=localStorage.getItem("alimtyaz_v9");
+      const r=localStorage.getItem("alimtyaz_v11") || localStorage.getItem("alimtyaz_v9");
       if(r){const s=JSON.parse(r);if(s.cfg)setCfg(s.cfg);if(s.mods)setMods(s.mods);if(s.depth)setDepth(s.depth);}
-      const rr=localStorage.getItem("alimtyaz_v9_batch");
+      const rr=localStorage.getItem("alimtyaz_v11_batch") || localStorage.getItem("alimtyaz_v9_batch");
       if(rr){const b=JSON.parse(rr);if(b.partialResults?.length>0)setResumable(b);}
     }catch{}
   },[]);
-  const saveBatch=(b: any)=>{try{localStorage.setItem("alimtyaz_v9_batch",JSON.stringify(b));}catch{}};
-  const clearBatch=()=>{try{localStorage.removeItem("alimtyaz_v9_batch");}catch{}};
+  const saveBatch=(b: any)=>{try{localStorage.setItem("alimtyaz_v11_batch",JSON.stringify(b));}catch{}};
+  const clearBatch=()=>{try{localStorage.removeItem("alimtyaz_v11_batch");}catch{}};
 
   const fetchSavedAnalyses = useCallback(async () => {
     if (!user) return;
@@ -173,6 +234,23 @@ const DrawingAnalysisPage = () => {
   }, [user]);
 
   useEffect(() => { if (user && tab === "history") fetchSavedAnalyses(); }, [user, tab, fetchSavedAnalyses]);
+
+  // v11: Auto-compute pipe network, earthworks, asphalt when extraction completes
+  useEffect(()=>{
+    if(feState?.phase==="done" && infraMeta?.extractedData){
+      const data = infraMeta.extractedData;
+      // Build pipe network
+      const network = buildPipeNetwork(data);
+      if(network.length > 0) setPipeNetwork(network);
+      // Extract earthworks
+      const allText = Object.values(data).map((d:any)=>d.text||"").join("\n");
+      const ewData = extractEarthworksData(allText);
+      if(ewData && (ewData.depths?.length > 0 || ewData.rockRatio > 0)) setEarthworksData(ewData);
+      // Extract asphalt
+      const aspData = extractAsphaltLayers(allText);
+      if(aspData && (aspData.wearing > 0 || aspData.roadWidths?.length > 0)) setAsphaltData(aspData);
+    }
+  },[feState?.phase, infraMeta]);
 
   const fetchSavedProjects = useCallback(async () => {
     if (!user) return;
@@ -645,15 +723,26 @@ const DrawingAnalysisPage = () => {
             <div style={{width:34,height:34,background:`linear-gradient(135deg,${T.gold},${T.goldL})`,borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0,boxShadow:`0 2px 8px ${T.gold}30`}}>🏗️</div>
             {sideOpen&&<div>
               <div style={{fontSize:12,fontWeight:900,color:T.gold,letterSpacing:.5}}>ALIMTYAZ</div>
-              <div style={{fontSize:7.5,color:T.t3}}>v9 · محرك هندسي سعودي</div>
+              <div style={{fontSize:7.5,color:T.t3}}>v11 · محرك هندسي سعودي</div>
             </div>}
           </div>
           <div style={{flex:1,padding:"10px 7px",overflowY:"auto"}}>
-            {[{id:"analysis",i:"💬",l:"التحليل"},{id:"pdf",i:"📄",l:"مدير PDF"},{id:"config",i:"⚙️",l:"الإعداد"},{id:"history",i:"📊",l:"مقارنة التحليلات"}].map(n=>(
+            {[
+              {id:"analysis",i:"💬",l:"التحليل"},
+              {id:"pdf",i:"📄",l:"مدير PDF"},
+              {id:"config",i:"⚙️",l:"الإعداد"},
+              {id:"history",i:"📊",l:"مقارنة التحليلات"},
+              ...(infraMeta?[
+                {id:"pipes",i:"🔧",l:"شبكة المواسير"},
+                {id:"earthworks",i:"🛣️",l:"الحفر والردم"},
+                {id:"asphalt",i:"🛤️",l:"الأسفلت"},
+              ]:[]),
+            ].map(n=>(
               <div key={n.id} className={`nav-i ${tab===n.id?"act":""}`} onClick={()=>setTab(n.id)} style={{justifyContent:sideOpen?"flex-start":"center"}}>
                 <span style={{fontSize:16,flexShrink:0}}>{n.i}</span>
                 {sideOpen&&<span>{n.l}</span>}
                 {n.id==="pdf"&&pdfSess&&sideOpen&&<span style={{marginRight:"auto",fontSize:8,background:D?"#2a1a08":"#FFF5F0",color:T.gold,padding:"1px 7px",borderRadius:9,fontWeight:700}}>{fmtN(pdfSess.numPages)}</span>}
+                {n.id==="pipes"&&pipeNetwork.length>0&&sideOpen&&<span style={{marginRight:"auto",fontSize:8,background:D?"#0a2010":"#f0fdf4",color:T.grn,padding:"1px 7px",borderRadius:9,fontWeight:700}}>{pipeNetwork.length}</span>}
               </div>
             ))}
             {sideOpen&&<div style={{borderTop:`1px solid ${T.bd}`,marginTop:8,paddingTop:8}}>
@@ -685,6 +774,9 @@ const DrawingAnalysisPage = () => {
               <button className="bo" style={{fontSize:9,padding:"3px 9px"}} onClick={()=>exportJSON(msgs,feState,cfgStr())} title="JSON">⬇️ JSON</button>
               {feState?.extractedData&&Object.keys(feState.extractedData).length>0&&<button className="bo" style={{fontSize:9,padding:"3px 9px"}} onClick={()=>exportTXT(feState)} title="TXT">⬇️ TXT</button>}
               {boqCount>0&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:T.grn,color:T.grn}} onClick={()=>setShowExportToProject(true)} title="تصدير لمشروع">📤 تصدير لمشروع</button>}
+              {pipeNetwork.length>0&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:"#2563eb",color:"#2563eb"}} onClick={()=>exportPipeScheduleCSV(pipeNetwork)} title="CSV مواسير">🔧 CSV مواسير</button>}
+              {earthworksData&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:"#854d0e",color:"#854d0e"}} onClick={()=>exportEarthworksCSV(earthworksData)} title="CSV حفر">🛣️ CSV حفر</button>}
+              {asphaltData&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:"#7c3aed",color:"#7c3aed"}} onClick={()=>exportAsphaltCSV(asphaltData)} title="CSV أسفلت">🛤️ CSV أسفلت</button>}
             </>}
           </div>
 
@@ -726,7 +818,7 @@ const DrawingAnalysisPage = () => {
               <div style={{maxWidth:820,margin:"0 auto"}}>
                 <div style={{marginBottom:16}}>
                   <span style={{background:D?"#2a1a08":"#FFF5F0",color:T.gold,border:`1px solid ${T.gold}40`,padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>تهيئة المنظومة</span>
-                  <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>إعدادات <span className="g">ALIMTYAZ v9</span></h2>
+                  <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>إعدادات <span className="g">ALIMTYAZ v11</span></h2>
                   <div style={{width:46,height:3,background:`linear-gradient(90deg,${T.gold},${T.goldL})`,borderRadius:2}}/>
                 </div>
                 {resumable&&(
@@ -966,6 +1058,69 @@ const DrawingAnalysisPage = () => {
                     );
                   })}
                 </div>}
+              </div>
+            </div>
+          )}
+
+          {/* PIPES TAB — v11 */}
+          {tab==="pipes"&&(
+            <div style={{flex:1,overflowY:"auto",padding:"18px 16px"}}>
+              <div style={{maxWidth:900,margin:"0 auto"}}>
+                <div style={{marginBottom:16}}>
+                  <span style={{background:D?"#0a2010":"#f0fdf4",color:T.grn,border:`1px solid ${T.grn}40`,padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>v11 · شبكة المواسير</span>
+                  <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>🔧 تحليل <span className="g">شبكة المواسير</span></h2>
+                </div>
+                {pipeNetwork.length > 0 ? (
+                  <PipeNetworkPanel xStats={{...xStats, pipeNetwork}} T={T} D={D} />
+                ) : (
+                  <div style={{textAlign:"center",padding:40,color:T.t3}}>
+                    <div style={{fontSize:40,marginBottom:10}}>🔧</div>
+                    <div style={{fontSize:12}}>لا توجد بيانات أنابيب بعد</div>
+                    <div style={{fontSize:10,marginTop:4}}>حلّل مخططاً يحتوي على شبكات مواسير</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* EARTHWORKS TAB — v11 */}
+          {tab==="earthworks"&&(
+            <div style={{flex:1,overflowY:"auto",padding:"18px 16px"}}>
+              <div style={{maxWidth:900,margin:"0 auto"}}>
+                <div style={{marginBottom:16}}>
+                  <span style={{background:D?"#1a0e02":"#FFF5F0",color:T.gold,border:`1px solid ${T.gold}40`,padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>v11 · الحفر والردم</span>
+                  <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>🛣️ حساب <span className="g">الحفر والردم</span></h2>
+                </div>
+                {earthworksData ? (
+                  <EarthworksPanel xStats={{...xStats, earthworksData}} T={T} D={D} />
+                ) : (
+                  <div style={{textAlign:"center",padding:40,color:T.t3}}>
+                    <div style={{fontSize:40,marginBottom:10}}>🛣️</div>
+                    <div style={{fontSize:12}}>لا توجد بيانات حفر بعد</div>
+                    <div style={{fontSize:10,marginTop:4}}>حلّل مخططاً يحتوي على أعمال حفر وخنادق</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ASPHALT TAB — v11 */}
+          {tab==="asphalt"&&(
+            <div style={{flex:1,overflowY:"auto",padding:"18px 16px"}}>
+              <div style={{maxWidth:900,margin:"0 auto"}}>
+                <div style={{marginBottom:16}}>
+                  <span style={{background:D?"#1a0e02":"#FFF5F0",color:"#7c3aed",border:"1px solid #7c3aed40",padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>v11 · الأسفلت</span>
+                  <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>🛤️ حساب <span className="g">طبقات الأسفلت</span></h2>
+                </div>
+                {asphaltData ? (
+                  <AsphaltPanel xStats={{...xStats, asphaltData}} T={T} D={D} />
+                ) : (
+                  <div style={{textAlign:"center",padding:40,color:T.t3}}>
+                    <div style={{fontSize:40,marginBottom:10}}>🛤️</div>
+                    <div style={{fontSize:12}}>لا توجد بيانات أسفلت بعد</div>
+                    <div style={{fontSize:10,marginTop:4}}>حلّل مخططاً يحتوي على أعمال طرق ورصف</div>
+                  </div>
+                )}
               </div>
             </div>
           )}
