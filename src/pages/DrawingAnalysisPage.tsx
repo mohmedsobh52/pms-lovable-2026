@@ -976,7 +976,7 @@ const DrawingAnalysisPage = () => {
                       </div>
                     </div>
                     {/* Summary */}
-                    <div style={{background:D?"linear-gradient(135deg,#0a1a10,#0d2018)":"linear-gradient(135deg,#f0fdf4,#dcfce7)",border:`1px solid ${D?"#1a4025":"#bbf7d0"}`,borderRadius:12,padding:13}}>
+                    <div style={{background:D?"linear-gradient(135deg,#1a0e02,#201204)":"linear-gradient(135deg,#FFF5F0,#FFE8DB)",border:`1px solid ${D?T.gold+"30":T.gold+"40"}`,borderRadius:12,padding:13}}>
                       <div style={{fontSize:11,color:T.gold,fontWeight:700,marginBottom:9}}>📊 ملخص العملية</div>
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
                         {[["الصفحات",`${spLen}/${fmtN(pdfSess.numPages)}`],["الدُفعات",`${cks}`],["النوع",preset.label],["الوقت",fmtT(Math.round(estSec))]].map(([k,v])=>(
