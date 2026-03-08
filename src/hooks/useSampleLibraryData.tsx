@@ -577,6 +577,19 @@ export const useSampleLibraryData = () => {
     }
   }, [user]);
 
+  const checkExistingEarthworksMaterials = useCallback(async (): Promise<number> => {
+    if (!user) return 0;
+    try {
+      const { count, error } = await supabase
+        .from('material_prices')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('source', 'earthworks_asphalt_data');
+      if (error) throw error;
+      return count || 0;
+    } catch { return 0; }
+  }, [user]);
+
   const addEarthworksAsphaltMaterials = useCallback(async (onProgress?: (percent: number) => void) => {
     if (!user) return false;
 
@@ -631,19 +644,6 @@ export const useSampleLibraryData = () => {
       return false;
     }
   }, [user, checkExistingEarthworksMaterials]);
-
-  const checkExistingEarthworksMaterials = useCallback(async (): Promise<number> => {
-    if (!user) return 0;
-    try {
-      const { count, error } = await supabase
-        .from('material_prices')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('source', 'earthworks_asphalt_data');
-      if (error) throw error;
-      return count || 0;
-    } catch { return 0; }
-  }, [user]);
 
   return {
     addSampleMaterials,
