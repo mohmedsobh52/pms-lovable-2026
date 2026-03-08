@@ -22,8 +22,14 @@ import {
   AlertTriangle,
   CheckCircle,
   ArrowUpDown,
-  Loader2
+  Loader2,
+  Lightbulb,
+  Library,
+  DollarSign,
+  ChevronRight,
+  Globe
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart,
   Bar,
