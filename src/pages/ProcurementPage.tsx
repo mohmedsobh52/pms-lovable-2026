@@ -22,7 +22,17 @@ const ProcurementPage = () => {
   const { analysisData } = useAnalysisData();
   const { isArabic } = useLanguage();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [partners, setPartners] = useState<ExternalPartner[]>([]);
+
+  const procurementSuggestions = useMemo((): SmartSuggestion[] => {
+    const list: SmartSuggestion[] = [];
+    if (partners.length === 0) list.push({ id: 'no_partners', icon: <Building2 className="h-4 w-4" />, text: isArabic ? 'أضف أول شريك أو مورد لبدء إدارة المشتريات' : 'Add your first partner or supplier to start procurement', action: () => {}, actionLabel: isArabic ? 'إضافة' : 'Add' });
+    const unrated = partners.filter(p => !p.rating || p.rating === 0).length;
+    if (unrated > 0) list.push({ id: 'unrated', icon: <Star className="h-4 w-4" />, text: isArabic ? `${unrated} شركاء بدون تقييم — قيّمهم لتحسين المقارنات` : `${unrated} unrated partners — rate them for better comparisons`, action: () => {}, actionLabel: isArabic ? 'تقييم' : 'Rate' });
+    if (partners.length > 3) list.push({ id: 'compare_offers', icon: <TrendingUp className="h-4 w-4" />, text: isArabic ? 'قارن عروض الموردين للحصول على أفضل الأسعار' : 'Compare supplier offers for better prices', action: () => navigate('/quotations'), actionLabel: isArabic ? 'المقارنة' : 'Compare' });
+    return list.slice(0, 3);
+  }, [partners, isArabic, navigate]);
 
   useEffect(() => {
     if (user) {
