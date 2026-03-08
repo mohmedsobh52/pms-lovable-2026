@@ -111,7 +111,7 @@ const App = () => {
         <AnalysisProvider>
           <AnalysisTrackingProvider>
             <TooltipProvider>
-              <BackgroundImage />
+              
               <Toaster />
               <Sonner />
               <BrowserRouter>

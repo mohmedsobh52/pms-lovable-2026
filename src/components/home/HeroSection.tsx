@@ -47,8 +47,8 @@ export function HeroSection({ stats, recentTrend, projectDistribution }: HeroSec
   // Default project distribution if not provided
   const defaultDistribution: ProjectDistribution[] = [
     { name: isArabic ? "نشط" : "Active", value: 45, color: "#22c55e" },
-    { name: isArabic ? "معلق" : "Pending", value: 25, color: "#f59e0b" },
-    { name: isArabic ? "مكتمل" : "Completed", value: 30, color: "#3b82f6" }
+    { name: isArabic ? "معلق" : "Pending", value: 25, color: "#F3570C" },
+    { name: isArabic ? "مكتمل" : "Completed", value: 30, color: "#605F5F" }
   ];
 
   const distribution = projectDistribution?.length ? projectDistribution : defaultDistribution;
