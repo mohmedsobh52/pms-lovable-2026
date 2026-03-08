@@ -1559,8 +1559,8 @@ export default function ProjectDetailsPage() {
       <div className="h-14 md:hidden" />
 
       {/* Unsaved changes navigation blocker dialog */}
-      {blocker.state === "blocked" && (
-        <Dialog open onOpenChange={() => blocker.reset()}>
+      {showLeaveDialog && (
+        <Dialog open onOpenChange={() => { setShowLeaveDialog(false); setPendingPath(null); }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{isArabic ? "تغييرات غير محفوظة" : "Unsaved Changes"}</DialogTitle>
@@ -1571,10 +1571,10 @@ export default function ProjectDetailsPage() {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => blocker.reset()}>
+              <Button variant="outline" onClick={() => { setShowLeaveDialog(false); setPendingPath(null); }}>
                 {isArabic ? "البقاء" : "Stay"}
               </Button>
-              <Button variant="destructive" onClick={() => blocker.proceed()}>
+              <Button variant="destructive" onClick={() => { setShowLeaveDialog(false); if (pendingPath) navigate(pendingPath); setPendingPath(null); }}>
                 {isArabic ? "مغادرة بدون حفظ" : "Leave without saving"}
               </Button>
             </DialogFooter>
