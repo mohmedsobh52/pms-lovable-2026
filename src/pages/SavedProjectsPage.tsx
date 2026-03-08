@@ -178,7 +178,7 @@ export default function SavedProjectsPage() {
     }
   };
 
-  useEffect(() => { if (user) fetchProjects(); }, [user]);
+  useEffect(() => { if (user) fetchProjects(!!newProjectState?.newProjectId); }, [user]);
 
   const handleDelete = async (id: string) => {
     try {
