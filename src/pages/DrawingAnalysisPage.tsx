@@ -235,6 +235,23 @@ const DrawingAnalysisPage = () => {
 
   useEffect(() => { if (user && tab === "history") fetchSavedAnalyses(); }, [user, tab, fetchSavedAnalyses]);
 
+  // v11: Auto-compute pipe network, earthworks, asphalt when extraction completes
+  useEffect(()=>{
+    if(feState?.phase==="done" && infraMeta?.extractedData){
+      const data = infraMeta.extractedData;
+      // Build pipe network
+      const network = buildPipeNetwork(data);
+      if(network.length > 0) setPipeNetwork(network);
+      // Extract earthworks
+      const allText = Object.values(data).map((d:any)=>d.text||"").join("\n");
+      const ewData = extractEarthworksData(allText);
+      if(ewData && (ewData.depths?.length > 0 || ewData.rockRatio > 0)) setEarthworksData(ewData);
+      // Extract asphalt
+      const aspData = extractAsphaltLayers(allText);
+      if(aspData && (aspData.wearing > 0 || aspData.roadWidths?.length > 0)) setAsphaltData(aspData);
+    }
+  },[feState?.phase, infraMeta]);
+
   const fetchSavedProjects = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase.from("saved_projects").select("id,name,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50);
