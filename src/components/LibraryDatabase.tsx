@@ -16,6 +16,7 @@ import { PriceValiditySummary } from "./library/PriceValiditySummary";
 import { getValidityStats } from "./library/PriceValidityIndicator";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
+import { useNavigate } from "react-router-dom";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
