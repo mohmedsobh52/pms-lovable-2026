@@ -490,6 +490,34 @@ const SmartAlertsBanner = memo(({ expiringContracts, overduePayments, isArabic, 
 });
 SmartAlertsBanner.displayName = "SmartAlertsBanner";
 
+// Dashboard Smart Suggestions
+const DashboardSuggestions = memo(({ stats, isArabic, navigate }: { stats: DashboardStats; isArabic: boolean; navigate: (path: string) => void }) => {
+  const suggestions = useMemo(() => {
+    const list: { id: string; icon: React.ReactNode; text: string; action: () => void; actionLabel: string }[] = [];
+    
+    if (stats.totalProjects === 0) {
+      list.push({ id: 'no_projects', icon: <FolderOpen className="h-4 w-4" />, text: isArabic ? 'ابدأ بإنشاء مشروعك الأول أو رفع ملف BOQ' : 'Start by creating your first project or uploading a BOQ file', action: () => navigate('/projects/new'), actionLabel: isArabic ? 'مشروع جديد' : 'New Project' });
+    }
+    if (stats.totalProjects > 0 && stats.totalQuotations === 0) {
+      list.push({ id: 'no_quotations', icon: <Receipt className="h-4 w-4" />, text: isArabic ? 'أضف عروض أسعار لمقارنة الموردين' : 'Add quotations to compare suppliers', action: () => navigate('/quotations'), actionLabel: isArabic ? 'العروض' : 'Quotations' });
+    }
+    if (stats.activeContracts === 0 && stats.totalProjects > 2) {
+      list.push({ id: 'no_contracts', icon: <FileSignature className="h-4 w-4" />, text: isArabic ? 'أضف عقوداً لتتبع التنفيذ والمدفوعات' : 'Add contracts to track execution & payments', action: () => navigate('/contracts'), actionLabel: isArabic ? 'العقود' : 'Contracts' });
+    }
+    if (stats.riskCount === 0 && stats.totalProjects > 1) {
+      list.push({ id: 'no_risks', icon: <Shield className="h-4 w-4" />, text: isArabic ? 'فعّل إدارة المخاطر لمشاريعك' : 'Enable risk management for your projects', action: () => navigate('/risk'), actionLabel: isArabic ? 'المخاطر' : 'Risks' });
+    }
+    if (stats.totalProjects > 5) {
+      list.push({ id: 'try_reports', icon: <BarChart3 className="h-4 w-4" />, text: isArabic ? 'استخدم التقارير المقارنة لتحليل مشاريعك' : 'Use comparison reports to analyze your projects', action: () => navigate('/saved-projects?tab=reports'), actionLabel: isArabic ? 'التقارير' : 'Reports' });
+    }
+    return list.slice(0, 3);
+  }, [stats, isArabic, navigate]);
+
+  if (suggestions.length === 0) return null;
+  return <SmartSuggestionsBannerComponent suggestions={suggestions} />;
+});
+DashboardSuggestions.displayName = "DashboardSuggestions";
+
 // Cache helpers
 const CACHE_KEY = "pms_dashboard_cache";
 const CACHE_TTL = 5 * 60 * 1000;
