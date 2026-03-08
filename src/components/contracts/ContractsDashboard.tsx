@@ -1,12 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
-import { TrendingUp, DollarSign, FileText, Users } from "lucide-react";
+import { TrendingUp, DollarSign, FileText, Users, AlertTriangle, FileSignature, Calendar } from "lucide-react";
 import { format, subMonths, startOfMonth } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
+import { SmartSuggestionsBanner, type SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 
 interface Contract {
   id: string;
