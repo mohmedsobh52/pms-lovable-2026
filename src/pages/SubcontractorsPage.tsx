@@ -12,10 +12,13 @@ import {
   Users, 
   LayoutDashboard, 
   Link2, 
-  DollarSign
+  DollarSign,
+  AlertTriangle,
+  ClipboardList
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 
 interface Subcontractor {
   id: string;
