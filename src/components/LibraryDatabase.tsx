@@ -24,14 +24,16 @@ import {
 
 export const LibraryDatabase = () => {
   const { isArabic } = useLanguage();
+  const navigate = useNavigate();
   const { materials, refreshMaterials } = useMaterialPrices();
   const { laborRates, refreshLaborRates } = useLaborRates();
   const { equipmentRates, refreshEquipmentRates } = useEquipmentRates();
-  const { addAllSampleData, addWaterSewageMaterials, addNetworkLaborEquipment, addAllNetworkData, checkExistingNetworkMaterials, deleteAllSampleData, deleteNetworkDataOnly, sampleCounts } = useSampleLibraryData();
+  const { addAllSampleData, addWaterSewageMaterials, addNetworkLaborEquipment, addAllNetworkData, checkExistingNetworkMaterials, deleteAllSampleData, deleteNetworkDataOnly, addEarthworksAsphaltMaterials, checkExistingEarthworksMaterials, sampleCounts } = useSampleLibraryData();
   const [isAddingSampleData, setIsAddingSampleData] = useState(false);
   const [isAddingNetworkData, setIsAddingNetworkData] = useState(false);
   const [isAddingNetworkLE, setIsAddingNetworkLE] = useState(false);
   const [isAddingAllNetwork, setIsAddingAllNetwork] = useState(false);
+  const [isAddingEarthworks, setIsAddingEarthworks] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showProgress, setShowProgress] = useState(false);
   const [duplicateCount, setDuplicateCount] = useState<number | null>(null);
@@ -39,8 +41,9 @@ export const LibraryDatabase = () => {
   const [activeTab, setActiveTab] = useState("materials");
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<string[]>([]);
 
-  const isAnyLoading = isAddingSampleData || isAddingNetworkData || isAddingNetworkLE || isAddingAllNetwork || isDeletingAll;
+  const isAnyLoading = isAddingSampleData || isAddingNetworkData || isAddingNetworkLE || isAddingAllNetwork || isDeletingAll || isAddingEarthworks;
 
   const handleAddSampleData = useCallback(async () => {
     setIsAddingSampleData(true);
