@@ -75,6 +75,13 @@ export const MATERIAL_CATEGORIES = [
   { value: 'water_tanks', label: 'خزانات مياه', label_en: 'Water Tanks', group: 'networks' },
   { value: 'pumps_stations', label: 'مضخات ومحطات', label_en: 'Pumps & Stations', group: 'networks' },
   { value: 'water_treatment', label: 'معالجة مياه', label_en: 'Water Treatment', group: 'networks' },
+  // Earthworks & Asphalt Categories (v11)
+  { value: 'earthworks', label: 'أعمال ترابية', label_en: 'Earthworks', group: 'earthworks_asphalt' },
+  { value: 'asphalt', label: 'أسفلت ورصف', label_en: 'Asphalt & Paving', group: 'earthworks_asphalt' },
+  { value: 'road_base', label: 'طبقات أساس الطرق', label_en: 'Road Base Layers', group: 'earthworks_asphalt' },
+  { value: 'road_accessories', label: 'ملحقات الطرق', label_en: 'Road Accessories', group: 'road' },
+  { value: 'concrete_works', label: 'أعمال خرسانية', label_en: 'Concrete Works', group: 'general' },
+  { value: 'safety_temporary', label: 'أعمال مؤقتة وسلامة', label_en: 'Safety & Temporary', group: 'road' },
   { value: 'other', label: 'أخرى', label_en: 'Other', group: 'general' },
 ];
 
@@ -82,6 +89,8 @@ export const CATEGORY_GROUPS = [
   { key: 'general', label: 'عام', label_en: 'General' },
   { key: 'pipes', label: 'مواسير', label_en: 'Pipes' },
   { key: 'networks', label: 'شبكات', label_en: 'Networks' },
+  { key: 'earthworks_asphalt', label: 'حفر وأسفلت', label_en: 'Earthworks & Asphalt' },
+  { key: 'road', label: 'طرق', label_en: 'Roads' },
 ];
 
 export const CURRENCIES = [

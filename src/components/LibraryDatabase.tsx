@@ -1,8 +1,8 @@
-import { useState, lazy, Suspense, useCallback } from "react";
+import { useState, lazy, Suspense, useCallback, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Package, Users, Truck, Database, Loader2, Droplets, Wrench, BarChart3, PackagePlus, Trash2, Download } from "lucide-react";
+import { Package, Users, Truck, Database, Loader2, Droplets, Wrench, BarChart3, PackagePlus, Trash2, Download, Lightbulb, Mountain, Languages, FileDown, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { MaterialsTab } from "./library/MaterialsTab";
 import { LaborTab } from "./library/LaborTab";
@@ -16,6 +16,7 @@ import { PriceValiditySummary } from "./library/PriceValiditySummary";
 import { getValidityStats } from "./library/PriceValidityIndicator";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
+import { useNavigate } from "react-router-dom";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -23,14 +24,16 @@ import {
 
 export const LibraryDatabase = () => {
   const { isArabic } = useLanguage();
+  const navigate = useNavigate();
   const { materials, refreshMaterials } = useMaterialPrices();
   const { laborRates, refreshLaborRates } = useLaborRates();
   const { equipmentRates, refreshEquipmentRates } = useEquipmentRates();
-  const { addAllSampleData, addWaterSewageMaterials, addNetworkLaborEquipment, addAllNetworkData, checkExistingNetworkMaterials, deleteAllSampleData, deleteNetworkDataOnly, sampleCounts } = useSampleLibraryData();
+  const { addAllSampleData, addWaterSewageMaterials, addNetworkLaborEquipment, addAllNetworkData, checkExistingNetworkMaterials, deleteAllSampleData, deleteNetworkDataOnly, addEarthworksAsphaltMaterials, checkExistingEarthworksMaterials, sampleCounts } = useSampleLibraryData();
   const [isAddingSampleData, setIsAddingSampleData] = useState(false);
   const [isAddingNetworkData, setIsAddingNetworkData] = useState(false);
   const [isAddingNetworkLE, setIsAddingNetworkLE] = useState(false);
   const [isAddingAllNetwork, setIsAddingAllNetwork] = useState(false);
+  const [isAddingEarthworks, setIsAddingEarthworks] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showProgress, setShowProgress] = useState(false);
   const [duplicateCount, setDuplicateCount] = useState<number | null>(null);
@@ -38,8 +41,9 @@ export const LibraryDatabase = () => {
   const [activeTab, setActiveTab] = useState("materials");
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<string[]>([]);
 
-  const isAnyLoading = isAddingSampleData || isAddingNetworkData || isAddingNetworkLE || isAddingAllNetwork || isDeletingAll;
+  const isAnyLoading = isAddingSampleData || isAddingNetworkData || isAddingNetworkLE || isAddingAllNetwork || isDeletingAll || isAddingEarthworks;
 
   const handleAddSampleData = useCallback(async () => {
     setIsAddingSampleData(true);
@@ -198,6 +202,22 @@ export const LibraryDatabase = () => {
     setIsExporting(false);
   }, [materials, laborRates, equipmentRates, isArabic]);
 
+  const handleAddEarthworksData = useCallback(async () => {
+    setIsAddingEarthworks(true);
+    setShowProgress(true);
+    setProgress(0);
+    const success = await addEarthworksAsphaltMaterials((p) => setProgress(p));
+    if (success) {
+      toast.success(isArabic ? `تم إضافة ${sampleCounts.earthworksAsphalt} مادة حفر وأسفلت` : `Added ${sampleCounts.earthworksAsphalt} earthworks & asphalt materials`);
+      await refreshMaterials();
+    } else {
+      toast.error(isArabic ? "فشل في إضافة مواد الحفر والأسفلت" : "Failed to add earthworks materials");
+    }
+    setIsAddingEarthworks(false);
+    setShowProgress(false);
+    setProgress(0);
+  }, [addEarthworksAsphaltMaterials, refreshMaterials, isArabic, sampleCounts.earthworksAsphalt]);
+
   const getCurrentTabData = () => {
     switch (activeTab) {
       case "materials": return materials.map(m => ({ price_date: m.price_date, valid_until: m.valid_until }));
@@ -210,6 +230,97 @@ export const LibraryDatabase = () => {
   const validityStats = getValidityStats(getCurrentTabData());
   const totalItems = materials.length + laborRates.length + equipmentRates.length;
   const showEmptyState = totalItems === 0;
+
+  // Smart suggestions engine
+  const smartSuggestions = useMemo(() => {
+    const suggestions: { id: string; icon: React.ReactNode; text: string; action: () => void; actionLabel: string; priority: number }[] = [];
+    
+    // Check if earthworks/asphalt materials exist
+    const hasEarthworks = materials.some(m => ['earthworks', 'asphalt', 'road_base', 'road_accessories', 'concrete_works', 'safety_temporary'].includes(m.category));
+    if (!hasEarthworks && materials.length > 0) {
+      suggestions.push({
+        id: 'add_earthworks',
+        icon: <Mountain className="h-4 w-4" />,
+        text: isArabic ? `أضف مواد الأعمال الترابية والأسفلت (${sampleCounts.earthworksAsphalt} مادة)` : `Add earthworks & asphalt materials (${sampleCounts.earthworksAsphalt} items)`,
+        action: handleAddEarthworksData,
+        actionLabel: isArabic ? 'إضافة' : 'Add',
+        priority: 1,
+      });
+    }
+
+    // Check if network materials exist but no labor/equipment
+    const hasNetworkMaterials = materials.some(m => ['pipes_pvc', 'pipes_hdpe', 'pipes_di', 'pipes_grp'].includes(m.category));
+    if (hasNetworkMaterials && laborRates.length === 0 && equipmentRates.length === 0) {
+      suggestions.push({
+        id: 'add_network_le',
+        icon: <Wrench className="h-4 w-4" />,
+        text: isArabic ? 'أضف عمالة ومعدات الشبكات المتخصصة' : 'Add specialized network labor & equipment',
+        action: handleAddNetworkLE,
+        actionLabel: isArabic ? 'إضافة' : 'Add',
+        priority: 2,
+      });
+    }
+
+    // Check expired prices
+    if (totalItems > 0) {
+      const allData = getCurrentTabData();
+      const stats = getValidityStats(allData);
+      const expiredPct = allData.length > 0 ? (stats.expired / allData.length) * 100 : 0;
+      if (expiredPct > 30) {
+        suggestions.push({
+          id: 'expired_prices',
+          icon: <Lightbulb className="h-4 w-4" />,
+          text: isArabic ? `${stats.expired} سعر منتهي الصلاحية (${Math.round(expiredPct)}%) — حدّث الأسعار` : `${stats.expired} expired prices (${Math.round(expiredPct)}%) — update prices`,
+          action: () => setValidityFilter('expired'),
+          actionLabel: isArabic ? 'عرض المنتهية' : 'Show Expired',
+          priority: 3,
+        });
+      }
+    }
+
+    // Check missing Arabic names
+    const missingArabic = materials.filter(m => !m.name_ar || m.name_ar.trim() === '').length;
+    if (missingArabic > 5) {
+      suggestions.push({
+        id: 'missing_arabic',
+        icon: <Languages className="h-4 w-4" />,
+        text: isArabic ? `${missingArabic} مادة بدون اسم عربي — أكمل الترجمة` : `${missingArabic} materials without Arabic name — complete translation`,
+        action: () => { setActiveTab('materials'); },
+        actionLabel: isArabic ? 'عرض' : 'View',
+        priority: 5,
+      });
+    }
+
+    // No suppliers linked
+    const hasSuppliers = materials.some(m => m.supplier_name && m.supplier_name.trim() !== '');
+    if (materials.length > 10 && !hasSuppliers) {
+      suggestions.push({
+        id: 'no_suppliers',
+        icon: <Users className="h-4 w-4" />,
+        text: isArabic ? 'أضف موردين لتحسين مقارنات الأسعار' : 'Add suppliers to improve price comparisons',
+        action: () => navigate('/procurement'),
+        actionLabel: isArabic ? 'الموردين' : 'Partners',
+        priority: 4,
+      });
+    }
+
+    // Library is complete — suggest export
+    if (totalItems > 50 && suggestions.length === 0) {
+      suggestions.push({
+        id: 'export_backup',
+        icon: <FileDown className="h-4 w-4" />,
+        text: isArabic ? 'المكتبة جاهزة! صدّر نسخة احتياطية بصيغة Excel' : 'Library is ready! Export a backup in Excel format',
+        action: handleExportLibrary,
+        actionLabel: isArabic ? 'تصدير' : 'Export',
+        priority: 10,
+      });
+    }
+
+    return suggestions
+      .filter(s => !dismissedSuggestions.includes(s.id))
+      .sort((a, b) => a.priority - b.priority)
+      .slice(0, 3);
+  }, [materials, laborRates, equipmentRates, totalItems, isArabic, sampleCounts.earthworksAsphalt, dismissedSuggestions, handleAddEarthworksData, handleAddNetworkLE, handleExportLibrary, navigate, activeTab]);
 
   const ProgressBar = () => showProgress ? (
     <div className="mt-3 space-y-1">
@@ -229,6 +340,34 @@ export const LibraryDatabase = () => {
 
   return (
     <div className="space-y-4">
+      {/* Smart Suggestions */}
+      {!showEmptyState && smartSuggestions.length > 0 && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+            <Lightbulb className="h-4 w-4" />
+            {isArabic ? 'اقتراحات وتوصيات' : 'Suggestions & Recommendations'}
+          </div>
+          <div className="space-y-2">
+            {smartSuggestions.map((s) => (
+              <div key={s.id} className="flex items-center justify-between gap-3 bg-background/80 rounded-md p-2.5 border border-border/50">
+                <div className="flex items-center gap-2 text-sm text-foreground/80">
+                  <span className="text-primary">{s.icon}</span>
+                  {s.text}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={s.action} disabled={isAnyLoading}>
+                    {s.actionLabel}
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground" onClick={() => setDismissedSuggestions(prev => [...prev, s.id])}>
+                    ✕
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {showEmptyState && (
         <div className="flex flex-col items-center justify-center py-8 px-4 border-2 border-dashed rounded-lg bg-muted/30">
           <Database className="h-12 w-12 text-muted-foreground mb-4" />
@@ -415,6 +554,38 @@ export const LibraryDatabase = () => {
                   <AlertDialogCancel disabled={isAddingNetworkData}>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
                   <AlertDialogAction onClick={handleAddNetworkData} disabled={isAddingNetworkData}>
                     {isAddingNetworkData ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "إضافة" : "Add")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          {activeTab === "materials" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2" disabled={isAnyLoading}>
+                  {isAddingEarthworks ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mountain className="h-4 w-4" />}
+                  {isAddingEarthworks ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? `مواد الحفر والأسفلت (${sampleCounts.earthworksAsphalt})` : `Earthworks & Asphalt (${sampleCounts.earthworksAsphalt})`)}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{isArabic ? "إضافة مواد الأعمال الترابية والأسفلت" : "Add Earthworks & Asphalt Materials"}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {isArabic ? `سيتم إضافة ${sampleCounts.earthworksAsphalt} مادة تشمل:` : `${sampleCounts.earthworksAsphalt} materials will be added including:`}
+                  </AlertDialogDescription>
+                  <ul className="list-disc list-inside text-sm text-muted-foreground">
+                    <li>{isArabic ? "أعمال ترابية (حفر، ردم، فرشة)" : "Earthworks (trenching, backfill, bedding)"}</li>
+                    <li>{isArabic ? "أسفلت ورصف (طبقات سطحية، رابطة، أساسية)" : "Asphalt (wearing, binder, base courses)"}</li>
+                    <li>{isArabic ? "طبقات أساس طرق ومجروشات" : "Road base layers & aggregates"}</li>
+                    <li>{isArabic ? "ملحقات طرق (أرصفة، حواجز، إنارة)" : "Road accessories (curbs, barriers, lighting)"}</li>
+                    <li>{isArabic ? "أعمال خرسانية وسلامة مؤقتة" : "Concrete works & temporary safety"}</li>
+                  </ul>
+                  <ProgressBar />
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isAddingEarthworks}>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleAddEarthworksData} disabled={isAddingEarthworks}>
+                    {isAddingEarthworks ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "إضافة" : "Add")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
