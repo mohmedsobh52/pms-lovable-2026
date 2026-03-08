@@ -976,7 +976,7 @@ const DrawingAnalysisPage = () => {
                       </div>
                     </div>
                     {/* Summary */}
-                    <div style={{background:D?"linear-gradient(135deg,#0a1a10,#0d2018)":"linear-gradient(135deg,#f0fdf4,#dcfce7)",border:`1px solid ${D?"#1a4025":"#bbf7d0"}`,borderRadius:12,padding:13}}>
+                    <div style={{background:D?"linear-gradient(135deg,#1a0e02,#201204)":"linear-gradient(135deg,#FFF5F0,#FFE8DB)",border:`1px solid ${D?T.gold+"30":T.gold+"40"}`,borderRadius:12,padding:13}}>
                       <div style={{fontSize:11,color:T.gold,fontWeight:700,marginBottom:9}}>📊 ملخص العملية</div>
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
                         {[["الصفحات",`${spLen}/${fmtN(pdfSess.numPages)}`],["الدُفعات",`${cks}`],["النوع",preset.label],["الوقت",fmtT(Math.round(estSec))]].map(([k,v])=>(
@@ -1014,7 +1014,7 @@ const DrawingAnalysisPage = () => {
                         <button className="bo" style={{fontSize:9}} onClick={()=>setBatchFiles([])}>🗑️ مسح</button>
                       </div>
                     </div>
-                    {batchAnalyzing && <div className="prog" style={{marginBottom:8}}><div className="prog-f" style={{background:`linear-gradient(90deg,${T.grn},#4ade80)`,width:`${batchProgress}%`}}/></div>}
+                    {batchAnalyzing && <div className="prog" style={{marginBottom:8}}><div className="prog-f" style={{background:`linear-gradient(90deg,${T.gold},${T.goldL})`,width:`${batchProgress}%`}}/></div>}
                     <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:300,overflowY:"auto"}}>
                       {batchFiles.map((bf, i) => (
                         <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:8,border:`1px solid ${T.bd}`,background:bf.status==="done"?(D?"#064e3b20":"#dcfce720"):bf.status==="error"?(D?"#450a0a20":"#fee2e220"):T.bg3}}>
@@ -1113,7 +1113,7 @@ const DrawingAnalysisPage = () => {
             <div style={{flex:1,overflowY:"auto",padding:"18px 16px"}}>
               <div style={{maxWidth:900,margin:"0 auto"}}>
                 <div style={{marginBottom:16}}>
-                  <span style={{background:D?"#0a2010":"#f0fdf4",color:T.grn,border:`1px solid ${T.grn}40`,padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>v11 · شبكة المواسير</span>
+                  <span style={{background:D?"#2a1a08":"#FFF5F0",color:T.gold,border:`1px solid ${T.gold}40`,padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>v11 · شبكة المواسير</span>
                   <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>🔧 تحليل <span className="g">شبكة المواسير</span></h2>
                 </div>
                 {pipeNetwork.length > 0 ? (
@@ -1155,7 +1155,7 @@ const DrawingAnalysisPage = () => {
             <div style={{flex:1,overflowY:"auto",padding:"18px 16px"}}>
               <div style={{maxWidth:900,margin:"0 auto"}}>
                 <div style={{marginBottom:16}}>
-                  <span style={{background:D?"#1a0e02":"#FFF5F0",color:"#7c3aed",border:"1px solid #7c3aed40",padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>v11 · الأسفلت</span>
+                  <span style={{background:D?"#2a1a08":"#FFF5F0",color:T.gold,border:`1px solid ${T.gold}40`,padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>v11 · الأسفلت</span>
                   <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>🛤️ حساب <span className="g">طبقات الأسفلت</span></h2>
                 </div>
                 {asphaltData ? (
@@ -1175,9 +1175,9 @@ const DrawingAnalysisPage = () => {
           {tab==="analysis"&&(
             <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",padding:"9px 14px",gap:8}}>
               {feState&&feState.phase!=="done"&&(
-                <div style={{background:D?"linear-gradient(135deg,#022c22,#064e3b)":"linear-gradient(135deg,#ecfdf5,#d1fae5)",border:`1px solid ${D?"#05966960":"#6ee7b7"}`,borderRadius:10,padding:"10px 14px",flexShrink:0}}>
+                <div style={{background:D?"linear-gradient(135deg,#1a0e02,#201204)":"linear-gradient(135deg,#FFF5F0,#FFE8DB)",border:`1px solid ${D?T.gold+"40":T.gold+"30"}`,borderRadius:10,padding:"10px 14px",flexShrink:0}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-                    <div style={{fontSize:11,color:T.grn,fontWeight:700}}>{feState.stage}</div>
+                    <div style={{fontSize:11,color:T.gold,fontWeight:700}}>{feState.stage}</div>
                     <div style={{display:"flex",gap:7,alignItems:"center"}}>
                       {feState.eta!=null&&<span style={{fontSize:9,color:T.t3}}>⏱️ ~{fmtT(feState.eta)}</span>}
                       {feState.phase!=="merging"&&<button onClick={()=>cancelRef.current=true} style={{background:"#fee2e2",border:"1px solid #fca5a5",color:"#b91c1c",padding:"2px 8px",borderRadius:6,cursor:"pointer",fontSize:9,fontFamily:"inherit"}}>⏹ إيقاف</button>}
@@ -1194,7 +1194,7 @@ const DrawingAnalysisPage = () => {
                       <span key={i} style={{background:c.status==="done"?(D?"#064e3b":"#dcfce7"):c.status==="error"?(D?"#450a0a":"#fee2e2"):(D?"#2a1a08":"#FFF5F0"),
                         color:c.status==="done"?T.grn:c.status==="error"?"#ef4444":T.gold,
                         padding:"2px 7px",borderRadius:6,fontSize:8,fontWeight:c.status==="analyzing"?700:400,
-                        border:`1px solid ${c.status==="done"?(D?"#065f46":"#bbf7d0"):c.status==="error"?(D?"#7f1d1d":"#fca5a5"):(D?"#854d0e":"#FFE8DB")}`,
+                        border:`1px solid ${c.status==="done"?(D?"#065f46":"#bbf7d0"):c.status==="error"?(D?"#7f1d1d":"#fca5a5"):(D?T.gold+"40":T.gold+"30")}`,
                         animation:c.status==="analyzing"?"alim-pulse 1.2s ease infinite":undefined}}>
                         {c.status==="done"?"✓":c.status==="error"?"✗":"⏳"} {c.label}
                       </span>
@@ -1238,8 +1238,8 @@ const DrawingAnalysisPage = () => {
                     </div>
                   )}
                   {msgs.length>0&&boqCount>0&&(
-                    <div style={{background:D?"linear-gradient(135deg,#0d1f14,#111e18)":"linear-gradient(135deg,#f0fdf4,#dcfce7)",border:`1px solid ${D?"#1a3025":"#bbf7d0"}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",flexShrink:0}}>
-                      <span style={{fontSize:9,color:T.grn,fontWeight:700}}>📊 ملخص الجلسة</span>
+                    <div style={{background:D?"linear-gradient(135deg,#1a0e02,#201204)":"linear-gradient(135deg,#FFF5F0,#FFE8DB)",border:`1px solid ${D?T.gold+"30":T.gold+"40"}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",flexShrink:0}}>
+                      <span style={{fontSize:9,color:T.gold,fontWeight:700}}>📊 ملخص الجلسة</span>
                       <span style={{fontSize:9,color:T.t2}}><span style={{color:T.gold,fontWeight:700}}>{boqCount}</span> بند BOQ</span>
                       <span style={{fontSize:9,color:T.t2}}><span style={{color:T.gold,fontWeight:700}}>{msgs.filter((m: any)=>m.role==="assistant").length}</span> تحليل</span>
                     </div>
@@ -1279,7 +1279,7 @@ const DrawingAnalysisPage = () => {
                     if(formulaScore<0.5) recs.push("استخدم قالب 'حفر وردم'");
                     return(
                       <div style={{background:D?`linear-gradient(135deg,${overall>=80?"#0d1f14":"#1a0e02"},${overall>=80?"#111e18":"#201204"})`:`linear-gradient(135deg,${overall>=80?"#f0fdf4":"#FFF5F0"},${overall>=80?"#dcfce7":"#FFE8DB"})`,
-                        border:`1px solid ${overall>=80?(D?"#1a3025":"#bbf7d0"):(D?"#854d0e40":"#FFE8DB")}`,borderRadius:10,padding:"10px 14px",flexShrink:0}}>
+                        border:`1px solid ${overall>=80?(D?"#1a3025":"#bbf7d0"):(D?T.gold+"30":T.gold+"40")}`,borderRadius:10,padding:"10px 14px",flexShrink:0}}>
                         <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                           <div style={{width:42,height:42,borderRadius:"50%",border:`2px solid ${clr}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
                             <span style={{fontSize:13,fontWeight:900,color:clr}}>{overall}%</span>
@@ -1287,7 +1287,7 @@ const DrawingAnalysisPage = () => {
                           <div>
                             <div style={{display:"flex",alignItems:"center",gap:6}}>
                               <span style={{fontSize:11,fontWeight:700,color:T.t1}}>جودة التحليل</span>
-                              <span style={{fontSize:8,background:overall>=80?(D?"#064e3b":"#dcfce7"):overall>=50?(D?"#451a03":"#FFF5F0"):(D?"#450a0a":"#fee2e2"),
+                              <span style={{fontSize:8,background:overall>=80?(D?"#064e3b":"#dcfce7"):overall>=50?(D?"#2a1a08":"#FFF5F0"):(D?"#450a0a":"#fee2e2"),
                                 color:clr,padding:"2px 8px",borderRadius:8,fontWeight:600}}>{lbl}</span>
                             </div>
                             <div style={{width:130,height:5,background:D?"#333":"#e5e7eb",borderRadius:4,marginTop:4,overflow:"hidden"}}>
@@ -1319,7 +1319,7 @@ const DrawingAnalysisPage = () => {
                     const isCol=collapsed.has(i);
                     const cls=m.role==="user"?"mu":m.isMerged?"mm":m.isHybrid?"mh":m.isFast?"mf":"ma";
                     const lbl=m.role==="user"?"👤":m.isMerged?"🔗 التقرير الموحد":m.isChunk?`📄 ${m.chunkLabel||""}`:"🤖 ALIMTYAZ";
-                    const lclr=m.role==="user"?"#2563eb":m.isMerged?T.gold:m.isFast?T.grn:"#374151";
+                    const lclr=m.role==="user"?T.gold:m.isMerged?T.gold:m.isFast?T.gold:"#374151";
                     const content=typeof m.content==="string"?m.content:"";
                     const hlContent=search.trim()&&m.role==="assistant"?mdCached(content).replace(new RegExp(`(${search.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")})`, "gi"),'<mark class="hl">$1</mark>'):null;
                     return(
@@ -1372,7 +1372,7 @@ const DrawingAnalysisPage = () => {
                   onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)}
                   onDrop={e=>{e.preventDefault();setDrag(false);handleFiles(e.dataTransfer.files);}}>
                   <div style={{display:"flex",justifyContent:"center",gap:12,marginBottom:4}}>
-                    {[{c:T.grn,i:"⚡",l:"Fast"},{c:"#2563eb",i:"🔀",l:"Hybrid"},{c:"#2563eb",i:"🖼️",l:"PNG/WebP"},{c:"#dc2626",i:"📄",l:"PDF"},{c:T.grn,i:"📐",l:"DWG"},{c:"#7c3aed",i:"📁",l:"مجلد"}].map(f=>(
+                    {[{c:T.gold,i:"⚡",l:"Fast"},{c:T.goldL,i:"🔀",l:"Hybrid"},{c:T.goldL,i:"🖼️",l:"PNG/WebP"},{c:"#dc2626",i:"📄",l:"PDF"},{c:T.gold,i:"📐",l:"DWG"},{c:T.gold,i:"📁",l:"مجلد"}].map(f=>(
                       <div key={f.l} style={{textAlign:"center"}} onClick={f.l==="مجلد"?(e:any)=>{e.stopPropagation();folderRef.current?.click()}:undefined}>
                         <div style={{fontSize:14}}>{f.i}</div>
                         <div style={{fontSize:7,color:f.c,marginTop:1,fontWeight:600}}>{f.l}</div>
