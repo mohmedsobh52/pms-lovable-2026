@@ -541,6 +541,38 @@ export const LibraryDatabase = () => {
         </div>
       )}
 
+      {/* Pricing Integration Card */}
+      {!showEmptyState && totalItems > 10 && (
+        <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-full bg-primary/10">
+              <DollarSign className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                {isArabic ? 'ربط المكتبة بالتسعير' : 'Library ↔ Pricing Link'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {isArabic 
+                  ? `${materials.length} مادة + ${laborRates.length} عمالة + ${equipmentRates.length} معدة متاحة للتسعير التلقائي`
+                  : `${materials.length} materials + ${laborRates.length} labor + ${equipmentRates.length} equipment available for auto-pricing`
+                }
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button size="sm" variant="default" className="gap-1.5 h-8 text-xs" onClick={() => navigate('/saved-projects')}>
+              <DollarSign className="h-3.5 w-3.5" />
+              {isArabic ? 'التسعير التلقائي' : 'Auto Price'}
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={() => navigate('/material-prices')}>
+              <TrendingUp className="h-3.5 w-3.5" />
+              {isArabic ? 'أسعار السوق' : 'Market Prices'}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Contextual add buttons when library is not empty */}
       {!showEmptyState && (
         <div className="flex justify-end gap-2 flex-wrap">
