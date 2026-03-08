@@ -223,9 +223,9 @@ serve(async (req) => {
       needAI.push(item);
     }
 
-    // Pass 2: AI for remaining items (batch max 20)
+    // Pass 2: AI for remaining items (batch max 30)
     if (needAI.length > 0) {
-      const batch = needAI.slice(0, 20);
+      const batch = needAI.slice(0, 30);
       const itemsList = batch.map(i => ({ n: i.item_number, d: i.description, u: i.unit, p: i.unit_price || 0 }));
 
       try {
