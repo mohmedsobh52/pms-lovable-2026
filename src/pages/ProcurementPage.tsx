@@ -69,6 +69,9 @@ const ProcurementPage = () => {
           }
         />
 
+        {/* Smart Suggestions */}
+        <SmartSuggestionsBanner suggestions={procurementSuggestions} />
+
         {/* Tabs */}
         <Tabs defaultValue="partners" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
