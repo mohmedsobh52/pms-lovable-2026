@@ -2,7 +2,7 @@ import { useState, lazy, Suspense, useCallback, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Package, Users, Truck, Database, Loader2, Droplets, Wrench, BarChart3, PackagePlus, Trash2, Download, Lightbulb, Mountain, Languages, FileDown, ChevronRight } from "lucide-react";
+import { Package, Users, Truck, Database, Loader2, Droplets, Wrench, BarChart3, PackagePlus, Trash2, Download, Lightbulb, Mountain, Languages, FileDown, ChevronRight, DollarSign, TrendingUp, ArrowRight } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { MaterialsTab } from "./library/MaterialsTab";
 import { LaborTab } from "./library/LaborTab";
@@ -218,16 +218,23 @@ export const LibraryDatabase = () => {
     setProgress(0);
   }, [addEarthworksAsphaltMaterials, refreshMaterials, isArabic, sampleCounts.earthworksAsphalt]);
 
-  const getCurrentTabData = () => {
+  const currentTabData = useMemo(() => {
     switch (activeTab) {
       case "materials": return materials.map(m => ({ price_date: m.price_date, valid_until: m.valid_until }));
       case "labor": return laborRates.map(l => ({ price_date: l.price_date, valid_until: l.valid_until }));
       case "equipment": return equipmentRates.map(e => ({ price_date: e.price_date, valid_until: e.valid_until }));
       default: return [];
     }
-  };
+  }, [activeTab, materials, laborRates, equipmentRates]);
 
-  const validityStats = getValidityStats(getCurrentTabData());
+  // All data for cross-tab suggestions
+  const allLibraryData = useMemo(() => [
+    ...materials.map(m => ({ price_date: m.price_date, valid_until: m.valid_until })),
+    ...laborRates.map(l => ({ price_date: l.price_date, valid_until: l.valid_until })),
+    ...equipmentRates.map(e => ({ price_date: e.price_date, valid_until: e.valid_until })),
+  ], [materials, laborRates, equipmentRates]);
+
+  const validityStats = getValidityStats(currentTabData);
   const totalItems = materials.length + laborRates.length + equipmentRates.length;
   const showEmptyState = totalItems === 0;
 
@@ -261,19 +268,57 @@ export const LibraryDatabase = () => {
       });
     }
 
-    // Check expired prices
+    // Check expired prices across ALL data (not just current tab)
     if (totalItems > 0) {
-      const allData = getCurrentTabData();
-      const stats = getValidityStats(allData);
-      const expiredPct = allData.length > 0 ? (stats.expired / allData.length) * 100 : 0;
+      const allStats = getValidityStats(allLibraryData);
+      const expiredPct = allLibraryData.length > 0 ? (allStats.expired / allLibraryData.length) * 100 : 0;
       if (expiredPct > 30) {
         suggestions.push({
           id: 'expired_prices',
           icon: <Lightbulb className="h-4 w-4" />,
-          text: isArabic ? `${stats.expired} سعر منتهي الصلاحية (${Math.round(expiredPct)}%) — حدّث الأسعار` : `${stats.expired} expired prices (${Math.round(expiredPct)}%) — update prices`,
+          text: isArabic ? `${allStats.expired} سعر منتهي الصلاحية (${Math.round(expiredPct)}%) — حدّث الأسعار` : `${allStats.expired} expired prices (${Math.round(expiredPct)}%) — update prices`,
           action: () => setValidityFilter('expired'),
           actionLabel: isArabic ? 'عرض المنتهية' : 'Show Expired',
           priority: 3,
+        });
+      }
+    }
+
+    // NEW: Materials > 50 but no labor — suggest adding labor
+    if (materials.length > 50 && laborRates.length === 0) {
+      suggestions.push({
+        id: 'add_labor_for_pricing',
+        icon: <Users className="h-4 w-4" />,
+        text: isArabic ? 'أضف عمالة لتفعيل التسعير التفصيلي للبنود' : 'Add labor to enable detailed item pricing',
+        action: () => setActiveTab('labor'),
+        actionLabel: isArabic ? 'العمالة' : 'Labor',
+        priority: 2.5,
+      });
+    }
+
+    // NEW: Suggest auto-pricing when library has enough data
+    if (totalItems > 30) {
+      suggestions.push({
+        id: 'try_auto_pricing',
+        icon: <DollarSign className="h-4 w-4" />,
+        text: isArabic ? 'استخدم التسعير التلقائي لمشاريعك المحفوظة' : 'Use auto-pricing for your saved projects',
+        action: () => navigate('/saved-projects'),
+        actionLabel: isArabic ? 'المشاريع' : 'Projects',
+        priority: 6,
+      });
+    }
+
+    // NEW: Suggest market prices update for expired items
+    if (totalItems > 0) {
+      const allStats = getValidityStats(allLibraryData);
+      if (allStats.expired > 0 && allStats.valid > 0) {
+        suggestions.push({
+          id: 'market_price_update',
+          icon: <TrendingUp className="h-4 w-4" />,
+          text: isArabic ? 'حدّث الأسعار المنتهية من أسعار السوق' : 'Update expired prices from market data',
+          action: () => navigate('/material-prices'),
+          actionLabel: isArabic ? 'أسعار السوق' : 'Market Prices',
+          priority: 7,
         });
       }
     }
@@ -320,7 +365,7 @@ export const LibraryDatabase = () => {
       .filter(s => !dismissedSuggestions.includes(s.id))
       .sort((a, b) => a.priority - b.priority)
       .slice(0, 3);
-  }, [materials, laborRates, equipmentRates, totalItems, isArabic, sampleCounts.earthworksAsphalt, dismissedSuggestions, handleAddEarthworksData, handleAddNetworkLE, handleExportLibrary, navigate, activeTab]);
+  }, [materials, laborRates, equipmentRates, totalItems, isArabic, sampleCounts.earthworksAsphalt, dismissedSuggestions, handleAddEarthworksData, handleAddNetworkLE, handleExportLibrary, navigate, allLibraryData]);
 
   const ProgressBar = () => showProgress ? (
     <div className="mt-3 space-y-1">
@@ -492,6 +537,38 @@ export const LibraryDatabase = () => {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          </div>
+        </div>
+      )}
+
+      {/* Pricing Integration Card */}
+      {!showEmptyState && totalItems > 10 && (
+        <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-full bg-primary/10">
+              <DollarSign className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                {isArabic ? 'ربط المكتبة بالتسعير' : 'Library ↔ Pricing Link'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {isArabic 
+                  ? `${materials.length} مادة + ${laborRates.length} عمالة + ${equipmentRates.length} معدة متاحة للتسعير التلقائي`
+                  : `${materials.length} materials + ${laborRates.length} labor + ${equipmentRates.length} equipment available for auto-pricing`
+                }
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button size="sm" variant="default" className="gap-1.5 h-8 text-xs" onClick={() => navigate('/saved-projects')}>
+              <DollarSign className="h-3.5 w-3.5" />
+              {isArabic ? 'التسعير التلقائي' : 'Auto Price'}
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={() => navigate('/material-prices')}>
+              <TrendingUp className="h-3.5 w-3.5" />
+              {isArabic ? 'أسعار السوق' : 'Market Prices'}
+            </Button>
           </div>
         </div>
       )}
@@ -674,7 +751,7 @@ export const LibraryDatabase = () => {
           </TabsTrigger>
         </TabsList>
 
-        {activeTab !== 'comparison' && getCurrentTabData().length > 0 && (
+        {activeTab !== 'comparison' && currentTabData.length > 0 && (
           <div className="mt-4">
             <PriceValiditySummary stats={validityStats} onFilterChange={setValidityFilter} activeFilter={validityFilter} />
           </div>

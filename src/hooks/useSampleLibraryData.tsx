@@ -522,31 +522,26 @@ export const useSampleLibraryData = () => {
   const deleteAllSampleData = useCallback(async () => {
     if (!user) return false;
     try {
-      // Delete materials with sample sources
+      // Delete ONLY materials with known sample sources (protect user-added data)
       const { error: matError } = await supabase
         .from('material_prices')
         .delete()
         .eq('user_id', user.id)
-        .in('source', ['sample_data', 'water_sewage_data']);
+        .in('source', ['sample_data', 'water_sewage_data', 'earthworks_asphalt_data']);
 
-      // Delete ALL user labor rates (sample data doesn't have a source marker)
+      // Delete ONLY labor with sample source markers (notes contain 'sample' or specific network sources)
       const { error: laborError } = await supabase
         .from('labor_rates')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .like('notes', '%[sample_data]%');
 
-      // Delete ALL user equipment rates
+      // Delete ONLY equipment with sample source markers
       const { error: equipError } = await supabase
         .from('equipment_rates')
         .delete()
-        .eq('user_id', user.id);
-
-      // Also delete materials without source (basic sample data)
-      await supabase
-        .from('material_prices')
-        .delete()
         .eq('user_id', user.id)
-        .is('source', null);
+        .like('notes', '%[sample_data]%');
 
       if (matError || laborError || equipError) {
         console.error('Delete errors:', { matError, laborError, equipError });
@@ -582,10 +577,34 @@ export const useSampleLibraryData = () => {
     }
   }, [user]);
 
+  const checkExistingEarthworksMaterials = useCallback(async (): Promise<number> => {
+    if (!user) return 0;
+    try {
+      const { count, error } = await supabase
+        .from('material_prices')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('source', 'earthworks_asphalt_data');
+      if (error) throw error;
+      return count || 0;
+    } catch { return 0; }
+  }, [user]);
+
   const addEarthworksAsphaltMaterials = useCallback(async (onProgress?: (percent: number) => void) => {
     if (!user) return false;
 
     try {
+      // Check for duplicates first
+      const existingCount = await checkExistingEarthworksMaterials();
+      if (existingCount > 0) {
+        // Delete existing earthworks data before re-adding (prevent duplicates)
+        await supabase
+          .from('material_prices')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('source', 'earthworks_asphalt_data');
+      }
+
       const today = new Date();
       const validUntil = new Date(today);
       validUntil.setMonth(validUntil.getMonth() + 6);
@@ -624,20 +643,7 @@ export const useSampleLibraryData = () => {
       console.error('Error adding earthworks/asphalt materials:', error);
       return false;
     }
-  }, [user]);
-
-  const checkExistingEarthworksMaterials = useCallback(async (): Promise<number> => {
-    if (!user) return 0;
-    try {
-      const { count, error } = await supabase
-        .from('material_prices')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('source', 'earthworks_asphalt_data');
-      if (error) throw error;
-      return count || 0;
-    } catch { return 0; }
-  }, [user]);
+  }, [user, checkExistingEarthworksMaterials]);
 
   return {
     addSampleMaterials,
