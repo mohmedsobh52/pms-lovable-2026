@@ -1372,7 +1372,7 @@ const DrawingAnalysisPage = () => {
                   onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)}
                   onDrop={e=>{e.preventDefault();setDrag(false);handleFiles(e.dataTransfer.files);}}>
                   <div style={{display:"flex",justifyContent:"center",gap:12,marginBottom:4}}>
-                    {[{c:T.grn,i:"⚡",l:"Fast"},{c:"#2563eb",i:"🔀",l:"Hybrid"},{c:"#2563eb",i:"🖼️",l:"PNG/WebP"},{c:"#dc2626",i:"📄",l:"PDF"},{c:T.grn,i:"📐",l:"DWG"},{c:"#7c3aed",i:"📁",l:"مجلد"}].map(f=>(
+                    {[{c:T.gold,i:"⚡",l:"Fast"},{c:T.goldL,i:"🔀",l:"Hybrid"},{c:T.goldL,i:"🖼️",l:"PNG/WebP"},{c:"#dc2626",i:"📄",l:"PDF"},{c:T.gold,i:"📐",l:"DWG"},{c:T.gold,i:"📁",l:"مجلد"}].map(f=>(
                       <div key={f.l} style={{textAlign:"center"}} onClick={f.l==="مجلد"?(e:any)=>{e.stopPropagation();folderRef.current?.click()}:undefined}>
                         <div style={{fontSize:14}}>{f.i}</div>
                         <div style={{fontSize:7,color:f.c,marginTop:1,fontWeight:600}}>{f.l}</div>
