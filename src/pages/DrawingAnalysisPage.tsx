@@ -1155,7 +1155,7 @@ const DrawingAnalysisPage = () => {
             <div style={{flex:1,overflowY:"auto",padding:"18px 16px"}}>
               <div style={{maxWidth:900,margin:"0 auto"}}>
                 <div style={{marginBottom:16}}>
-                  <span style={{background:D?"#1a0e02":"#FFF5F0",color:"#7c3aed",border:"1px solid #7c3aed40",padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>v11 · الأسفلت</span>
+                  <span style={{background:D?"#2a1a08":"#FFF5F0",color:T.gold,border:`1px solid ${T.gold}40`,padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>v11 · الأسفلت</span>
                   <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>🛤️ حساب <span className="g">طبقات الأسفلت</span></h2>
                 </div>
                 {asphaltData ? (
