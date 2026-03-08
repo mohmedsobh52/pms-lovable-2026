@@ -1175,9 +1175,9 @@ const DrawingAnalysisPage = () => {
           {tab==="analysis"&&(
             <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",padding:"9px 14px",gap:8}}>
               {feState&&feState.phase!=="done"&&(
-                <div style={{background:D?"linear-gradient(135deg,#022c22,#064e3b)":"linear-gradient(135deg,#ecfdf5,#d1fae5)",border:`1px solid ${D?"#05966960":"#6ee7b7"}`,borderRadius:10,padding:"10px 14px",flexShrink:0}}>
+                <div style={{background:D?"linear-gradient(135deg,#1a0e02,#201204)":"linear-gradient(135deg,#FFF5F0,#FFE8DB)",border:`1px solid ${D?T.gold+"40":T.gold+"30"}`,borderRadius:10,padding:"10px 14px",flexShrink:0}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-                    <div style={{fontSize:11,color:T.grn,fontWeight:700}}>{feState.stage}</div>
+                    <div style={{fontSize:11,color:T.gold,fontWeight:700}}>{feState.stage}</div>
                     <div style={{display:"flex",gap:7,alignItems:"center"}}>
                       {feState.eta!=null&&<span style={{fontSize:9,color:T.t3}}>⏱️ ~{fmtT(feState.eta)}</span>}
                       {feState.phase!=="merging"&&<button onClick={()=>cancelRef.current=true} style={{background:"#fee2e2",border:"1px solid #fca5a5",color:"#b91c1c",padding:"2px 8px",borderRadius:6,cursor:"pointer",fontSize:9,fontFamily:"inherit"}}>⏹ إيقاف</button>}
