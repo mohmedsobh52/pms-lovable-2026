@@ -818,7 +818,7 @@ const DrawingAnalysisPage = () => {
               <div style={{maxWidth:820,margin:"0 auto"}}>
                 <div style={{marginBottom:16}}>
                   <span style={{background:D?"#2a1a08":"#FFF5F0",color:T.gold,border:`1px solid ${T.gold}40`,padding:"3px 12px",borderRadius:9,fontSize:10,fontWeight:700}}>تهيئة المنظومة</span>
-                  <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>إعدادات <span className="g">ALIMTYAZ v9</span></h2>
+                  <h2 style={{margin:"8px 0 4px",fontSize:20,fontWeight:900}}>إعدادات <span className="g">ALIMTYAZ v11</span></h2>
                   <div style={{width:46,height:3,background:`linear-gradient(90deg,${T.gold},${T.goldL})`,borderRadius:2}}/>
                 </div>
                 {resumable&&(
