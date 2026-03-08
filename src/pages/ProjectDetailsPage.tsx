@@ -324,8 +324,9 @@ export default function ProjectDetailsPage() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [hasUnsavedChanges]);
 
-  // Block in-app navigation
-  const blocker = useBlocker(hasUnsavedChanges);
+  // Manual navigation guard state (replaces useBlocker which requires data router)
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
 
   // Fetch attachments
   const fetchAttachments = async () => {
