@@ -1038,9 +1038,15 @@ const DrawingAnalysisPage = () => {
   // ═══ ANALYSIS ENGINE v9 ═══
   const runExtraction=useCallback(async(resumeFrom: any=null, sessionOverride?: any)=>{
     const sess = sessionOverride || pdfSess;
-    if(!sess)return;
+    if(!sess){
+      if(analysisCompleteResolve.current){analysisCompleteResolve.current();analysisCompleteResolve.current=null;}
+      return;
+    }
     const pages=selPages(sess);
-    if(!pages.length)return;
+    if(!pages.length){
+      if(analysisCompleteResolve.current){analysisCompleteResolve.current();analysisCompleteResolve.current=null;}
+      return;
+    }
     const{doc,chunkSize,quality,file}=sess;
     const isFast=quality==="fast"||quality==="hybrid";
     const isHybrid=quality==="hybrid";
