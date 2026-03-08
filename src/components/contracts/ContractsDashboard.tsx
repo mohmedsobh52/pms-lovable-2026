@@ -21,21 +21,21 @@ interface Contract {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  active: "#22c55e",
-  draft: "#6b7280",
-  pending: "#f59e0b",
-  completed: "#3b82f6",
-  terminated: "#ef4444",
-  suspended: "#8b5cf6",
+  active: "#10B981",
+  draft: "#605F5F",
+  pending: "#F3570C",
+  completed: "#161616",
+  terminated: "#EF4444",
+  suspended: "#7C3AED",
 };
 
 const TYPE_COLORS = [
-  "#ef4444", // Red
-  "#f59e0b", // Yellow
-  "#6b7280", // Silver/Gray
-  "#22c55e", // Green
-  "#ec4899", // Pink
-  "#3b82f6", // Blue
+  "#F3570C", // Brand Primary
+  "#161616", // Brand Foreground
+  "#605F5F", // Brand Secondary
+  "#10B981", // Green
+  "#7C3AED", // Purple
+  "#A0A09F", // Brand Border
 ];
 
 export const ContractsDashboard = () => {
