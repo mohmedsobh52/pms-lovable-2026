@@ -32,6 +32,7 @@ import TenderCostAlerts from "@/components/tender/TenderCostAlerts";
 import PricingScenarios from "@/components/tender/PricingScenarios";
 import TenderSubcontractorsTab from "@/components/tender/TenderSubcontractorsTab";
 import { PricingAccuracyTab } from "@/components/tender/PricingAccuracyTab";
+import { SmartSuggestionsBanner, type SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 
 interface ProjectData {
   id: string;
