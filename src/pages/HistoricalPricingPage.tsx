@@ -28,6 +28,7 @@ import { HistoricalPricingPDFReport } from "@/components/HistoricalPricingPDFRep
 import { ImportFromSavedProjects } from "@/components/ImportFromSavedProjects";
 import { HistoricalItemsTable } from "@/components/HistoricalItemsTable";
 import { normalizeHistoricalItems, NormalizedHistoricalItem, safeTotalValue } from "@/lib/historical-data-utils";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 
 interface HistoricalFileMeta {
   id: string;
