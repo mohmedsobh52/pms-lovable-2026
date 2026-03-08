@@ -22,6 +22,7 @@ import { ProjectsComparisonExport } from "@/components/reports/ProjectsCompariso
 import { AdvancedReportsTab } from "@/components/reports/AdvancedReportsTab";
 import { ReportsStatCards } from "@/components/reports/ReportsStatCards";
 import { PageHeader } from "@/components/PageHeader";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 import { 
   RefreshCw, 
   Filter, 
@@ -265,6 +266,39 @@ const ReportsPage = () => {
             { value: stats.completedProjects, label: isArabic ? "مكتملة" : "Completed" },
           ]}
         />
+
+        {/* Smart Suggestions */}
+        {(() => {
+          const suggestions: SmartSuggestion[] = [];
+          if (stats.totalProjects === 0) {
+            suggestions.push({
+              id: 'no_projects',
+              icon: <FileText className="h-4 w-4" />,
+              text: isArabic ? 'أنشئ مشروعاً لتوليد التقارير' : 'Create a project to generate reports',
+              action: () => navigate('/new-project'),
+              actionLabel: isArabic ? 'إنشاء مشروع' : 'New Project',
+            });
+          }
+          if (stats.draftProjects > 0) {
+            suggestions.push({
+              id: 'unpriced',
+              icon: <BarChart3 className="h-4 w-4" />,
+              text: isArabic ? 'سعّر مشاريعك للحصول على تقارير دقيقة' : 'Price your projects for accurate reports',
+              action: () => navigate('/saved-projects'),
+              actionLabel: isArabic ? 'المشاريع' : 'Projects',
+            });
+          }
+          if (stats.totalProjects > 2) {
+            suggestions.push({
+              id: 'compare',
+              icon: <GitCompare className="h-4 w-4" />,
+              text: isArabic ? 'قارن مشاريعك جنباً لجنب' : 'Compare your projects side by side',
+              action: () => {},
+              actionLabel: isArabic ? 'مقارنة' : 'Compare',
+            });
+          }
+          return <SmartSuggestionsBanner suggestions={suggestions} />;
+        })()}
 
         {/* Tabs */}
         <Tabs defaultValue="export" className="mt-6">

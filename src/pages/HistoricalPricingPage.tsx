@@ -28,6 +28,7 @@ import { HistoricalPricingPDFReport } from "@/components/HistoricalPricingPDFRep
 import { ImportFromSavedProjects } from "@/components/ImportFromSavedProjects";
 import { HistoricalItemsTable } from "@/components/HistoricalItemsTable";
 import { normalizeHistoricalItems, NormalizedHistoricalItem, safeTotalValue } from "@/lib/historical-data-utils";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 
 interface HistoricalFileMeta {
   id: string;
@@ -627,6 +628,39 @@ export default function HistoricalPricingPage() {
             </>
           }
         />
+
+        {/* Smart Suggestions */}
+        {(() => {
+          const suggestions: SmartSuggestion[] = [];
+          if (files.length === 0 && !isLoading) {
+            suggestions.push({
+              id: 'no_files',
+              icon: <Upload className="h-4 w-4" />,
+              text: isArabic ? 'استورد أسعار من مشاريعك المحفوظة' : 'Import prices from your saved projects',
+              action: () => {},
+              actionLabel: isArabic ? 'استيراد' : 'Import',
+            });
+          }
+          if (files.length > 0 && verifiedCount < files.length) {
+            suggestions.push({
+              id: 'unverified',
+              icon: <CheckCircle className="h-4 w-4" />,
+              text: isArabic ? 'وثّق الملفات لزيادة دقة المقارنات' : 'Verify files for more accurate comparisons',
+              action: () => {},
+              actionLabel: isArabic ? 'توثيق' : 'Verify',
+            });
+          }
+          if (files.length > 0) {
+            suggestions.push({
+              id: 'compare_library',
+              icon: <BarChart3 className="h-4 w-4" />,
+              text: isArabic ? 'قارن الأسعار مع المكتبة' : 'Compare prices with library',
+              action: () => {},
+              actionLabel: isArabic ? 'المكتبة' : 'Library',
+            });
+          }
+          return <SmartSuggestionsBanner suggestions={suggestions} />;
+        })()}
 
         {/* Upload Dialog */}
         <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>

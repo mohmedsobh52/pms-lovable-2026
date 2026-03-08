@@ -51,6 +51,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { PageTipsBox } from "@/components/PageTipsBox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import ExcelJS from 'exceljs';
 
@@ -1342,6 +1343,39 @@ export default function CostAnalysisPage() {
 
       <main className="container mx-auto px-4 py-6">
         <PageTipsBox />
+        {/* Smart Suggestions */}
+        {(() => {
+          const suggestions: SmartSuggestion[] = [];
+          if (items.length === 0) {
+            suggestions.push({
+              id: 'no_items',
+              icon: <Plus className="h-4 w-4" />,
+              text: 'أضف بنود لبدء تحليل التكاليف',
+              action: () => {},
+              actionLabel: 'إضافة بنود',
+            });
+          }
+          const itemsWithoutAI = items.filter(i => !i.aiSuggestedProductivity && !i.aiSuggestedRent);
+          if (items.length > 0 && itemsWithoutAI.length > 0) {
+            suggestions.push({
+              id: 'ai_suggest',
+              icon: <Sparkles className="h-4 w-4" />,
+              text: 'استخدم AI لتقدير الإنتاجية والإيجارات',
+              action: analyzeAllWithAI,
+              actionLabel: 'تحليل AI',
+            });
+          }
+          if (items.length > 5) {
+            suggestions.push({
+              id: 'export',
+              icon: <Download className="h-4 w-4" />,
+              text: 'صدّر التحليل كـ Excel أو PDF',
+              action: () => {},
+              actionLabel: 'تصدير',
+            });
+          }
+          return <SmartSuggestionsBanner suggestions={suggestions} />;
+        })()}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Table - 2/3 width */}
           <div className="lg:col-span-2 space-y-4">

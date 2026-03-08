@@ -8,11 +8,12 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, AlertCircle, Search } from "lucide-react";
-import { useState } from "react";
+import { FileText, AlertCircle, Search, Upload, GitCompare } from "lucide-react";
+import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 
 const QuotationsPage = () => {
   const { isArabic } = useLanguage();
@@ -46,6 +47,28 @@ const QuotationsPage = () => {
           title={isArabic ? "عروض الأسعار" : "Quotations"}
           subtitle={isArabic ? "رفع ومقارنة عروض الأسعار" : "Upload and compare price quotations"}
         />
+        {/* Smart Suggestions */}
+        {(() => {
+          const suggestions: SmartSuggestion[] = [];
+          if (unpricedItems.length > 0) {
+            suggestions.push({
+              id: 'unpriced',
+              icon: <AlertCircle className="h-4 w-4" />,
+              text: isArabic ? `${unpricedItems.length} بنود بدون أسعار — ارفع عروض أسعار` : `${unpricedItems.length} items without prices — upload quotations`,
+              action: () => {},
+              actionLabel: isArabic ? 'رفع عروض' : 'Upload',
+            });
+          }
+          suggestions.push({
+            id: 'compare',
+            icon: <GitCompare className="h-4 w-4" />,
+            text: isArabic ? 'قارن عروض الأسعار المختلفة' : 'Compare different quotations',
+            action: () => {},
+            actionLabel: isArabic ? 'مقارنة' : 'Compare',
+          });
+          return <SmartSuggestionsBanner suggestions={suggestions} />;
+        })()}
+
         <Tabs defaultValue="upload" className="space-y-4">
           <TabsList className="tabs-navigation-safe">
             <TabsTrigger value="upload">

@@ -54,6 +54,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { GanttChart } from "@/components/GanttChart";
 import { useLanguage } from "@/hooks/useLanguage";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 import { useAuth } from "@/hooks/useAuth";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { supabase } from "@/integrations/supabase/client";
@@ -529,6 +530,39 @@ const ResourcesPage = () => {
             </div>
           }
         />
+
+        {/* Smart Suggestions */}
+        {(() => {
+          const suggestions: SmartSuggestion[] = [];
+          if (resources.length === 0) {
+            suggestions.push({
+              id: 'no_resources',
+              icon: <Sparkles className="h-4 w-4" />,
+              text: isArabic ? 'حلّل الموارد بالذكاء الاصطناعي' : 'Analyze resources with AI',
+              action: analyzeResourcesWithAI,
+              actionLabel: isArabic ? 'تحليل' : 'Analyze',
+            });
+          }
+          if (resources.length > 0 && timelineTasks.length === 0) {
+            suggestions.push({
+              id: 'no_timeline',
+              icon: <Calendar className="h-4 w-4" />,
+              text: isArabic ? 'أنشئ جدولاً زمنياً للموارد' : 'Create a resource timeline',
+              action: () => setActiveTab('gantt'),
+              actionLabel: isArabic ? 'الجدول' : 'Timeline',
+            });
+          }
+          if (resources.length > 0 && stats.linkedItems === 0) {
+            suggestions.push({
+              id: 'unlinked',
+              icon: <Link2 className="h-4 w-4" />,
+              text: isArabic ? 'اربط الموارد ببنود المشروع' : 'Link resources to project items',
+              action: () => setActiveTab('link'),
+              actionLabel: isArabic ? 'ربط' : 'Link',
+            });
+          }
+          return <SmartSuggestionsBanner suggestions={suggestions} />;
+        })()}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
