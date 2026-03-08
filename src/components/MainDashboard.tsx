@@ -119,13 +119,13 @@ interface KPIData {
   contractHealth: number;
 }
 
-// Vivid chart colors - Navy + Gold palette
-const CHART_COLORS = ["#2563EB", "#F5A623", "#10B981", "#7C3AED", "#EF4444"];
+// Brand chart colors
+const CHART_COLORS = ["#F3570C", "#161616", "#605F5F", "#10B981", "#7C3AED"];
 const STATUS_COLORS: Record<string, string> = {
-  pending: "#F5A623",
+  pending: "#F3570C",
   approved: "#10B981",
   rejected: "#EF4444",
-  under_review: "#2563EB",
+  under_review: "#605F5F",
 };
 
 // Enhanced Custom tooltip
