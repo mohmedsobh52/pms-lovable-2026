@@ -334,7 +334,7 @@ export const ContractsDashboard = () => {
                   yAxisId="right"
                   type="monotone"
                   dataKey="value"
-                  stroke="#22c55e"
+                  stroke="#10B981"
                   name={isArabic ? "القيمة (مليون)" : "Value (M)"}
                   strokeWidth={2}
                 />
