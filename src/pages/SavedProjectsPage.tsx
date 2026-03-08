@@ -115,7 +115,7 @@ export default function SavedProjectsPage() {
           if (Date.now() - timestamp < 3 * 60 * 1000) {
             setProjects(data);
             setIsLoading(false);
-            return;
+            // Don't return — continue to fetch fresh data in background (stale-while-revalidate)
           }
         }
       } catch {}
