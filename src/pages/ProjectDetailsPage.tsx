@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import OnboardingModal from "@/components/OnboardingModal";
 import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
-import { useParams, useNavigate, useLocation, useBlocker } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Loader2, FolderOpen, Upload, X, FileText, FileUp, Wand2, Download, BarChart3, Save } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BOQAnalyzerPanel } from "@/components/BOQAnalyzerPanel";
@@ -324,8 +324,9 @@ export default function ProjectDetailsPage() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [hasUnsavedChanges]);
 
-  // Block in-app navigation
-  const blocker = useBlocker(hasUnsavedChanges);
+  // Manual navigation guard state (replaces useBlocker which requires data router)
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
 
   // Fetch attachments
   const fetchAttachments = async () => {
@@ -1558,8 +1559,8 @@ export default function ProjectDetailsPage() {
       <div className="h-14 md:hidden" />
 
       {/* Unsaved changes navigation blocker dialog */}
-      {blocker.state === "blocked" && (
-        <Dialog open onOpenChange={() => blocker.reset()}>
+      {showLeaveDialog && (
+        <Dialog open onOpenChange={() => { setShowLeaveDialog(false); setPendingPath(null); }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{isArabic ? "تغييرات غير محفوظة" : "Unsaved Changes"}</DialogTitle>
@@ -1570,10 +1571,10 @@ export default function ProjectDetailsPage() {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => blocker.reset()}>
+              <Button variant="outline" onClick={() => { setShowLeaveDialog(false); setPendingPath(null); }}>
                 {isArabic ? "البقاء" : "Stay"}
               </Button>
-              <Button variant="destructive" onClick={() => blocker.proceed()}>
+              <Button variant="destructive" onClick={() => { setShowLeaveDialog(false); if (pendingPath) navigate(pendingPath); setPendingPath(null); }}>
                 {isArabic ? "مغادرة بدون حفظ" : "Leave without saving"}
               </Button>
             </DialogFooter>
