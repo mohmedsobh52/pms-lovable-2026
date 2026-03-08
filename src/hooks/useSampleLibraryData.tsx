@@ -582,6 +582,63 @@ export const useSampleLibraryData = () => {
     }
   }, [user]);
 
+  const addEarthworksAsphaltMaterials = useCallback(async (onProgress?: (percent: number) => void) => {
+    if (!user) return false;
+
+    try {
+      const today = new Date();
+      const validUntil = new Date(today);
+      validUntil.setMonth(validUntil.getMonth() + 6);
+
+      const materialsToInsert = EARTHWORKS_ASPHALT_MATERIALS.map((m, index) => ({
+        user_id: user.id,
+        name: m.name,
+        name_ar: m.name_ar,
+        category: m.category,
+        unit: m.unit,
+        unit_price: m.unit_price,
+        specifications: m.specifications || null,
+        brand: null,
+        currency: "SAR",
+        price_date: today.toISOString().split('T')[0],
+        valid_until: new Date(validUntil.getTime() - (index * 2 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+        is_verified: true,
+        source: "earthworks_asphalt_data",
+        waste_percentage: 0,
+      }));
+
+      const batchSize = 25;
+      const totalBatches = Math.ceil(materialsToInsert.length / batchSize);
+      for (let i = 0; i < materialsToInsert.length; i += batchSize) {
+        const batch = materialsToInsert.slice(i, i + batchSize);
+        const { error } = await supabase
+          .from('material_prices')
+          .insert(batch);
+        if (error) throw error;
+        const completedBatches = Math.floor(i / batchSize) + 1;
+        onProgress?.(Math.round((completedBatches / totalBatches) * 100));
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error adding earthworks/asphalt materials:', error);
+      return false;
+    }
+  }, [user]);
+
+  const checkExistingEarthworksMaterials = useCallback(async (): Promise<number> => {
+    if (!user) return 0;
+    try {
+      const { count, error } = await supabase
+        .from('material_prices')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('source', 'earthworks_asphalt_data');
+      if (error) throw error;
+      return count || 0;
+    } catch { return 0; }
+  }, [user]);
+
   return {
     addSampleMaterials,
     addSampleLabor,
@@ -593,6 +650,8 @@ export const useSampleLibraryData = () => {
     checkExistingNetworkMaterials,
     deleteAllSampleData,
     deleteNetworkDataOnly,
+    addEarthworksAsphaltMaterials,
+    checkExistingEarthworksMaterials,
     sampleCounts: {
       materials: SAMPLE_MATERIALS.length,
       labor: SAMPLE_LABOR.length,
@@ -600,6 +659,7 @@ export const useSampleLibraryData = () => {
       waterSewage: WATER_SEWAGE_MATERIALS.length,
       networkLabor: NETWORK_LABOR.length,
       networkEquipment: NETWORK_EQUIPMENT.length,
+      earthworksAsphalt: EARTHWORKS_ASPHALT_MATERIALS.length,
     },
   };
 };
