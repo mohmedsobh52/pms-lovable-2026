@@ -7,6 +7,7 @@ import {
   SortAsc, SortDesc, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload,
   CheckCircle2, Clock, CircleDashed, Star
 } from "lucide-react";
+import { SmartSuggestionsBanner, type SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 import { useFavoriteProjects } from "@/hooks/useFavoriteProjects";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
