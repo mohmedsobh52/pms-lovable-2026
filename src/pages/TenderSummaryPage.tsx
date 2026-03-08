@@ -614,14 +614,7 @@ export default function TenderSummaryPage() {
           <TabsContent value="summary">
             <div className="space-y-6">
               {/* Tender Smart Suggestions */}
-              <TenderSuggestions
-                totals={totals}
-                directCosts={directCosts}
-                pricingSettings={pricingSettings}
-                isArabic={isArabic}
-                navigate={navigate}
-                projectId={projectId}
-              />
+              <TenderSuggestionsSection />
 
               {/* Cost Alerts */}
               <TenderCostAlerts 
