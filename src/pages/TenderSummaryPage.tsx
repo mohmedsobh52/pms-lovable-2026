@@ -166,6 +166,17 @@ export default function TenderSummaryPage() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasLoadedData, setHasLoadedData] = useState(false);
 
+  // Tender smart suggestions
+  const tenderSuggestions = useMemo((): SmartSuggestion[] => {
+    const list: SmartSuggestion[] = [];
+    const totalIndirect = totals.staffCosts + totals.facilitiesCosts + totals.insuranceCosts + totals.guaranteesCosts + totals.indirectCosts;
+    if (totalIndirect === 0) list.push({ id: 'no_indirect', icon: <Users className="h-4 w-4" />, text: isArabic ? 'أضف التكاليف غير المباشرة (طاقم، مرافق، تأمين)' : 'Add indirect costs (staff, facilities, insurance)', action: () => setActiveTab('staff'), actionLabel: isArabic ? 'إضافة' : 'Add' });
+    if (directCosts.totalBoq === 0) list.push({ id: 'no_boq', icon: <Calculator className="h-4 w-4" />, text: isArabic ? 'لا توجد تكاليف مباشرة — سعّر بنود BOQ أولاً' : 'No direct costs — price BOQ items first', action: () => navigate(`/projects/${projectId}`), actionLabel: isArabic ? 'التسعير' : 'Price' });
+    if (pricingSettings.profitMargin === 0) list.push({ id: 'no_profit', icon: <Target className="h-4 w-4" />, text: isArabic ? 'حدد هامش الربح في إعدادات التسعير' : 'Set profit margin in pricing settings', action: () => setActiveTab('pricing-settings'), actionLabel: isArabic ? 'الإعدادات' : 'Settings' });
+    if (subcontractorsData.length === 0 && directCosts.totalBoq > 0) list.push({ id: 'no_subs', icon: <Building2 className="h-4 w-4" />, text: isArabic ? 'أضف مقاولي الباطن لتوزيع نطاق العمل' : 'Add subcontractors to distribute work scope', action: () => setActiveTab('subcontractors'), actionLabel: isArabic ? 'إضافة' : 'Add' });
+    return list.slice(0, 3);
+  }, [totals, directCosts, pricingSettings, subcontractorsData, isArabic, navigate, projectId]);
+
   // Load project and pricing data
   useEffect(() => {
     if (projectId && user) {
