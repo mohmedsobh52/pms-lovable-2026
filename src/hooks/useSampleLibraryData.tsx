@@ -581,6 +581,17 @@ export const useSampleLibraryData = () => {
     if (!user) return false;
 
     try {
+      // Check for duplicates first
+      const existingCount = await checkExistingEarthworksMaterials();
+      if (existingCount > 0) {
+        // Delete existing earthworks data before re-adding (prevent duplicates)
+        await supabase
+          .from('material_prices')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('source', 'earthworks_asphalt_data');
+      }
+
       const today = new Date();
       const validUntil = new Date(today);
       validUntil.setMonth(validUntil.getMonth() + 6);
@@ -619,7 +630,7 @@ export const useSampleLibraryData = () => {
       console.error('Error adding earthworks/asphalt materials:', error);
       return false;
     }
-  }, [user]);
+  }, [user, checkExistingEarthworksMaterials]);
 
   const checkExistingEarthworksMaterials = useCallback(async (): Promise<number> => {
     if (!user) return 0;

@@ -751,7 +751,7 @@ export const LibraryDatabase = () => {
           </TabsTrigger>
         </TabsList>
 
-        {activeTab !== 'comparison' && getCurrentTabData().length > 0 && (
+        {activeTab !== 'comparison' && currentTabData.length > 0 && (
           <div className="mt-4">
             <PriceValiditySummary stats={validityStats} onFilterChange={setValidityFilter} activeFilter={validityFilter} />
           </div>
