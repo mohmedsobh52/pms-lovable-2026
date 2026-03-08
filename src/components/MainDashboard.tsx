@@ -55,6 +55,7 @@ import autoTable from "jspdf-autotable";
 import { XLSX } from '@/lib/exceljs-utils';
 import { PageHeader } from "./PageHeader";
 import { ProjectComparisonReport } from "./ProjectComparisonReport";
+import { SmartSuggestionsBanner as SmartSuggestionsBannerComponent } from "./SmartSuggestionsBanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RiskManagement } from "./RiskManagement";
 import { ContractManagement } from "./ContractManagement";
