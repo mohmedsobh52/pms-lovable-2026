@@ -1319,7 +1319,7 @@ const DrawingAnalysisPage = () => {
                     const isCol=collapsed.has(i);
                     const cls=m.role==="user"?"mu":m.isMerged?"mm":m.isHybrid?"mh":m.isFast?"mf":"ma";
                     const lbl=m.role==="user"?"👤":m.isMerged?"🔗 التقرير الموحد":m.isChunk?`📄 ${m.chunkLabel||""}`:"🤖 ALIMTYAZ";
-                    const lclr=m.role==="user"?"#2563eb":m.isMerged?T.gold:m.isFast?T.grn:"#374151";
+                    const lclr=m.role==="user"?T.gold:m.isMerged?T.gold:m.isFast?T.gold:"#374151";
                     const content=typeof m.content==="string"?m.content:"";
                     const hlContent=search.trim()&&m.role==="assistant"?mdCached(content).replace(new RegExp(`(${search.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")})`, "gi"),'<mark class="hl">$1</mark>'):null;
                     return(
