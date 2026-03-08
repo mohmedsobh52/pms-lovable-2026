@@ -727,11 +727,22 @@ const DrawingAnalysisPage = () => {
             </div>}
           </div>
           <div style={{flex:1,padding:"10px 7px",overflowY:"auto"}}>
-            {[{id:"analysis",i:"💬",l:"التحليل"},{id:"pdf",i:"📄",l:"مدير PDF"},{id:"config",i:"⚙️",l:"الإعداد"},{id:"history",i:"📊",l:"مقارنة التحليلات"}].map(n=>(
+            {[
+              {id:"analysis",i:"💬",l:"التحليل"},
+              {id:"pdf",i:"📄",l:"مدير PDF"},
+              {id:"config",i:"⚙️",l:"الإعداد"},
+              {id:"history",i:"📊",l:"مقارنة التحليلات"},
+              ...(infraMeta?[
+                {id:"pipes",i:"🔧",l:"شبكة المواسير"},
+                {id:"earthworks",i:"🛣️",l:"الحفر والردم"},
+                {id:"asphalt",i:"🛤️",l:"الأسفلت"},
+              ]:[]),
+            ].map(n=>(
               <div key={n.id} className={`nav-i ${tab===n.id?"act":""}`} onClick={()=>setTab(n.id)} style={{justifyContent:sideOpen?"flex-start":"center"}}>
                 <span style={{fontSize:16,flexShrink:0}}>{n.i}</span>
                 {sideOpen&&<span>{n.l}</span>}
                 {n.id==="pdf"&&pdfSess&&sideOpen&&<span style={{marginRight:"auto",fontSize:8,background:D?"#2a1a08":"#FFF5F0",color:T.gold,padding:"1px 7px",borderRadius:9,fontWeight:700}}>{fmtN(pdfSess.numPages)}</span>}
+                {n.id==="pipes"&&pipeNetwork.length>0&&sideOpen&&<span style={{marginRight:"auto",fontSize:8,background:D?"#0a2010":"#f0fdf4",color:T.grn,padding:"1px 7px",borderRadius:9,fontWeight:700}}>{pipeNetwork.length}</span>}
               </div>
             ))}
             {sideOpen&&<div style={{borderTop:`1px solid ${T.bd}`,marginTop:8,paddingTop:8}}>
