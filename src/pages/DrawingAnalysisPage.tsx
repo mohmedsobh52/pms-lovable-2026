@@ -66,6 +66,9 @@ const DrawingAnalysisPage = () => {
   const [batchFiles, setBatchFiles] = useState<{file:File;name:string;category:string;status:"pending"|"analyzing"|"done"|"error";result?:string}[]>([]);
   const [batchAnalyzing, setBatchAnalyzing] = useState(false);
   const [batchProgress, setBatchProgress] = useState(0);
+  const [pipeNetwork, setPipeNetwork] = useState<any[]>([]);
+  const [earthworksData, setEarthworksData] = useState<any>(null);
+  const [asphaltData, setAsphaltData] = useState<any>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   const totalTokens = useMemo(()=>msgs.reduce((s: number,m: any)=>s+(m.tokens||0),0),[msgs]);
   const boqCount = useMemo(()=>(msgs.filter((m: any)=>m.role==="assistant").map((m: any)=>m.content||"").join("\n").match(/KSA-[A-Z]{2,6}-/g)||[]).length,[msgs]);
