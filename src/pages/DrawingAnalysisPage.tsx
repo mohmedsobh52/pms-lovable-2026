@@ -16,7 +16,10 @@ import {
   extractPageData, renderThumb, renderPreview, renderPageImg,
   apiCall, parseRange, parseDWG,
   md, exportCSV, exportMD, exportJSON, exportTXT,
+  exportPipeScheduleCSV, exportEarthworksCSV, exportAsphaltCSV,
+  buildPipeNetwork, calcTrenchEarthworks, calcAsphalt, extractEarthworksData, extractAsphaltLayers,
   PdfNav, SmartSuggestions,
+  PipeNetworkPanel, EarthworksPanel, AsphaltPanel,
   type ExtractedPage, type Suggestion,
 } from "@/components/drawing-analysis";
 
