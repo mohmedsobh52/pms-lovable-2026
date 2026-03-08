@@ -43,6 +43,7 @@ const TYPE_COLORS = [
 export const ContractsDashboard = () => {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
 
