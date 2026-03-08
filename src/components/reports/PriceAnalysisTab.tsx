@@ -276,7 +276,85 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
     }).sort((a: any, b: any) => Math.abs(b.deviation) - Math.abs(a.deviation));
   }, [items, isArabic]);
 
-  const handleExportPriceComparison = (format: 'pdf' | 'excel') => {
+  // Smart suggestions engine
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<string[]>([]);
+  
+  const smartSuggestions = useMemo(() => {
+    if (!selectedProjectId || !priceStats) return [];
+    const suggestions: { id: string; icon: React.ReactNode; text: string; action: () => void; actionLabel: string }[] = [];
+
+    // Coverage < 50%
+    if (priceStats.pricingCoverage < 50) {
+      suggestions.push({
+        id: 'low_coverage',
+        icon: <Target className="h-4 w-4" />,
+        text: isArabic ? `أكمل تسعير البنود — التغطية ${priceStats.pricingCoverage.toFixed(0)}% فقط` : `Complete item pricing — only ${priceStats.pricingCoverage.toFixed(0)}% coverage`,
+        action: () => navigate(`/projects/${selectedProjectId}`),
+        actionLabel: isArabic ? 'التسعير' : 'Price',
+      });
+    }
+
+    // High variance items > 5
+    const highVarianceCount = varianceItems.filter((v: any) => Math.abs(v.deviation) > 20).length;
+    if (highVarianceCount > 5) {
+      suggestions.push({
+        id: 'high_variance',
+        icon: <AlertTriangle className="h-4 w-4" />,
+        text: isArabic ? `${highVarianceCount} بنود بفرق سعري كبير (>20%) — راجعها` : `${highVarianceCount} items with high variance (>20%) — review them`,
+        action: () => setShowVarianceDialog(true),
+        actionLabel: isArabic ? 'مراجعة' : 'Review',
+      });
+    }
+
+    // No pricing history
+    if (pricingHistory.length === 0 && items.length > 0) {
+      suggestions.push({
+        id: 'no_history',
+        icon: <History className="h-4 w-4" />,
+        text: isArabic ? 'فعّل التسعير التلقائي لبناء سجل الأسعار' : 'Enable auto-pricing to build price history',
+        action: () => navigate(`/projects/${selectedProjectId}`),
+        actionLabel: isArabic ? 'تفعيل' : 'Enable',
+      });
+    }
+
+    // Low accuracy < 70%
+    if (priceStats.avgAccuracy > 0 && priceStats.avgAccuracy < 70) {
+      suggestions.push({
+        id: 'low_accuracy',
+        icon: <Library className="h-4 w-4" />,
+        text: isArabic ? 'حسّن الدقة بتحديث أسعار المكتبة' : 'Improve accuracy by updating library prices',
+        action: () => navigate('/library'),
+        actionLabel: isArabic ? 'المكتبة' : 'Library',
+      });
+    }
+
+    // Items without suggested prices
+    const unpricedCount = items.filter((item: any) => !item.ai_suggested_rate && !item.unit_price).length;
+    if (unpricedCount > 0) {
+      suggestions.push({
+        id: 'unpriced_items',
+        icon: <Globe className="h-4 w-4" />,
+        text: isArabic ? `${unpricedCount} بنود بدون أسعار — استخدم أسعار السوق` : `${unpricedCount} unpriced items — use market prices`,
+        action: () => navigate('/material-prices'),
+        actionLabel: isArabic ? 'السوق' : 'Market',
+      });
+    }
+
+    // Complete data — suggest export
+    if (priceStats.pricingCoverage >= 80 && items.length > 0 && suggestions.length === 0) {
+      suggestions.push({
+        id: 'export_report',
+        icon: <FileDown className="h-4 w-4" />,
+        text: isArabic ? 'البيانات مكتملة — صدّر تقرير مقارنة شامل' : 'Data complete — export comprehensive comparison report',
+        action: () => handleExportPriceComparison('pdf'),
+        actionLabel: isArabic ? 'تصدير' : 'Export',
+      });
+    }
+
+    return suggestions.filter(s => !dismissedSuggestions.includes(s.id)).slice(0, 3);
+  }, [selectedProjectId, priceStats, pricingHistory, items, varianceItems, isArabic, dismissedSuggestions, navigate]);
+
+
     if (items.length === 0) {
       toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
