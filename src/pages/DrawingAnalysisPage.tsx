@@ -26,7 +26,7 @@ import {
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  MAIN COMPONENT — ALIMTYAZ v9
+//  MAIN COMPONENT — ALIMTYAZ v11
 // ═══════════════════════════════════════════════════════════════════════════
 const DrawingAnalysisPage = () => {
   const { isArabic } = useLanguage();
