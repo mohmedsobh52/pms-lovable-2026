@@ -2,7 +2,7 @@ import { useState, lazy, Suspense, useCallback, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Package, Users, Truck, Database, Loader2, Droplets, Wrench, BarChart3, PackagePlus, Trash2, Download, Lightbulb, Mountain, Languages, FileDown, ChevronRight } from "lucide-react";
+import { Package, Users, Truck, Database, Loader2, Droplets, Wrench, BarChart3, PackagePlus, Trash2, Download, Lightbulb, Mountain, Languages, FileDown, ChevronRight, DollarSign, TrendingUp, ArrowRight } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { MaterialsTab } from "./library/MaterialsTab";
 import { LaborTab } from "./library/LaborTab";
