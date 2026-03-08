@@ -218,8 +218,8 @@ const MonthlyActivityChart = memo(({ data, chartMode, isArabic }: { data: any[];
         <AreaChart data={data}>
           <defs>
             <linearGradient id="projGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.4}/>
-              <stop offset="100%" stopColor="#3B82F6" stopOpacity={0.02}/>
+              <stop offset="0%" stopColor="#F3570C" stopOpacity={0.4}/>
+              <stop offset="100%" stopColor="#F3570C" stopOpacity={0.02}/>
             </linearGradient>
             <linearGradient id="quotGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#10B981" stopOpacity={0.4}/>
@@ -231,7 +231,7 @@ const MonthlyActivityChart = memo(({ data, chartMode, isArabic }: { data: any[];
           <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
           <Tooltip content={<CustomTooltip />} />
           <Legend />
-          <Area type="monotone" dataKey="projects" name={isArabic ? "المشاريع" : "Projects"} stroke="#3B82F6" fill="url(#projGrad)" strokeWidth={2.5} dot={{ r: 4, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }} animationDuration={600} />
+          <Area type="monotone" dataKey="projects" name={isArabic ? "المشاريع" : "Projects"} stroke="#F3570C" fill="url(#projGrad)" strokeWidth={2.5} dot={{ r: 4, fill: '#F3570C', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }} animationDuration={600} />
           <Area type="monotone" dataKey="quotations" name={isArabic ? "العروض" : "Quotations"} stroke="#10B981" fill="url(#quotGrad)" strokeWidth={2.5} dot={{ r: 4, fill: '#10B981', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }} animationDuration={600} />
         </AreaChart>
       ) : (
