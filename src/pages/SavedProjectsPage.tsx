@@ -7,6 +7,7 @@ import {
   SortAsc, SortDesc, Settings2, FileUp, Plus, BarChart3, Paperclip, Sparkles, Upload,
   CheckCircle2, Clock, CircleDashed, Star
 } from "lucide-react";
+import { SmartSuggestionsBanner, type SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 import { useFavoriteProjects } from "@/hooks/useFavoriteProjects";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -617,6 +618,17 @@ export default function SavedProjectsPage() {
                   <p className="text-sm text-muted-foreground mt-1">PDF, Excel</p>
                 </div>
               </div>
+            )}
+
+            {/* Smart Suggestions */}
+            {projects.length > 0 && (
+              <SmartSuggestionsBanner suggestions={(() => {
+                const s: SmartSuggestion[] = [];
+                const unpriced = projects.filter(p => !p.total_value || p.total_value === 0).length;
+                if (unpriced > 0) s.push({ id: 'unpriced', icon: <DollarSign className="h-4 w-4" />, text: isArabic ? `${unpriced} مشاريع بدون تسعير — سعّرها الآن` : `${unpriced} unpriced projects — price them now`, action: () => {}, actionLabel: isArabic ? 'تسعير' : 'Price' });
+                if (projects.length > 3) s.push({ id: 'reports', icon: <BarChart3 className="h-4 w-4" />, text: isArabic ? 'قارن مشاريعك في تقرير شامل' : 'Compare your projects in a comprehensive report', action: () => setActiveTab('reports'), actionLabel: isArabic ? 'التقارير' : 'Reports' });
+                return s.slice(0, 2);
+              })()} />
             )}
 
             {/* Quick Upload Section */}
