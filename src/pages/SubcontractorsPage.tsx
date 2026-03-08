@@ -113,6 +113,40 @@ const SubcontractorsPage = () => {
           ]}
         />
 
+        {/* Smart Suggestions */}
+        {(() => {
+          const suggestions: SmartSuggestion[] = [];
+          if (stats.totalSubcontractors === 0) {
+            suggestions.push({
+              id: 'no_subs',
+              icon: <Users className="h-4 w-4" />,
+              text: isArabic ? 'أضف أول مقاول من الباطن' : 'Add your first subcontractor',
+              action: () => {},
+              actionLabel: isArabic ? 'إضافة' : 'Add',
+            });
+          }
+          const delayedAssignments = assignments.filter(a => a.progress_percentage < 50 && a.status === 'in_progress');
+          if (delayedAssignments.length > 0) {
+            suggestions.push({
+              id: 'delayed',
+              icon: <AlertTriangle className="h-4 w-4" />,
+              text: isArabic ? `${delayedAssignments.length} مهام بتقدم أقل من 50% — تابعها` : `${delayedAssignments.length} tasks below 50% progress — follow up`,
+              action: () => {},
+              actionLabel: isArabic ? 'متابعة' : 'Follow Up',
+            });
+          }
+          if (assignments.length === 0 && stats.totalSubcontractors > 0) {
+            suggestions.push({
+              id: 'no_assignments',
+              icon: <ClipboardList className="h-4 w-4" />,
+              text: isArabic ? 'أسند مهام للمقاولين' : 'Assign tasks to subcontractors',
+              action: () => {},
+              actionLabel: isArabic ? 'إسناد' : 'Assign',
+            });
+          }
+          return <SmartSuggestionsBanner suggestions={suggestions} />;
+        })()}
+
         {/* Main Tabs - FIDIC removed */}
         <Tabs defaultValue="dashboard" className="space-y-4">
           <TabsList className="grid grid-cols-3 w-full md:w-auto tabs-navigation-safe">

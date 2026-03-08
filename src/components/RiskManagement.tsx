@@ -404,6 +404,40 @@ export function RiskManagement({ projectId }: RiskManagementProps) {
       </CardHeader>
 
       <CardContent className="p-4 space-y-4">
+        {/* Smart Suggestions */}
+        {(() => {
+          const suggestions: SmartSuggestion[] = [];
+          if (stats.total === 0) {
+            suggestions.push({
+              id: 'no_risks',
+              icon: <Brain className="h-4 w-4" />,
+              text: isArabic ? 'استخدم التحليل التلقائي لاكتشاف المخاطر' : 'Use AI analysis to discover risks',
+              action: () => setShowAutoAnalysis(true),
+              actionLabel: isArabic ? 'تحليل' : 'Analyze',
+            });
+          }
+          const highRisksWithoutPlan = risks.filter(r => (r.risk_score || 0) > 9 && !r.mitigation_strategy);
+          if (highRisksWithoutPlan.length > 0) {
+            suggestions.push({
+              id: 'high_no_plan',
+              icon: <AlertTriangle className="h-4 w-4" />,
+              text: isArabic ? `${highRisksWithoutPlan.length} مخاطر عالية بدون خطة استجابة` : `${highRisksWithoutPlan.length} high risks without response plan`,
+              action: () => { if (highRisksWithoutPlan[0]) openEditDialog(highRisksWithoutPlan[0]); },
+              actionLabel: isArabic ? 'إضافة خطة' : 'Add Plan',
+            });
+          }
+          if (stats.total > 10) {
+            suggestions.push({
+              id: 'export_report',
+              icon: <FileDown className="h-4 w-4" />,
+              text: isArabic ? 'صدّر تقرير المخاطر الشامل' : 'Export comprehensive risk report',
+              action: () => {},
+              actionLabel: isArabic ? 'تصدير' : 'Export',
+            });
+          }
+          return <SmartSuggestionsBanner suggestions={suggestions} />;
+        })()}
+
         {/* Enhanced Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <div className="p-3 rounded-lg bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20">

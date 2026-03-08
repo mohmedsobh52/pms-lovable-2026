@@ -108,6 +108,48 @@ const ContractsPage = () => {
           ]}
         />
 
+        {/* Smart Suggestions */}
+        {(() => {
+          const suggestions: SmartSuggestion[] = [];
+          if (stats.totalContracts === 0) {
+            suggestions.push({
+              id: 'no_contracts',
+              icon: <FileText className="h-4 w-4" />,
+              text: isArabic ? 'أنشئ أول عقد لمشروعك' : 'Create your first contract',
+              action: () => {},
+              actionLabel: isArabic ? 'إنشاء عقد' : 'Create Contract',
+            });
+          }
+          if (stats.overdueContracts > 0) {
+            suggestions.push({
+              id: 'overdue',
+              icon: <Bell className="h-4 w-4" />,
+              text: isArabic ? `يوجد ${stats.overdueContracts} عقود منتهية — راجعها` : `${stats.overdueContracts} overdue contracts — review them`,
+              action: () => {},
+              actionLabel: isArabic ? 'مراجعة' : 'Review',
+            });
+          }
+          if (stats.expiringContracts > 0) {
+            suggestions.push({
+              id: 'expiring',
+              icon: <Clock className="h-4 w-4" />,
+              text: isArabic ? `${stats.expiringContracts} عقود تنتهي خلال 30 يوماً` : `${stats.expiringContracts} contracts expiring within 30 days`,
+              action: () => {},
+              actionLabel: isArabic ? 'عرض' : 'View',
+            });
+          }
+          if (stats.activeContracts > 0) {
+            suggestions.push({
+              id: 'warranties',
+              icon: <Shield className="h-4 w-4" />,
+              text: isArabic ? 'أضف ضمانات للعقود النشطة' : 'Add warranties to active contracts',
+              action: () => {},
+              actionLabel: isArabic ? 'إضافة ضمانات' : 'Add Warranties',
+            });
+          }
+          return <SmartSuggestionsBanner suggestions={suggestions} />;
+        })()}
+
         {/* Main Tabs */}
         <Tabs defaultValue="contracts" className="space-y-4">
           <TabsList className="flex flex-wrap h-auto gap-1 tabs-navigation-safe">

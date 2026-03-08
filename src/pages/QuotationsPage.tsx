@@ -47,6 +47,28 @@ const QuotationsPage = () => {
           title={isArabic ? "عروض الأسعار" : "Quotations"}
           subtitle={isArabic ? "رفع ومقارنة عروض الأسعار" : "Upload and compare price quotations"}
         />
+        {/* Smart Suggestions */}
+        {(() => {
+          const suggestions: SmartSuggestion[] = [];
+          if (unpricedItems.length > 0) {
+            suggestions.push({
+              id: 'unpriced',
+              icon: <AlertCircle className="h-4 w-4" />,
+              text: isArabic ? `${unpricedItems.length} بنود بدون أسعار — ارفع عروض أسعار` : `${unpricedItems.length} items without prices — upload quotations`,
+              action: () => {},
+              actionLabel: isArabic ? 'رفع عروض' : 'Upload',
+            });
+          }
+          suggestions.push({
+            id: 'compare',
+            icon: <GitCompare className="h-4 w-4" />,
+            text: isArabic ? 'قارن عروض الأسعار المختلفة' : 'Compare different quotations',
+            action: () => {},
+            actionLabel: isArabic ? 'مقارنة' : 'Compare',
+          });
+          return <SmartSuggestionsBanner suggestions={suggestions} />;
+        })()}
+
         <Tabs defaultValue="upload" className="space-y-4">
           <TabsList className="tabs-navigation-safe">
             <TabsTrigger value="upload">
