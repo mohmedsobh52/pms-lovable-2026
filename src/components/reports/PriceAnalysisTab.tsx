@@ -578,7 +578,40 @@ export function PriceAnalysisTab({ projects }: PriceAnalysisTabProps) {
         </CardContent>
       </Card>
 
-      {/* Price Stats Summary */}
+      {/* Smart Suggestions */}
+      {smartSuggestions.length > 0 && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+            <Lightbulb className="h-4 w-4" />
+            {isArabic ? 'اقتراحات لتحسين التسعير' : 'Pricing Improvement Suggestions'}
+          </div>
+          <div className="space-y-2">
+            {smartSuggestions.map((s) => (
+              <div key={s.id} className="flex items-center justify-between gap-3 bg-background/80 rounded-md p-2.5 border border-border/50">
+                <div className="flex items-center gap-2 text-sm text-foreground/80">
+                  <span className="text-primary">{s.icon}</span>
+                  {s.text}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="outline" onClick={s.action} className="h-7 text-xs gap-1">
+                    {s.actionLabel}
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => setDismissedSuggestions(prev => [...prev, s.id])}
+                  >
+                    ×
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {priceStats && !isLoadingItems && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
