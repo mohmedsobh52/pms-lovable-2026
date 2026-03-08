@@ -1194,7 +1194,7 @@ const DrawingAnalysisPage = () => {
                       <span key={i} style={{background:c.status==="done"?(D?"#064e3b":"#dcfce7"):c.status==="error"?(D?"#450a0a":"#fee2e2"):(D?"#2a1a08":"#FFF5F0"),
                         color:c.status==="done"?T.grn:c.status==="error"?"#ef4444":T.gold,
                         padding:"2px 7px",borderRadius:6,fontSize:8,fontWeight:c.status==="analyzing"?700:400,
-                        border:`1px solid ${c.status==="done"?(D?"#065f46":"#bbf7d0"):c.status==="error"?(D?"#7f1d1d":"#fca5a5"):(D?"#854d0e":"#FFE8DB")}`,
+                        border:`1px solid ${c.status==="done"?(D?"#065f46":"#bbf7d0"):c.status==="error"?(D?"#7f1d1d":"#fca5a5"):(D?T.gold+"40":T.gold+"30")}`,
                         animation:c.status==="analyzing"?"alim-pulse 1.2s ease infinite":undefined}}>
                         {c.status==="done"?"✓":c.status==="error"?"✗":"⏳"} {c.label}
                       </span>
