@@ -225,8 +225,35 @@ const DrawingAnalysisPage = () => {
         });
       },priority:3});
     }
+    // v11: تصدير CSV متخصص عند وجود بيانات
+    if(pipeNetwork.length > 0 && feState?.phase==="done"){
+      s.push({id:"export-pipes-csv",icon:"📥",type:"performance",text:`${pipeNetwork.length} نوع أنبوب — صدّر جدول المواسير التفصيلي كملف CSV.`,actionLabel:"تصدير CSV",action:()=>exportPipeScheduleCSV(pipeNetwork),priority:3});
+    }
+    if(earthworksData && feState?.phase==="done"){
+      s.push({id:"export-ew-csv",icon:"📥",type:"performance",text:"بيانات الحفر جاهزة — صدّر جدول الحفر والردم كملف CSV.",actionLabel:"تصدير CSV",action:()=>exportEarthworksCSV(earthworksData),priority:3});
+    }
+    if(asphaltData && feState?.phase==="done"){
+      s.push({id:"export-asp-csv",icon:"📥",type:"performance",text:"بيانات الأسفلت جاهزة — صدّر جدول طبقات الرصف كملف CSV.",actionLabel:"تصدير CSV",action:()=>exportAsphaltCSV(asphaltData),priority:3});
+    }
+    // v11: مقارنة مع تحليلات سابقة
+    if(feState?.phase==="done" && savedAnalyses.length > 0){
+      s.push({id:"compare-prev",icon:"📊",type:"accuracy",text:`لديك ${savedAnalyses.length} تحليل سابق — قارن النتائج لتتبع تحسن الدقة.`,actionLabel:"مقارنة",action:()=>setTab("history"),priority:3});
+    }
+    // v11: اقتراح إعادة التحليل بالوضع البصري إذا كان التحليل نصي
+    if(feState?.phase==="done" && pdfSess?.quality==="fast" && xStats && xStats.rich > 3){
+      s.push({id:"retry-visual",icon:"🖼️",type:"accuracy",text:"مخططات غنية حُلّلت نصياً — أعد التحليل بالوضع البصري للحصول على أقطار ومناسيب دقيقة.",actionLabel:"تحليل بصري",action:()=>{
+        setPdfSess((prev:any)=>({...prev,quality:"standard"}));
+      },priority:2});
+    }
+    // v11: اقتراح تحليل المجلد إذا كان ملف واحد فقط
+    if(feState?.phase==="done" && batchFiles.length === 0 && pdfSess){
+      s.push({id:"batch-suggest",icon:"📁",type:"performance",text:"تحليل ملف واحد اكتمل — ارفع مجلد كامل لتحليل جميع الملفات معاً.",actionLabel:"رفع مجلد",action:()=>{
+        const folderInput = document.querySelector('input[webkitdirectory]') as HTMLInputElement;
+        if(folderInput) folderInput.click();
+      },priority:4});
+    }
     return s;
-  },[feState,msgs,ocr,depth,pdfSess,cfg,mods,pipeNetwork,earthworksData,asphaltData,infraMeta,user,boqCount,xStats]);
+  },[feState,msgs,ocr,depth,pdfSess,cfg,mods,pipeNetwork,earthworksData,asphaltData,infraMeta,user,boqCount,xStats,savedAnalyses,batchFiles]);
 
   const cancelRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
