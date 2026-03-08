@@ -1018,6 +1018,9 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             onNavigate={navigate} 
           />
 
+          {/* Smart Suggestions */}
+          <DashboardSuggestions stats={stats} isArabic={isArabic} navigate={navigate} />
+
           {/* Stats Cards - 6 cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard 
