@@ -559,6 +559,38 @@ export const LibraryDatabase = () => {
               </AlertDialogContent>
             </AlertDialog>
           )}
+          {activeTab === "materials" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2" disabled={isAnyLoading}>
+                  {isAddingEarthworks ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mountain className="h-4 w-4" />}
+                  {isAddingEarthworks ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? `مواد الحفر والأسفلت (${sampleCounts.earthworksAsphalt})` : `Earthworks & Asphalt (${sampleCounts.earthworksAsphalt})`)}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{isArabic ? "إضافة مواد الأعمال الترابية والأسفلت" : "Add Earthworks & Asphalt Materials"}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {isArabic ? `سيتم إضافة ${sampleCounts.earthworksAsphalt} مادة تشمل:` : `${sampleCounts.earthworksAsphalt} materials will be added including:`}
+                  </AlertDialogDescription>
+                  <ul className="list-disc list-inside text-sm text-muted-foreground">
+                    <li>{isArabic ? "أعمال ترابية (حفر، ردم، فرشة)" : "Earthworks (trenching, backfill, bedding)"}</li>
+                    <li>{isArabic ? "أسفلت ورصف (طبقات سطحية، رابطة، أساسية)" : "Asphalt (wearing, binder, base courses)"}</li>
+                    <li>{isArabic ? "طبقات أساس طرق ومجروشات" : "Road base layers & aggregates"}</li>
+                    <li>{isArabic ? "ملحقات طرق (أرصفة، حواجز، إنارة)" : "Road accessories (curbs, barriers, lighting)"}</li>
+                    <li>{isArabic ? "أعمال خرسانية وسلامة مؤقتة" : "Concrete works & temporary safety"}</li>
+                  </ul>
+                  <ProgressBar />
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isAddingEarthworks}>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleAddEarthworksData} disabled={isAddingEarthworks}>
+                    {isAddingEarthworks ? (isArabic ? "جاري الإضافة..." : "Adding...") : (isArabic ? "إضافة" : "Add")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )
           {(activeTab === "labor" || activeTab === "equipment") && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
