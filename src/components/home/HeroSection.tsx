@@ -47,8 +47,8 @@ export function HeroSection({ stats, recentTrend, projectDistribution }: HeroSec
   // Default project distribution if not provided
   const defaultDistribution: ProjectDistribution[] = [
     { name: isArabic ? "نشط" : "Active", value: 45, color: "#22c55e" },
-    { name: isArabic ? "معلق" : "Pending", value: 25, color: "#f59e0b" },
-    { name: isArabic ? "مكتمل" : "Completed", value: 30, color: "#3b82f6" }
+    { name: isArabic ? "معلق" : "Pending", value: 25, color: "#F3570C" },
+    { name: isArabic ? "مكتمل" : "Completed", value: 30, color: "#605F5F" }
   ];
 
   const distribution = projectDistribution?.length ? projectDistribution : defaultDistribution;
@@ -168,7 +168,7 @@ export function HeroSection({ stats, recentTrend, projectDistribution }: HeroSec
               </div>
               <div className="min-w-0">
                 <span className="block text-[10px] text-muted-foreground truncate">{isArabic ? "الاتجاه" : "Trend"}</span>
-                <span className="flex items-center gap-1 text-sm font-semibold text-green-500">
+                <span className="flex items-center gap-1 text-sm font-semibold text-success">
                   <TrendingUp className="w-3 h-3" />
                   12%
                 </span>
@@ -177,8 +177,8 @@ export function HeroSection({ stats, recentTrend, projectDistribution }: HeroSec
 
             {/* Items Count */}
             <div className="flex items-center gap-3 bg-card/70 backdrop-blur-md rounded-xl px-3 py-3 border border-border/40 shadow-lg hover:bg-card/80 transition-all group">
-              <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                <Layers className="w-5 h-5 text-blue-500" />
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Layers className="w-5 h-5 text-primary" />
               </div>
               <div className="min-w-0">
                 <span className="block text-[10px] text-muted-foreground truncate">{isArabic ? "البنود" : "Items"}</span>
@@ -188,8 +188,8 @@ export function HeroSection({ stats, recentTrend, projectDistribution }: HeroSec
             
             {/* Total Value */}
             <div className="flex items-center gap-3 bg-card/70 backdrop-blur-md rounded-xl px-3 py-3 border border-border/40 shadow-lg hover:bg-card/80 transition-all group col-span-2 md:col-span-1">
-              <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
-                <DollarSign className="w-5 h-5 text-green-500" />
+              <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
+                <DollarSign className="w-5 h-5 text-success" />
               </div>
               <div className="min-w-0">
                 <span className="block text-[10px] text-muted-foreground truncate">{isArabic ? "القيمة" : "Value"}</span>
