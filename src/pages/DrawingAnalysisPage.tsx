@@ -198,17 +198,16 @@ const DrawingAnalysisPage = () => {
     // v11: حفظ التحليل بعد الاكتمال
     if(feState?.phase==="done" && msgs.length > 2 && user){
       s.push({id:"save-analysis",icon:"💾",type:"performance",text:"اكتمل التحليل — احفظ النتائج لمقارنتها لاحقاً.",actionLabel:"حفظ",action:()=>{
-        // trigger save to DB
         const allText = msgs.filter((m:any)=>m.role==="assistant").map((m:any)=>m.content||"").join("\n");
         supabase.from("drawing_analyses").insert({
           user_id: user.id, drawing_type: Object.keys(xStats?.typeCount||{})[0]||"PLAN",
           file_names: pdfSess?[pdfSess.file?.name]:[],
           results: {text:allText.slice(0,5000)}, summary: {boq_count:boqCount,pipe_count:pipeNetwork.length}
-        }).then(()=>fetchSavedAnalyses());
+        });
       },priority:3});
     }
     return s;
-  },[feState,msgs,ocr,depth,pdfSess,cfg,mods,pipeNetwork,earthworksData,asphaltData,infraMeta,user,boqCount,xStats,fetchSavedAnalyses]);
+  },[feState,msgs,ocr,depth,pdfSess,cfg,mods,pipeNetwork,earthworksData,asphaltData,infraMeta,user,boqCount,xStats]);
 
   const cancelRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
