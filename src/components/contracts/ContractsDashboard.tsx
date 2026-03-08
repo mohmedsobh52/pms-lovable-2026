@@ -326,7 +326,7 @@ export const ContractsDashboard = () => {
                   yAxisId="left"
                   type="monotone"
                   dataKey="contracts"
-                  stroke="#3b82f6"
+                  stroke="hsl(var(--primary))"
                   name={isArabic ? "عدد العقود" : "Contracts"}
                   strokeWidth={2}
                 />
