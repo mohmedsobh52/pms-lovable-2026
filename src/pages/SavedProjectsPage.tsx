@@ -115,7 +115,7 @@ export default function SavedProjectsPage() {
           if (Date.now() - timestamp < 3 * 60 * 1000) {
             setProjects(data);
             setIsLoading(false);
-            return;
+            // Don't return — continue to fetch fresh data in background (stale-while-revalidate)
           }
         }
       } catch {}
@@ -178,7 +178,7 @@ export default function SavedProjectsPage() {
     }
   };
 
-  useEffect(() => { if (user) fetchProjects(); }, [user]);
+  useEffect(() => { if (user) fetchProjects(!!newProjectState?.newProjectId); }, [user]);
 
   const handleDelete = async (id: string) => {
     try {
