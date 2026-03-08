@@ -12,7 +12,7 @@ import { AnalysisProvider } from "@/hooks/useAnalysisData";
 import { AnalysisTrackingProvider } from "@/hooks/useAnalysisTracking";
 import { GlobalSearchProvider } from "@/contexts/GlobalSearchContext";
 import { UpdateBanner } from "@/components/UpdateBanner";
-import BackgroundImage from "@/components/BackgroundImage";
+
 
 import { FixedTopNav } from "@/components/FixedTopNav";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
