@@ -27,7 +27,7 @@ import {
   Wrench
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { differenceInDays } from "date-fns";
 
