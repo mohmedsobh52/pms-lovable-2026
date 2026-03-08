@@ -90,7 +90,7 @@ const DrawingAnalysisPage = () => {
   },[]);
 
   // Smart suggestions
-  const save = (c: any,m: any,d: string)=>{try{localStorage.setItem("alimtyaz_v9",JSON.stringify({cfg:c,mods:m,depth:d}));}catch{}};
+  const save = (c: any,m: any,d: string)=>{try{localStorage.setItem("alimtyaz_v11",JSON.stringify({cfg:c,mods:m,depth:d}));}catch{}};
 
   const configSuggestions = useMemo<Suggestion[]>(()=>{
     const s: Suggestion[] = [];
