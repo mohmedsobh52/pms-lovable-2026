@@ -1238,8 +1238,8 @@ const DrawingAnalysisPage = () => {
                     </div>
                   )}
                   {msgs.length>0&&boqCount>0&&(
-                    <div style={{background:D?"linear-gradient(135deg,#0d1f14,#111e18)":"linear-gradient(135deg,#f0fdf4,#dcfce7)",border:`1px solid ${D?"#1a3025":"#bbf7d0"}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",flexShrink:0}}>
-                      <span style={{fontSize:9,color:T.grn,fontWeight:700}}>📊 ملخص الجلسة</span>
+                    <div style={{background:D?"linear-gradient(135deg,#1a0e02,#201204)":"linear-gradient(135deg,#FFF5F0,#FFE8DB)",border:`1px solid ${D?T.gold+"30":T.gold+"40"}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",flexShrink:0}}>
+                      <span style={{fontSize:9,color:T.gold,fontWeight:700}}>📊 ملخص الجلسة</span>
                       <span style={{fontSize:9,color:T.t2}}><span style={{color:T.gold,fontWeight:700}}>{boqCount}</span> بند BOQ</span>
                       <span style={{fontSize:9,color:T.t2}}><span style={{color:T.gold,fontWeight:700}}>{msgs.filter((m: any)=>m.role==="assistant").length}</span> تحليل</span>
                     </div>
