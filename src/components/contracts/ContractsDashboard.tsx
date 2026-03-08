@@ -143,11 +143,11 @@ export const ContractsDashboard = () => {
     <div className="space-y-6">
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
+        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/20">
-                <FileText className="w-5 h-5 text-blue-600" />
+              <div className="p-2 rounded-lg bg-primary/20">
+                <FileText className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{contracts.length}</p>
@@ -159,11 +159,11 @@ export const ContractsDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
+        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-500/20">
-                <TrendingUp className="w-5 h-5 text-green-600" />
+              <div className="p-2 rounded-lg bg-emerald-500/20">
+                <TrendingUp className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{activeContracts}</p>
@@ -175,11 +175,11 @@ export const ContractsDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+        <Card className="bg-gradient-to-br from-secondary/10 to-secondary/5 border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-purple-500/20">
-                <Users className="w-5 h-5 text-purple-600" />
+              <div className="p-2 rounded-lg bg-secondary/20">
+                <Users className="w-5 h-5 text-secondary-foreground" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{completedContracts}</p>
@@ -191,11 +191,11 @@ export const ContractsDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border-cyan-500/20">
+        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-cyan-500/20">
-                <DollarSign className="w-5 h-5 text-cyan-600" />
+              <div className="p-2 rounded-lg bg-primary/20">
+                <DollarSign className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <p className="text-lg font-bold">{formatCurrency(totalValue)}</p>
@@ -206,6 +206,33 @@ export const ContractsDashboard = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Overdue contracts card */}
+        {contracts.filter(c => {
+          if (!c.end_date || c.status === 'completed' || c.status === 'terminated') return false;
+          return new Date(c.end_date) < new Date();
+        }).length > 0 && (
+          <Card className="bg-gradient-to-br from-destructive/10 to-destructive/5 border-destructive/20 col-span-2 md:col-span-4">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-destructive/20">
+                  <FileText className="w-5 h-5 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-destructive">
+                    {contracts.filter(c => {
+                      if (!c.end_date || c.status === 'completed' || c.status === 'terminated') return false;
+                      return new Date(c.end_date) < new Date();
+                    }).length} {isArabic ? "عقود متأخرة" : "Overdue Contracts"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {isArabic ? "يرجى مراجعة العقود المتأخرة فوراً" : "Please review overdue contracts immediately"}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Charts Row 1 */}
