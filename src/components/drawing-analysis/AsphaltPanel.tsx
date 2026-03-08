@@ -15,7 +15,7 @@ const AsphaltPanel = memo(({ xStats, T, D }: AsphaltPanelProps) => {
   const costPerM2 = asp.totalArea > 0 ? (asp.totalCost / asp.totalArea).toFixed(0) : 0;
 
   return (
-    <div className={`rounded-xl p-3 border-2 ${D ? "bg-gradient-to-br from-[#0a0a0c] to-[#18181b] border-zinc-700/50" : "bg-gradient-to-br from-slate-50 to-gray-50 border-slate-300"}`}>
+    <div className={`rounded-xl p-3 border-2 ${D ? "bg-gradient-to-br from-[#1a0e02] to-[#201204] border-[#F3570C]/30" : "bg-gradient-to-br from-[#FFF5F0] to-[#FFE8DB] border-[#F3570C]/30"}`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className="text-xl">🛣️</span>
@@ -24,7 +24,7 @@ const AsphaltPanel = memo(({ xStats, T, D }: AsphaltPanelProps) => {
             <div className="text-[8.5px] text-muted-foreground">{asp.roadType ? (ROAD_STRUCTURES as any)[asp.roadType]?.name : "رصف عام"} · {asp.totalThickMM || 0}mm إجمالي</div>
           </div>
         </div>
-        <button onClick={() => setExpanded(!expanded)} className="text-[8px] px-2 py-0.5 border border-slate-400 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-600/10">
+        <button onClick={() => setExpanded(!expanded)} className="text-[8px] px-2 py-0.5 rounded" style={{ border: `1px solid ${T.gold}`, color: T.gold }} onMouseOver={e => (e.currentTarget.style.background = T.gold + "15")} onMouseOut={e => (e.currentTarget.style.background = "transparent")}>
           {expanded ? "▲ طيّ" : "▼ تفاصيل"}
         </button>
       </div>
@@ -32,14 +32,14 @@ const AsphaltPanel = memo(({ xStats, T, D }: AsphaltPanelProps) => {
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-1.5 mb-2">
         {[
-          ["📐 المساحة", `${(asp.totalArea || 0).toFixed(0)} م²`, "#2563eb"],
-          ["⚖️ أسفلت", `${(asp.totalTons || 0).toFixed(1)} طن`, "#1e293b"],
-          ["🪨 أساس مجروش", `${(asp.totalAggM3 || 0).toFixed(0)} م³`, "#92400e"],
-          ["💧 رش أسفلتي", `${(asp.totalSprayLtr || 0).toFixed(0)} لتر`, "#7c3aed"],
-          ["💰 سعر/م²", `${costPerM2} SAR`, "#ca8a04"],
-          ["🏷️ الإجمالي", `${((asp.totalCost || 0) / 1000).toFixed(0)}ك SAR`, "#16a34a"],
+          ["📐 المساحة", `${(asp.totalArea || 0).toFixed(0)} م²`, T.gold],
+          ["⚖️ أسفلت", `${(asp.totalTons || 0).toFixed(1)} طن`, "#161616"],
+          ["🪨 أساس مجروش", `${(asp.totalAggM3 || 0).toFixed(0)} م³`, "#605F5F"],
+          ["💧 رش أسفلتي", `${(asp.totalSprayLtr || 0).toFixed(0)} لتر`, "#FF6B1A"],
+          ["💰 سعر/م²", `${costPerM2} SAR`, T.gold],
+          ["🏷️ الإجمالي", `${((asp.totalCost || 0) / 1000).toFixed(0)}ك SAR`, "#15803d"],
         ].map(([l, v, c]) => (
-          <div key={l as string} className={`rounded-lg p-2 border ${D ? "bg-black/50 border-white/5" : "bg-white border-gray-100"}`}>
+          <div key={l as string} className={`rounded-lg p-2 border ${D ? "bg-[#1e1e1e] border-white/5" : "bg-white border-[#A0A09F]/20"}`}>
             <div className="text-[7.5px] text-muted-foreground">{l}</div>
             <div className="text-xs font-extrabold" style={{ color: c as string }}>{v}</div>
           </div>
@@ -73,9 +73,9 @@ const AsphaltPanel = memo(({ xStats, T, D }: AsphaltPanelProps) => {
           <div className="overflow-x-auto">
             <table className="w-full text-[7.5px]" style={{ borderCollapse: "collapse" }}>
               <thead>
-                <tr className={D ? "bg-zinc-900" : "bg-slate-50"}>
+                <tr style={{ background: D ? "#2a1a08" : "#FFF5F0" }}>
                   {["الطبقة", "السماكة", "المساحة م²", "الحجم/الوزن", "التكلفة SAR"].map(h => (
-                    <th key={h} className="px-1.5 py-1 text-center font-bold border-b border-border text-foreground/70">{h}</th>
+                    <th key={h} className="px-1.5 py-1 text-center font-bold border-b" style={{ color: T.gold, borderColor: D ? T.gold + "30" : T.gold + "40" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -93,7 +93,7 @@ const AsphaltPanel = memo(({ xStats, T, D }: AsphaltPanelProps) => {
                     <td className="px-1.5 py-1 text-center font-bold text-foreground/80">
                       {l.type === "AC" ? `${l.tons} طن` : l.type === "Agg" ? `${l.vol_m3} م³` : `${l.ltrs || 0} لتر`}
                     </td>
-                    <td className="px-1.5 py-1 text-center font-bold text-blue-600">{((l.cost_sar || 0) / 1000).toFixed(1)}ك</td>
+                    <td className="px-1.5 py-1 text-center font-bold" style={{ color: T.gold }}>{((l.cost_sar || 0) / 1000).toFixed(1)}ك</td>
                   </tr>
                 ))}
               </tbody>
