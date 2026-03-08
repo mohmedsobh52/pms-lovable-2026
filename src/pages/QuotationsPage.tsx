@@ -8,11 +8,12 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, AlertCircle, Search } from "lucide-react";
-import { useState } from "react";
+import { FileText, AlertCircle, Search, Upload, GitCompare } from "lucide-react";
+import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 
 const QuotationsPage = () => {
   const { isArabic } = useLanguage();
