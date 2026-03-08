@@ -1148,7 +1148,9 @@ export default function ProjectDetailsPage() {
               setIsSaving(true);
               try {
                 const now = new Date().toISOString();
+                const existingAnalysis = (project?.analysis_data && typeof project.analysis_data === 'object') ? project.analysis_data as Record<string, any> : {};
                 const analysisPayload = project ? {
+                  ...existingAnalysis,
                   items: items.map(i => ({
                     item_number: i.item_number,
                     description: i.description,
@@ -1159,16 +1161,20 @@ export default function ProjectDetailsPage() {
                     category: i.category,
                   })),
                   summary: {
+                    ...(existingAnalysis.summary || {}),
                     total_items: items.length,
                     total_value: items.reduce((s, i) => s + (i.total_price || 0), 0),
-                    currency: project.currency || 'SAR',
+                    currency: project.currency || existingAnalysis?.summary?.currency || 'SAR',
                   },
                 } : undefined;
 
                 const totalValue = items.reduce((s, i) => s + (i.total_price || 0), 0);
 
-                // Update both tables in parallel
+                // Update both tables in parallel using upsert for project_data
                 const updatePayload = {
+                  id: projectId,
+                  name: project?.name || '',
+                  user_id: user.id,
                   analysis_data: analysisPayload,
                   wbs_data: project?.wbs_data,
                   total_value: totalValue,
@@ -1176,14 +1182,18 @@ export default function ProjectDetailsPage() {
                   updated_at: now,
                 };
 
-                await Promise.all([
-                  supabase.from('project_data').update(updatePayload).eq('id', projectId),
+                const [pdResult, spResult] = await Promise.all([
+                  supabase.from('project_data').upsert(updatePayload, { onConflict: 'id' }),
                   supabase.from('saved_projects').update({
+                    name: project?.name,
                     analysis_data: analysisPayload as any,
                     wbs_data: project?.wbs_data as any,
                     updated_at: now,
                   }).eq('id', projectId),
                 ]);
+
+                if (pdResult.error) throw pdResult.error;
+                if (spResult.error) throw spResult.error;
 
                 setLastSaved(new Date());
                 savedSnapshotRef.current = JSON.stringify({ items: items.map(i => ({ id: i.id, unit_price: i.unit_price, total_price: i.total_price, quantity: i.quantity, description: i.description })), editForm });
