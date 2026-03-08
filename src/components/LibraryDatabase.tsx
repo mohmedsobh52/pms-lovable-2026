@@ -218,16 +218,23 @@ export const LibraryDatabase = () => {
     setProgress(0);
   }, [addEarthworksAsphaltMaterials, refreshMaterials, isArabic, sampleCounts.earthworksAsphalt]);
 
-  const getCurrentTabData = () => {
+  const currentTabData = useMemo(() => {
     switch (activeTab) {
       case "materials": return materials.map(m => ({ price_date: m.price_date, valid_until: m.valid_until }));
       case "labor": return laborRates.map(l => ({ price_date: l.price_date, valid_until: l.valid_until }));
       case "equipment": return equipmentRates.map(e => ({ price_date: e.price_date, valid_until: e.valid_until }));
       default: return [];
     }
-  };
+  }, [activeTab, materials, laborRates, equipmentRates]);
 
-  const validityStats = getValidityStats(getCurrentTabData());
+  // All data for cross-tab suggestions
+  const allLibraryData = useMemo(() => [
+    ...materials.map(m => ({ price_date: m.price_date, valid_until: m.valid_until })),
+    ...laborRates.map(l => ({ price_date: l.price_date, valid_until: l.valid_until })),
+    ...equipmentRates.map(e => ({ price_date: e.price_date, valid_until: e.valid_until })),
+  ], [materials, laborRates, equipmentRates]);
+
+  const validityStats = getValidityStats(currentTabData);
   const totalItems = materials.length + laborRates.length + equipmentRates.length;
   const showEmptyState = totalItems === 0;
 
