@@ -134,14 +134,6 @@ export const ContractsDashboard = () => {
     }).format(value);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   const contractSuggestions = useMemo((): SmartSuggestion[] => {
     const list: SmartSuggestion[] = [];
     const drafts = contracts.filter(c => c.status === 'draft').length;
@@ -152,6 +144,14 @@ export const ContractsDashboard = () => {
     if (contracts.length > 0 && activeContracts === 0) list.push({ id: 'all_inactive', icon: <Calendar className="h-4 w-4" />, text: isArabic ? 'لا توجد عقود نشطة — فعّل عقداً أو أنشئ جديداً' : 'No active contracts — activate one or create new', action: () => navigate('/contracts'), actionLabel: isArabic ? 'إدارة' : 'Manage' });
     return list.slice(0, 3);
   }, [contracts, activeContracts, isArabic, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
