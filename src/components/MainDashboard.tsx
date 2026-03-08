@@ -238,8 +238,8 @@ const MonthlyActivityChart = memo(({ data, chartMode, isArabic }: { data: any[];
         <BarChart data={data} barGap={8}>
           <defs>
             <linearGradient id="barProjGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3B82F6" stopOpacity={1}/>
-              <stop offset="100%" stopColor="#2563EB" stopOpacity={0.8}/>
+              <stop offset="0%" stopColor="#F3570C" stopOpacity={1}/>
+              <stop offset="100%" stopColor="#D94A0A" stopOpacity={0.8}/>
             </linearGradient>
             <linearGradient id="barQuotGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#10B981" stopOpacity={1}/>

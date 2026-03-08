@@ -358,7 +358,7 @@ export const ContractsDashboard = () => {
                   <XAxis type="number" tickFormatter={(v) => `${v.toFixed(1)}M`} />
                   <YAxis type="category" dataKey="name" width={120} />
                   <Tooltip formatter={(value: number) => `${value.toFixed(2)}M SAR`} />
-                  <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (

@@ -235,11 +235,11 @@ serve(async (req) => {
           body: JSON.stringify({
             model,
             messages: [
-              { role: "system", content: `Construction cost estimator for ${location}. Return JSON array of objects with: item_number, suggested_min, suggested_max, suggested_avg, confidence (High/Medium/Low), trend (Increasing/Stable/Decreasing), notes. Prices in SAR. Be accurate.` },
-              { role: "user", content: `Estimate 2025 market rates for:\n${JSON.stringify(itemsList)}` }
+              { role: "system", content: `Construction cost estimator for ${location}, Saudi Arabia. Return JSON array of objects with: item_number, suggested_min, suggested_max, suggested_avg, confidence (High/Medium/Low), trend (Increasing/Stable/Decreasing), market_trend (up/down/stable), notes. Prices in SAR 2026. Be accurate and consider regional pricing.` },
+              { role: "user", content: `Estimate 2026 market rates for:\n${JSON.stringify(itemsList)}` }
             ],
             temperature: 0.3,
-            max_tokens: 3000,
+            max_tokens: 4000,
           }),
         });
 
