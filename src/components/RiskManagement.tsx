@@ -66,6 +66,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AutoRiskAnalysis } from "@/components/AutoRiskAnalysis";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
+import { FileDown } from "lucide-react";
 
 interface Risk {
   id: string;
