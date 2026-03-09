@@ -315,18 +315,159 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
 
   const suggestions: SmartSuggestion[] = useMemo(() => {
     const s: SmartSuggestion[] = [];
+    
+    // إضافة أول تحليل
     if (analyses.length === 0) {
-      s.push({ id: "add-first", icon: <Plus className="h-4 w-4" />, text: isArabic ? "ابدأ بإضافة أول تحليل جدوى" : "Start by adding your first analysis", action: () => { resetForm(); setIsDialogOpen(true); }, actionLabel: isArabic ? "إضافة" : "Add" });
+      s.push({ 
+        id: "add-first", 
+        icon: <Plus className="h-4 w-4" />, 
+        text: isArabic ? "ابدأ بإضافة أول تحليل جدوى" : "Start by adding your first analysis", 
+        action: () => { resetForm(); setIsDialogOpen(true); }, 
+        actionLabel: isArabic ? "إضافة" : "Add" 
+      });
     }
+    
+    // إضافة تحليل ثاني للمقارنة
     if (analyses.length === 1) {
-      s.push({ id: "add-compare", icon: <GitCompare className="h-4 w-4" />, text: isArabic ? "أضف تحليل ثاني لتتمكن من المقارنة" : "Add a second analysis to enable comparison", action: () => { resetForm(); setIsDialogOpen(true); }, actionLabel: isArabic ? "إضافة" : "Add" });
+      s.push({ 
+        id: "add-compare", 
+        icon: <GitCompare className="h-4 w-4" />, 
+        text: isArabic ? "أضف تحليل ثاني لتتمكن من المقارنة" : "Add a second analysis to enable comparison", 
+        action: () => { resetForm(); setIsDialogOpen(true); }, 
+        actionLabel: isArabic ? "إضافة" : "Add" 
+      });
     }
+    
+    // تحليلات غير مجدية (NPV سالب)
     const nonViable = analyses.filter(a => (a.npv || 0) < 0);
     if (nonViable.length > 0) {
-      s.push({ id: "non-viable", icon: <AlertTriangle className="h-4 w-4" />, text: isArabic ? `${nonViable.length} تحليل غير مجدي - راجع الافتراضات` : `${nonViable.length} non-viable analyses - review assumptions`, action: () => setActiveTab("analyses"), actionLabel: isArabic ? "مراجعة" : "Review" });
+      s.push({ 
+        id: "non-viable", 
+        icon: <AlertTriangle className="h-4 w-4" />, 
+        text: isArabic ? `${nonViable.length} تحليل غير مجدي - راجع الافتراضات` : `${nonViable.length} non-viable analyses - review assumptions`, 
+        action: () => setActiveTab("analyses"), 
+        actionLabel: isArabic ? "مراجعة" : "Review" 
+      });
     }
+    
+    // BCR أقل من 1 (نسبة فائدة/تكلفة منخفضة)
+    const lowBcrAnalyses = analyses.filter(a => (a.bcr || 0) < 1 && (a.npv || 0) >= 0);
+    if (lowBcrAnalyses.length > 0) {
+      s.push({
+        id: "low-bcr",
+        icon: <Target className="h-4 w-4" />,
+        text: isArabic ? `${lowBcrAnalyses.length} تحليل بنسبة فائدة/تكلفة منخفضة - أعد تقييم الفوائد` : `${lowBcrAnalyses.length} analyses with low BCR - re-evaluate benefits`,
+        action: () => { 
+          if (lowBcrAnalyses[0]) openEditDialog(lowBcrAnalyses[0]); 
+        },
+        actionLabel: isArabic ? "تحسين" : "Improve"
+      });
+    }
+    
+    // IRR أقل من معدل الخصم
+    const lowIrrAnalyses = analyses.filter(a => a.irr !== null && a.discount_rate && a.irr < a.discount_rate);
+    if (lowIrrAnalyses.length > 0) {
+      s.push({
+        id: "low-irr",
+        icon: <Percent className="h-4 w-4" />,
+        text: isArabic ? `${lowIrrAnalyses.length} تحليل بمعدل عائد أقل من معدل الخصم` : `${lowIrrAnalyses.length} analyses with IRR below discount rate`,
+        action: () => setActiveTab("sensitivity"),
+        actionLabel: isArabic ? "تحليل الحساسية" : "Sensitivity"
+      });
+    }
+    
+    // فترة استرداد طويلة (> 70% من فترة التحليل)
+    const longPaybackAnalyses = analyses.filter(a => 
+      a.payback_period !== null && a.payback_period > a.analysis_period_years * 0.7
+    );
+    if (longPaybackAnalyses.length > 0) {
+      s.push({
+        id: "long-payback",
+        icon: <Clock className="h-4 w-4" />,
+        text: isArabic ? `${longPaybackAnalyses.length} تحليل بفترة استرداد طويلة - فكر في زيادة الفوائد` : `${longPaybackAnalyses.length} analyses with long payback - consider increasing benefits`,
+        action: () => {
+          if (longPaybackAnalyses[0]) openEditDialog(longPaybackAnalyses[0]);
+        },
+        actionLabel: isArabic ? "تحسين" : "Optimize"
+      });
+    }
+    
+    // تحليلات قديمة (أكثر من 30 يومًا)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const oldAnalyses = analyses.filter(a => new Date(a.created_at) < thirtyDaysAgo);
+    if (oldAnalyses.length > 0 && oldAnalyses.length === analyses.length) {
+      s.push({
+        id: "old-analyses",
+        icon: <Activity className="h-4 w-4" />,
+        text: isArabic ? "جميع التحليلات قديمة (أكثر من 30 يومًا) - أضف تحليل جديد" : "All analyses are older than 30 days - add a new analysis",
+        action: () => { resetForm(); setIsDialogOpen(true); },
+        actionLabel: isArabic ? "إضافة جديد" : "Add New"
+      });
+    }
+    
+    // تحليلات بدون توصيات
+    const noRecommendations = analyses.filter(a => !a.recommendations || a.recommendations.trim() === "");
+    if (noRecommendations.length > 0 && analyses.length > 0) {
+      s.push({
+        id: "add-recommendations",
+        icon: <Lightbulb className="h-4 w-4" />,
+        text: isArabic ? `${noRecommendations.length} تحليل بدون توصيات - أضف توصياتك` : `${noRecommendations.length} analyses without recommendations - add your insights`,
+        action: () => {
+          if (noRecommendations[0]) openEditDialog(noRecommendations[0]);
+        },
+        actionLabel: isArabic ? "إضافة" : "Add"
+      });
+    }
+    
+    // اقتراح تحليل الحساسية
+    if (analyses.length >= 1 && !sensitivityTarget) {
+      s.push({
+        id: "run-sensitivity",
+        icon: <Sliders className="h-4 w-4" />,
+        text: isArabic ? "جرب تحليل الحساسية لفهم تأثير المتغيرات" : "Try sensitivity analysis to understand variable impacts",
+        action: () => {
+          setActiveTab("sensitivity");
+          if (analyses[0]) setSensitivityTarget(analyses[0].id);
+        },
+        actionLabel: isArabic ? "تحليل" : "Analyze"
+      });
+    }
+    
+    // ربط بمشروع (إذا لم يكن مرتبطًا)
+    if (!projectId && analyses.length > 0) {
+      s.push({
+        id: "link-project",
+        icon: <ArrowUpDown className="h-4 w-4" />,
+        text: isArabic ? "اربط التحليلات بمشروع لتتبع أفضل" : "Link analyses to a project for better tracking",
+        action: () => {},
+        actionLabel: isArabic ? "الذهاب للمشاريع" : "Go to Projects",
+        href: "/projects"
+      });
+    }
+    
+    // تحليلات ممتازة (NPV > 0 و BCR > 1.5 و IRR > معدل الخصم * 2)
+    const excellentAnalyses = analyses.filter(a => 
+      (a.npv || 0) > 0 && 
+      (a.bcr || 0) > 1.5 && 
+      a.irr !== null && 
+      a.discount_rate && 
+      a.irr > a.discount_rate * 2
+    );
+    if (excellentAnalyses.length > 0) {
+      s.push({
+        id: "excellent-analyses",
+        icon: <CheckCircle2 className="h-4 w-4" />,
+        text: isArabic ? `${excellentAnalyses.length} تحليل بمؤشرات ممتازة - جاهز للتنفيذ!` : `${excellentAnalyses.length} analyses with excellent metrics - ready for execution!`,
+        action: () => {
+          if (excellentAnalyses[0]) setSelectedAnalysis(excellentAnalyses[0]);
+        },
+        actionLabel: isArabic ? "عرض" : "View"
+      });
+    }
+    
     return s;
-  }, [analyses, isArabic]);
+  }, [analyses, isArabic, projectId, sensitivityTarget]);
 
   const COLORS = ["hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
