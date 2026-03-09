@@ -440,9 +440,10 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
         id: "link-project",
         icon: <ArrowUpDown className="h-4 w-4" />,
         text: isArabic ? "اربط التحليلات بمشروع لتتبع أفضل" : "Link analyses to a project for better tracking",
-        action: () => {},
-        actionLabel: isArabic ? "الذهاب للمشاريع" : "Go to Projects",
-        href: "/projects"
+        action: () => {
+          window.location.href = "/projects";
+        },
+        actionLabel: isArabic ? "الذهاب للمشاريع" : "Go to Projects"
       });
     }
     
