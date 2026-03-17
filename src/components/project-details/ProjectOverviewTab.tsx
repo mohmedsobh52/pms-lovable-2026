@@ -214,6 +214,22 @@ function ImprovementSuggestions({ pricingStats, items, isArabic, projectItems = 
   pricingStats: PricingStats; items: ProjectData; isArabic: boolean; 
   projectItems?: any[]; attachments?: any[]; onNavigateToTab?: (tab: string) => void;
 }) {
+  const [hasContract, setHasContract] = useState(false);
+  const [hasCostAnalysis, setHasCostAnalysis] = useState(false);
+
+  useEffect(() => {
+    const checkLinkedData = async () => {
+      if (!items?.id) return;
+      const [contractRes, costRes] = await Promise.all([
+        supabase.from("contracts").select("id", { count: "exact", head: true }).eq("project_id", items.id),
+        supabase.from("cost_analysis").select("id", { count: "exact", head: true }).eq("project_id", items.id),
+      ]);
+      setHasContract((contractRes.count ?? 0) > 0);
+      setHasCostAnalysis((costRes.count ?? 0) > 0);
+    };
+    checkLinkedData();
+  }, [items?.id]);
+
   const suggestions: { icon: React.ReactNode; text: string; type: 'warning' | 'info' | 'success'; action?: () => void; actionLabel?: string }[] = [];
 
   // Zero-quantity items
@@ -225,6 +241,18 @@ function ImprovementSuggestions({ pricingStats, items, isArabic, projectItems = 
       type: 'warning',
       action: onNavigateToTab ? () => onNavigateToTab('analyze-boq') : undefined,
       actionLabel: isArabic ? "مراجعة البنود" : "Review Items",
+    });
+  }
+
+  // Items without unit
+  const noUnitItems = projectItems.filter(i => !i.is_section && (!i.unit || i.unit.trim() === ''));
+  if (noUnitItems.length > 0) {
+    suggestions.push({
+      icon: <AlertTriangle className="w-4 h-4 text-orange-500" />,
+      text: isArabic ? `${noUnitItems.length} بند بدون وحدة قياس — حددها` : `${noUnitItems.length} items without unit — specify them`,
+      type: 'warning',
+      action: onNavigateToTab ? () => onNavigateToTab('analyze-boq') : undefined,
+      actionLabel: isArabic ? "تحديد الوحدات" : "Set Units",
     });
   }
 
@@ -266,13 +294,27 @@ function ImprovementSuggestions({ pricingStats, items, isArabic, projectItems = 
     });
   }
 
-  suggestions.push({
-    icon: <Link2 className="w-4 h-4 text-purple-500" />,
-    text: isArabic ? "أضف عقد للمشروع لتتبع التنفيذ" : "Add a contract to track execution",
-    type: 'info',
-    action: onNavigateToTab ? () => onNavigateToTab('contracts') : undefined,
-    actionLabel: isArabic ? "إضافة عقد" : "Add Contract",
-  });
+  // Contract suggestion - only if no contract linked
+  if (!hasContract) {
+    suggestions.push({
+      icon: <Link2 className="w-4 h-4 text-purple-500" />,
+      text: isArabic ? "أضف عقد للمشروع لتتبع التنفيذ" : "Add a contract to track execution",
+      type: 'info',
+      action: onNavigateToTab ? () => onNavigateToTab('contracts') : undefined,
+      actionLabel: isArabic ? "إضافة عقد" : "Add Contract",
+    });
+  }
+
+  // Cost analysis suggestion
+  if (!hasCostAnalysis && pricingStats.pricedItems > 0) {
+    suggestions.push({
+      icon: <TrendingUp className="w-4 h-4 text-emerald-500" />,
+      text: isArabic ? "أنشئ تحليل تكاليف تفصيلي للبنود المسعّرة" : "Create detailed cost analysis for priced items",
+      type: 'info',
+      action: onNavigateToTab ? () => onNavigateToTab('analyze-boq') : undefined,
+      actionLabel: isArabic ? "تحليل التكاليف" : "Cost Analysis",
+    });
+  }
 
   if (suggestions.length === 0) return null;
 
