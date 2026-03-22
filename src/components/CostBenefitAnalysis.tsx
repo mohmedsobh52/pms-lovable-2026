@@ -1046,6 +1046,22 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
                   <Label>{isArabic ? "الوصف" : "Description"}</Label>
                   <Textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} rows={3} />
                 </div>
+                {!projectId && savedProjects.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1.5">
+                      <Link2 className="w-3.5 h-3.5 text-primary" />
+                      {isArabic ? "ربط بمشروع (اختياري)" : "Link to Project (optional)"}
+                    </Label>
+                    <Select value={selectedProjectId} onValueChange={v => { setSelectedProjectId(v); handleImportFromProject(v); }}>
+                      <SelectTrigger><SelectValue placeholder={isArabic ? "اختر مشروعاً" : "Select a project"} /></SelectTrigger>
+                      <SelectContent>
+                        {savedProjects.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.name} {p.total_value ? `(${formatCurrency(p.total_value)})` : ""}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </>
             )}
 
