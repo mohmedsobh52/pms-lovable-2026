@@ -147,6 +147,16 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
 
   useEffect(() => { fetchAnalyses(); }, [user, projectId]);
 
+  // Fetch saved projects for linking
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!user) return;
+      const { data } = await supabase.from("saved_projects").select("id, name, analysis_data").eq("user_id", user.id).eq("is_deleted", false).order("created_at", { ascending: false }).limit(50);
+      setSavedProjects((data || []).map((p: any) => ({ id: p.id, name: p.name, total_value: p.analysis_data?.summary?.total_value || null })));
+    };
+    fetchProjects();
+  }, [user]);
+
   // KPI calculations
   const kpis = useMemo(() => {
     if (analyses.length === 0) return { count: 0, maxNpv: 0, avgBcr: 0, bestIrr: 0 };
