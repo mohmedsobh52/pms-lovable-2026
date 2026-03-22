@@ -115,6 +115,8 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
   const [selectedAnalysis, setSelectedAnalysis] = useState<CostBenefitRecord | null>(null);
   const [activeTab, setActiveTab] = useState("analyses");
   const [dialogStep, setDialogStep] = useState(0);
+  const [savedProjects, setSavedProjects] = useState<{ id: string; name: string; total_value: number | null }[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || "");
 
   // Sensitivity state
   const [sensitivityTarget, setSensitivityTarget] = useState<string>("");
