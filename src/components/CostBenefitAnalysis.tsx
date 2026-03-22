@@ -715,7 +715,13 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
                 {selectedAnalysis ? (
                   <Card>
                     <CardHeader className="pb-3 border-b border-border/50">
-                      <CardTitle className="text-lg">{selectedAnalysis.analysis_name}</CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">{selectedAnalysis.analysis_name}</CardTitle>
+                        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => exportPDF(selectedAnalysis)}>
+                          <Download className="w-3.5 h-3.5" />
+                          {isArabic ? "تصدير PDF" : "Export PDF"}
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent className="p-4 space-y-5">
                       {/* Metric Cards */}
