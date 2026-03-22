@@ -479,9 +479,56 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
         actionLabel: isArabic ? "عرض" : "View"
       });
     }
+
+    // اختر تحليلاً لعرض التفاصيل
+    if (analyses.length > 0 && !selectedAnalysis) {
+      s.push({
+        id: "select-analysis",
+        icon: <MousePointer className="h-4 w-4" />,
+        text: isArabic ? "اختر تحليلاً من القائمة لعرض التفاصيل الكاملة" : "Select an analysis from the list to view full details",
+        action: () => setActiveTab("analyses"),
+        actionLabel: isArabic ? "عرض" : "View"
+      });
+    }
+
+    // افتراضات فارغة
+    const noAssumptions = analyses.filter(a => !a.assumptions || a.assumptions.trim() === "");
+    if (noAssumptions.length > 0 && analyses.length > 0) {
+      s.push({
+        id: "empty-assumptions",
+        icon: <FileText className="h-4 w-4" />,
+        text: isArabic ? `${noAssumptions.length} تحليل بدون افتراضات — أضف افتراضاتك للتوثيق` : `${noAssumptions.length} analyses without assumptions — add for better documentation`,
+        action: () => { if (noAssumptions[0]) openEditDialog(noAssumptions[0]); },
+        actionLabel: isArabic ? "إضافة" : "Add"
+      });
+    }
+
+    // تحليل ممتاز - صدّره PDF
+    const pdfReady = analyses.filter(a => getFeasibilityScore(a) >= 80);
+    if (pdfReady.length > 0) {
+      s.push({
+        id: "export-pdf",
+        icon: <Download className="h-4 w-4" />,
+        text: isArabic ? `${pdfReady.length} تحليل بجدوى ممتازة — صدّره كتقرير PDF` : `${pdfReady.length} excellent analyses — export as PDF report`,
+        action: () => { if (pdfReady[0]) { setSelectedAnalysis(pdfReady[0]); exportPDF(pdfReady[0]); } },
+        actionLabel: isArabic ? "تصدير" : "Export"
+      });
+    }
+
+    // BCR منخفض رغم IRR جيد
+    const bcrIrrMismatch = analyses.filter(a => (a.bcr || 0) < 1 && a.irr !== null && a.discount_rate && a.irr > a.discount_rate);
+    if (bcrIrrMismatch.length > 0) {
+      s.push({
+        id: "bcr-irr-mismatch",
+        icon: <AlertTriangle className="h-4 w-4" />,
+        text: isArabic ? `${bcrIrrMismatch.length} تحليل: BCR منخفض رغم IRR جيد — راجع التكاليف` : `${bcrIrrMismatch.length} analyses: low BCR despite good IRR — review costs`,
+        action: () => { if (bcrIrrMismatch[0]) setSelectedAnalysis(bcrIrrMismatch[0]); },
+        actionLabel: isArabic ? "مراجعة" : "Review"
+      });
+    }
     
     return s;
-  }, [analyses, isArabic, projectId, sensitivityTarget]);
+  }, [analyses, isArabic, projectId, sensitivityTarget, selectedAnalysis]);
 
   const COLORS = ["hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
