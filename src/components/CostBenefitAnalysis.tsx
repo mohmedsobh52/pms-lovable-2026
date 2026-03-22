@@ -242,7 +242,7 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
       const rate = (parseFloat(formData.discount_rate) || 10) / 100;
       const years = parseInt(formData.analysis_period_years) || 5;
       const data = {
-        user_id: user.id, project_id: projectId || null,
+        user_id: user.id, project_id: selectedProjectId || projectId || null,
         analysis_name: formData.analysis_name, description: formData.description || null,
         initial_investment: inv, annual_benefits: ben, annual_costs: cos,
         discount_rate: rate, analysis_period_years: years,
