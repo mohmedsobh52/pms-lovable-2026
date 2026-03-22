@@ -3,8 +3,9 @@ import {
   Calculator, Plus, Trash2, Edit, Save, Loader2, TrendingUp,
   DollarSign, Percent, Clock, BarChart3, GitCompare, Activity,
   ChevronRight, ChevronLeft, AlertTriangle, CheckCircle2, FileText,
-  Lightbulb, ArrowUpDown, Target, Sliders,
+  Lightbulb, ArrowUpDown, Target, Sliders, Download, Link2, MousePointer,
 } from "lucide-react";
+import jsPDF from "jspdf";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -114,6 +115,8 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
   const [selectedAnalysis, setSelectedAnalysis] = useState<CostBenefitRecord | null>(null);
   const [activeTab, setActiveTab] = useState("analyses");
   const [dialogStep, setDialogStep] = useState(0);
+  const [savedProjects, setSavedProjects] = useState<{ id: string; name: string; total_value: number | null }[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || "");
 
   // Sensitivity state
   const [sensitivityTarget, setSensitivityTarget] = useState<string>("");
@@ -143,6 +146,16 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
   };
 
   useEffect(() => { fetchAnalyses(); }, [user, projectId]);
+
+  // Fetch saved projects for linking
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!user) return;
+      const { data } = await supabase.from("saved_projects").select("id, name, analysis_data").eq("user_id", user.id).eq("is_deleted", false).order("created_at", { ascending: false }).limit(50);
+      setSavedProjects((data || []).map((p: any) => ({ id: p.id, name: p.name, total_value: p.analysis_data?.summary?.total_value || null })));
+    };
+    fetchProjects();
+  }, [user]);
 
   // KPI calculations
   const kpis = useMemo(() => {
@@ -229,7 +242,7 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
       const rate = (parseFloat(formData.discount_rate) || 10) / 100;
       const years = parseInt(formData.analysis_period_years) || 5;
       const data = {
-        user_id: user.id, project_id: projectId || null,
+        user_id: user.id, project_id: selectedProjectId || projectId || null,
         analysis_name: formData.analysis_name, description: formData.description || null,
         initial_investment: inv, annual_benefits: ben, annual_costs: cos,
         discount_rate: rate, analysis_period_years: years,
@@ -275,6 +288,63 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
     setFormData({ analysis_name: "", description: "", initial_investment: "", annual_benefits: "", annual_costs: "", discount_rate: "10", analysis_period_years: "5", assumptions: "", risks: "", recommendations: "" });
     setEditingAnalysis(null);
     setDialogStep(0);
+    if (!projectId) setSelectedProjectId("");
+  };
+
+  const handleImportFromProject = (pid: string) => {
+    const proj = savedProjects.find(p => p.id === pid);
+    if (proj && proj.total_value) {
+      setFormData(prev => ({ ...prev, initial_investment: Math.round(proj.total_value!).toString() }));
+      toast({ title: isArabic ? "تم استيراد قيمة المشروع" : "Project value imported" });
+    }
+  };
+
+  const exportPDF = (a: CostBenefitRecord) => {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("Cost-Benefit Analysis Report", 105, 25, { align: "center" });
+    doc.setFontSize(14);
+    doc.text(a.analysis_name, 105, 35, { align: "center" });
+    doc.setDrawColor(243, 87, 12);
+    doc.line(20, 40, 190, 40);
+    
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    let y = 52;
+    const addRow = (label: string, value: string) => {
+      doc.setFont("helvetica", "bold");
+      doc.text(label, 25, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(value, 100, y);
+      y += 8;
+    };
+    addRow("Initial Investment:", formatCurrency(a.initial_investment));
+    addRow("Annual Benefits:", formatCurrency(a.annual_benefits));
+    addRow("Annual Costs:", formatCurrency(a.annual_costs));
+    addRow("Discount Rate:", `${(a.discount_rate * 100).toFixed(1)}%`);
+    addRow("Analysis Period:", `${a.analysis_period_years} years`);
+    y += 5;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, y, 190, y);
+    y += 10;
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.text("Key Metrics", 25, y);
+    y += 10;
+    doc.setFontSize(11);
+    addRow("NPV:", formatCurrency(a.npv || 0));
+    addRow("BCR:", (a.bcr || 0).toFixed(2));
+    addRow("IRR:", a.irr ? `${(a.irr * 100).toFixed(1)}%` : "N/A");
+    addRow("Payback Period:", a.payback_period ? `${a.payback_period.toFixed(1)} years` : "N/A");
+    addRow("Feasibility Score:", `${getFeasibilityScore(a)}%`);
+    
+    if (a.assumptions) { y += 8; doc.setFont("helvetica", "bold"); doc.text("Assumptions:", 25, y); y += 7; doc.setFont("helvetica", "normal"); const lines = doc.splitTextToSize(a.assumptions, 160); doc.text(lines, 25, y); y += lines.length * 6; }
+    if (a.risks) { y += 5; doc.setFont("helvetica", "bold"); doc.text("Risks:", 25, y); y += 7; doc.setFont("helvetica", "normal"); const lines = doc.splitTextToSize(a.risks, 160); doc.text(lines, 25, y); y += lines.length * 6; }
+    if (a.recommendations) { y += 5; doc.setFont("helvetica", "bold"); doc.text("Recommendations:", 25, y); y += 7; doc.setFont("helvetica", "normal"); const lines = doc.splitTextToSize(a.recommendations, 160); doc.text(lines, 25, y); }
+    
+    doc.save(`CBA-${a.analysis_name.replace(/\s+/g, "_")}.pdf`);
+    toast({ title: isArabic ? "تم تصدير التقرير" : "Report exported" });
   };
 
   const openEditDialog = (a: CostBenefitRecord) => {
@@ -466,9 +536,56 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
         actionLabel: isArabic ? "عرض" : "View"
       });
     }
+
+    // اختر تحليلاً لعرض التفاصيل
+    if (analyses.length > 0 && !selectedAnalysis) {
+      s.push({
+        id: "select-analysis",
+        icon: <MousePointer className="h-4 w-4" />,
+        text: isArabic ? "اختر تحليلاً من القائمة لعرض التفاصيل الكاملة" : "Select an analysis from the list to view full details",
+        action: () => setActiveTab("analyses"),
+        actionLabel: isArabic ? "عرض" : "View"
+      });
+    }
+
+    // افتراضات فارغة
+    const noAssumptions = analyses.filter(a => !a.assumptions || a.assumptions.trim() === "");
+    if (noAssumptions.length > 0 && analyses.length > 0) {
+      s.push({
+        id: "empty-assumptions",
+        icon: <FileText className="h-4 w-4" />,
+        text: isArabic ? `${noAssumptions.length} تحليل بدون افتراضات — أضف افتراضاتك للتوثيق` : `${noAssumptions.length} analyses without assumptions — add for better documentation`,
+        action: () => { if (noAssumptions[0]) openEditDialog(noAssumptions[0]); },
+        actionLabel: isArabic ? "إضافة" : "Add"
+      });
+    }
+
+    // تحليل ممتاز - صدّره PDF
+    const pdfReady = analyses.filter(a => getFeasibilityScore(a) >= 80);
+    if (pdfReady.length > 0) {
+      s.push({
+        id: "export-pdf",
+        icon: <Download className="h-4 w-4" />,
+        text: isArabic ? `${pdfReady.length} تحليل بجدوى ممتازة — صدّره كتقرير PDF` : `${pdfReady.length} excellent analyses — export as PDF report`,
+        action: () => { if (pdfReady[0]) { setSelectedAnalysis(pdfReady[0]); exportPDF(pdfReady[0]); } },
+        actionLabel: isArabic ? "تصدير" : "Export"
+      });
+    }
+
+    // BCR منخفض رغم IRR جيد
+    const bcrIrrMismatch = analyses.filter(a => (a.bcr || 0) < 1 && a.irr !== null && a.discount_rate && a.irr > a.discount_rate);
+    if (bcrIrrMismatch.length > 0) {
+      s.push({
+        id: "bcr-irr-mismatch",
+        icon: <AlertTriangle className="h-4 w-4" />,
+        text: isArabic ? `${bcrIrrMismatch.length} تحليل: BCR منخفض رغم IRR جيد — راجع التكاليف` : `${bcrIrrMismatch.length} analyses: low BCR despite good IRR — review costs`,
+        action: () => { if (bcrIrrMismatch[0]) setSelectedAnalysis(bcrIrrMismatch[0]); },
+        actionLabel: isArabic ? "مراجعة" : "Review"
+      });
+    }
     
     return s;
-  }, [analyses, isArabic, projectId, sensitivityTarget]);
+  }, [analyses, isArabic, projectId, sensitivityTarget, selectedAnalysis]);
 
   const COLORS = ["hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
@@ -598,7 +715,13 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
                 {selectedAnalysis ? (
                   <Card>
                     <CardHeader className="pb-3 border-b border-border/50">
-                      <CardTitle className="text-lg">{selectedAnalysis.analysis_name}</CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">{selectedAnalysis.analysis_name}</CardTitle>
+                        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => exportPDF(selectedAnalysis)}>
+                          <Download className="w-3.5 h-3.5" />
+                          {isArabic ? "تصدير PDF" : "Export PDF"}
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent className="p-4 space-y-5">
                       {/* Metric Cards */}
@@ -923,6 +1046,22 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
                   <Label>{isArabic ? "الوصف" : "Description"}</Label>
                   <Textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} rows={3} />
                 </div>
+                {!projectId && savedProjects.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1.5">
+                      <Link2 className="w-3.5 h-3.5 text-primary" />
+                      {isArabic ? "ربط بمشروع (اختياري)" : "Link to Project (optional)"}
+                    </Label>
+                    <Select value={selectedProjectId} onValueChange={v => { setSelectedProjectId(v); handleImportFromProject(v); }}>
+                      <SelectTrigger><SelectValue placeholder={isArabic ? "اختر مشروعاً" : "Select a project"} /></SelectTrigger>
+                      <SelectContent>
+                        {savedProjects.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.name} {p.total_value ? `(${formatCurrency(p.total_value)})` : ""}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </>
             )}
 
