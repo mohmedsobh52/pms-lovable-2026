@@ -288,6 +288,63 @@ export function CostBenefitAnalysis({ projectId }: CostBenefitAnalysisProps) {
     setFormData({ analysis_name: "", description: "", initial_investment: "", annual_benefits: "", annual_costs: "", discount_rate: "10", analysis_period_years: "5", assumptions: "", risks: "", recommendations: "" });
     setEditingAnalysis(null);
     setDialogStep(0);
+    if (!projectId) setSelectedProjectId("");
+  };
+
+  const handleImportFromProject = (pid: string) => {
+    const proj = savedProjects.find(p => p.id === pid);
+    if (proj && proj.total_value) {
+      setFormData(prev => ({ ...prev, initial_investment: Math.round(proj.total_value!).toString() }));
+      toast({ title: isArabic ? "تم استيراد قيمة المشروع" : "Project value imported" });
+    }
+  };
+
+  const exportPDF = (a: CostBenefitRecord) => {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("Cost-Benefit Analysis Report", 105, 25, { align: "center" });
+    doc.setFontSize(14);
+    doc.text(a.analysis_name, 105, 35, { align: "center" });
+    doc.setDrawColor(243, 87, 12);
+    doc.line(20, 40, 190, 40);
+    
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    let y = 52;
+    const addRow = (label: string, value: string) => {
+      doc.setFont("helvetica", "bold");
+      doc.text(label, 25, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(value, 100, y);
+      y += 8;
+    };
+    addRow("Initial Investment:", formatCurrency(a.initial_investment));
+    addRow("Annual Benefits:", formatCurrency(a.annual_benefits));
+    addRow("Annual Costs:", formatCurrency(a.annual_costs));
+    addRow("Discount Rate:", `${(a.discount_rate * 100).toFixed(1)}%`);
+    addRow("Analysis Period:", `${a.analysis_period_years} years`);
+    y += 5;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, y, 190, y);
+    y += 10;
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.text("Key Metrics", 25, y);
+    y += 10;
+    doc.setFontSize(11);
+    addRow("NPV:", formatCurrency(a.npv || 0));
+    addRow("BCR:", (a.bcr || 0).toFixed(2));
+    addRow("IRR:", a.irr ? `${(a.irr * 100).toFixed(1)}%` : "N/A");
+    addRow("Payback Period:", a.payback_period ? `${a.payback_period.toFixed(1)} years` : "N/A");
+    addRow("Feasibility Score:", `${getFeasibilityScore(a)}%`);
+    
+    if (a.assumptions) { y += 8; doc.setFont("helvetica", "bold"); doc.text("Assumptions:", 25, y); y += 7; doc.setFont("helvetica", "normal"); const lines = doc.splitTextToSize(a.assumptions, 160); doc.text(lines, 25, y); y += lines.length * 6; }
+    if (a.risks) { y += 5; doc.setFont("helvetica", "bold"); doc.text("Risks:", 25, y); y += 7; doc.setFont("helvetica", "normal"); const lines = doc.splitTextToSize(a.risks, 160); doc.text(lines, 25, y); y += lines.length * 6; }
+    if (a.recommendations) { y += 5; doc.setFont("helvetica", "bold"); doc.text("Recommendations:", 25, y); y += 7; doc.setFont("helvetica", "normal"); const lines = doc.splitTextToSize(a.recommendations, 160); doc.text(lines, 25, y); }
+    
+    doc.save(`CBA-${a.analysis_name.replace(/\s+/g, "_")}.pdf`);
+    toast({ title: isArabic ? "تم تصدير التقرير" : "Report exported" });
   };
 
   const openEditDialog = (a: CostBenefitRecord) => {
