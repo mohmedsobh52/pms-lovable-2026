@@ -3,8 +3,9 @@ import {
   Calculator, Plus, Trash2, Edit, Save, Loader2, TrendingUp,
   DollarSign, Percent, Clock, BarChart3, GitCompare, Activity,
   ChevronRight, ChevronLeft, AlertTriangle, CheckCircle2, FileText,
-  Lightbulb, ArrowUpDown, Target, Sliders,
+  Lightbulb, ArrowUpDown, Target, Sliders, Download, Link2, MousePointer,
 } from "lucide-react";
+import jsPDF from "jspdf";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
