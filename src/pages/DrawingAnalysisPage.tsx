@@ -6,6 +6,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/integrations/supabase/client";
 import * as pdfjsLib from "pdfjs-dist";
 
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import {
   getTheme, buildCss,
   SAR_REF_2025, DRAW_TYPES, CFG_O, MODS_O, TMPL, QP,
@@ -91,6 +93,7 @@ const DrawingAnalysisPage = () => {
 
   // Smart suggestions
   const save = (c: any,m: any,d: string)=>{try{localStorage.setItem("alimtyaz_v11",JSON.stringify({cfg:c,mods:m,depth:d}));}catch{}};
+  const exportPDFRef = useRef<() => void>(() => {});
 
   const configSuggestions = useMemo<Suggestion[]>(()=>{
     const s: Suggestion[] = [];
@@ -168,6 +171,22 @@ const DrawingAnalysisPage = () => {
     // v11: اقتراح تصدير النتائج لمشروع محفوظ
     if(boqCount > 5 && !showExportToProject){
       s.push({id:"export-to-project",icon:"📤",type:"performance",text:`${boqCount} بند BOQ جاهز — صدّر البنود إلى مشروع محفوظ مباشرة.`,actionLabel:"تصدير لمشروع",action:()=>setShowExportToProject(true),priority:3});
+    }
+    // v11: اقتراح تصدير PDF عند وجود نتائج كافية
+    if(boqCount > 3 && msgs.length > 2){
+      s.push({id:"export-pdf-config",icon:"📄",type:"performance",text:`${boqCount} بند جاهز — صدّر تقرير PDF شامل بنتائج التحليل.`,actionLabel:"تصدير PDF",action:()=>exportPDFRef.current(),priority:3});
+    }
+    // v11: تحذير عند استخدام عمق سريع مع ملفات كبيرة
+    if(pdfSess && selPages(pdfSess).length > 50 && depth === "quick"){
+      s.push({id:"quick-large-file",icon:"⚠️",type:"accuracy",text:"ملف كبير مع عمق سريع — النتائج قد تكون ناقصة. جرّب العمق القياسي.",actionLabel:"رفع العمق",action:()=>{setDepth("standard");save(cfg,mods,"standard");},priority:1});
+    }
+    // v11: اقتراح تفعيل كل الوحدات عند وجود أنواع مخططات متعددة
+    if(xStats?.topTypes?.length >= 4 && Object.entries(mods).filter(([,v])=>v).length < 5){
+      s.push({id:"enable-all-mods",icon:"🔧",type:"accuracy",text:`${xStats.topTypes.length} أنواع مخططات — فعّل جميع الوحدات للتحليل الشامل.`,actionLabel:"تفعيل الكل",action:()=>{
+        const allMods: Record<string,boolean> = {};
+        Object.entries(MODS_O).forEach(([cat,ms])=>ms.forEach(m=>{allMods[`${cat}_${m}`]=true;}));
+        setMods(allMods); save(cfg,allMods,depth);
+      },priority:2});
     }
     return s;
   },[pdfSess,xStats,depth,ocr,mods,cfg,earthworksData,asphaltData,infraMeta,boqCount,showExportToProject]);
@@ -251,6 +270,44 @@ const DrawingAnalysisPage = () => {
         const folderInput = document.querySelector('input[webkitdirectory]') as HTMLInputElement;
         if(folderInput) folderInput.click();
       },priority:4});
+    }
+    // v11: تصدير تقرير PDF شامل بعد اكتمال التحليل
+    if(feState?.phase==="done" && boqCount > 0){
+      s.push({id:"export-pdf-analysis",icon:"📄",type:"performance",text:`التحليل مكتمل بـ ${boqCount} بند — صدّر تقريراً PDF احترافياً.`,actionLabel:"تصدير PDF",action:()=>exportPDFRef.current(),priority:2});
+    }
+    // v11: تنبيه عند وجود نسبة أخطاء مرتفعة في الدُفعات
+    const totalChunks = feState?.chunks?.length || 0;
+    const errorChunksCount = feState?.chunks?.filter((c:any)=>c.status==="error")?.length || 0;
+    if(feState?.phase==="done" && totalChunks > 3 && errorChunksCount > totalChunks * 0.3){
+      s.push({id:"high-error-rate",icon:"🚨",type:"accuracy",text:`${Math.round(errorChunksCount/totalChunks*100)}% من الدُفعات فشلت — قلّل حجم الدُفعة أو غيّر نوع التحليل.`,actionLabel:"تقليل الحجم",action:()=>{
+        if(pdfSess) setPdfSess((prev:any)=>({...prev,chunkSize:Math.max(5,Math.floor(prev.chunkSize/2))}));
+      },priority:1});
+    }
+    // v11: اقتراح حفظ ومقارنة عند عدم وجود تحليلات سابقة
+    if(feState?.phase==="done" && savedAnalyses.length === 0 && user){
+      s.push({id:"first-save",icon:"💾",type:"performance",text:"هذا أول تحليل لك — احفظه لبناء سجل مقارنات للمشاريع القادمة.",actionLabel:"حفظ التحليل",action:()=>{
+        const allText = msgs.filter((m:any)=>m.role==="assistant").map((m:any)=>m.content||"").join("\n");
+        supabase.from("drawing_analyses").insert({
+          user_id: user.id, drawing_type: Object.keys(xStats?.typeCount||{})[0]||"PLAN",
+          file_names: pdfSess?[pdfSess.file?.name]:[],
+          results: {text:allText.slice(0,5000)}, summary: {boq_count:boqCount,pipe_count:pipeNetwork.length}
+        });
+        alert("✅ تم حفظ التحليل بنجاح");
+      },priority:3});
+    }
+    // v11: اقتراح تفعيل OCR عند وجود صفحات ممسوحة ضوئياً
+    if(feState?.phase==="done" && !ocr && xStats && xStats.empty > xStats.total * 0.2){
+      s.push({id:"scanned-pages",icon:"📷",type:"accuracy",text:`${xStats.empty} صفحة فارغة — قد تكون ممسوحة ضوئياً. فعّل OCR لاستخراج النصوص.`,actionLabel:"تفعيل OCR",action:()=>setOcr(true),priority:1});
+    }
+    // v11: اقتراح مراجعة الأسعار عند انخفاض نسبة الأسعار المكتشفة
+    if(feState?.phase==="done" && boqCount > 5){
+      const allText = msgs.filter((m:any)=>m.role==="assistant").map((m:any)=>m.content||"").join("\n");
+      const priceMatches = (allText.match(/SAR\s*[\d,.]+|ريال\s*[\d,.]+/gi)||[]).length;
+      if(priceMatches < boqCount * 0.3){
+        s.push({id:"low-prices",icon:"💰",type:"accuracy",text:`فقط ${priceMatches} سعر من ${boqCount} بند — استخدم قالب "تسعير BOQ" للحصول على أسعار مرجعية.`,actionLabel:"تسعير BOQ",action:()=>{
+          setPrompt("سعّر جميع بنود BOQ المستخرجة بأسعار السوق السعودي 2025 مع ذكر المصدر");
+        },priority:2});
+      }
     }
     return s;
   },[feState,msgs,ocr,depth,pdfSess,cfg,mods,pipeNetwork,earthworksData,asphaltData,infraMeta,user,boqCount,xStats,savedAnalyses,batchFiles]);
@@ -343,6 +400,140 @@ const DrawingAnalysisPage = () => {
     } catch (err: any) { alert(`❌ خطأ: ${err.message}`); }
     finally { setExportingToProject(false); }
   }, [user, msgs, savedProjects]);
+
+  // ═══ PDF REPORT EXPORT ═══
+  const exportDrawingPDF = useCallback(() => {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = 20;
+    
+    // Header
+    doc.setFillColor(243, 87, 12);
+    doc.rect(0, 0, pageW, 32, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.text("ALIMTYAZ v11 — تقرير تحليل المخططات", pageW / 2, 14, { align: "center" });
+    doc.setFontSize(9);
+    doc.text(`${new Date().toLocaleDateString("ar-SA")} | ${pdfSess?.file?.name || "تحليل مخططات"}`, pageW / 2, 24, { align: "center" });
+    y = 40;
+
+    // Stats section
+    doc.setTextColor(50, 50, 50);
+    doc.setFontSize(12);
+    doc.text("إحصائيات التحليل", pageW - 15, y, { align: "right" });
+    y += 8;
+    
+    const statsRows: string[][] = [];
+    if (xStats) {
+      statsRows.push(["إجمالي الصفحات", `${xStats.total}`]);
+      statsRows.push(["صفحات غنية بالبيانات", `${xStats.rich}`]);
+      statsRows.push(["الأحرف المستخرجة", fmtN(xStats.totalChars)]);
+      statsRows.push(["الجداول المكتشفة", `${xStats.totalTables}`]);
+      statsRows.push(["الأقطار المكتشفة", `${xStats.diameters?.length || 0}`]);
+      if (xStats.topTypes?.length) statsRows.push(["أنواع المخططات", xStats.topTypes.join(" | ")]);
+    }
+    statsRows.push(["بنود BOQ", `${boqCount}`]);
+    statsRows.push(["Tokens مستخدمة", totalTokens.toLocaleString()]);
+    
+    (doc as any).autoTable({
+      startY: y, head: [["البيان", "القيمة"]], body: statsRows,
+      theme: "grid", styles: { font: "helvetica", fontSize: 9, halign: "right" },
+      headStyles: { fillColor: [243, 87, 12], textColor: 255 },
+      margin: { left: 15, right: 15 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
+
+    // Pipe network
+    if (pipeNetwork.length > 0) {
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(12);
+      doc.text("شبكة المواسير", pageW - 15, y, { align: "right" });
+      y += 6;
+      const pipeRows = pipeNetwork.map((p: any) => [
+        `${p.dia}mm`, p.mat || "-", p.cls || "-", p.color || "-"
+      ]);
+      (doc as any).autoTable({
+        startY: y, head: [["القطر", "المادة", "التصنيف", "اللون"]], body: pipeRows,
+        theme: "grid", styles: { fontSize: 8, halign: "center" },
+        headStyles: { fillColor: [37, 99, 235], textColor: 255 },
+        margin: { left: 15, right: 15 },
+      });
+      y = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // Earthworks summary
+    if (earthworksData) {
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(12);
+      doc.text("ملخص الحفر والردم", pageW - 15, y, { align: "right" });
+      y += 6;
+      const ewRows: string[][] = [];
+      if (earthworksData.depths?.length) ewRows.push(["الأعماق", earthworksData.depths.join(", ") + " م"]);
+      if (earthworksData.rockRatio) ewRows.push(["نسبة الصخر", `${(earthworksData.rockRatio * 100).toFixed(0)}%`]);
+      if (earthworksData.totalVolume) ewRows.push(["الحجم الإجمالي", `${earthworksData.totalVolume.toLocaleString()} م³`]);
+      (doc as any).autoTable({
+        startY: y, head: [["البيان", "القيمة"]], body: ewRows,
+        theme: "grid", styles: { fontSize: 9, halign: "right" },
+        headStyles: { fillColor: [133, 77, 14], textColor: 255 },
+        margin: { left: 15, right: 15 },
+      });
+      y = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // Asphalt summary
+    if (asphaltData) {
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(12);
+      doc.text("ملخص طبقات الأسفلت", pageW - 15, y, { align: "right" });
+      y += 6;
+      const aspRows: string[][] = [];
+      if (asphaltData.wearing) aspRows.push(["الطبقة السطحية", `${asphaltData.wearing}mm`]);
+      if (asphaltData.binder) aspRows.push(["الطبقة الرابطة", `${asphaltData.binder}mm`]);
+      if (asphaltData.base) aspRows.push(["طبقة الأساس", `${asphaltData.base}mm`]);
+      if (asphaltData.roadWidths?.length) aspRows.push(["عرض الطرق", asphaltData.roadWidths.join(", ") + " م"]);
+      (doc as any).autoTable({
+        startY: y, head: [["البيان", "القيمة"]], body: aspRows,
+        theme: "grid", styles: { fontSize: 9, halign: "right" },
+        headStyles: { fillColor: [124, 58, 237], textColor: 255 },
+        margin: { left: 15, right: 15 },
+      });
+      y = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // BOQ items extract
+    if (boqCount > 0) {
+      if (y > 200) { doc.addPage(); y = 20; }
+      doc.setFontSize(12);
+      doc.text("بنود جدول الكميات (BOQ)", pageW - 15, y, { align: "right" });
+      y += 6;
+      const allText = msgs.filter((m: any) => m.role === "assistant").map((m: any) => m.content || "").join("\n");
+      const rows = allText.split("\n").filter(l => l.includes("|") && !l.match(/^[\|\-\s:]+$/) && /KSA-|SAR|ريال|م[²³]|عدد|طن/i.test(l));
+      const boqRows = rows.slice(0, 50).map(row => {
+        const cells = row.split("|").map(c => c.trim()).filter(Boolean);
+        return cells.slice(0, 5);
+      });
+      if (boqRows.length > 0) {
+        (doc as any).autoTable({
+          startY: y, body: boqRows,
+          theme: "grid", styles: { fontSize: 7, halign: "center", cellWidth: "wrap" },
+          headStyles: { fillColor: [34, 197, 94], textColor: 255 },
+          margin: { left: 10, right: 10 },
+        });
+      }
+    }
+
+    // Footer
+    const totalPages = doc.internal.pages.length - 1;
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(150);
+      doc.text(`ALIMTYAZ v11 — صفحة ${i} من ${totalPages}`, pageW / 2, doc.internal.pageSize.getHeight() - 8, { align: "center" });
+    }
+    
+    doc.save(`تحليل-المخططات-${pdfSess?.file?.name?.replace(/\.pdf$/i,"") || "report"}-${new Date().toISOString().slice(0,10)}.pdf`);
+  }, [msgs, xStats, boqCount, totalTokens, pdfSess, pipeNetwork, earthworksData, asphaltData]);
+  exportPDFRef.current = exportDrawingPDF;
 
   const cfgStr=useCallback(()=>{
     const ml=Object.entries(mods).filter(([,v])=>v).map(([k])=>k.split("_").slice(1).join(" "));
@@ -823,6 +1014,7 @@ const DrawingAnalysisPage = () => {
               {pipeNetwork.length>0&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:"#2563eb",color:"#2563eb"}} onClick={()=>exportPipeScheduleCSV(pipeNetwork)} title="CSV مواسير">🔧 CSV مواسير</button>}
               {earthworksData&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:"#854d0e",color:"#854d0e"}} onClick={()=>exportEarthworksCSV(earthworksData)} title="CSV حفر">🛣️ CSV حفر</button>}
               {asphaltData&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:"#7c3aed",color:"#7c3aed"}} onClick={()=>exportAsphaltCSV(asphaltData)} title="CSV أسفلت">🛤️ CSV أسفلت</button>}
+              {msgs.length>0&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:"#dc2626",color:"#dc2626"}} onClick={exportDrawingPDF} title="تقرير PDF">📄 تقرير PDF</button>}
             </>}
           </div>
 
