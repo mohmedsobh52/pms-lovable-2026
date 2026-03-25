@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AnalysisResults } from "@/components/AnalysisResults";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -6,11 +6,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
-import { Upload, FolderOpen, FileSpreadsheet, Clock, ChevronRight } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Upload, FolderOpen, FileSpreadsheet, Clock, ChevronRight, BarChart3, DollarSign } from "lucide-react";
 import { BOQUploadDialog } from "@/components/project-details/BOQUploadDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 
 const BOQItemsPage = () => {
   const { analysisData, wbsData, setAnalysisData } = useAnalysisData();
