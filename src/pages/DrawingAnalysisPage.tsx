@@ -6,6 +6,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/integrations/supabase/client";
 import * as pdfjsLib from "pdfjs-dist";
 
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import {
   getTheme, buildCss,
   SAR_REF_2025, DRAW_TYPES, CFG_O, MODS_O, TMPL, QP,
