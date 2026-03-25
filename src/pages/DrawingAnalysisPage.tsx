@@ -346,6 +346,139 @@ const DrawingAnalysisPage = () => {
     finally { setExportingToProject(false); }
   }, [user, msgs, savedProjects]);
 
+  // ═══ PDF REPORT EXPORT ═══
+  const exportDrawingPDF = useCallback(() => {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = 20;
+    
+    // Header
+    doc.setFillColor(243, 87, 12);
+    doc.rect(0, 0, pageW, 32, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.text("ALIMTYAZ v11 — تقرير تحليل المخططات", pageW / 2, 14, { align: "center" });
+    doc.setFontSize(9);
+    doc.text(`${new Date().toLocaleDateString("ar-SA")} | ${pdfSess?.file?.name || "تحليل مخططات"}`, pageW / 2, 24, { align: "center" });
+    y = 40;
+
+    // Stats section
+    doc.setTextColor(50, 50, 50);
+    doc.setFontSize(12);
+    doc.text("إحصائيات التحليل", pageW - 15, y, { align: "right" });
+    y += 8;
+    
+    const statsRows: string[][] = [];
+    if (xStats) {
+      statsRows.push(["إجمالي الصفحات", `${xStats.total}`]);
+      statsRows.push(["صفحات غنية بالبيانات", `${xStats.rich}`]);
+      statsRows.push(["الأحرف المستخرجة", fmtN(xStats.totalChars)]);
+      statsRows.push(["الجداول المكتشفة", `${xStats.totalTables}`]);
+      statsRows.push(["الأقطار المكتشفة", `${xStats.diameters?.length || 0}`]);
+      if (xStats.topTypes?.length) statsRows.push(["أنواع المخططات", xStats.topTypes.join(" | ")]);
+    }
+    statsRows.push(["بنود BOQ", `${boqCount}`]);
+    statsRows.push(["Tokens مستخدمة", totalTokens.toLocaleString()]);
+    
+    (doc as any).autoTable({
+      startY: y, head: [["البيان", "القيمة"]], body: statsRows,
+      theme: "grid", styles: { font: "helvetica", fontSize: 9, halign: "right" },
+      headStyles: { fillColor: [243, 87, 12], textColor: 255 },
+      margin: { left: 15, right: 15 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
+
+    // Pipe network
+    if (pipeNetwork.length > 0) {
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(12);
+      doc.text("شبكة المواسير", pageW - 15, y, { align: "right" });
+      y += 6;
+      const pipeRows = pipeNetwork.map((p: any) => [
+        `${p.dia}mm`, p.mat || "-", p.cls || "-", p.color || "-"
+      ]);
+      (doc as any).autoTable({
+        startY: y, head: [["القطر", "المادة", "التصنيف", "اللون"]], body: pipeRows,
+        theme: "grid", styles: { fontSize: 8, halign: "center" },
+        headStyles: { fillColor: [37, 99, 235], textColor: 255 },
+        margin: { left: 15, right: 15 },
+      });
+      y = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // Earthworks summary
+    if (earthworksData) {
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(12);
+      doc.text("ملخص الحفر والردم", pageW - 15, y, { align: "right" });
+      y += 6;
+      const ewRows: string[][] = [];
+      if (earthworksData.depths?.length) ewRows.push(["الأعماق", earthworksData.depths.join(", ") + " م"]);
+      if (earthworksData.rockRatio) ewRows.push(["نسبة الصخر", `${(earthworksData.rockRatio * 100).toFixed(0)}%`]);
+      if (earthworksData.totalVolume) ewRows.push(["الحجم الإجمالي", `${earthworksData.totalVolume.toLocaleString()} م³`]);
+      (doc as any).autoTable({
+        startY: y, head: [["البيان", "القيمة"]], body: ewRows,
+        theme: "grid", styles: { fontSize: 9, halign: "right" },
+        headStyles: { fillColor: [133, 77, 14], textColor: 255 },
+        margin: { left: 15, right: 15 },
+      });
+      y = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // Asphalt summary
+    if (asphaltData) {
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(12);
+      doc.text("ملخص طبقات الأسفلت", pageW - 15, y, { align: "right" });
+      y += 6;
+      const aspRows: string[][] = [];
+      if (asphaltData.wearing) aspRows.push(["الطبقة السطحية", `${asphaltData.wearing}mm`]);
+      if (asphaltData.binder) aspRows.push(["الطبقة الرابطة", `${asphaltData.binder}mm`]);
+      if (asphaltData.base) aspRows.push(["طبقة الأساس", `${asphaltData.base}mm`]);
+      if (asphaltData.roadWidths?.length) aspRows.push(["عرض الطرق", asphaltData.roadWidths.join(", ") + " م"]);
+      (doc as any).autoTable({
+        startY: y, head: [["البيان", "القيمة"]], body: aspRows,
+        theme: "grid", styles: { fontSize: 9, halign: "right" },
+        headStyles: { fillColor: [124, 58, 237], textColor: 255 },
+        margin: { left: 15, right: 15 },
+      });
+      y = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // BOQ items extract
+    if (boqCount > 0) {
+      if (y > 200) { doc.addPage(); y = 20; }
+      doc.setFontSize(12);
+      doc.text("بنود جدول الكميات (BOQ)", pageW - 15, y, { align: "right" });
+      y += 6;
+      const allText = msgs.filter((m: any) => m.role === "assistant").map((m: any) => m.content || "").join("\n");
+      const rows = allText.split("\n").filter(l => l.includes("|") && !l.match(/^[\|\-\s:]+$/) && /KSA-|SAR|ريال|م[²³]|عدد|طن/i.test(l));
+      const boqRows = rows.slice(0, 50).map(row => {
+        const cells = row.split("|").map(c => c.trim()).filter(Boolean);
+        return cells.slice(0, 5);
+      });
+      if (boqRows.length > 0) {
+        (doc as any).autoTable({
+          startY: y, body: boqRows,
+          theme: "grid", styles: { fontSize: 7, halign: "center", cellWidth: "wrap" },
+          headStyles: { fillColor: [34, 197, 94], textColor: 255 },
+          margin: { left: 10, right: 10 },
+        });
+      }
+    }
+
+    // Footer
+    const totalPages = doc.internal.pages.length - 1;
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(150);
+      doc.text(`ALIMTYAZ v11 — صفحة ${i} من ${totalPages}`, pageW / 2, doc.internal.pageSize.getHeight() - 8, { align: "center" });
+    }
+    
+    doc.save(`تحليل-المخططات-${pdfSess?.file?.name?.replace(/\.pdf$/i,"") || "report"}-${new Date().toISOString().slice(0,10)}.pdf`);
+  }, [msgs, xStats, boqCount, totalTokens, pdfSess, pipeNetwork, earthworksData, asphaltData]);
+
   const cfgStr=useCallback(()=>{
     const ml=Object.entries(mods).filter(([,v])=>v).map(([k])=>k.split("_").slice(1).join(" "));
     return `الجهة:${CFG_O.authority[cfg.authority]}|النوع:${CFG_O.projectType[cfg.projectType]}|الدور:${CFG_O.roleMode[cfg.roleMode]}|المناطق:${CFG_O.zoneStr[cfg.zoneStr]}|الوحدات:${ml.join(",")|| "الكل"}`;
