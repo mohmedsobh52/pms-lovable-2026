@@ -974,6 +974,7 @@ const DrawingAnalysisPage = () => {
               {pipeNetwork.length>0&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:"#2563eb",color:"#2563eb"}} onClick={()=>exportPipeScheduleCSV(pipeNetwork)} title="CSV مواسير">🔧 CSV مواسير</button>}
               {earthworksData&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:"#854d0e",color:"#854d0e"}} onClick={()=>exportEarthworksCSV(earthworksData)} title="CSV حفر">🛣️ CSV حفر</button>}
               {asphaltData&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:"#7c3aed",color:"#7c3aed"}} onClick={()=>exportAsphaltCSV(asphaltData)} title="CSV أسفلت">🛤️ CSV أسفلت</button>}
+              {msgs.length>0&&<button className="bo" style={{fontSize:9,padding:"3px 9px",borderColor:"#dc2626",color:"#dc2626"}} onClick={exportDrawingPDF} title="تقرير PDF">📄 تقرير PDF</button>}
             </>}
           </div>
 
