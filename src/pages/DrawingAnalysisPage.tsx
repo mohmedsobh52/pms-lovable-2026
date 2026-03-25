@@ -270,8 +270,46 @@ const DrawingAnalysisPage = () => {
         if(folderInput) folderInput.click();
       },priority:4});
     }
+    // v11: تصدير تقرير PDF شامل بعد اكتمال التحليل
+    if(feState?.phase==="done" && boqCount > 0){
+      s.push({id:"export-pdf-analysis",icon:"📄",type:"performance",text:`التحليل مكتمل بـ ${boqCount} بند — صدّر تقريراً PDF احترافياً.`,actionLabel:"تصدير PDF",action:()=>exportDrawingPDF(),priority:2});
+    }
+    // v11: تنبيه عند وجود نسبة أخطاء مرتفعة في الدُفعات
+    const totalChunks = feState?.chunks?.length || 0;
+    const errorChunksCount = feState?.chunks?.filter((c:any)=>c.status==="error")?.length || 0;
+    if(feState?.phase==="done" && totalChunks > 3 && errorChunksCount > totalChunks * 0.3){
+      s.push({id:"high-error-rate",icon:"🚨",type:"accuracy",text:`${Math.round(errorChunksCount/totalChunks*100)}% من الدُفعات فشلت — قلّل حجم الدُفعة أو غيّر نوع التحليل.`,actionLabel:"تقليل الحجم",action:()=>{
+        if(pdfSess) setPdfSess((prev:any)=>({...prev,chunkSize:Math.max(5,Math.floor(prev.chunkSize/2))}));
+      },priority:1});
+    }
+    // v11: اقتراح حفظ ومقارنة عند عدم وجود تحليلات سابقة
+    if(feState?.phase==="done" && savedAnalyses.length === 0 && user){
+      s.push({id:"first-save",icon:"💾",type:"performance",text:"هذا أول تحليل لك — احفظه لبناء سجل مقارنات للمشاريع القادمة.",actionLabel:"حفظ التحليل",action:()=>{
+        const allText = msgs.filter((m:any)=>m.role==="assistant").map((m:any)=>m.content||"").join("\n");
+        supabase.from("drawing_analyses").insert({
+          user_id: user.id, drawing_type: Object.keys(xStats?.typeCount||{})[0]||"PLAN",
+          file_names: pdfSess?[pdfSess.file?.name]:[],
+          results: {text:allText.slice(0,5000)}, summary: {boq_count:boqCount,pipe_count:pipeNetwork.length}
+        });
+        alert("✅ تم حفظ التحليل بنجاح");
+      },priority:3});
+    }
+    // v11: اقتراح تفعيل OCR عند وجود صفحات ممسوحة ضوئياً
+    if(feState?.phase==="done" && !ocr && xStats && xStats.empty > xStats.total * 0.2){
+      s.push({id:"scanned-pages",icon:"📷",type:"accuracy",text:`${xStats.empty} صفحة فارغة — قد تكون ممسوحة ضوئياً. فعّل OCR لاستخراج النصوص.`,actionLabel:"تفعيل OCR",action:()=>setOcr(true),priority:1});
+    }
+    // v11: اقتراح مراجعة الأسعار عند انخفاض نسبة الأسعار المكتشفة
+    if(feState?.phase==="done" && boqCount > 5){
+      const allText = msgs.filter((m:any)=>m.role==="assistant").map((m:any)=>m.content||"").join("\n");
+      const priceMatches = (allText.match(/SAR\s*[\d,.]+|ريال\s*[\d,.]+/gi)||[]).length;
+      if(priceMatches < boqCount * 0.3){
+        s.push({id:"low-prices",icon:"💰",type:"accuracy",text:`فقط ${priceMatches} سعر من ${boqCount} بند — استخدم قالب "تسعير BOQ" للحصول على أسعار مرجعية.`,actionLabel:"تسعير BOQ",action:()=>{
+          setPrompt("سعّر جميع بنود BOQ المستخرجة بأسعار السوق السعودي 2025 مع ذكر المصدر");
+        },priority:2});
+      }
+    }
     return s;
-  },[feState,msgs,ocr,depth,pdfSess,cfg,mods,pipeNetwork,earthworksData,asphaltData,infraMeta,user,boqCount,xStats,savedAnalyses,batchFiles]);
+  },[feState,msgs,ocr,depth,pdfSess,cfg,mods,pipeNetwork,earthworksData,asphaltData,infraMeta,user,boqCount,xStats,savedAnalyses,batchFiles,exportDrawingPDF]);
 
   const cancelRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
