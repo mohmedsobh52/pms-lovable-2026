@@ -93,6 +93,7 @@ const DrawingAnalysisPage = () => {
 
   // Smart suggestions
   const save = (c: any,m: any,d: string)=>{try{localStorage.setItem("alimtyaz_v11",JSON.stringify({cfg:c,mods:m,depth:d}));}catch{}};
+  const exportPDFRef = useRef<() => void>(() => {});
 
   const configSuggestions = useMemo<Suggestion[]>(()=>{
     const s: Suggestion[] = [];
