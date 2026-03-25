@@ -310,7 +310,7 @@ const DrawingAnalysisPage = () => {
       }
     }
     return s;
-  },[feState,msgs,ocr,depth,pdfSess,cfg,mods,pipeNetwork,earthworksData,asphaltData,infraMeta,user,boqCount,xStats,savedAnalyses,batchFiles,exportDrawingPDF]);
+  },[feState,msgs,ocr,depth,pdfSess,cfg,mods,pipeNetwork,earthworksData,asphaltData,infraMeta,user,boqCount,xStats,savedAnalyses,batchFiles]);
 
   const cancelRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
