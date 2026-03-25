@@ -17,6 +17,7 @@ const BOQItemsPage = () => {
   const { analysisData, wbsData, setAnalysisData } = useAnalysisData();
   const { isArabic } = useLanguage();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
@@ -181,6 +182,31 @@ const BOQItemsPage = () => {
     );
   }
 
+  const boqSuggestions = useMemo<SmartSuggestion[]>(() => {
+    const s: SmartSuggestion[] = [];
+    const items = analysisData?.items || [];
+    const unpriced = items.filter((i: any) => !i.unit_price || i.unit_price === 0).length;
+    if (unpriced > 0) {
+      s.push({
+        id: 'unpriced-items',
+        icon: <DollarSign className="h-4 w-4" />,
+        text: isArabic ? `${unpriced} بند بدون سعر — استخدم التسعير التلقائي` : `${unpriced} items without prices — use auto-pricing`,
+        action: () => {},
+        actionLabel: isArabic ? 'تسعير' : 'Price',
+      });
+    }
+    if (items.length > 10) {
+      s.push({
+        id: 'analyze-boq',
+        icon: <BarChart3 className="h-4 w-4" />,
+        text: isArabic ? 'حلّل البنود لاكتشاف التكرارات والأخطاء المحتملة' : 'Analyze items to detect duplicates and potential errors',
+        action: () => navigate('/analysis-tools'),
+        actionLabel: isArabic ? 'تحليل' : 'Analyze',
+      });
+    }
+    return s;
+  }, [analysisData, isArabic, navigate]);
+
   return (
     <PageLayout>
       <PageHeader
@@ -188,6 +214,7 @@ const BOQItemsPage = () => {
         title={isArabic ? "بنود جدول الكميات" : "BOQ Items"}
         subtitle={isArabic ? "إدارة وتحليل بنود جداول الكميات" : "Manage and analyze BOQ items"}
       />
+      {boqSuggestions.length > 0 && <SmartSuggestionsBanner suggestions={boqSuggestions} />}
       <AnalysisResults
         data={analysisData}
         wbsData={wbsData}
