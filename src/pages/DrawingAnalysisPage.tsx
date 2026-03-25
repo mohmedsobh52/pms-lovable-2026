@@ -533,6 +533,7 @@ const DrawingAnalysisPage = () => {
     
     doc.save(`تحليل-المخططات-${pdfSess?.file?.name?.replace(/\.pdf$/i,"") || "report"}-${new Date().toISOString().slice(0,10)}.pdf`);
   }, [msgs, xStats, boqCount, totalTokens, pdfSess, pipeNetwork, earthworksData, asphaltData]);
+  exportPDFRef.current = exportDrawingPDF;
 
   const cfgStr=useCallback(()=>{
     const ml=Object.entries(mods).filter(([,v])=>v).map(([k])=>k.split("_").slice(1).join(" "));
