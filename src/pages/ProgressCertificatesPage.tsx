@@ -23,6 +23,7 @@ import {
   Trash2, Eye, Edit, Download, Search, Copy, CheckCircle2, Clock, FileCheck,
   ChevronLeft, ChevronRight, CreditCard, Link2, GitCompareArrows, AlertTriangle
 } from "lucide-react";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { addPDFLetterheadHeader, addPDFLetterheadFooterWithQR } from "@/lib/letterhead-utils";
@@ -749,6 +750,50 @@ const ProgressCertificatesPage = () => {
             </div>
           }
         />
+
+        {/* Smart Suggestions */}
+        {(() => {
+          const suggestions: SmartSuggestion[] = [];
+          const pending = certificates.filter(c => c.status === 'pending').length;
+          const draft = certificates.filter(c => c.status === 'draft').length;
+          if (certificates.length === 0) {
+            suggestions.push({
+              id: 'first-cert',
+              icon: <Plus className="h-4 w-4" />,
+              text: isArabic ? 'لا توجد مستخلصات — أنشئ أول مستخلص لتتبع الأعمال المنجزة' : 'No certificates yet — create your first to track work done',
+              action: () => navigate('/progress-certificates/new'),
+              actionLabel: isArabic ? 'إنشاء' : 'Create',
+            });
+          }
+          if (pending > 0) {
+            suggestions.push({
+              id: 'pending-certs',
+              icon: <Clock className="h-4 w-4" />,
+              text: isArabic ? `${pending} مستخلص بانتظار الاعتماد — راجعها واعتمدها` : `${pending} certificates pending approval — review and approve them`,
+              action: () => setStatusFilter('pending'),
+              actionLabel: isArabic ? 'عرض' : 'View',
+            });
+          }
+          if (draft > 0) {
+            suggestions.push({
+              id: 'draft-certs',
+              icon: <Edit className="h-4 w-4" />,
+              text: isArabic ? `${draft} مستخلص مسودة — أكمل بياناتها وأرسلها للاعتماد` : `${draft} draft certificates — complete and submit them`,
+              action: () => setStatusFilter('draft'),
+              actionLabel: isArabic ? 'إكمال' : 'Complete',
+            });
+          }
+          if (certificates.length >= 2) {
+            suggestions.push({
+              id: 'compare-certs',
+              icon: <GitCompareArrows className="h-4 w-4" />,
+              text: isArabic ? 'قارن بين المستخلصات لتتبع تطور الأعمال' : 'Compare certificates to track work progress',
+              action: () => handleOpenCompare(),
+              actionLabel: isArabic ? 'مقارنة' : 'Compare',
+            });
+          }
+          return suggestions.length > 0 ? <SmartSuggestionsBanner suggestions={suggestions} /> : null;
+        })()}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

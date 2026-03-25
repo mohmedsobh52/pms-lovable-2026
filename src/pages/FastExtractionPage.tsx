@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Home, Upload, History, Lightbulb, FolderOpen, ArrowLeft, ChevronLeft } from "lucide-react";
+import { Home, Upload, History, Lightbulb, FolderOpen, ArrowLeft, ChevronLeft, FileSpreadsheet, BarChart3 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,6 +15,7 @@ import FastExtractionClassifier from "@/components/FastExtractionClassifier";
 import FastExtractionDrawingAnalyzer from "@/components/FastExtractionDrawingAnalyzer";
 import FastExtractionProjectSelector from "@/components/FastExtractionProjectSelector";
 import { ProjectFilesViewer } from "@/components/ProjectFilesViewer";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 
 export default function FastExtractionPage() {
   const { language } = useLanguage();
@@ -134,6 +135,48 @@ export default function FastExtractionPage() {
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8">
+
+          {/* Smart Suggestions */}
+          {(() => {
+            const suggestions: SmartSuggestion[] = [];
+            if (currentStep === 1 && files.length === 0) {
+              suggestions.push({
+                id: 'upload-hint',
+                icon: <Upload className="h-4 w-4" />,
+                text: isArabic ? 'ارفع ملفات BOQ أو مخططات PDF للبدء في الاستخراج السريع' : 'Upload BOQ files or PDF drawings to start fast extraction',
+                action: () => {},
+                actionLabel: isArabic ? 'رفع' : 'Upload',
+              });
+            }
+            if (currentStep === 1 && readyFilesCount > 0 && readyFilesCount < files.length) {
+              suggestions.push({
+                id: 'files-processing',
+                icon: <FileSpreadsheet className="h-4 w-4" />,
+                text: isArabic ? `${readyFilesCount} من ${files.length} ملف جاهز — انتظر اكتمال المعالجة` : `${readyFilesCount} of ${files.length} files ready — wait for processing to complete`,
+                action: () => {},
+                actionLabel: isArabic ? 'انتظار' : 'Wait',
+              });
+            }
+            if (currentStep === 2 && hasDrawingFiles) {
+              suggestions.push({
+                id: 'drawings-detected',
+                icon: <BarChart3 className="h-4 w-4" />,
+                text: isArabic ? 'تم اكتشاف مخططات — يمكنك تحليلها لاستخراج الكميات تلقائياً' : 'Drawings detected — analyze them to auto-extract quantities',
+                action: () => setCurrentStep(3),
+                actionLabel: isArabic ? 'تحليل' : 'Analyze',
+              });
+            }
+            if (currentStep === 4) {
+              suggestions.push({
+                id: 'link-project',
+                icon: <FolderOpen className="h-4 w-4" />,
+                text: isArabic ? 'اربط الملفات بمشروع موجود أو أنشئ مشروعاً جديداً' : 'Link files to an existing project or create a new one',
+                action: () => {},
+                actionLabel: isArabic ? 'ربط' : 'Link',
+              });
+            }
+            return suggestions.length > 0 ? <SmartSuggestionsBanner suggestions={suggestions} /> : null;
+          })()}
 
           {/* Stepper */}
           <FastExtractionStepper currentStep={currentStep} onStepClick={setCurrentStep} />

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/PageLayout";
 import { ProjectAttachments } from "@/components/ProjectAttachments";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Paperclip, FolderOpen } from "lucide-react";
+import { Paperclip, FolderOpen, Upload, BarChart3 } from "lucide-react";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 
 interface Project {
   id: string;
@@ -24,6 +25,7 @@ interface Project {
 const AttachmentsPage = () => {
   const { isArabic } = useLanguage();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const projectIdFromUrl = searchParams.get("project");
   
@@ -120,6 +122,39 @@ const AttachmentsPage = () => {
             </div>
           </div>
         </div>
+
+        {/* Smart Suggestions */}
+        {(() => {
+          const suggestions: SmartSuggestion[] = [];
+          if (!selectedProjectId && projects.length > 0) {
+            suggestions.push({
+              id: 'select-project',
+              icon: <FolderOpen className="h-4 w-4" />,
+              text: isArabic ? 'اختر مشروعاً لعرض مرفقاته وإدارة ملفاته' : 'Select a project to view and manage its attachments',
+              action: () => {},
+              actionLabel: isArabic ? 'اختيار' : 'Select',
+            });
+          }
+          if (projects.length === 0) {
+            suggestions.push({
+              id: 'no-projects',
+              icon: <Upload className="h-4 w-4" />,
+              text: isArabic ? 'لا توجد مشاريع — أنشئ مشروعاً جديداً وارفع ملفات BOQ' : 'No projects yet — create a new project and upload BOQ files',
+              action: () => navigate('/projects/new'),
+              actionLabel: isArabic ? 'مشروع جديد' : 'New Project',
+            });
+          }
+          if (selectedProjectId) {
+            suggestions.push({
+              id: 'analyze-files',
+              icon: <BarChart3 className="h-4 w-4" />,
+              text: isArabic ? 'حلّل الملفات المرفقة باستخدام الذكاء الاصطناعي لاستخراج البيانات' : 'Analyze attached files with AI to extract data',
+              action: () => navigate('/drawing-analysis'),
+              actionLabel: isArabic ? 'تحليل' : 'Analyze',
+            });
+          }
+          return suggestions.length > 0 ? <SmartSuggestionsBanner suggestions={suggestions} /> : null;
+        })()}
 
         <Card className="border-0 shadow-lg">
           <CardHeader className="border-b bg-muted/30">
