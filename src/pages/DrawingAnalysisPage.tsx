@@ -174,7 +174,7 @@ const DrawingAnalysisPage = () => {
     }
     // v11: اقتراح تصدير PDF عند وجود نتائج كافية
     if(boqCount > 3 && msgs.length > 2){
-      s.push({id:"export-pdf-config",icon:"📄",type:"performance",text:`${boqCount} بند جاهز — صدّر تقرير PDF شامل بنتائج التحليل.`,actionLabel:"تصدير PDF",action:()=>exportDrawingPDF(),priority:3});
+      s.push({id:"export-pdf-config",icon:"📄",type:"performance",text:`${boqCount} بند جاهز — صدّر تقرير PDF شامل بنتائج التحليل.`,actionLabel:"تصدير PDF",action:()=>exportPDFRef.current(),priority:3});
     }
     // v11: تحذير عند استخدام عمق سريع مع ملفات كبيرة
     if(pdfSess && selPages(pdfSess).length > 50 && depth === "quick"){
@@ -273,7 +273,7 @@ const DrawingAnalysisPage = () => {
     }
     // v11: تصدير تقرير PDF شامل بعد اكتمال التحليل
     if(feState?.phase==="done" && boqCount > 0){
-      s.push({id:"export-pdf-analysis",icon:"📄",type:"performance",text:`التحليل مكتمل بـ ${boqCount} بند — صدّر تقريراً PDF احترافياً.`,actionLabel:"تصدير PDF",action:()=>exportDrawingPDF(),priority:2});
+      s.push({id:"export-pdf-analysis",icon:"📄",type:"performance",text:`التحليل مكتمل بـ ${boqCount} بند — صدّر تقريراً PDF احترافياً.`,actionLabel:"تصدير PDF",action:()=>exportPDFRef.current(),priority:2});
     }
     // v11: تنبيه عند وجود نسبة أخطاء مرتفعة في الدُفعات
     const totalChunks = feState?.chunks?.length || 0;
