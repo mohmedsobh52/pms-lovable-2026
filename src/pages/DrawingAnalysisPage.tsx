@@ -171,6 +171,22 @@ const DrawingAnalysisPage = () => {
     if(boqCount > 5 && !showExportToProject){
       s.push({id:"export-to-project",icon:"📤",type:"performance",text:`${boqCount} بند BOQ جاهز — صدّر البنود إلى مشروع محفوظ مباشرة.`,actionLabel:"تصدير لمشروع",action:()=>setShowExportToProject(true),priority:3});
     }
+    // v11: اقتراح تصدير PDF عند وجود نتائج كافية
+    if(boqCount > 3 && msgs.length > 2){
+      s.push({id:"export-pdf-config",icon:"📄",type:"performance",text:`${boqCount} بند جاهز — صدّر تقرير PDF شامل بنتائج التحليل.`,actionLabel:"تصدير PDF",action:()=>exportDrawingPDF(),priority:3});
+    }
+    // v11: تحذير عند استخدام عمق سريع مع ملفات كبيرة
+    if(pdfSess && selPages(pdfSess).length > 50 && depth === "quick"){
+      s.push({id:"quick-large-file",icon:"⚠️",type:"accuracy",text:"ملف كبير مع عمق سريع — النتائج قد تكون ناقصة. جرّب العمق القياسي.",actionLabel:"رفع العمق",action:()=>{setDepth("standard");save(cfg,mods,"standard");},priority:1});
+    }
+    // v11: اقتراح تفعيل كل الوحدات عند وجود أنواع مخططات متعددة
+    if(xStats?.topTypes?.length >= 4 && Object.entries(mods).filter(([,v])=>v).length < 5){
+      s.push({id:"enable-all-mods",icon:"🔧",type:"accuracy",text:`${xStats.topTypes.length} أنواع مخططات — فعّل جميع الوحدات للتحليل الشامل.`,actionLabel:"تفعيل الكل",action:()=>{
+        const allMods: Record<string,boolean> = {};
+        Object.entries(MODS_O).forEach(([cat,ms])=>ms.forEach(m=>{allMods[`${cat}_${m}`]=true;}));
+        setMods(allMods); save(cfg,allMods,depth);
+      },priority:2});
+    }
     return s;
   },[pdfSess,xStats,depth,ocr,mods,cfg,earthworksData,asphaltData,infraMeta,boqCount,showExportToProject]);
 
