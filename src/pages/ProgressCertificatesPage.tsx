@@ -23,6 +23,7 @@ import {
   Trash2, Eye, Edit, Download, Search, Copy, CheckCircle2, Clock, FileCheck,
   ChevronLeft, ChevronRight, CreditCard, Link2, GitCompareArrows, AlertTriangle
 } from "lucide-react";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { addPDFLetterheadHeader, addPDFLetterheadFooterWithQR } from "@/lib/letterhead-utils";
