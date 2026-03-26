@@ -15,6 +15,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { createWorkbook, addJsonSheet, downloadWorkbook } from "@/lib/exceljs-utils";
 import { toast } from "sonner";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 import { 
   Search, FileSpreadsheet, TrendingUp, TrendingDown, DollarSign, Target, 
   BarChart3, Activity, ChevronLeft, ChevronRight, ArrowUpDown, Download,
