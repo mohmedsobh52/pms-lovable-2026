@@ -1,4 +1,4 @@
-import { Calendar } from "lucide-react";
+import { Calendar, Bell, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { ProjectCalendar } from "@/components/ProjectCalendar";
@@ -6,11 +6,22 @@ import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
+import { useMemo } from "react";
 
 export default function CalendarPage() {
   const { user } = useAuth();
   const { isArabic } = useLanguage();
+  const navigate = useNavigate();
+
+  const suggestions = useMemo((): SmartSuggestion[] => {
+    if (!user) return [];
+    return [
+      { id: 'contracts', icon: <FileText className="h-4 w-4" />, text: isArabic ? 'أضف مواعيد العقود لعرضها في التقويم' : 'Add contract dates to display on calendar', action: () => navigate('/contracts'), actionLabel: isArabic ? 'العقود' : 'Contracts' },
+      { id: 'alerts', icon: <Bell className="h-4 w-4" />, text: isArabic ? 'فعّل التنبيهات لتذكيرك بالمواعيد القادمة' : 'Enable alerts for upcoming deadlines', action: () => navigate('/settings'), actionLabel: isArabic ? 'الإعدادات' : 'Settings' },
+    ];
+  }, [user, isArabic, navigate]);
 
   return (
     <PageLayout>
@@ -21,7 +32,10 @@ export default function CalendarPage() {
       />
 
       {user ? (
-        <ProjectCalendar />
+        <>
+          <SmartSuggestionsBanner suggestions={suggestions} />
+          <ProjectCalendar />
+        </>
       ) : (
         <Card className="max-w-md mx-auto border-dashed">
           <CardContent className="p-8 text-center space-y-4">
