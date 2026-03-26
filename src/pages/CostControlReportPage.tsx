@@ -921,11 +921,11 @@ export default function CostControlReportPage() {
   const costControlSuggestions = useMemo((): SmartSuggestion[] => {
     const list: SmartSuggestion[] = [];
     if (!selectedProjectId) list.push({ id: 'select_project', icon: <Building2 className="h-4 w-4" />, text: isArabic ? 'اختر مشروعاً لعرض تقرير التحكم بالتكاليف' : 'Select a project to view cost control report', action: () => {}, actionLabel: isArabic ? 'اختيار' : 'Select' });
-    const criticalCPI = activities.filter(a => a.cpi < 0.9).length;
+    const criticalCPI = allActivities.filter(a => a.cpi < 0.9).length;
     if (criticalCPI > 0) list.push({ id: 'critical_cpi', icon: <TrendingDown className="h-4 w-4" />, text: isArabic ? `${criticalCPI} أنشطة بمؤشر CPI حرج — تحتاج مراجعة عاجلة` : `${criticalCPI} activities with critical CPI — need urgent review`, action: () => {}, actionLabel: isArabic ? 'مراجعة' : 'Review' });
-    if (activities.length > 0) list.push({ id: 'export', icon: <FileSpreadsheet className="h-4 w-4" />, text: isArabic ? 'صدّر التقرير لمشاركته مع فريق العمل' : 'Export report to share with team', action: () => {}, actionLabel: isArabic ? 'تصدير' : 'Export' });
+    if (allActivities.length > 0) list.push({ id: 'export', icon: <FileSpreadsheet className="h-4 w-4" />, text: isArabic ? 'صدّر التقرير لمشاركته مع فريق العمل' : 'Export report to share with team', action: () => {}, actionLabel: isArabic ? 'تصدير' : 'Export' });
     return list.slice(0, 3);
-  }, [selectedProjectId, activities, isArabic]);
+  }, [selectedProjectId, allActivities, isArabic]);
 
   return (
     <PageLayout>
