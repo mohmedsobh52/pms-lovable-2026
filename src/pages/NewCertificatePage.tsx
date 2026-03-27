@@ -28,6 +28,7 @@ import {
   Shield, FileWarning, Banknote
 } from "lucide-react";
 import React from "react";
+import { SmartSuggestionsBanner, SmartSuggestion } from "@/components/SmartSuggestionsBanner";
 
 interface CertificateItem {
   project_item_id: string | null;
@@ -432,7 +433,7 @@ const NewCertificatePage = () => {
         {/* Smart Suggestions */}
         {(() => {
           const suggestions: SmartSuggestion[] = [];
-          if (!selectedContractId) {
+          if (!formContractId) {
             suggestions.push({
               id: 'select-contract',
               icon: <Link2 className="h-4 w-4" />,
@@ -441,7 +442,7 @@ const NewCertificatePage = () => {
               actionLabel: isArabic ? 'اختيار' : 'Select',
             });
           }
-          if (selectedContractId && formItems.length > 0 && formItems.every(i => i.current_quantity === 0)) {
+          if (formContractId && formItems.length > 0 && formItems.every(i => i.current_quantity === 0)) {
             suggestions.push({
               id: 'enter-quantities',
               icon: <Percent className="h-4 w-4" />,
