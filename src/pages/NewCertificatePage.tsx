@@ -429,6 +429,30 @@ const NewCertificatePage = () => {
   return (
     <PageLayout>
       <div className="container mx-auto p-4 md:p-6 space-y-6 form-card-safe" dir={isArabic ? "rtl" : "ltr"}>
+        {/* Smart Suggestions */}
+        {(() => {
+          const suggestions: SmartSuggestion[] = [];
+          if (!selectedContractId) {
+            suggestions.push({
+              id: 'select-contract',
+              icon: <Link2 className="h-4 w-4" />,
+              text: isArabic ? 'اختر عقداً لربط المستخلص به' : 'Select a contract to link the certificate',
+              action: () => {},
+              actionLabel: isArabic ? 'اختيار' : 'Select',
+            });
+          }
+          if (selectedContractId && formItems.length > 0 && formItems.every(i => i.current_quantity === 0)) {
+            suggestions.push({
+              id: 'enter-quantities',
+              icon: <Percent className="h-4 w-4" />,
+              text: isArabic ? 'أدخل الكميات المنفذة للبنود' : 'Enter executed quantities for items',
+              action: () => {},
+              actionLabel: isArabic ? 'إدخال' : 'Enter',
+            });
+          }
+          return suggestions.length > 0 ? <SmartSuggestionsBanner suggestions={suggestions} /> : null;
+        })()}
+
         {/* Header */}
         <PageHeader
           icon={FileCheck}
