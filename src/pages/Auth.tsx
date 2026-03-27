@@ -84,6 +84,8 @@ export default function Auth() {
           setError("يرجى تأكيد البريد الإلكتروني أولاً");
         } else if (error.message.includes("Email rate limit exceeded")) {
           setError("تم تجاوز الحد الأقصى من المحاولات. يرجى الانتظار قليلاً والمحاولة مرة أخرى.");
+        } else if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError") || error.message.includes("fetch")) {
+          setError("خطأ في الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.");
         } else {
           setError(error.message);
         }
