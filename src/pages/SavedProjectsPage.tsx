@@ -84,7 +84,8 @@ export default function SavedProjectsPage() {
   const urlMode = searchParams.get("mode");
   const initialTab = urlTab === "reports" ? "reports" :
                      urlTab === "attachments" ? "attachments" :
-                     urlTab === "analyze" ? "analyze" : "projects";
+                     urlTab === "analyze" ? "analyze" :
+                     urlTab === "technical-offer" ? "technical-offer" : "projects";
   const [activeTab, setActiveTab] = useState(initialTab);
   const [extractionMode, setExtractionMode] = useState(urlMode === "extraction");
 
