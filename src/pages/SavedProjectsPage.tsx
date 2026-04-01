@@ -103,6 +103,7 @@ export default function SavedProjectsPage() {
       setActiveTab("attachments");
       if (mode === "extraction") setExtractionMode(true);
     } else if (tab === "analyze") setActiveTab("analyze");
+    else if (tab === "technical-offer") setActiveTab("technical-offer");
     else setActiveTab("projects");
   }, [searchParams]);
 
