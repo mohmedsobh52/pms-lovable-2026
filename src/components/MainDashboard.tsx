@@ -266,9 +266,29 @@ const QuotationStatusChart = memo(({ data, isArabic }: { data: any[]; isArabic: 
   const total = useMemo(() => data.reduce((s, d) => s + d.count, 0), [data]);
   
   if (data.length === 0) {
+    const placeholderData = [
+      { status: isArabic ? "قيد الانتظار" : "Pending", count: 3, rawStatus: "pending" },
+      { status: isArabic ? "معتمد" : "Approved", count: 2, rawStatus: "approved" },
+      { status: isArabic ? "قيد المراجعة" : "Under Review", count: 1, rawStatus: "under_review" },
+    ];
     return (
-      <div className="flex items-center justify-center h-[280px] text-muted-foreground">
-        {isArabic ? "لا توجد عروض أسعار" : "No quotations yet"}
+      <div className="relative h-[280px]">
+        <div className="opacity-15 pointer-events-none h-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsPie>
+              <Pie data={placeholderData} cx="50%" cy="50%" innerRadius={65} outerRadius={105} paddingAngle={4} dataKey="count">
+                {placeholderData.map((entry, index) => (
+                  <Cell key={index} fill={STATUS_COLORS[entry.rawStatus] || CHART_COLORS[index]} />
+                ))}
+              </Pie>
+            </RechartsPie>
+          </ResponsiveContainer>
+        </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <PieChart className="w-10 h-10 text-muted-foreground/50 mb-2 animate-pulse" />
+          <p className="text-sm text-muted-foreground font-medium">{isArabic ? "لا توجد عروض أسعار بعد" : "No quotations yet"}</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">{isArabic ? "أضف عروض أسعار لرؤية التوزيع" : "Add quotations to see distribution"}</p>
+        </div>
       </div>
     );
   }
@@ -385,11 +405,28 @@ const RiskDistributionChart = memo(({ risksByStatus, risksByLevel, isArabic }: {
   const totalRisks = useMemo(() => risksByStatus.reduce((s, d) => s + d.count, 0), [risksByStatus]);
   
   if (totalRisks === 0) {
+    const placeholderByStatus = [
+      { status: isArabic ? "محدد" : "Identified", count: 2, color: "#3B82F6" },
+      { status: isArabic ? "نشط" : "Active", count: 1, color: "#EF4444" },
+      { status: isArabic ? "مخفف" : "Mitigated", count: 3, color: "#10B981" },
+    ];
     return (
-      <div className="flex items-center justify-center h-[250px] text-muted-foreground">
-        <div className="text-center">
-          <Shield className="w-10 h-10 mx-auto mb-2 opacity-40" />
-          <p>{isArabic ? "لا توجد مخاطر مسجلة" : "No risks recorded"}</p>
+      <div className="relative h-[250px]">
+        <div className="opacity-10 pointer-events-none h-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsPie>
+              <Pie data={placeholderByStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="count">
+                {placeholderByStatus.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
+                ))}
+              </Pie>
+            </RechartsPie>
+          </ResponsiveContainer>
+        </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <Shield className="w-10 h-10 text-muted-foreground/50 mb-2 animate-pulse" />
+          <p className="text-sm text-muted-foreground font-medium">{isArabic ? "لا توجد مخاطر مسجلة" : "No risks recorded"}</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">{isArabic ? "أضف مخاطر لتتبع وإدارة المشروع" : "Add risks to track & manage your project"}</p>
         </div>
       </div>
     );
@@ -492,7 +529,7 @@ const SmartAlertsBanner = memo(({ expiringContracts, overduePayments, isArabic, 
 SmartAlertsBanner.displayName = "SmartAlertsBanner";
 
 // Dashboard Smart Suggestions
-const DashboardSuggestions = memo(({ stats, isArabic, navigate }: { stats: DashboardStats; isArabic: boolean; navigate: (path: string) => void }) => {
+const DashboardSuggestions = memo(({ stats, kpiData, isArabic, navigate }: { stats: DashboardStats; kpiData: KPIData; isArabic: boolean; navigate: (path: string) => void }) => {
   const suggestions = useMemo(() => {
     const list: { id: string; icon: React.ReactNode; text: string; action: () => void; actionLabel: string }[] = [];
     
@@ -502,17 +539,29 @@ const DashboardSuggestions = memo(({ stats, isArabic, navigate }: { stats: Dashb
     if (stats.totalProjects > 0 && stats.totalQuotations === 0) {
       list.push({ id: 'no_quotations', icon: <Receipt className="h-4 w-4" />, text: isArabic ? 'أضف عروض أسعار لمقارنة الموردين' : 'Add quotations to compare suppliers', action: () => navigate('/quotations'), actionLabel: isArabic ? 'العروض' : 'Quotations' });
     }
-    if (stats.activeContracts === 0 && stats.totalProjects > 2) {
-      list.push({ id: 'no_contracts', icon: <FileSignature className="h-4 w-4" />, text: isArabic ? 'أضف عقوداً لتتبع التنفيذ والمدفوعات' : 'Add contracts to track execution & payments', action: () => navigate('/contracts'), actionLabel: isArabic ? 'العقود' : 'Contracts' });
+    if (stats.activeContracts === 0 && stats.totalProjects > 0) {
+      list.push({ id: 'no_contracts', icon: <FileSignature className="h-4 w-4" />, text: isArabic ? 'اربط مشاريعك بعقود للتتبع' : 'Link projects to contracts for tracking', action: () => navigate('/contracts'), actionLabel: isArabic ? 'العقود' : 'Contracts' });
+    }
+    if (stats.expiringContracts.length > 0) {
+      list.push({ id: 'expiring_contracts', icon: <AlertTriangle className="h-4 w-4" />, text: isArabic ? `${stats.expiringContracts.length} عقود تنتهي قريباً - راجعها` : `${stats.expiringContracts.length} contracts expiring soon - review them`, action: () => navigate('/contracts'), actionLabel: isArabic ? 'مراجعة' : 'Review' });
+    }
+    if (stats.overduePayments.length > 0) {
+      list.push({ id: 'overdue_payments', icon: <DollarSign className="h-4 w-4" />, text: isArabic ? `${stats.overduePayments.length} دفعات متأخرة تحتاج متابعة` : `${stats.overduePayments.length} overdue payments need follow-up`, action: () => navigate('/contracts'), actionLabel: isArabic ? 'متابعة' : 'Follow up' });
+    }
+    if (stats.riskCount > 3) {
+      list.push({ id: 'many_risks', icon: <ShieldAlert className="h-4 w-4" />, text: isArabic ? 'مخاطر متعددة نشطة - راجع خطة التخفيف' : 'Multiple active risks - review mitigation plan', action: () => navigate('/risk'), actionLabel: isArabic ? 'المخاطر' : 'Risks' });
     }
     if (stats.riskCount === 0 && stats.totalProjects > 1) {
-      list.push({ id: 'no_risks', icon: <Shield className="h-4 w-4" />, text: isArabic ? 'فعّل إدارة المخاطر لمشاريعك' : 'Enable risk management for your projects', action: () => navigate('/risk'), actionLabel: isArabic ? 'المخاطر' : 'Risks' });
+      list.push({ id: 'no_risks', icon: <Shield className="h-4 w-4" />, text: isArabic ? 'فعّل تحليل المخاطر التلقائي' : 'Enable automatic risk analysis', action: () => navigate('/risk'), actionLabel: isArabic ? 'المخاطر' : 'Risks' });
+    }
+    if (kpiData.pricingEfficiency < 50 && stats.totalProjects > 0) {
+      list.push({ id: 'low_pricing', icon: <Target className="h-4 w-4" />, text: isArabic ? 'أكثر من نصف البنود بدون تسعير - حسّن الكفاءة' : 'Over half of items are unpriced - improve efficiency', action: () => navigate('/library'), actionLabel: isArabic ? 'المكتبة' : 'Library' });
     }
     if (stats.totalProjects > 5) {
       list.push({ id: 'try_reports', icon: <BarChart3 className="h-4 w-4" />, text: isArabic ? 'استخدم التقارير المقارنة لتحليل مشاريعك' : 'Use comparison reports to analyze your projects', action: () => navigate('/saved-projects?tab=reports'), actionLabel: isArabic ? 'التقارير' : 'Reports' });
     }
-    return list.slice(0, 3);
-  }, [stats, isArabic, navigate]);
+    return list.slice(0, 4);
+  }, [stats, kpiData, isArabic, navigate]);
 
   if (suggestions.length === 0) return null;
   return <SmartSuggestionsBannerComponent suggestions={suggestions} />;
@@ -1047,8 +1096,57 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             onNavigate={navigate} 
           />
 
+          {/* Welcome Banner */}
+          <Card className="rounded-2xl border-0 bg-gradient-to-r from-primary/5 via-primary/10 to-transparent">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">
+                    {new Date().getHours() < 12 
+                      ? (isArabic ? "صباح الخير 👋" : "Good Morning 👋")
+                      : new Date().getHours() < 18
+                      ? (isArabic ? "مساء الخير 👋" : "Good Afternoon 👋")
+                      : (isArabic ? "مساء الخير 👋" : "Good Evening 👋")
+                    }
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {isArabic 
+                      ? `لديك ${stats.totalProjects} مشروع و ${stats.activeContracts} عقد نشط و ${stats.riskCount} مخاطر تحتاج متابعة`
+                      : `You have ${stats.totalProjects} projects, ${stats.activeContracts} active contracts, and ${stats.riskCount} risks to monitor`
+                    }
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">{isArabic ? "اكتمال الملف" : "Profile Completion"}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Progress value={(() => {
+                        let score = 0;
+                        if (stats.totalProjects > 0) score += 25;
+                        if (stats.activeContracts > 0) score += 25;
+                        if (stats.riskCount > 0 || stats.totalProjects === 0) score += 25;
+                        if (stats.totalQuotations > 0) score += 25;
+                        return score;
+                      })()} className="h-2 w-24" />
+                      <span className="text-xs font-medium text-foreground">
+                        {(() => {
+                          let score = 0;
+                          if (stats.totalProjects > 0) score += 25;
+                          if (stats.activeContracts > 0) score += 25;
+                          if (stats.riskCount > 0 || stats.totalProjects === 0) score += 25;
+                          if (stats.totalQuotations > 0) score += 25;
+                          return score;
+                        })()}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Smart Suggestions */}
-          <DashboardSuggestions stats={stats} isArabic={isArabic} navigate={navigate} />
+          <DashboardSuggestions stats={stats} kpiData={kpiData} isArabic={isArabic} navigate={navigate} />
 
           {/* Stats Cards - 6 cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1107,12 +1205,14 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
           </div>
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
               { icon: Plus, label: isArabic ? "مشروع جديد" : "New Project", path: "/analysis", color: "text-blue-500", bg: "bg-blue-500/10 hover:bg-blue-500/20" },
               { icon: Upload, label: isArabic ? "رفع عرض سعر" : "Upload Quotation", path: "/quotations", color: "text-emerald-500", bg: "bg-emerald-500/10 hover:bg-emerald-500/20" },
               { icon: Library, label: isArabic ? "المكتبة" : "Library", path: "/library", color: "text-purple-500", bg: "bg-purple-500/10 hover:bg-purple-500/20" },
               { icon: BarChart3, label: isArabic ? "التقارير" : "Reports", path: "/reports", color: "text-amber-500", bg: "bg-amber-500/10 hover:bg-amber-500/20" },
+              { icon: ImageIcon, label: isArabic ? "تحليل المخططات" : "Drawing Analysis", path: "/drawing-analysis", color: "text-cyan-500", bg: "bg-cyan-500/10 hover:bg-cyan-500/20" },
+              { icon: FileCheck, label: isArabic ? "المستخلصات" : "Certificates", path: "/progress-certificates", color: "text-rose-500", bg: "bg-rose-500/10 hover:bg-rose-500/20" },
             ].map((action) => (
               <button
                 key={action.path}
