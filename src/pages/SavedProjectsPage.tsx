@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { ProjectData, ProjectItem, sanitizeItemPrice, getSafeProjectTotal, formatLargeNumber, computeSafeTotalFromItems } from "@/lib/project-utils";
 import { ProjectCard } from "@/components/projects/ProjectCard";
 import { ProjectQuickView } from "@/components/projects/ProjectQuickView";
+import { TechnicalOfferTab } from "@/components/projects/TechnicalOfferTab";
 
 // Lazy load heavy tab components
 const BOQAnalyzerPanel = lazy(() => import("@/components/BOQAnalyzerPanel").then(m => ({ default: m.BOQAnalyzerPanel })));
@@ -84,7 +85,8 @@ export default function SavedProjectsPage() {
   const urlMode = searchParams.get("mode");
   const initialTab = urlTab === "reports" ? "reports" :
                      urlTab === "attachments" ? "attachments" :
-                     urlTab === "analyze" ? "analyze" : "projects";
+                     urlTab === "analyze" ? "analyze" :
+                     urlTab === "technical-offer" ? "technical-offer" : "projects";
   const [activeTab, setActiveTab] = useState(initialTab);
   const [extractionMode, setExtractionMode] = useState(urlMode === "extraction");
 
@@ -102,6 +104,7 @@ export default function SavedProjectsPage() {
       setActiveTab("attachments");
       if (mode === "extraction") setExtractionMode(true);
     } else if (tab === "analyze") setActiveTab("analyze");
+    else if (tab === "technical-offer") setActiveTab("technical-offer");
     else setActiveTab("projects");
   }, [searchParams]);
 
@@ -579,23 +582,27 @@ export default function SavedProjectsPage() {
       <main className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <TabsList className="grid w-full sm:w-auto grid-cols-5 p-1 h-auto tabs-navigation-safe bg-muted/50 backdrop-blur-sm">
-              <TabsTrigger value="projects" className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50">
+            <TabsList className="grid w-full sm:w-auto grid-cols-6 p-1 h-auto tabs-navigation-safe bg-muted/50 backdrop-blur-sm">
+              <TabsTrigger value="projects" className="gap-2 py-2.5 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50">
                 <FolderOpen className="w-4 h-4" />
                 <span className="hidden sm:inline">{isArabic ? "المشاريع" : "Projects"}</span>
                 {projects.length > 0 && <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-primary/10 text-primary">{projects.length}</Badge>}
               </TabsTrigger>
-              <TabsTrigger value="analyze" className={cn("gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50", showNewProjectBanner && "ring-2 ring-primary/50 animate-pulse")}>
+              <TabsTrigger value="technical-offer" className="gap-2 py-2.5 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50">
+                <FileText className="w-4 h-4" />
+                <span className="hidden sm:inline">{isArabic ? "العرض الفني" : "Technical Offer"}</span>
+              </TabsTrigger>
+              <TabsTrigger value="analyze" className={cn("gap-2 py-2.5 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50", showNewProjectBanner && "ring-2 ring-primary/50 animate-pulse")}>
                 <Sparkles className={cn("w-4 h-4", showNewProjectBanner && "text-primary animate-bounce")} />
                 <span className="hidden sm:inline">{isArabic ? "تحليل BOQ" : "Analyze BOQ"}</span>
               </TabsTrigger>
-              <TabsTrigger value="reports" className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50">
+              <TabsTrigger value="reports" className="gap-2 py-2.5 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50">
                 <BarChart3 className="w-4 h-4" /><span className="hidden sm:inline">{isArabic ? "التقارير" : "Reports"}</span>
               </TabsTrigger>
-              <TabsTrigger value="attachments" className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50">
+              <TabsTrigger value="attachments" className="gap-2 py-2.5 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50">
                 <Paperclip className="w-4 h-4" /><span className="hidden sm:inline">{isArabic ? "المرفقات" : "Attachments"}</span>
               </TabsTrigger>
-              <TabsTrigger value="recycle-bin" className="gap-2 py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50">
+              <TabsTrigger value="recycle-bin" className="gap-2 py-2.5 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200 hover:bg-background/50">
                 <Trash2 className="w-4 h-4" /><span className="hidden sm:inline">{isArabic ? "المحذوفات" : "Recycle Bin"}</span>
               </TabsTrigger>
             </TabsList>
@@ -846,6 +853,8 @@ export default function SavedProjectsPage() {
               />
             </Suspense>
           </TabsContent>
+
+          <TabsContent value="technical-offer"><TechnicalOfferTab /></TabsContent>
 
           <TabsContent value="reports"><ReportsTab isArabic={isArabic} /></TabsContent>
           <TabsContent value="attachments"><AttachmentsTab initialExtractionMode={extractionMode} /></TabsContent>
