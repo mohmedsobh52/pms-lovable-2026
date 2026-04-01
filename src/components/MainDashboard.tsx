@@ -405,11 +405,28 @@ const RiskDistributionChart = memo(({ risksByStatus, risksByLevel, isArabic }: {
   const totalRisks = useMemo(() => risksByStatus.reduce((s, d) => s + d.count, 0), [risksByStatus]);
   
   if (totalRisks === 0) {
+    const placeholderByStatus = [
+      { status: isArabic ? "محدد" : "Identified", count: 2, color: "#3B82F6" },
+      { status: isArabic ? "نشط" : "Active", count: 1, color: "#EF4444" },
+      { status: isArabic ? "مخفف" : "Mitigated", count: 3, color: "#10B981" },
+    ];
     return (
-      <div className="flex items-center justify-center h-[250px] text-muted-foreground">
-        <div className="text-center">
-          <Shield className="w-10 h-10 mx-auto mb-2 opacity-40" />
-          <p>{isArabic ? "لا توجد مخاطر مسجلة" : "No risks recorded"}</p>
+      <div className="relative h-[250px]">
+        <div className="opacity-10 pointer-events-none h-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsPie>
+              <Pie data={placeholderByStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="count">
+                {placeholderByStatus.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
+                ))}
+              </Pie>
+            </RechartsPie>
+          </ResponsiveContainer>
+        </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <Shield className="w-10 h-10 text-muted-foreground/50 mb-2 animate-pulse" />
+          <p className="text-sm text-muted-foreground font-medium">{isArabic ? "لا توجد مخاطر مسجلة" : "No risks recorded"}</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">{isArabic ? "أضف مخاطر لتتبع وإدارة المشروع" : "Add risks to track & manage your project"}</p>
         </div>
       </div>
     );
