@@ -529,7 +529,7 @@ const SmartAlertsBanner = memo(({ expiringContracts, overduePayments, isArabic, 
 SmartAlertsBanner.displayName = "SmartAlertsBanner";
 
 // Dashboard Smart Suggestions
-const DashboardSuggestions = memo(({ stats, isArabic, navigate }: { stats: DashboardStats; isArabic: boolean; navigate: (path: string) => void }) => {
+const DashboardSuggestions = memo(({ stats, kpiData, isArabic, navigate }: { stats: DashboardStats; kpiData: KPIData; isArabic: boolean; navigate: (path: string) => void }) => {
   const suggestions = useMemo(() => {
     const list: { id: string; icon: React.ReactNode; text: string; action: () => void; actionLabel: string }[] = [];
     
@@ -539,17 +539,29 @@ const DashboardSuggestions = memo(({ stats, isArabic, navigate }: { stats: Dashb
     if (stats.totalProjects > 0 && stats.totalQuotations === 0) {
       list.push({ id: 'no_quotations', icon: <Receipt className="h-4 w-4" />, text: isArabic ? 'أضف عروض أسعار لمقارنة الموردين' : 'Add quotations to compare suppliers', action: () => navigate('/quotations'), actionLabel: isArabic ? 'العروض' : 'Quotations' });
     }
-    if (stats.activeContracts === 0 && stats.totalProjects > 2) {
-      list.push({ id: 'no_contracts', icon: <FileSignature className="h-4 w-4" />, text: isArabic ? 'أضف عقوداً لتتبع التنفيذ والمدفوعات' : 'Add contracts to track execution & payments', action: () => navigate('/contracts'), actionLabel: isArabic ? 'العقود' : 'Contracts' });
+    if (stats.activeContracts === 0 && stats.totalProjects > 0) {
+      list.push({ id: 'no_contracts', icon: <FileSignature className="h-4 w-4" />, text: isArabic ? 'اربط مشاريعك بعقود للتتبع' : 'Link projects to contracts for tracking', action: () => navigate('/contracts'), actionLabel: isArabic ? 'العقود' : 'Contracts' });
+    }
+    if (stats.expiringContracts.length > 0) {
+      list.push({ id: 'expiring_contracts', icon: <AlertTriangle className="h-4 w-4" />, text: isArabic ? `${stats.expiringContracts.length} عقود تنتهي قريباً - راجعها` : `${stats.expiringContracts.length} contracts expiring soon - review them`, action: () => navigate('/contracts'), actionLabel: isArabic ? 'مراجعة' : 'Review' });
+    }
+    if (stats.overduePayments.length > 0) {
+      list.push({ id: 'overdue_payments', icon: <DollarSign className="h-4 w-4" />, text: isArabic ? `${stats.overduePayments.length} دفعات متأخرة تحتاج متابعة` : `${stats.overduePayments.length} overdue payments need follow-up`, action: () => navigate('/contracts'), actionLabel: isArabic ? 'متابعة' : 'Follow up' });
+    }
+    if (stats.riskCount > 3) {
+      list.push({ id: 'many_risks', icon: <ShieldAlert className="h-4 w-4" />, text: isArabic ? 'مخاطر متعددة نشطة - راجع خطة التخفيف' : 'Multiple active risks - review mitigation plan', action: () => navigate('/risk'), actionLabel: isArabic ? 'المخاطر' : 'Risks' });
     }
     if (stats.riskCount === 0 && stats.totalProjects > 1) {
-      list.push({ id: 'no_risks', icon: <Shield className="h-4 w-4" />, text: isArabic ? 'فعّل إدارة المخاطر لمشاريعك' : 'Enable risk management for your projects', action: () => navigate('/risk'), actionLabel: isArabic ? 'المخاطر' : 'Risks' });
+      list.push({ id: 'no_risks', icon: <Shield className="h-4 w-4" />, text: isArabic ? 'فعّل تحليل المخاطر التلقائي' : 'Enable automatic risk analysis', action: () => navigate('/risk'), actionLabel: isArabic ? 'المخاطر' : 'Risks' });
+    }
+    if (kpiData.pricingEfficiency < 50 && stats.totalProjects > 0) {
+      list.push({ id: 'low_pricing', icon: <Target className="h-4 w-4" />, text: isArabic ? 'أكثر من نصف البنود بدون تسعير - حسّن الكفاءة' : 'Over half of items are unpriced - improve efficiency', action: () => navigate('/library'), actionLabel: isArabic ? 'المكتبة' : 'Library' });
     }
     if (stats.totalProjects > 5) {
       list.push({ id: 'try_reports', icon: <BarChart3 className="h-4 w-4" />, text: isArabic ? 'استخدم التقارير المقارنة لتحليل مشاريعك' : 'Use comparison reports to analyze your projects', action: () => navigate('/saved-projects?tab=reports'), actionLabel: isArabic ? 'التقارير' : 'Reports' });
     }
-    return list.slice(0, 3);
-  }, [stats, isArabic, navigate]);
+    return list.slice(0, 4);
+  }, [stats, kpiData, isArabic, navigate]);
 
   if (suggestions.length === 0) return null;
   return <SmartSuggestionsBannerComponent suggestions={suggestions} />;
