@@ -1096,8 +1096,57 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
             onNavigate={navigate} 
           />
 
+          {/* Welcome Banner */}
+          <Card className="rounded-2xl border-0 bg-gradient-to-r from-primary/5 via-primary/10 to-transparent">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">
+                    {new Date().getHours() < 12 
+                      ? (isArabic ? "صباح الخير 👋" : "Good Morning 👋")
+                      : new Date().getHours() < 18
+                      ? (isArabic ? "مساء الخير 👋" : "Good Afternoon 👋")
+                      : (isArabic ? "مساء الخير 👋" : "Good Evening 👋")
+                    }
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {isArabic 
+                      ? `لديك ${stats.totalProjects} مشروع و ${stats.activeContracts} عقد نشط و ${stats.riskCount} مخاطر تحتاج متابعة`
+                      : `You have ${stats.totalProjects} projects, ${stats.activeContracts} active contracts, and ${stats.riskCount} risks to monitor`
+                    }
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">{isArabic ? "اكتمال الملف" : "Profile Completion"}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Progress value={(() => {
+                        let score = 0;
+                        if (stats.totalProjects > 0) score += 25;
+                        if (stats.activeContracts > 0) score += 25;
+                        if (stats.riskCount > 0 || stats.totalProjects === 0) score += 25;
+                        if (stats.totalQuotations > 0) score += 25;
+                        return score;
+                      })()} className="h-2 w-24" />
+                      <span className="text-xs font-medium text-foreground">
+                        {(() => {
+                          let score = 0;
+                          if (stats.totalProjects > 0) score += 25;
+                          if (stats.activeContracts > 0) score += 25;
+                          if (stats.riskCount > 0 || stats.totalProjects === 0) score += 25;
+                          if (stats.totalQuotations > 0) score += 25;
+                          return score;
+                        })()}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Smart Suggestions */}
-          <DashboardSuggestions stats={stats} isArabic={isArabic} navigate={navigate} />
+          <DashboardSuggestions stats={stats} kpiData={kpiData} isArabic={isArabic} navigate={navigate} />
 
           {/* Stats Cards - 6 cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
