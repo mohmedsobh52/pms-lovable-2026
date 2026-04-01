@@ -854,6 +854,8 @@ export default function SavedProjectsPage() {
             </Suspense>
           </TabsContent>
 
+          <TabsContent value="technical-offer"><TechnicalOfferTab /></TabsContent>
+
           <TabsContent value="reports"><ReportsTab isArabic={isArabic} /></TabsContent>
           <TabsContent value="attachments"><AttachmentsTab initialExtractionMode={extractionMode} /></TabsContent>
           <TabsContent value="recycle-bin">
