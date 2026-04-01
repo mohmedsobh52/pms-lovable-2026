@@ -266,9 +266,29 @@ const QuotationStatusChart = memo(({ data, isArabic }: { data: any[]; isArabic: 
   const total = useMemo(() => data.reduce((s, d) => s + d.count, 0), [data]);
   
   if (data.length === 0) {
+    const placeholderData = [
+      { status: isArabic ? "قيد الانتظار" : "Pending", count: 3, rawStatus: "pending" },
+      { status: isArabic ? "معتمد" : "Approved", count: 2, rawStatus: "approved" },
+      { status: isArabic ? "قيد المراجعة" : "Under Review", count: 1, rawStatus: "under_review" },
+    ];
     return (
-      <div className="flex items-center justify-center h-[280px] text-muted-foreground">
-        {isArabic ? "لا توجد عروض أسعار" : "No quotations yet"}
+      <div className="relative h-[280px]">
+        <div className="opacity-15 pointer-events-none h-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsPie>
+              <Pie data={placeholderData} cx="50%" cy="50%" innerRadius={65} outerRadius={105} paddingAngle={4} dataKey="count">
+                {placeholderData.map((entry, index) => (
+                  <Cell key={index} fill={STATUS_COLORS[entry.rawStatus] || CHART_COLORS[index]} />
+                ))}
+              </Pie>
+            </RechartsPie>
+          </ResponsiveContainer>
+        </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <PieChart className="w-10 h-10 text-muted-foreground/50 mb-2 animate-pulse" />
+          <p className="text-sm text-muted-foreground font-medium">{isArabic ? "لا توجد عروض أسعار بعد" : "No quotations yet"}</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">{isArabic ? "أضف عروض أسعار لرؤية التوزيع" : "Add quotations to see distribution"}</p>
+        </div>
       </div>
     );
   }
