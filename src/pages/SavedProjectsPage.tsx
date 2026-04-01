@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { ProjectData, ProjectItem, sanitizeItemPrice, getSafeProjectTotal, formatLargeNumber, computeSafeTotalFromItems } from "@/lib/project-utils";
 import { ProjectCard } from "@/components/projects/ProjectCard";
 import { ProjectQuickView } from "@/components/projects/ProjectQuickView";
+import { TechnicalOfferTab } from "@/components/projects/TechnicalOfferTab";
 
 // Lazy load heavy tab components
 const BOQAnalyzerPanel = lazy(() => import("@/components/BOQAnalyzerPanel").then(m => ({ default: m.BOQAnalyzerPanel })));
