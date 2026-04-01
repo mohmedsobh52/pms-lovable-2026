@@ -1205,12 +1205,14 @@ export function MainDashboard({ onLoadProject }: MainDashboardProps) {
           </div>
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
               { icon: Plus, label: isArabic ? "مشروع جديد" : "New Project", path: "/analysis", color: "text-blue-500", bg: "bg-blue-500/10 hover:bg-blue-500/20" },
               { icon: Upload, label: isArabic ? "رفع عرض سعر" : "Upload Quotation", path: "/quotations", color: "text-emerald-500", bg: "bg-emerald-500/10 hover:bg-emerald-500/20" },
               { icon: Library, label: isArabic ? "المكتبة" : "Library", path: "/library", color: "text-purple-500", bg: "bg-purple-500/10 hover:bg-purple-500/20" },
               { icon: BarChart3, label: isArabic ? "التقارير" : "Reports", path: "/reports", color: "text-amber-500", bg: "bg-amber-500/10 hover:bg-amber-500/20" },
+              { icon: ImageIcon, label: isArabic ? "تحليل المخططات" : "Drawing Analysis", path: "/drawing-analysis", color: "text-cyan-500", bg: "bg-cyan-500/10 hover:bg-cyan-500/20" },
+              { icon: FileCheck, label: isArabic ? "المستخلصات" : "Certificates", path: "/progress-certificates", color: "text-rose-500", bg: "bg-rose-500/10 hover:bg-rose-500/20" },
             ].map((action) => (
               <button
                 key={action.path}
