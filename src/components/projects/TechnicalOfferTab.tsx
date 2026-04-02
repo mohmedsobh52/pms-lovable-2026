@@ -65,7 +65,7 @@ export function TechnicalOfferTab() {
   };
 
   const filteredProjects = projects.filter(p =>
-    p.project_name.toLowerCase().includes(searchQuery.toLowerCase())
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleProjectSelect = (project: SavedProject) => {
@@ -84,7 +84,7 @@ export function TechnicalOfferTab() {
       <TechnicalOfferSections
         onBack={() => setStep("select-project")}
         projectId={selectedProject.id}
-        projectName={selectedProject.project_name}
+        projectName={selectedProject.name}
       />
     );
   }
@@ -152,7 +152,7 @@ export function TechnicalOfferTab() {
                     {isSelected ? <CheckCircle2 className="w-5 h-5" /> : <FolderOpen className="w-5 h-5" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm truncate">{project.project_name}</h3>
+                    <h3 className="font-semibold text-sm truncate">{project.name}</h3>
                     <p className="text-muted-foreground text-xs mt-0.5">
                       {project.total_items} {isArabic ? "بند" : "items"} • {new Date(project.created_at).toLocaleDateString(isArabic ? "ar-SA" : "en-US")}
                     </p>
