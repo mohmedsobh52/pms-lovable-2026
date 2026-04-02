@@ -1,23 +1,17 @@
 import { useState } from "react";
-import { Sparkles, CloudUpload, FileText, ArrowLeft, Loader2 } from "lucide-react";
+import { Sparkles, CloudUpload, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/hooks/useLanguage";
-import { useNavigate } from "react-router-dom";
+import { TechnicalOfferSections } from "./TechnicalOfferSections";
 
 export function TechnicalOfferTab() {
   const { isArabic } = useLanguage();
-  const navigate = useNavigate();
-  const [isStarting, setIsStarting] = useState(false);
+  const [showSections, setShowSections] = useState(false);
 
-  const handleStartAI = () => {
-    setIsStarting(true);
-    // Navigate to a future AI offer creation flow
-    setTimeout(() => {
-      navigate("/projects/new");
-      setIsStarting(false);
-    }, 500);
-  };
+  if (showSections) {
+    return <TechnicalOfferSections onBack={() => setShowSections(false)} />;
+  }
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -46,12 +40,8 @@ export function TechnicalOfferTab() {
             ? "دع الذكاء الاصطناعي يُنشئ عرضك الفني الكامل"
             : "Let AI create your complete technical offer"}
         </p>
-        <Button size="lg" className="px-10" onClick={handleStartAI} disabled={isStarting}>
-          {isStarting ? (
-            <><Loader2 className="w-4 h-4 animate-spin me-2" />{isArabic ? "جارٍ البدء..." : "Starting..."}</>
-          ) : (
-            isArabic ? "ابدأ الآن" : "Start Now"
-          )}
+        <Button size="lg" className="px-10" onClick={() => setShowSections(true)}>
+          {isArabic ? "ابدأ الآن" : "Start Now"}
         </Button>
       </div>
 
