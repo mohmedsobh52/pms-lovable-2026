@@ -103,9 +103,11 @@ const initialSections: Section[] = [
 
 interface TechnicalOfferSectionsProps {
   onBack: () => void;
+  projectId: string;
+  projectName: string;
 }
 
-export function TechnicalOfferSections({ onBack }: TechnicalOfferSectionsProps) {
+export function TechnicalOfferSections({ onBack, projectId, projectName }: TechnicalOfferSectionsProps) {
   const { isArabic } = useLanguage();
   const navigate = useNavigate();
   const [sections, setSections] = useState<Section[]>(initialSections);
@@ -125,8 +127,7 @@ export function TechnicalOfferSections({ onBack }: TechnicalOfferSectionsProps) 
 
   const handleContinue = () => {
     const selectedSections = sections.filter(s => s.enabled).map(s => s.id);
-    // Store selected sections and navigate - for now show toast
-    navigate("/projects/new", { state: { technicalOfferSections: selectedSections } });
+    navigate(`/projects/${projectId}`, { state: { technicalOfferSections: selectedSections } });
   };
 
   return (
