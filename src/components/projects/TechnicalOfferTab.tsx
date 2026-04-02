@@ -39,7 +39,8 @@ export function TechnicalOfferTab() {
     try {
       const { data } = await supabase
         .from("saved_projects")
-        .select("id, project_name, created_at")
+        .select("id, name, created_at")
+        .eq("is_deleted", false)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
