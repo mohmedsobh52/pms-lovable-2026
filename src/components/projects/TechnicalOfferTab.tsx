@@ -11,7 +11,7 @@ import { TechnicalOfferSections } from "./TechnicalOfferSections";
 
 interface SavedProject {
   id: string;
-  project_name: string;
+  name: string;
   created_at: string;
   total_items?: number;
 }
