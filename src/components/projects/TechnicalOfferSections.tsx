@@ -179,7 +179,7 @@ export function TechnicalOfferSections({ onBack }: TechnicalOfferSectionsProps) 
               "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
               section.source === "ai"
                 ? "bg-primary/15 text-primary"
-                : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                : "bg-accent text-accent-foreground"
             )}>
               {section.icon}
             </div>
