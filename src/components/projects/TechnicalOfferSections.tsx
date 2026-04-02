@@ -195,8 +195,8 @@ export function TechnicalOfferSections({ onBack }: TechnicalOfferSectionsProps) 
                   className={cn(
                     "text-xs shrink-0",
                     section.source === "ai"
-                      ? "border-primary/40 text-primary bg-primary/10"
-                      : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+                    ? "border-primary/40 text-primary bg-primary/10"
+                      : "border-accent text-accent-foreground bg-accent/50"
                   )}
                 >
                   {section.source === "ai"
