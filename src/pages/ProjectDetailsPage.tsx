@@ -691,6 +691,8 @@ export default function ProjectDetailsPage() {
           .update({
             name: editForm.name.trim(),
             analysis_data: updatedAnalysisData,
+            total_value: pricingStats.totalValue,
+            items_count: pricingStats.totalItems,
             updated_at: new Date().toISOString()
           })
           .eq("id", projectId);
@@ -702,6 +704,8 @@ export default function ProjectDetailsPage() {
             name: editForm.name.trim(),
             currency: editForm.currency,
             analysis_data: updatedAnalysisData,
+            total_value: pricingStats.totalValue,
+            items_count: pricingStats.totalItems,
             updated_at: new Date().toISOString()
           })
           .eq("id", projectId);
@@ -712,9 +716,17 @@ export default function ProjectDetailsPage() {
         ...prev,
         name: editForm.name.trim(),
         currency: editForm.currency,
+        total_value: pricingStats.totalValue,
+        items_count: pricingStats.totalItems,
         analysis_data: updatedAnalysisData,
         updated_at: new Date().toISOString()
       } : null);
+
+      // Update saved snapshot to mark changes as saved
+      const currentSnapshot = JSON.stringify({ items: items.map(i => ({ id: i.id, unit_price: i.unit_price, total_price: i.total_price, quantity: i.quantity, description: i.description })), editForm });
+      savedSnapshotRef.current = currentSnapshot;
+      setHasUnsavedChanges(false);
+      setLastSaved(new Date());
 
       setIsEditing(false);
       toast({
