@@ -1663,12 +1663,12 @@ const REFERENCE_PRICES: Record<string, {
   // ========================
   // ADDITIONAL FINISHING
   // ========================
-  "raised_floor": {
+  "raised_floor_steel": {
     min: 250, max: 550, unit: "m²",
-    description: "Raised access floor",
+    description: "Steel raised access floor with panels",
     category: "Finishing", categoryAr: "تشطيبات",
-    keywords: ["raised floor", "access floor", "raised access"],
-    keywordsAr: ["أرضية مرفوعة"]
+    keywords: ["steel raised floor", "data center floor"],
+    keywordsAr: ["أرضية مرفوعة معدنية", "أرضية غرف سيرفر"]
   },
   "skirting_tile": {
     min: 35, max: 80, unit: "m",
