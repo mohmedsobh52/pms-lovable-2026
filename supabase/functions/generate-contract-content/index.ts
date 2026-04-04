@@ -227,7 +227,7 @@ Generate the content directly without any introduction or explanation.`;
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Generate ${fieldLabels[field]?.[language] || field} for this ${isArabic ? contractTypeInfo.ar : contractTypeInfo.en} contract titled "${contract_title || 'Construction Contract'}".` }
+          { role: "user", content: `Generate ${(fieldLabels as any)[field]?.[language] || field} for this ${isArabic ? contractTypeInfo.ar : contractTypeInfo.en} contract titled "${contract_title || 'Construction Contract'}".` }
         ],
       }),
     });

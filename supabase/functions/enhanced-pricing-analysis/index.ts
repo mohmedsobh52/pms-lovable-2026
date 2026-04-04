@@ -1772,12 +1772,12 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["shower", "shower set", "rain shower"],
     keywordsAr: ["دش", "شاور"]
   },
-  "kitchen_sink": {
+  "kitchen_sink_double": {
     min: 500, max: 2000, unit: "no",
-    description: "Kitchen sink with mixer",
+    description: "Double bowl kitchen sink with mixer",
     category: "MEP", categoryAr: "كهروميكانيكا",
-    keywords: ["kitchen sink", "double sink"],
-    keywordsAr: ["حوض مطبخ"]
+    keywords: ["double bowl sink", "stainless sink"],
+    keywordsAr: ["حوض مطبخ مزدوج", "حوض ستانلس"]
   },
   "floor_drain": {
     min: 80, max: 250, unit: "no",
