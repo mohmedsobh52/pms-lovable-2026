@@ -1568,12 +1568,12 @@ const REFERENCE_PRICES: Record<string, {
   // ========================
   // ADDITIONAL MEP ITEMS
   // ========================
-  "ups_system": {
+  "ups_system_online": {
     min: 2000, max: 8000, unit: "kVA",
-    description: "UPS system",
+    description: "Online UPS system",
     category: "MEP", categoryAr: "كهروميكانيكا",
-    keywords: ["ups", "uninterruptible power", "battery backup"],
-    keywordsAr: ["يو بي إس", "طاقة احتياطية"]
+    keywords: ["online ups", "double conversion ups"],
+    keywordsAr: ["يو بي إس أونلاين", "طاقة احتياطية متصلة"]
   },
   "generator_diesel": {
     min: 800, max: 2500, unit: "kVA",
