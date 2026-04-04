@@ -169,7 +169,7 @@ serve(async (req) => {
 
     const systemPrompt = `You are a construction contract specialist with expertise in FIDIC contracts, Saudi Arabian construction law, and international best practices.
 
-Generate professional ${fieldLabels[field]?.[language] || field} content for a construction contract.
+Generate professional ${(fieldLabels as any)[field]?.[language] || field} content for a construction contract.
 
 Contract Details:
 - Type: ${isArabic ? contractTypeInfo.ar : contractTypeInfo.en}
