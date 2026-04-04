@@ -1617,12 +1617,12 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["air handling unit", "ahu", "air handler"],
     keywordsAr: ["وحدة مناولة هواء"]
   },
-  "chiller": {
+  "chiller_water_cooled": {
     min: 800, max: 2500, unit: "TR",
     description: "Water-cooled chiller per TR",
     category: "MEP", categoryAr: "كهروميكانيكا",
-    keywords: ["chiller", "water chiller", "air cooled chiller"],
-    keywordsAr: ["تشيلر", "مبرد مياه"]
+    keywords: ["water cooled chiller", "centrifugal chiller"],
+    keywordsAr: ["تشيلر مائي", "مبرد مركزي"]
   },
   "cooling_tower": {
     min: 500, max: 1500, unit: "TR",
