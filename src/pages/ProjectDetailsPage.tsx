@@ -1037,8 +1037,9 @@ export default function ProjectDetailsPage() {
   }, [project, isArabic, toast]);
 
   const formatCurrency = (value: number) => {
+    if (value === 0) return '0';
     return new Intl.NumberFormat(isArabic ? 'ar-SA' : 'en-US', {
-      minimumFractionDigits: 2,
+      minimumFractionDigits: value >= 1000 ? 0 : 2,
       maximumFractionDigits: 2,
     }).format(value);
   };
