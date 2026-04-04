@@ -1465,12 +1465,12 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["bms", "building management", "building automation", "bas"],
     keywordsAr: ["نظام إدارة المبنى", "أتمتة المبنى"]
   },
-  "access_control": {
+  "access_control_biometric": {
     min: 3500, max: 8000, unit: "no",
-    description: "Access control point",
+    description: "Biometric access control point",
     category: "MEP", categoryAr: "كهروميكانيكا",
-    keywords: ["access control", "card reader", "biometric"],
-    keywordsAr: ["تحكم دخول", "بصمة"]
+    keywords: ["biometric access", "card reader biometric"],
+    keywordsAr: ["تحكم دخول بيومتري", "بصمة دخول"]
   },
   "ip_camera": {
     min: 2500, max: 6000, unit: "no",
