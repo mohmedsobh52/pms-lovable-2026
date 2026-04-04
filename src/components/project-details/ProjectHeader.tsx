@@ -61,13 +61,7 @@ export function ProjectHeader({
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => {
-                  if (window.history.length > 2) {
-                    navigate(-1);
-                  } else {
-                    navigate('/projects');
-                  }
-                }}
+                onClick={handleBack}
                 className="gap-1.5"
               >
                 <ArrowLeft className="w-4 h-4" />
