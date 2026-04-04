@@ -1465,12 +1465,12 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["bms", "building management", "building automation", "bas"],
     keywordsAr: ["نظام إدارة المبنى", "أتمتة المبنى"]
   },
-  "access_control": {
+  "access_control_biometric": {
     min: 3500, max: 8000, unit: "no",
-    description: "Access control point",
+    description: "Biometric access control point",
     category: "MEP", categoryAr: "كهروميكانيكا",
-    keywords: ["access control", "card reader", "biometric"],
-    keywordsAr: ["تحكم دخول", "بصمة"]
+    keywords: ["biometric access", "card reader biometric"],
+    keywordsAr: ["تحكم دخول بيومتري", "بصمة دخول"]
   },
   "ip_camera": {
     min: 2500, max: 6000, unit: "no",
@@ -1529,19 +1529,19 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["jersey barrier", "concrete barrier", "road barrier", "new jersey"],
     keywordsAr: ["حاجز خرساني", "حاجز طريق"]
   },
-  "road_marking": {
+  "road_marking_thermoplastic": {
     min: 8, max: 25, unit: "m",
-    description: "Road marking/line painting",
+    description: "Thermoplastic road marking",
     category: "Infrastructure", categoryAr: "بنية تحتية",
-    keywords: ["road marking", "line marking", "lane marking", "road paint"],
-    keywordsAr: ["خطوط طرق", "علامات طريق"]
+    keywords: ["thermoplastic marking", "reflective marking"],
+    keywordsAr: ["خطوط حرارية", "علامات عاكسة"]
   },
-  "speed_bump": {
+  "speed_bump_rubber": {
     min: 800, max: 2500, unit: "no",
-    description: "Speed bump/hump",
+    description: "Rubber speed bump",
     category: "Infrastructure", categoryAr: "بنية تحتية",
-    keywords: ["speed bump", "speed hump", "road hump"],
-    keywordsAr: ["مطب", "مطب صناعي"]
+    keywords: ["rubber bump", "portable speed bump"],
+    keywordsAr: ["مطب مطاطي", "مطب متنقل"]
   },
   "traffic_signal": {
     min: 25000, max: 80000, unit: "no",
@@ -1550,12 +1550,12 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["traffic signal", "traffic light"],
     keywordsAr: ["إشارة مرور", "إشارة ضوئية"]
   },
-  "street_light_pole": {
+  "street_light_led": {
     min: 3500, max: 8000, unit: "no",
-    description: "Street light pole with fixture",
+    description: "LED street light pole with fixture",
     category: "Infrastructure", categoryAr: "بنية تحتية",
-    keywords: ["street light", "light pole", "lamp post", "road light"],
-    keywordsAr: ["إنارة شوارع", "عمود إنارة"]
+    keywords: ["led street light", "led lamp post"],
+    keywordsAr: ["إنارة ليد", "عمود إنارة ليد"]
   },
   "bollard": {
     min: 500, max: 1500, unit: "no",
@@ -1568,12 +1568,12 @@ const REFERENCE_PRICES: Record<string, {
   // ========================
   // ADDITIONAL MEP ITEMS
   // ========================
-  "ups_system": {
+  "ups_system_online": {
     min: 2000, max: 8000, unit: "kVA",
-    description: "UPS system",
+    description: "Online UPS system",
     category: "MEP", categoryAr: "كهروميكانيكا",
-    keywords: ["ups", "uninterruptible power", "battery backup"],
-    keywordsAr: ["يو بي إس", "طاقة احتياطية"]
+    keywords: ["online ups", "double conversion ups"],
+    keywordsAr: ["يو بي إس أونلاين", "طاقة احتياطية متصلة"]
   },
   "generator_diesel": {
     min: 800, max: 2500, unit: "kVA",
@@ -1596,12 +1596,12 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["solar water heater", "solar heater"],
     keywordsAr: ["سخان شمسي"]
   },
-  "water_pump": {
+  "water_pump_booster": {
     min: 3500, max: 12000, unit: "no",
-    description: "Water pump with motor",
+    description: "Booster water pump with motor",
     category: "MEP", categoryAr: "كهروميكانيكا",
-    keywords: ["water pump", "booster pump", "submersible pump"],
-    keywordsAr: ["مضخة مياه", "مضخة غاطسة"]
+    keywords: ["booster pump", "pressure pump"],
+    keywordsAr: ["مضخة ضغط", "مضخة تعزيز"]
   },
   "sewage_pump": {
     min: 5000, max: 15000, unit: "no",
@@ -1617,12 +1617,12 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["air handling unit", "ahu", "air handler"],
     keywordsAr: ["وحدة مناولة هواء"]
   },
-  "chiller": {
+  "chiller_water_cooled": {
     min: 800, max: 2500, unit: "TR",
     description: "Water-cooled chiller per TR",
     category: "MEP", categoryAr: "كهروميكانيكا",
-    keywords: ["chiller", "water chiller", "air cooled chiller"],
-    keywordsAr: ["تشيلر", "مبرد مياه"]
+    keywords: ["water cooled chiller", "centrifugal chiller"],
+    keywordsAr: ["تشيلر مائي", "مبرد مركزي"]
   },
   "cooling_tower": {
     min: 500, max: 1500, unit: "TR",
@@ -1638,12 +1638,12 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["gi duct", "galvanized duct", "hvac duct", "air duct"],
     keywordsAr: ["مجرى هواء", "دكت"]
   },
-  "duct_insulation": {
+  "duct_insulation_thermal": {
     min: 35, max: 80, unit: "m²",
-    description: "Duct insulation",
+    description: "Thermal duct insulation with vapor barrier",
     category: "MEP", categoryAr: "كهروميكانيكا",
-    keywords: ["duct insulation", "thermal duct insulation"],
-    keywordsAr: ["عزل مجاري هواء", "عزل دكت"]
+    keywords: ["thermal insulation duct", "vapor barrier duct"],
+    keywordsAr: ["عزل حراري دكت", "عزل بخار دكت"]
   },
   "diffuser_supply": {
     min: 150, max: 450, unit: "no",
@@ -1663,12 +1663,12 @@ const REFERENCE_PRICES: Record<string, {
   // ========================
   // ADDITIONAL FINISHING
   // ========================
-  "raised_floor": {
+  "raised_floor_steel": {
     min: 250, max: 550, unit: "m²",
-    description: "Raised access floor",
+    description: "Steel raised access floor with panels",
     category: "Finishing", categoryAr: "تشطيبات",
-    keywords: ["raised floor", "access floor", "raised access"],
-    keywordsAr: ["أرضية مرفوعة"]
+    keywords: ["steel raised floor", "data center floor"],
+    keywordsAr: ["أرضية مرفوعة معدنية", "أرضية غرف سيرفر"]
   },
   "skirting_tile": {
     min: 35, max: 80, unit: "m",
@@ -1772,12 +1772,12 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["shower", "shower set", "rain shower"],
     keywordsAr: ["دش", "شاور"]
   },
-  "kitchen_sink": {
+  "kitchen_sink_double": {
     min: 500, max: 2000, unit: "no",
-    description: "Kitchen sink with mixer",
+    description: "Double bowl kitchen sink with mixer",
     category: "MEP", categoryAr: "كهروميكانيكا",
-    keywords: ["kitchen sink", "double sink"],
-    keywordsAr: ["حوض مطبخ"]
+    keywords: ["double bowl sink", "stainless sink"],
+    keywordsAr: ["حوض مطبخ مزدوج", "حوض ستانلس"]
   },
   "floor_drain": {
     min: 80, max: 250, unit: "no",
