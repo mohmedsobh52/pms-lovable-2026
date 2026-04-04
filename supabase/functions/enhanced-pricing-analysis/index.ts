@@ -1529,19 +1529,19 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["jersey barrier", "concrete barrier", "road barrier", "new jersey"],
     keywordsAr: ["حاجز خرساني", "حاجز طريق"]
   },
-  "road_marking": {
+  "road_marking_thermoplastic": {
     min: 8, max: 25, unit: "m",
-    description: "Road marking/line painting",
+    description: "Thermoplastic road marking",
     category: "Infrastructure", categoryAr: "بنية تحتية",
-    keywords: ["road marking", "line marking", "lane marking", "road paint"],
-    keywordsAr: ["خطوط طرق", "علامات طريق"]
+    keywords: ["thermoplastic marking", "reflective marking"],
+    keywordsAr: ["خطوط حرارية", "علامات عاكسة"]
   },
-  "speed_bump": {
+  "speed_bump_rubber": {
     min: 800, max: 2500, unit: "no",
-    description: "Speed bump/hump",
+    description: "Rubber speed bump",
     category: "Infrastructure", categoryAr: "بنية تحتية",
-    keywords: ["speed bump", "speed hump", "road hump"],
-    keywordsAr: ["مطب", "مطب صناعي"]
+    keywords: ["rubber bump", "portable speed bump"],
+    keywordsAr: ["مطب مطاطي", "مطب متنقل"]
   },
   "traffic_signal": {
     min: 25000, max: 80000, unit: "no",
