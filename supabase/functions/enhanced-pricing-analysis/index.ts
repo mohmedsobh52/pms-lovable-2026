@@ -1550,12 +1550,12 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["traffic signal", "traffic light"],
     keywordsAr: ["إشارة مرور", "إشارة ضوئية"]
   },
-  "street_light_pole": {
+  "street_light_led": {
     min: 3500, max: 8000, unit: "no",
-    description: "Street light pole with fixture",
+    description: "LED street light pole with fixture",
     category: "Infrastructure", categoryAr: "بنية تحتية",
-    keywords: ["street light", "light pole", "lamp post", "road light"],
-    keywordsAr: ["إنارة شوارع", "عمود إنارة"]
+    keywords: ["led street light", "led lamp post"],
+    keywordsAr: ["إنارة ليد", "عمود إنارة ليد"]
   },
   "bollard": {
     min: 500, max: 1500, unit: "no",
