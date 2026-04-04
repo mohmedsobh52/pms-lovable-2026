@@ -1596,12 +1596,12 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["solar water heater", "solar heater"],
     keywordsAr: ["سخان شمسي"]
   },
-  "water_pump": {
+  "water_pump_booster": {
     min: 3500, max: 12000, unit: "no",
-    description: "Water pump with motor",
+    description: "Booster water pump with motor",
     category: "MEP", categoryAr: "كهروميكانيكا",
-    keywords: ["water pump", "booster pump", "submersible pump"],
-    keywordsAr: ["مضخة مياه", "مضخة غاطسة"]
+    keywords: ["booster pump", "pressure pump"],
+    keywordsAr: ["مضخة ضغط", "مضخة تعزيز"]
   },
   "sewage_pump": {
     min: 5000, max: 15000, unit: "no",
