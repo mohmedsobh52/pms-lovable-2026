@@ -1638,12 +1638,12 @@ const REFERENCE_PRICES: Record<string, {
     keywords: ["gi duct", "galvanized duct", "hvac duct", "air duct"],
     keywordsAr: ["مجرى هواء", "دكت"]
   },
-  "duct_insulation": {
+  "duct_insulation_thermal": {
     min: 35, max: 80, unit: "m²",
-    description: "Duct insulation",
+    description: "Thermal duct insulation with vapor barrier",
     category: "MEP", categoryAr: "كهروميكانيكا",
-    keywords: ["duct insulation", "thermal duct insulation"],
-    keywordsAr: ["عزل مجاري هواء", "عزل دكت"]
+    keywords: ["thermal insulation duct", "vapor barrier duct"],
+    keywordsAr: ["عزل حراري دكت", "عزل بخار دكت"]
   },
   "diffuser_supply": {
     min: 150, max: 450, unit: "no",
