@@ -26,6 +26,7 @@ interface ProjectHeaderProps {
   onStartPricing: () => void;
   onEditProject: () => void;
   formatCurrency: (value: number) => string;
+  onNavigateAway?: (path: string) => void;
 }
 
 export function ProjectHeader({
