@@ -26,6 +26,7 @@ interface ProjectHeaderProps {
   onStartPricing: () => void;
   onEditProject: () => void;
   formatCurrency: (value: number) => string;
+  onNavigateAway?: (path: string) => void;
 }
 
 export function ProjectHeader({
@@ -35,10 +36,20 @@ export function ProjectHeader({
   onStartPricing,
   onEditProject,
   formatCurrency,
+  onNavigateAway,
 }: ProjectHeaderProps) {
   const navigate = useNavigate();
   const projectStatus = "draft";
   const statusInfo = statusConfig[projectStatus as keyof typeof statusConfig];
+
+  const handleBack = () => {
+    const target = window.history.length > 2 ? undefined : '/projects';
+    if (onNavigateAway) {
+      onNavigateAway(target || '/projects');
+    } else {
+      target ? navigate(target) : navigate(-1);
+    }
+  };
 
   return (
     <>
@@ -50,13 +61,7 @@ export function ProjectHeader({
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => {
-                  if (window.history.length > 2) {
-                    navigate(-1);
-                  } else {
-                    navigate('/projects');
-                  }
-                }}
+                onClick={handleBack}
                 className="gap-1.5"
               >
                 <ArrowLeft className="w-4 h-4" />

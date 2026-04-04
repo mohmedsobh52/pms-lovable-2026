@@ -691,6 +691,8 @@ export default function ProjectDetailsPage() {
           .update({
             name: editForm.name.trim(),
             analysis_data: updatedAnalysisData,
+            total_value: pricingStats.totalValue,
+            items_count: pricingStats.totalItems,
             updated_at: new Date().toISOString()
           })
           .eq("id", projectId);
@@ -702,6 +704,8 @@ export default function ProjectDetailsPage() {
             name: editForm.name.trim(),
             currency: editForm.currency,
             analysis_data: updatedAnalysisData,
+            total_value: pricingStats.totalValue,
+            items_count: pricingStats.totalItems,
             updated_at: new Date().toISOString()
           })
           .eq("id", projectId);
@@ -712,9 +716,17 @@ export default function ProjectDetailsPage() {
         ...prev,
         name: editForm.name.trim(),
         currency: editForm.currency,
+        total_value: pricingStats.totalValue,
+        items_count: pricingStats.totalItems,
         analysis_data: updatedAnalysisData,
         updated_at: new Date().toISOString()
       } : null);
+
+      // Update saved snapshot to mark changes as saved
+      const currentSnapshot = JSON.stringify({ items: items.map(i => ({ id: i.id, unit_price: i.unit_price, total_price: i.total_price, quantity: i.quantity, description: i.description })), editForm });
+      savedSnapshotRef.current = currentSnapshot;
+      setHasUnsavedChanges(false);
+      setLastSaved(new Date());
 
       setIsEditing(false);
       toast({
@@ -1025,8 +1037,9 @@ export default function ProjectDetailsPage() {
   }, [project, isArabic, toast]);
 
   const formatCurrency = (value: number) => {
+    if (value === 0) return '0';
     return new Intl.NumberFormat(isArabic ? 'ar-SA' : 'en-US', {
-      minimumFractionDigits: 2,
+      minimumFractionDigits: value >= 1000 ? 0 : 2,
       maximumFractionDigits: 2,
     }).format(value);
   };
@@ -1100,6 +1113,14 @@ export default function ProjectDetailsPage() {
         onStartPricing={handleStartPricing}
         onEditProject={handleEditProject}
         formatCurrency={formatCurrency}
+        onNavigateAway={(path) => {
+          if (hasUnsavedChanges) {
+            setPendingPath(path);
+            setShowLeaveDialog(true);
+          } else {
+            navigate(path);
+          }
+        }}
       />
 
       <main className="container mx-auto px-4 py-6">
@@ -1576,16 +1597,36 @@ export default function ProjectDetailsPage() {
               <DialogTitle>{isArabic ? "تغييرات غير محفوظة" : "Unsaved Changes"}</DialogTitle>
               <DialogDescription>
                 {isArabic 
-                  ? "لديك تغييرات غير محفوظة. هل تريد المغادرة بدون حفظ؟" 
-                  : "You have unsaved changes. Are you sure you want to leave without saving?"}
+                  ? "لديك تغييرات غير محفوظة. هل تريد حفظ التغييرات قبل المغادرة؟" 
+                  : "You have unsaved changes. Would you like to save before leaving?"}
               </DialogDescription>
             </DialogHeader>
-            <DialogFooter className="gap-2">
+            <DialogFooter className="gap-2 sm:gap-2">
               <Button variant="outline" onClick={() => { setShowLeaveDialog(false); setPendingPath(null); }}>
                 {isArabic ? "البقاء" : "Stay"}
               </Button>
               <Button variant="destructive" onClick={() => { setShowLeaveDialog(false); if (pendingPath) navigate(pendingPath); setPendingPath(null); }}>
                 {isArabic ? "مغادرة بدون حفظ" : "Leave without saving"}
+              </Button>
+              <Button onClick={async () => {
+                await handleSaveSettings();
+                // Also sync total value to DB
+                if (projectId) {
+                  const table = projectSource === "saved_projects" ? "saved_projects" : "project_data";
+                  await supabase.from(table).update({ 
+                    total_value: pricingStats.totalValue,
+                    items_count: pricingStats.totalItems,
+                    updated_at: new Date().toISOString()
+                  }).eq("id", projectId);
+                }
+                setShowLeaveDialog(false);
+                setHasUnsavedChanges(false);
+                savedSnapshotRef.current = "";
+                if (pendingPath) navigate(pendingPath);
+                setPendingPath(null);
+              }}>
+                <Save className="w-4 h-4 me-2" />
+                {isArabic ? "حفظ ومغادرة" : "Save & Leave"}
               </Button>
             </DialogFooter>
           </DialogContent>
