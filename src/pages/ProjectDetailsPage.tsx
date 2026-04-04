@@ -1100,6 +1100,14 @@ export default function ProjectDetailsPage() {
         onStartPricing={handleStartPricing}
         onEditProject={handleEditProject}
         formatCurrency={formatCurrency}
+        onNavigateAway={(path) => {
+          if (hasUnsavedChanges) {
+            setPendingPath(path);
+            setShowLeaveDialog(true);
+          } else {
+            navigate(path);
+          }
+        }}
       />
 
       <main className="container mx-auto px-4 py-6">
