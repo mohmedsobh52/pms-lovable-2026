@@ -931,8 +931,8 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
     const items = data.items || [];
     // Always recalculate from qty × unit_price to avoid stale/wrong total_price values
     const calculatedTotal = items.reduce((sum, item) => {
-      const qty = parseFloat(item.quantity) || 0;
-      const up = parseFloat(item.unit_price) || 0;
+      const qty = parseFloat(String(item.quantity)) || 0;
+      const up = parseFloat(String(item.unit_price)) || 0;
       return sum + (qty * up);
     }, 0);
     const totalValue = calculatedTotal > 0 ? calculatedTotal : (data.summary?.total_value || 0);
