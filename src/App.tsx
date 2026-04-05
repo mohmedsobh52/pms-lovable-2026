@@ -19,7 +19,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { Loader2 } from "lucide-react";
 
-// Auto-retry dynamic imports on chunk load failure (stale cache)
+// Auto-retry dynamic imports on chunk load failure (stale cache / HMR)
 function lazyWithRetry(importFn: () => Promise<any>) {
   return lazy(() =>
     importFn().catch(() => {
