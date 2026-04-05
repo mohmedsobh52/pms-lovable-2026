@@ -355,12 +355,11 @@ export default function ProjectDetailsPage() {
     ).length;
     const unpricedItems = totalItems - pricedItems;
     const pricingPercentage = totalItems > 0 ? Math.round((pricedItems / totalItems) * 100 * 10) / 10 : 0;
+    // Always recalculate from qty × unit_price to avoid stale/wrong total_price
     const totalValue = items.reduce((sum, item) => {
-      const tp = item.total_price || 0;
-      if (tp > 0) return sum + tp;
-      // Fallback: quantity * unit_price
-      const calc = (item.quantity || 0) * (item.unit_price || 0);
-      return sum + calc;
+      const qty = parseFloat(String(item.quantity)) || 0;
+      const up = parseFloat(String(item.unit_price)) || 0;
+      return sum + (qty * up);
     }, 0);
     
     return { totalItems, pricedItems, confirmedItems, unpricedItems, pricingPercentage, totalValue };

@@ -929,12 +929,13 @@ export function AnalysisResults({ data, wbsData, onApplyRate, fileName, savedPro
   // Calculate KPI data from analysis
   const kpiData = useMemo(() => {
     const items = data.items || [];
+    // Always recalculate from qty × unit_price to avoid stale/wrong total_price values
     const calculatedTotal = items.reduce((sum, item) => {
-      const tp = item.total_price || 0;
-      if (tp > 0) return sum + tp;
-      return sum + ((item.quantity || 0) * (item.unit_price || 0));
+      const qty = parseFloat(item.quantity) || 0;
+      const up = parseFloat(item.unit_price) || 0;
+      return sum + (qty * up);
     }, 0);
-    const totalValue = data.summary?.total_value || calculatedTotal || 0;
+    const totalValue = calculatedTotal > 0 ? calculatedTotal : (data.summary?.total_value || 0);
     const highRiskItems = items.filter(item => {
       if (item.notes?.toLowerCase().includes('risk') || item.notes?.toLowerCase().includes('warning')) return true;
       const itemValue = item.total_price || ((item.quantity || 0) * (item.unit_price || 0));
