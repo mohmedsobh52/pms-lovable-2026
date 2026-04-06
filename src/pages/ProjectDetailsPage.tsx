@@ -151,12 +151,17 @@ export default function ProjectDetailsPage() {
             setProjectSource("saved_projects");
             // Transform saved_projects data to match ProjectData interface
             const savedAnalysisData = savedProject.analysis_data as any;
+            const savedItems = savedAnalysisData?.items || [];
+            const calcTotal = savedItems.reduce((sum: number, item: any) => {
+              const q = parseFloat(item.quantity) || 0;
+              const u = parseFloat(item.unit_price) || 0;
+              return sum + (q * u);
+            }, 0);
             projectData = {
               ...savedProject,
               currency: "SAR",
-              total_value: savedAnalysisData?.summary?.total_value || 
-                          (savedAnalysisData?.items?.reduce?.((sum: number, item: any) => sum + (item.total_price || 0), 0)) || 0,
-              items_count: savedAnalysisData?.items?.length || 0,
+              total_value: calcTotal || savedAnalysisData?.summary?.total_value || 0,
+              items_count: savedItems.length || savedAnalysisData?.summary?.total_items || 0,
             };
 
             // مزامنة: ضمان وجود سجل في project_data لدعم عمليات project_items (RLS)
