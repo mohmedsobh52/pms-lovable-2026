@@ -140,13 +140,21 @@ export default function SavedProjectsPage() {
 
       savedProjects.forEach((p: any) => {
         const analysisData = p.analysis_data as any;
+        const analysisItems = analysisData?.items || [];
         projectMap.set(p.id, {
           id: p.id, name: p.name, file_name: p.file_name, analysis_data: p.analysis_data, wbs_data: p.wbs_data,
-          items_count: analysisData?.items?.length || analysisData?.summary?.total_items || 0,
+          items_count: analysisItems.length || analysisData?.summary?.total_items || 0,
           total_value: (() => {
+            // Always compute from items using qty * unit_price
+            if (analysisItems.length > 0) {
+              return analysisItems.reduce((sum: number, item: any) => {
+                const q = parseFloat(item.quantity) || 0;
+                const u = parseFloat(item.unit_price) || 0;
+                return sum + (q * u);
+              }, 0);
+            }
             const summaryTotal = analysisData?.summary?.total_value || 0;
-            if (summaryTotal > 0 && summaryTotal < 1e12) return summaryTotal;
-            return (analysisData?.items || []).reduce((sum: number, item: any) => sum + sanitizeItemPrice(item).totalPrice, 0);
+            return (summaryTotal > 0 && summaryTotal < 1e12) ? summaryTotal : 0;
           })(),
           currency: analysisData?.summary?.currency || 'SAR',
           created_at: p.created_at, updated_at: p.updated_at,
