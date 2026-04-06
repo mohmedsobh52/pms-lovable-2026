@@ -151,12 +151,17 @@ export default function ProjectDetailsPage() {
             setProjectSource("saved_projects");
             // Transform saved_projects data to match ProjectData interface
             const savedAnalysisData = savedProject.analysis_data as any;
+            const savedItems = savedAnalysisData?.items || [];
+            const calcTotal = savedItems.reduce((sum: number, item: any) => {
+              const q = parseFloat(item.quantity) || 0;
+              const u = parseFloat(item.unit_price) || 0;
+              return sum + (q * u);
+            }, 0);
             projectData = {
               ...savedProject,
               currency: "SAR",
-              total_value: savedAnalysisData?.summary?.total_value || 
-                          (savedAnalysisData?.items?.reduce?.((sum: number, item: any) => sum + (item.total_price || 0), 0)) || 0,
-              items_count: savedAnalysisData?.items?.length || 0,
+              total_value: calcTotal || savedAnalysisData?.summary?.total_value || 0,
+              items_count: savedItems.length || savedAnalysisData?.summary?.total_items || 0,
             };
 
             // مزامنة: ضمان وجود سجل في project_data لدعم عمليات project_items (RLS)
@@ -217,8 +222,20 @@ export default function ProjectDetailsPage() {
         
         // Auto-migrate items from analysis_data if project_items is empty
         if ((!itemsData || itemsData.length === 0) && projectData) {
-          const analysisData = projectData.analysis_data as any;
-          const analysisItems = analysisData?.items;
+          let analysisItems = (projectData.analysis_data as any)?.items;
+          
+          // If analysis_data has no items and we came from saved_projects, check project_data table
+          if ((!analysisItems || !Array.isArray(analysisItems) || analysisItems.length === 0) && projectSource === "saved_projects") {
+            try {
+              const { data: pdData } = await supabase.from("project_data").select("analysis_data").eq("id", projectId).maybeSingle();
+              if (pdData?.analysis_data) {
+                const pdItems = (pdData.analysis_data as any)?.items;
+                if (pdItems && Array.isArray(pdItems) && pdItems.length > 0) {
+                  analysisItems = pdItems;
+                }
+              }
+            } catch {}
+          }
           
           if (analysisItems && Array.isArray(analysisItems) && analysisItems.length > 0) {
             console.log(`Migrating ${analysisItems.length} items from analysis_data to project_items`);
@@ -237,11 +254,9 @@ export default function ProjectDetailsPage() {
               const desc = (item.description || '').toString().trim();
               let descAr = item.description_ar ? item.description_ar.toString().trim() : null;
               
-              // If description_ar is empty/non-Arabic but description has Arabic, copy it
               if (!hasArabicChars(descAr) && hasArabicChars(desc)) {
                 descAr = desc;
               }
-              // If description_ar has no actual Arabic characters, clear it
               if (descAr && !hasArabicChars(descAr)) {
                 descAr = null;
               }
@@ -1183,12 +1198,12 @@ export default function ProjectDetailsPage() {
                   summary: {
                     ...(existingAnalysis.summary || {}),
                     total_items: items.length,
-                    total_value: items.reduce((s, i) => s + (i.total_price || 0), 0),
+                    total_value: items.reduce((s, i) => s + ((i.quantity || 0) * (i.unit_price || 0)), 0),
                     currency: project.currency || existingAnalysis?.summary?.currency || 'SAR',
                   },
                 } : undefined;
 
-                const totalValue = items.reduce((s, i) => s + (i.total_price || 0), 0);
+                const totalValue = items.reduce((s, i) => s + ((i.quantity || 0) * (i.unit_price || 0)), 0);
 
                 // Update both tables in parallel using upsert for project_data
                 const updatePayload = {
