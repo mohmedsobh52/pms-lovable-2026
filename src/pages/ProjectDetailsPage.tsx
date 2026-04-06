@@ -222,8 +222,20 @@ export default function ProjectDetailsPage() {
         
         // Auto-migrate items from analysis_data if project_items is empty
         if ((!itemsData || itemsData.length === 0) && projectData) {
-          const analysisData = projectData.analysis_data as any;
-          const analysisItems = analysisData?.items;
+          let analysisItems = (projectData.analysis_data as any)?.items;
+          
+          // If analysis_data has no items and we came from saved_projects, check project_data table
+          if ((!analysisItems || !Array.isArray(analysisItems) || analysisItems.length === 0) && projectSource === "saved_projects") {
+            try {
+              const { data: pdData } = await supabase.from("project_data").select("analysis_data").eq("id", projectId).maybeSingle();
+              if (pdData?.analysis_data) {
+                const pdItems = (pdData.analysis_data as any)?.items;
+                if (pdItems && Array.isArray(pdItems) && pdItems.length > 0) {
+                  analysisItems = pdItems;
+                }
+              }
+            } catch {}
+          }
           
           if (analysisItems && Array.isArray(analysisItems) && analysisItems.length > 0) {
             console.log(`Migrating ${analysisItems.length} items from analysis_data to project_items`);
@@ -242,11 +254,9 @@ export default function ProjectDetailsPage() {
               const desc = (item.description || '').toString().trim();
               let descAr = item.description_ar ? item.description_ar.toString().trim() : null;
               
-              // If description_ar is empty/non-Arabic but description has Arabic, copy it
               if (!hasArabicChars(descAr) && hasArabicChars(desc)) {
                 descAr = desc;
               }
-              // If description_ar has no actual Arabic characters, clear it
               if (descAr && !hasArabicChars(descAr)) {
                 descAr = null;
               }
