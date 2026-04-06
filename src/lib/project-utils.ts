@@ -27,13 +27,15 @@ export function sanitizeItemPrice(item: any): { quantity: number; unitPrice: num
   const up = parseFloat(item.unit_price) || 0;
   const tp = parseFloat(item.total_price) || 0;
   
-  const safeUp = (up > 0 && up < 1e7) ? up : 0;
-  const computed = qty * safeUp;
+  // Always prefer qty * unit_price for accuracy
+  const computed = qty * up;
+  
+  // Only fall back to total_price if computed is 0 and total_price is reasonable
   const safeTp = (tp > 0 && tp < 1e12) ? tp : 0;
   
   return {
     quantity: qty,
-    unitPrice: safeUp,
+    unitPrice: up,
     totalPrice: computed > 0 ? computed : safeTp,
   };
 }

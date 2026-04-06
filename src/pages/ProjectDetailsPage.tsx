@@ -1183,12 +1183,12 @@ export default function ProjectDetailsPage() {
                   summary: {
                     ...(existingAnalysis.summary || {}),
                     total_items: items.length,
-                    total_value: items.reduce((s, i) => s + (i.total_price || 0), 0),
+                    total_value: items.reduce((s, i) => s + ((i.quantity || 0) * (i.unit_price || 0)), 0),
                     currency: project.currency || existingAnalysis?.summary?.currency || 'SAR',
                   },
                 } : undefined;
 
-                const totalValue = items.reduce((s, i) => s + (i.total_price || 0), 0);
+                const totalValue = items.reduce((s, i) => s + ((i.quantity || 0) * (i.unit_price || 0)), 0);
 
                 // Update both tables in parallel using upsert for project_data
                 const updatePayload = {
