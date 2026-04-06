@@ -637,12 +637,26 @@ export default function SavedProjectsPage() {
 
             {/* Smart Suggestions */}
             {projects.length > 0 && (
-              <SmartSuggestionsBanner suggestions={(() => {
+            <SmartSuggestionsBanner suggestions={(() => {
                 const s: SmartSuggestion[] = [];
                 const unpriced = projects.filter(p => !p.total_value || p.total_value === 0).length;
-                if (unpriced > 0) s.push({ id: 'unpriced', icon: <DollarSign className="h-4 w-4" />, text: isArabic ? `${unpriced} مشاريع بدون تسعير — سعّرها الآن` : `${unpriced} unpriced projects — price them now`, action: () => {}, actionLabel: isArabic ? 'تسعير' : 'Price' });
+                const noItems = projects.filter(p => !p.items_count || p.items_count === 0).length;
+                const oldProjects = projects.filter(p => {
+                  if (!p.created_at) return false;
+                  const diff = Date.now() - new Date(p.created_at).getTime();
+                  return diff > 30 * 24 * 60 * 60 * 1000;
+                }).length;
+                const noFavorites = projects.length > 2 && projects.every(p => !isFavorite(p.id));
+
+                if (unpriced > 0) s.push({ id: 'unpriced', icon: <DollarSign className="h-4 w-4" />, text: isArabic ? `${unpriced} مشاريع بدون تسعير — سعّرها الآن` : `${unpriced} unpriced projects — price them now`, action: () => { const first = projects.find(p => !p.total_value || p.total_value === 0); if (first) navigate(`/projects/${first.id}`); }, actionLabel: isArabic ? 'تسعير' : 'Price' });
+                if (noItems > 0) s.push({ id: 'no-items', icon: <Package className="h-4 w-4" />, text: isArabic ? `${noItems} مشاريع بدون بنود — ارفع ملف BOQ` : `${noItems} projects without items — upload BOQ`, action: () => setActiveTab('analyze'), actionLabel: isArabic ? 'رفع BOQ' : 'Upload BOQ' });
                 if (projects.length > 3) s.push({ id: 'reports', icon: <BarChart3 className="h-4 w-4" />, text: isArabic ? 'قارن مشاريعك في تقرير شامل' : 'Compare your projects in a comprehensive report', action: () => setActiveTab('reports'), actionLabel: isArabic ? 'التقارير' : 'Reports' });
-                return s.slice(0, 2);
+                if (projects.length >= 2) s.push({ id: 'technical-offer', icon: <FileText className="h-4 w-4" />, text: isArabic ? 'أنشئ عرضاً فنياً احترافياً لمشروعك' : 'Create a professional technical offer for your project', action: () => setActiveTab('technical-offer'), actionLabel: isArabic ? 'عرض فني' : 'Technical Offer' });
+                if (noFavorites) s.push({ id: 'favorites', icon: <Star className="h-4 w-4" />, text: isArabic ? 'أضف مشاريعك المهمة للمفضلة للوصول السريع' : 'Add important projects to favorites for quick access', action: () => {}, actionLabel: isArabic ? 'تعرّف' : 'Learn' });
+                if (oldProjects > 0) s.push({ id: 'old-projects', icon: <Clock className="h-4 w-4" />, text: isArabic ? `${oldProjects} مشاريع أقدم من شهر — راجعها أو أرشفها` : `${oldProjects} projects older than a month — review or archive`, action: () => { setSortField('created_at'); setSortDirection('asc'); }, actionLabel: isArabic ? 'مراجعة' : 'Review' });
+                if (projects.length === 1) s.push({ id: 'add-more', icon: <Plus className="h-4 w-4" />, text: isArabic ? 'أضف مشاريع أخرى لمقارنة الأسعار والتقارير' : 'Add more projects to compare prices and reports', action: () => navigate('/new-project'), actionLabel: isArabic ? 'مشروع جديد' : 'New Project' });
+                if (projects.length > 5) s.push({ id: 'attachments', icon: <Paperclip className="h-4 w-4" />, text: isArabic ? 'نظّم مرفقات مشاريعك في مجلدات' : 'Organize your project attachments in folders', action: () => setActiveTab('attachments'), actionLabel: isArabic ? 'المرفقات' : 'Attachments' });
+                return s.slice(0, 4);
               })()} />
             )}
 
