@@ -1193,6 +1193,253 @@ export type Database = {
         }
         Relationships: []
       }
+      execution_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_type: string | null
+          file_url: string
+          id: string
+          notes: string | null
+          phase_id: string | null
+          plan_id: string
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_type?: string | null
+          file_url: string
+          id?: string
+          notes?: string | null
+          phase_id?: string | null
+          plan_id: string
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          notes?: string | null
+          phase_id?: string | null
+          plan_id?: string
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_attachments_phase_id_fkey"
+            columns: ["phase_id"]
+            isOneToOne: false
+            referencedRelation: "execution_phases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execution_attachments_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "execution_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execution_attachments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "execution_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      execution_phases: {
+        Row: {
+          budget: number | null
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          phase_name: string
+          phase_name_en: string | null
+          plan_id: string
+          progress: number | null
+          resources_summary: Json | null
+          sort_order: number | null
+          start_date: string | null
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          budget?: number | null
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          phase_name: string
+          phase_name_en?: string | null
+          plan_id: string
+          progress?: number | null
+          resources_summary?: Json | null
+          sort_order?: number | null
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          budget?: number | null
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          phase_name?: string
+          phase_name_en?: string | null
+          plan_id?: string
+          progress?: number | null
+          resources_summary?: Json | null
+          sort_order?: number | null
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_phases_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "execution_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      execution_plans: {
+        Row: {
+          ai_generated: boolean | null
+          created_at: string
+          description: string | null
+          id: string
+          plan_name: string
+          project_id: string | null
+          status: string | null
+          total_budget: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          plan_name: string
+          project_id?: string | null
+          status?: string | null
+          total_budget?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_generated?: boolean | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          plan_name?: string
+          project_id?: string | null
+          status?: string | null
+          total_budget?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_plans_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "saved_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      execution_tasks: {
+        Row: {
+          assigned_to: string | null
+          boq_item_id: string | null
+          created_at: string
+          description: string | null
+          duration_days: number | null
+          end_date: string | null
+          equipment_cost: number | null
+          id: string
+          labor_cost: number | null
+          material_cost: number | null
+          phase_id: string
+          progress: number | null
+          sort_order: number | null
+          start_date: string | null
+          status: string | null
+          task_name: string
+          task_name_en: string | null
+          total_cost: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          boq_item_id?: string | null
+          created_at?: string
+          description?: string | null
+          duration_days?: number | null
+          end_date?: string | null
+          equipment_cost?: number | null
+          id?: string
+          labor_cost?: number | null
+          material_cost?: number | null
+          phase_id: string
+          progress?: number | null
+          sort_order?: number | null
+          start_date?: string | null
+          status?: string | null
+          task_name: string
+          task_name_en?: string | null
+          total_cost?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          boq_item_id?: string | null
+          created_at?: string
+          description?: string | null
+          duration_days?: number | null
+          end_date?: string | null
+          equipment_cost?: number | null
+          id?: string
+          labor_cost?: number | null
+          material_cost?: number | null
+          phase_id?: string
+          progress?: number | null
+          sort_order?: number | null
+          start_date?: string | null
+          status?: string | null
+          task_name?: string
+          task_name_en?: string | null
+          total_cost?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_tasks_phase_id_fkey"
+            columns: ["phase_id"]
+            isOneToOne: false
+            referencedRelation: "execution_phases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       external_partners: {
         Row: {
           address: string | null
