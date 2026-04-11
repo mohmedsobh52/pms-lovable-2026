@@ -76,6 +76,7 @@ const AdminDashboardPage = lazyWithRetry(() => import("./pages/AdminDashboardPag
 const UserManagementPage = lazyWithRetry(() => import("./pages/UserManagementPage"));
 const ActivityLogPage = lazyWithRetry(() => import("./pages/ActivityLogPage"));
 const DrawingAnalysisPage = lazyWithRetry(() => import("./pages/DrawingAnalysisPage"));
+const ExecutionPlanPage = lazyWithRetry(() => import("./pages/ExecutionPlanPage"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -168,6 +169,8 @@ const App = () => {
                         <Route path="/progress-certificates" element={<ProgressCertificatesPage />} />
                         <Route path="/progress-certificates/new" element={<NewCertificatePage />} />
                         <Route path="/drawing-analysis" element={<DrawingAnalysisPage />} />
+                        <Route path="/execution-plan" element={<ExecutionPlanPage />} />
+                        <Route path="/execution-plan/:projectId" element={<ExecutionPlanPage />} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
                       </Routes>

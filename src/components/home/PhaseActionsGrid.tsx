@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { 
   Plus, Zap, FileUp, Library, DollarSign, Receipt, FileText, Users,
   Package, Calendar, BarChart3, Shield, TrendingUp, LayoutDashboard,
-  Briefcase, Settings, Sparkles, Target, LucideIcon
+  Briefcase, Settings, Sparkles, Target, ListChecks, LucideIcon
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +71,7 @@ const phaseConfigs: PhaseConfig[] = [
     actions: [
       { icon: Package, label: { ar: "المشتريات", en: "Procurement" }, description: { ar: "إدارة المشتريات", en: "Manage procurement" }, href: "/procurement", pendingCount: 5 },
       { icon: Users, label: { ar: "الموارد", en: "Resources" }, description: { ar: "العمالة والمعدات", en: "Labor & equipment" }, href: "/resources" },
+      { icon: ListChecks, label: { ar: "خطة التنفيذ", en: "Execution Plan" }, description: { ar: "تخطيط مراحل التنفيذ بالذكاء الاصطناعي", en: "AI-powered execution planning" }, href: "/execution-plan", isNew: true },
       { icon: Calendar, label: { ar: "الجدول الزمني", en: "Calendar" }, description: { ar: "تخطيط المهام", en: "Task planning" }, href: "/calendar" }
     ]
   },
