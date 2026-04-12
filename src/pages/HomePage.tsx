@@ -29,6 +29,7 @@ import {
   Calculator,
   Shield,
   Ruler,
+  ListChecks,
 } from "lucide-react";
 
 type SectionItem = { nameAr: string; nameEn: string; descAr: string; descEn: string; path: string; icon: any; countKey: string | null };
@@ -48,6 +49,7 @@ const categories: { titleAr: string; titleEn: string; items: SectionItem[] }[] =
       { nameAr: "جدول الكميات", nameEn: "BOQ Items", descAr: "بنود الأعمال والكميات", descEn: "Work items & quantities", path: "/items", icon: Layers, countKey: "project_items" },
       { nameAr: "المستخلصات", nameEn: "Certificates", descAr: "الشهادات والمستخلصات", descEn: "Progress certificates", path: "/progress-certificates", icon: Award, countKey: "progress_certificates" },
       { nameAr: "تحليل المخططات", nameEn: "Drawing Analysis", descAr: "استخراج الكميات من المخططات", descEn: "Extract quantities from drawings", path: "/drawing-analysis", icon: Ruler, countKey: "drawing_analyses" },
+      { nameAr: "خطة التنفيذ", nameEn: "Execution Plan", descAr: "تخطيط مراحل التنفيذ بالذكاء الاصطناعي", descEn: "AI-powered execution planning", path: "/execution-plan", icon: ListChecks, countKey: "execution_plans" },
     ],
   },
   {
