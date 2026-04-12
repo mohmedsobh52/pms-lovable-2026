@@ -78,6 +78,7 @@ const navItems: NavItem[] = [
       { id: "historical", icon: <FileText className="w-4 h-4" />, label: "Historical Pricing", labelAr: "الأسعار التاريخية", href: "/historical-pricing" },
       { id: "fast-extraction", icon: <FileText className="w-4 h-4" />, label: "Fast Extraction", labelAr: "الاستخراج السريع", href: "/projects?tab=attachments&mode=extraction" },
       { id: "drawing-analysis", icon: <FileText className="w-4 h-4" />, label: "Drawing Analysis", labelAr: "تحليل المخططات", href: "/drawing-analysis" },
+      { id: "execution-plan", icon: <FileText className="w-4 h-4" />, label: "Execution Plan", labelAr: "خطة التنفيذ", href: "/execution-plan" },
     ],
   },
   {
