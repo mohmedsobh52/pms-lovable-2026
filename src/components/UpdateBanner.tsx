@@ -15,7 +15,7 @@ interface VersionInfo {
 }
 
 // Current app version stored locally
-const CURRENT_LOCAL_VERSION = '2.4.0';
+const CURRENT_LOCAL_VERSION = '2.4.0'; // server version 2.5.0 will trigger the update banner
 const UPDATE_DISMISSED_KEY = 'boq_update_dismissed_version';
 const LAST_CHECK_KEY = 'boq_last_update_check';
 const CHECK_INTERVAL = 1000 * 60 * 30; // Check every 30 minutes
