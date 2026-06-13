@@ -203,7 +203,7 @@ export function UnifiedHeader({ showQuickNav = true }: UnifiedHeaderProps) {
           {/* Consolidated Settings Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+              <Button variant="ghost" size="icon" aria-label={isArabic ? "الإعدادات" : "Settings"} className="h-9 w-9 relative">
                 <Settings2 className="h-4 w-4" />
                 {navHistory.length > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-primary text-[9px] font-medium text-primary-foreground flex items-center justify-center">

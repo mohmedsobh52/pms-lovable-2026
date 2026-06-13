@@ -750,7 +750,7 @@ export function ContractManagement({ projectId }: ContractManagementProps) {
               <Info className="w-6 h-6 text-blue-500 mt-0.5 shrink-0" />
               <div>
                 <h4 className="font-bold text-sm mb-1">{isArabic ? "نصيحة احترافية" : "Professional Tip"}</h4>
-                <p className="text-sm text-muted-foreground">{isArabic ? "تأكد من اختيار كتاب FIDIC المناسب لنوع مشروعك. يمكنك الانتقال لتبويب FIDIC لمعرفة المزيد." : "Make sure to select the appropriate FIDIC book for your project. Visit the FIDIC tab to learn more."}</p>
+                <p className="text-sm text-muted-foreground">{isArabic ? "تأكد من اختيار كتاب FIDIC المناسب لنوع مشروعك. يمكنك الانتقال لتبويب FIDIC لعرض وثائق FIDIC." : "Make sure to select the appropriate FIDIC book for your project. Visit the FIDIC tab to view FIDIC documentation."}</p>
               </div>
             </div>
 

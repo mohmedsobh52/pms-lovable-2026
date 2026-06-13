@@ -1,0 +1,15 @@
+# PMS — Project Management System
+
+> AI-powered construction project management: BOQ analysis, contracts, costs, risks, and execution planning.
+
+PMS helps engineers and contractors analyze Bills of Quantities, manage FIDIC-style contracts, track costs and risks, generate progress certificates, and produce AI-assisted execution plans.
+
+## Pages
+
+- [Home](/): Overview of the PMS workspace and entry points.
+- [About](/about): What PMS is, the team behind it, and the technologies used.
+- [Changelog](/changelog): Recent product updates and release notes.
+
+## Optional
+
+- [Sign in](/auth): Authentication entry point.
