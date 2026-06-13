@@ -73,12 +73,13 @@ const About = () => {
             <Link to="/" className="flex items-center gap-3">
               <PMSLogo size="lg" />
               <div>
-                <h1 className="font-display text-xl font-bold gradient-text">PMS</h1>
+                <span className="font-display text-xl font-bold gradient-text block">PMS</span>
                 <p className="text-xs text-muted-foreground">
                   {isArabic ? "نظام إدارة المشاريع" : "Project Management System"}
                 </p>
               </div>
             </Link>
+
             <div className="flex items-center gap-3">
               <Link to="/">
                 <Button variant="outline" size="sm">
@@ -96,8 +97,9 @@ const About = () => {
       <section className="py-20 bg-gradient-to-b from-primary/5 to-background">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-6 gradient-text animate-fade-in">
-            {isArabic ? "من نحن" : "About Us"}
+            {isArabic ? "من نحن — PMS لإدارة المشاريع بالذكاء الاصطناعي" : "About PMS — AI-Powered Project Management"}
           </h1>
+
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: "100ms" }}>
             {isArabic 
               ? "PMS هو نظام متكامل لإدارة المشاريع الإنشائية باستخدام الذكاء الاصطناعي، نهدف إلى تبسيط عملية إدارة وتحليل المشاريع وتوفير الوقت والجهد للمهندسين والمقاولين"
